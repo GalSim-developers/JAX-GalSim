@@ -1,10 +1,10 @@
 import copy
 from dataclasses import dataclass
-import galsim
+import galsim as _galsim
 from jax._src.numpy.util import _wraps
 
 
-@_wraps(galsim.GSParams)
+@_wraps(_galsim.GSParams)
 @dataclass(frozen=True, repr=False)
 class GSParams:
 
