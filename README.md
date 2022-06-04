@@ -23,9 +23,9 @@ The goal of this library is to reimplement GalSim functionalities in pure JAX to
 Everyone can contribute to this project, please refer to the CONTRIBUTING.md document for details. 
 
 In short, to interact with the project you can:
-- Ask or Answer questions on the Discussions page
-- Report a bug by opening a GitHub issue
-- Open a GitHub issue or Discussion to ask for feedback on a planned contribution.
+- Ask or Answer questions on the [Discussions Q&A](https://github.com/GalSim-developers/JAX-GalSim/discussions/categories/q-a) page
+- Report a bug by opening a [GitHub issue](https://github.com/GalSim-developers/JAX-GalSim/issues)
+- Open a [GitHub issue](https://github.com/GalSim-developers/JAX-GalSim/issues) or [Discussions](https://github.com/GalSim-developers/JAX-GalSim/discussions) to ask for feedback on a planned contribution.
 - Submit a Pull Request to contribute to the code.
 
 Issues marked with *contributions welcome* or *good first issue* are particularly good places to start. These are great ways to learn more 
