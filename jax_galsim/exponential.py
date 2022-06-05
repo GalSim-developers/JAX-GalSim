@@ -55,7 +55,7 @@ class Exponential(GSObject):
         if 'half_light_radius' in self.params:
             return self.params['half_light_radius'] / Exponential._hlr_factor
         else:
-            return self.params['sigma']
+            return self.params['scale_radius']
 
     @property
     def half_light_radius(self):
