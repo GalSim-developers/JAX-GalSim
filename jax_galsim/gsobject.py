@@ -85,6 +85,11 @@ class GSObject:
         from jax_galsim.sum import Sum
         return Sum([self, other])
 
+    def __eq__(self, other):
+        return (self is other or
+                (isinstance(other, self.__class__) and
+                 self.tree_flatten() == other.tree_flatten()))
+
     def _xValue(self, pos):
         """Equivalent to `xValue`, but ``pos`` must be a `galsim.PositionD` instance
 

@@ -18,8 +18,8 @@ class GSParams:
     table_spacing: int = 1
     realspace_relerr: float = 1.e-4
     realspace_abserr: float = 1.e-6
-    integration_abserr: float = 1.e-8
     integration_relerr: float = 1.e-6
+    integration_abserr: float = 1.e-8
     shoot_accuracy: float = 1.e-5
 
     @staticmethod

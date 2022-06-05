@@ -76,13 +76,6 @@ class Gaussian(GSObject):
         """
         return self.sigma * Gaussian._fwhm_factor
 
-    def __eq__(self, other):
-        return (self is other or
-                (isinstance(other, Gaussian) and
-                 self.sigma == other.sigma and
-                 self.flux == other.flux and
-                 self.gsparams == other.gsparams))
-
     def __hash__(self):
         return hash(("galsim.Gaussian", self.sigma, self.flux, self.gsparams))
 
@@ -104,7 +97,7 @@ class Gaussian(GSObject):
     @property
     def _stepk(self):
         R = jnp.array([jnp.sqrt(-2.*jnp.log(self.gsparams.folding_threshold)),
-                       self.gsparams.stepk_minimum_hlr * Gaussian._hlr_factor]) .max()
+                       self.gsparams.stepk_minimum_hlr * Gaussian._hlr_factor]).max()
         return jnp.pi / (R * self.sigma)
 
     @ property
