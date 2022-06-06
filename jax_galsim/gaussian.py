@@ -23,7 +23,9 @@ class Gaussian(GSObject):
     _is_analytic_x = True
     _is_analytic_k = True
 
-    def __init__(self, half_light_radius=None, sigma=None, fwhm=None, flux=1., gsparams=None):
+    def __init__(
+        self, half_light_radius=None, sigma=None, fwhm=None, flux=1.0, gsparams=None
+    ):
 
         # Checking gsparams
         gsparams = GSParams.check(gsparams)
@@ -32,75 +34,90 @@ class Gaussian(GSObject):
             if sigma is not None or half_light_radius is not None:
                 raise _galsim.GalSimIncompatibleValuesError(
                     "Only one of sigma, fwhm, and half_light_radius may be specified",
-                    fwhm=fwhm, sigma=sigma, half_light_radius=half_light_radius)
+                    fwhm=fwhm,
+                    sigma=sigma,
+                    half_light_radius=half_light_radius,
+                )
             else:
                 super().__init__(fwhm=fwhm, flux=flux, gsparams=gsparams)
         elif half_light_radius is not None:
             if sigma is not None:
                 raise _galsim.GalSimIncompatibleValuesError(
                     "Only one of sigma, fwhm, and half_light_radius may be specified",
-                    fwhm=fwhm, sigma=sigma, half_light_radius=half_light_radius)
+                    fwhm=fwhm,
+                    sigma=sigma,
+                    half_light_radius=half_light_radius,
+                )
             else:
-                super().__init__(half_light_radius=half_light_radius, flux=flux, gsparams=gsparams)
+                super().__init__(
+                    half_light_radius=half_light_radius, flux=flux, gsparams=gsparams
+                )
         elif sigma is None:
             raise _galsim.GalSimIncompatibleValuesError(
                 "One of sigma, fwhm, and half_light_radius must be specified",
-                fwhm=fwhm, sigma=sigma, half_light_radius=half_light_radius)
+                fwhm=fwhm,
+                sigma=sigma,
+                half_light_radius=half_light_radius,
+            )
         else:
             super().__init__(sigma=sigma, flux=flux, gsparams=gsparams)
 
         self._sigsq = self.sigma**2
-        self._inv_sigsq = 1./self._sigsq
+        self._inv_sigsq = 1.0 / self._sigsq
         self._norm = self.flux * self._inv_sigsq * Gaussian._inv_twopi
 
     @property
     def sigma(self):
-        """The sigma of this Gaussian profile
-        """
-        if 'fwhm' in self.params:
-            return self.params['fwhm'] / Gaussian._fwhm_factor
-        elif 'half_light_radius' in self.params:
-            return self.params['half_light_radius'] / Gaussian._hlr_factor
+        """The sigma of this Gaussian profile"""
+        if "fwhm" in self.params:
+            return self.params["fwhm"] / Gaussian._fwhm_factor
+        elif "half_light_radius" in self.params:
+            return self.params["half_light_radius"] / Gaussian._hlr_factor
         else:
-            return self.params['sigma']
+            return self.params["sigma"]
 
     @property
     def half_light_radius(self):
-        """The half-light radius of this Gaussian profile
-        """
+        """The half-light radius of this Gaussian profile"""
         return self.sigma * Gaussian._hlr_factor
 
     @property
     def fwhm(self):
-        """The FWHM of this Gaussian profile
-        """
+        """The FWHM of this Gaussian profile"""
         return self.sigma * Gaussian._fwhm_factor
 
     def __hash__(self):
         return hash(("galsim.Gaussian", self.sigma, self.flux, self.gsparams))
 
     def __repr__(self):
-        return 'galsim.Gaussian(sigma=%r, flux=%r, gsparams=%r)' % (
-            self.sigma, self.flux, self.gsparams)
+        return "galsim.Gaussian(sigma=%r, flux=%r, gsparams=%r)" % (
+            self.sigma,
+            self.flux,
+            self.gsparams,
+        )
 
     def __str__(self):
-        s = 'galsim.Gaussian(sigma=%s' % self.sigma
+        s = "galsim.Gaussian(sigma=%s" % self.sigma
         if self.flux != 1.0:
-            s += ', flux=%s' % self.flux
-        s += ')'
+            s += ", flux=%s" % self.flux
+        s += ")"
         return s
 
     @property
     def _maxk(self):
-        return jnp.sqrt(-2.*jnp.log(self.gsparams.maxk_threshold))/self.sigma
+        return jnp.sqrt(-2.0 * jnp.log(self.gsparams.maxk_threshold)) / self.sigma
 
     @property
     def _stepk(self):
-        R = jnp.array([jnp.sqrt(-2.*jnp.log(self.gsparams.folding_threshold)),
-                       self.gsparams.stepk_minimum_hlr * Gaussian._hlr_factor]).max()
+        R = jnp.array(
+            [
+                jnp.sqrt(-2.0 * jnp.log(self.gsparams.folding_threshold)),
+                self.gsparams.stepk_minimum_hlr * Gaussian._hlr_factor,
+            ]
+        ).max()
         return jnp.pi / (R * self.sigma)
 
-    @ property
+    @property
     def _max_sb(self):
         return self._norm
 

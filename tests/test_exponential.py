@@ -6,8 +6,7 @@ from galsim_test_helpers import all_obj_diff
 
 
 def test_exponential_properties():
-    """Test some basic properties of the Exponential profile.
-    """
+    """Test some basic properties of the Exponential profile."""
     test_flux = 17.9
     test_scale = 1.8
     expon = galsim.Exponential(flux=test_flux, scale_radius=test_scale)
@@ -30,9 +29,11 @@ def test_ne():
 
     # Exponential.  Params include half_light_radius, scale_radius, flux, gsparams
     # The following should all test unequal:
-    gals = [galsim.Exponential(half_light_radius=1.0),
-            galsim.Exponential(half_light_radius=1.1),
-            galsim.Exponential(scale_radius=1.0),
-            galsim.Exponential(half_light_radius=1.0, flux=1.1),
-            galsim.Exponential(half_light_radius=1.0, gsparams=gsp)]
+    gals = [
+        galsim.Exponential(half_light_radius=1.0),
+        galsim.Exponential(half_light_radius=1.1),
+        galsim.Exponential(scale_radius=1.0),
+        galsim.Exponential(half_light_radius=1.0, flux=1.1),
+        galsim.Exponential(half_light_radius=1.0, gsparams=gsp),
+    ]
     all_obj_diff(gals)

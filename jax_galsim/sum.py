@@ -9,22 +9,24 @@ from jax._src.numpy.util import _wraps
 from jax.tree_util import register_pytree_node_class
 
 
-@_wraps(_galsim.Add, lax_description="Does not support `ChromaticObject` at this point.")
+@_wraps(
+    _galsim.Add, lax_description="Does not support `ChromaticObject` at this point."
+)
 def Add(*args, **kwargs):
     return Sum(*args, **kwargs)
 
 
-@_wraps(_galsim.Sum, lax_description="Does not support `ChromaticObject` at this point.")
+@_wraps(
+    _galsim.Sum, lax_description="Does not support `ChromaticObject` at this point."
+)
 @register_pytree_node_class
 class Sum(GSObject):
-
     def __init__(self, *args, gsparams=None, propagate_gsparams=True):
 
         self._propagate_gsparams = propagate_gsparams
 
         if len(args) == 0:
-            raise TypeError(
-                "At least one GSObject must be provided.")
+            raise TypeError("At least one GSObject must be provided.")
         elif len(args) == 1:
             # 1 argument.  Should be either a GSObject or a list of GSObjects
             if isinstance(args[0], GSObject):
@@ -33,22 +35,22 @@ class Sum(GSObject):
                 args = args[0]
             else:
                 raise TypeError(
-                    "Single input argument must be a GSObject or list of them.")
+                    "Single input argument must be a GSObject or list of them."
+                )
         # else args is already the list of objects
 
         # Consolidate args for Sums of Sums...
         new_args = []
         for a in args:
             if isinstance(a, Sum):
-                new_args.extend(a.params['obj_list'])
+                new_args.extend(a.params["obj_list"])
             else:
                 new_args.append(a)
         args = new_args
 
         for obj in args:
             if not isinstance(obj, GSObject):
-                raise TypeError(
-                    "Arguments to Sum must be GSObjects, not %s" % obj)
+                raise TypeError("Arguments to Sum must be GSObjects, not %s" % obj)
 
         # Figure out what gsparams to use
         if gsparams is None:
@@ -63,13 +65,12 @@ class Sum(GSObject):
             args = [obj.withGSParams(self._gsparams) for obj in args]
 
         # Save the list as an attribute, so it can be inspected later if necessary.
-        self._params = {'obj_list': args}
+        self._params = {"obj_list": args}
 
     @property
     def obj_list(self):
-        """The list of objects being added.
-        """
-        return self._params['obj_list']
+        """The list of objects being added."""
+        return self._params["obj_list"]
 
     @property
     def flux(self):
@@ -87,19 +88,32 @@ class Sum(GSObject):
         if gsparams == self.gsparams:
             return self
         ret = self.__class__(
-            self.params['obj_list'], gsparams=gsparams, propagate_gsparams=self._propagate_gsparams)
+            self.params["obj_list"],
+            gsparams=gsparams,
+            propagate_gsparams=self._propagate_gsparams,
+        )
         return ret
 
     def __hash__(self):
-        return hash(("galsim.Sum", tuple(self.obj_list), self.gsparams, self._propagate_gsparams))
+        return hash(
+            (
+                "galsim.Sum",
+                tuple(self.obj_list),
+                self.gsparams,
+                self._propagate_gsparams,
+            )
+        )
 
     def __repr__(self):
-        return 'galsim.Sum(%r, gsparams=%r, propagate_gsparams=%r)' % (self.obj_list, self.gsparams,
-                                                                       self._propagate_gsparams)
+        return "galsim.Sum(%r, gsparams=%r, propagate_gsparams=%r)" % (
+            self.obj_list,
+            self.gsparams,
+            self._propagate_gsparams,
+        )
 
     def __str__(self):
         str_list = [str(obj) for obj in self.obj_list]
-        return '(' + ' + '.join(str_list) + ')'
+        return "(" + " + ".join(str_list) + ")"
 
     @property
     def _maxk(self):
@@ -133,8 +147,7 @@ class Sum(GSObject):
 
     @property
     def _centroid(self):
-        cen_list = jnp.array(
-            [obj.centroid * obj.flux for obj in self.obj_list])
+        cen_list = jnp.array([obj.centroid * obj.flux for obj in self.obj_list])
         return jnp.sum(cen_list) / self.flux
 
     @property
@@ -154,14 +167,15 @@ class Sum(GSObject):
         """This function flattens the GSObject into a list of children
         nodes that will be traced by JAX and auxiliary static data."""
         # Define the children nodes of the PyTree that need tracing
-        children = (self.params, )
+        children = (self.params,)
         # Define auxiliary static data that doesn’t need to be traced
-        aux_data = {'gsparams': self.gsparams,
-                    'propagate_gs_params': self._propagate_gsparams}
+        aux_data = {
+            "gsparams": self.gsparams,
+            "propagate_gs_params": self._propagate_gsparams,
+        }
         return (children, aux_data)
 
     @classmethod
     def tree_unflatten(cls, aux_data, children):
-        """ Recreates an instance of the class from flatten representation
-        """
+        """Recreates an instance of the class from flatten representation"""
         return cls(children[0]["obj_list"], **aux_data)

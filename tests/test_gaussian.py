@@ -24,8 +24,7 @@ from galsim_test_helpers import all_obj_diff
 
 
 def test_gaussian_properties():
-    """Test some basic properties of the Gaussian profile.
-    """
+    """Test some basic properties of the Gaussian profile."""
     test_flux = 17.9
     test_sigma = 1.8
     gauss = galsim.Gaussian(flux=test_flux, sigma=test_sigma)
@@ -35,9 +34,10 @@ def test_gaussian_properties():
     np.testing.assert_almost_equal(gauss.stepk, 0.533644625664 / test_sigma)
     np.testing.assert_almost_equal(gauss.flux, test_flux)
     import math
+
     # Check input flux vs output flux
     for inFlux in np.logspace(-2, 2, 10):
-        gauss = galsim.Gaussian(flux=inFlux, sigma=2.)
+        gauss = galsim.Gaussian(flux=inFlux, sigma=2.0)
         outFlux = gauss.flux
         np.testing.assert_almost_equal(outFlux, inFlux)
 
@@ -49,13 +49,15 @@ def test_ne():
 
     # Gaussian.  Params include sigma, fwhm, half_light_radius, flux, and gsparams.
     # The following should all test unequal:
-    gals = [galsim.Gaussian(sigma=1.0),
-            galsim.Gaussian(sigma=1.1),
-            galsim.Gaussian(fwhm=1.0),
-            galsim.Gaussian(half_light_radius=1.0),
-            galsim.Gaussian(half_light_radius=1.1),
-            galsim.Gaussian(sigma=1.2, flux=1.0),
-            galsim.Gaussian(sigma=1.2, flux=1.1),
-            galsim.Gaussian(sigma=1.2, gsparams=gsp)]
+    gals = [
+        galsim.Gaussian(sigma=1.0),
+        galsim.Gaussian(sigma=1.1),
+        galsim.Gaussian(fwhm=1.0),
+        galsim.Gaussian(half_light_radius=1.0),
+        galsim.Gaussian(half_light_radius=1.1),
+        galsim.Gaussian(sigma=1.2, flux=1.0),
+        galsim.Gaussian(sigma=1.2, flux=1.1),
+        galsim.Gaussian(sigma=1.2, gsparams=gsp),
+    ]
     # Check that setifying doesn't remove any duplicate items.
     all_obj_diff(gals)

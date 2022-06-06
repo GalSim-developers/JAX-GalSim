@@ -10,17 +10,17 @@ class GSParams:
 
     minimum_fft_size: int = 128
     maximum_fft_size: int = 8192
-    folding_threshold: float = 5.e-3
+    folding_threshold: float = 5.0e-3
     stepk_minimum_hlr: float = 5
-    maxk_threshold: float = 1.e-3
-    kvalue_accuracy: float = 1.e-5
-    xvalue_accuracy: float = 1.e-5
+    maxk_threshold: float = 1.0e-3
+    kvalue_accuracy: float = 1.0e-5
+    xvalue_accuracy: float = 1.0e-5
     table_spacing: int = 1
-    realspace_relerr: float = 1.e-4
-    realspace_abserr: float = 1.e-6
-    integration_relerr: float = 1.e-6
-    integration_abserr: float = 1.e-8
-    shoot_accuracy: float = 1.e-5
+    realspace_relerr: float = 1.0e-4
+    realspace_abserr: float = 1.0e-6
+    integration_relerr: float = 1.0e-6
+    integration_abserr: float = 1.0e-8
+    shoot_accuracy: float = 1.0e-5
 
     @staticmethod
     def check(gsparams, default=None, **kwargs):
@@ -44,9 +44,9 @@ class GSParams:
         else:
             ret = copy.copy(self)
             for k in kwargs:
-                if not hasattr(ret, '_' + k):
-                    raise TypeError('parameter %s is invalid' % k)
-                setattr(ret, '_' + k, kwargs[k])
+                if not hasattr(ret, "_" + k):
+                    raise TypeError("parameter %s is invalid" % k)
+                setattr(ret, "_" + k, kwargs[k])
             return ret
 
     @staticmethod
@@ -74,27 +74,43 @@ class GSParams:
                 min([g.realspace_abserr for g in gsp_list if g is not None]),
                 min([g.integration_relerr for g in gsp_list if g is not None]),
                 min([g.integration_abserr for g in gsp_list if g is not None]),
-                min([g.shoot_accuracy for g in gsp_list if g is not None]))
+                min([g.shoot_accuracy for g in gsp_list if g is not None]),
+            )
 
     # Define once the order of args in __init__, since we use it a few times.
     def _getinitargs(self):
-        return (self.minimum_fft_size, self.maximum_fft_size,
-                self.folding_threshold, self.stepk_minimum_hlr, self.maxk_threshold,
-                self.kvalue_accuracy, self.xvalue_accuracy, self.table_spacing,
-                self.realspace_relerr, self.realspace_abserr,
-                self.integration_relerr, self.integration_abserr,
-                self.shoot_accuracy)
+        return (
+            self.minimum_fft_size,
+            self.maximum_fft_size,
+            self.folding_threshold,
+            self.stepk_minimum_hlr,
+            self.maxk_threshold,
+            self.kvalue_accuracy,
+            self.xvalue_accuracy,
+            self.table_spacing,
+            self.realspace_relerr,
+            self.realspace_abserr,
+            self.integration_relerr,
+            self.integration_abserr,
+            self.shoot_accuracy,
+        )
 
-    def __getstate__(self): return self._getinitargs()
-    def __setstate__(self, state): self.__init__(*state)
+    def __getstate__(self):
+        return self._getinitargs()
+
+    def __setstate__(self, state):
+        self.__init__(*state)
 
     def __repr__(self):
-        return 'galsim.GSParams(%d,%d,%r,%r,%r,%r,%r,%d,%r,%r,%r,%r,%r)' % \
-            self._getinitargs()
+        return (
+            "galsim.GSParams(%d,%d,%r,%r,%r,%r,%r,%d,%r,%r,%r,%r,%r)"
+            % self._getinitargs()
+        )
 
     def __eq__(self, other):
-        return (self is other or
-                (isinstance(other, GSParams) and self._getinitargs() == other._getinitargs()))
+        return self is other or (
+            isinstance(other, GSParams) and self._getinitargs() == other._getinitargs()
+        )
 
     def __ne__(self, other):
         return not self.__eq__(other)
