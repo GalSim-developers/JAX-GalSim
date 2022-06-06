@@ -60,7 +60,7 @@ class Gaussian(GSObject):
         if 'fwhm' in self.params:
             return self.params['fwhm'] / Gaussian._fwhm_factor
         elif 'half_light_radius' in self.params:
-            return self.params['half_light_radius'] / Gaussian._fwhm_factor
+            return self.params['half_light_radius'] / Gaussian._hlr_factor
         else:
             return self.params['sigma']
 

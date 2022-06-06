@@ -100,7 +100,7 @@ class Exponential(GSObject):
         # half-light radius = 1.6783469900166605 * r0
         hlr = 1.6783469900166605
         R = jnp.max(jnp.array([R, self.gsparams.stepk_minimum_hlr*hlr]))
-        return jnp.pi / R
+        return jnp.pi / R * self._inv_r0
 
     @property
     def _max_sb(self):
