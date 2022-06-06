@@ -1,6 +1,5 @@
-import jax.numpy as jnp
-
 import galsim as _galsim
+import jax.numpy as jnp
 from jax._src.numpy.util import _wraps
 from jax.tree_util import register_pytree_node_class
 
