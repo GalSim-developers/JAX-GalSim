@@ -1,7 +1,8 @@
 import jax.numpy as jnp
 
-from jax._src.numpy.util import _wraps
 import galsim as _galsim
+from jax._src.numpy.util import _wraps
+from jax.tree_util import register_pytree_node_class
 
 
 @_wraps(_galsim.Position)
@@ -132,6 +133,7 @@ class Position(object):
 
 
 @_wraps(_galsim.PositionD)
+@register_pytree_node_class
 class PositionD(Position):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -140,6 +142,7 @@ class PositionD(Position):
 
 
 @_wraps(_galsim.PositionI)
+@register_pytree_node_class
 class PositionI(Position):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
