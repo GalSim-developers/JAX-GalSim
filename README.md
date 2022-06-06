@@ -20,7 +20,7 @@ The goal of this library is to reimplement GalSim functionalities in pure JAX to
 
 ## Contributing
 
-Everyone can contribute to this project, please refer to the CONTRIBUTING.md document for details. 
+Everyone can contribute to this project, please refer to the [CONTRIBUTING.md](CONTRIBUTING.md) document for details. 
 
 In short, to interact with the project you can:
 - Ask or Answer questions on the [Discussions Q&A](https://github.com/GalSim-developers/JAX-GalSim/discussions/categories/q-a) page
