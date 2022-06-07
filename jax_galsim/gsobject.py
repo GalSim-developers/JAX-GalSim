@@ -190,9 +190,7 @@ class GSObject:
         return _Transform(self, flux_ratio=flux_ratio)
 
     # Make sure the image is defined with the right size and wcs for drawImage()
-    def _setup_image(
-        self, image, nx, ny, bounds, add_to_image, dtype, center, odd=False
-    ):
+    def _setup_image(self, image, nx, ny, bounds, add_to_image, dtype, center, odd=False):
         from jax_galsim.bounds import BoundsI
         from jax_galsim.image import Image
 
@@ -253,9 +251,7 @@ class GSObject:
                         bounds=bounds,
                     )
                 if not bounds.isDefined():
-                    raise _galsim.GalSimValueError(
-                        "Cannot use undefined bounds", bounds
-                    )
+                    raise _galsim.GalSimValueError("Cannot use undefined bounds", bounds)
                 image = Image(bounds=bounds, dtype=dtype)
             elif nx is not None or ny is not None:
                 if nx is None or ny is None:
@@ -354,9 +350,7 @@ class GSObject:
                 offset += center - new_bounds.center
             else:
                 # Then will be created as even sized image.
-                offset += PositionD(
-                    center.x - jnp.ceil(center.x), center.y - jnp.ceil(center.y)
-                )
+                offset += PositionD(center.x - jnp.ceil(center.x), center.y - jnp.ceil(center.y))
         elif use_true_center:
             # For even-sized images, the SBProfile draw function centers the result in the
             # pixel just up and right of the real center.  So shift it back to make sure it really
@@ -448,9 +442,7 @@ class GSObject:
         new_bounds = self._get_new_bounds(image, nx, ny, bounds, center)
 
         # Get the local WCS, accounting for the offset correctly.
-        local_wcs = self._local_wcs(
-            wcs, image, offset, center, use_true_center, new_bounds
-        )
+        local_wcs = self._local_wcs(wcs, image, offset, center, use_true_center, new_bounds)
 
         # Account for area and exptime.
         flux_scale = area * exptime
@@ -507,9 +499,7 @@ class GSObject:
         the image's dtype must be either float32 or float64, and it must have a c_contiguous array
         (``image.iscontiguous`` must be True).
         """
-        raise NotImplementedError(
-            "%s does not implement drawReal" % self.__class__.__name__
-        )
+        raise NotImplementedError("%s does not implement drawReal" % self.__class__.__name__)
 
     def getGoodImageSize(self, pixel_scale):
         """Return a good size to use for drawing this profile.

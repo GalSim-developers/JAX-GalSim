@@ -1,12 +1,11 @@
+import galsim as _galsim
 import jax.numpy as jnp
+from jax._src.numpy.util import _wraps
+from jax.tree_util import register_pytree_node_class
 
 from jax_galsim.gsobject import GSObject
 from jax_galsim.gsparams import GSParams
 from jax_galsim.position import PositionD
-
-import galsim as _galsim
-from jax._src.numpy.util import _wraps
-from jax.tree_util import register_pytree_node_class
 
 
 @_wraps(
@@ -312,13 +311,7 @@ class Transformation(GSObject):
             dx += x1[0]
             dy += x1[1]
         flux_scaling *= self._flux_scaling
-        jac = (
-            self._jac
-            if jac is None
-            else jac
-            if self._jac is None
-            else jac.dot(self._jac)
-        )
+        jac = self._jac if jac is None else jac if self._jac is None else jac.dot(self._jac)
         return self._original._drawReal(image, jac, (dx, dy), flux_scaling)
 
     def tree_flatten(self):
