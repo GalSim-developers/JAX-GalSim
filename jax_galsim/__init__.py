@@ -4,7 +4,8 @@ config.update("jax_enable_x64", True)
 
 # First some basic building blocks that don't usually depend on anything else
 from jax_galsim.position import Position, PositionD, PositionI
-
+from jax_galsim.transform import Transformation
+from jax_galsim.wcs import PixelScale, OffsetWCS
 
 from jax_galsim.gsparams import GSParams
 from jax_galsim.gsobject import GSObject

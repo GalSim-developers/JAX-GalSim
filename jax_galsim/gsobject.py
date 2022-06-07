@@ -78,6 +78,44 @@ class GSObject:
 
         return Sum([self, other])
 
+    # op- is unusual, but allowed.  It subtracts off one profile from another.
+    def __sub__(self, other):
+        """Subtract two GSObjects.
+
+        Equivalent to Add(self, -1 * other)
+        """
+        from .sum import Add
+
+        return Add([self, (-1.0 * other)])
+
+    # Make op* work to adjust the flux of an object
+    def __mul__(self, other):
+        """Scale the flux of the object by the given factor.
+
+        obj * flux_ratio is equivalent to obj.withScaledFlux(flux_ratio)
+
+        It creates a new object that has the same profile as the original, but with the
+        surface brightness at every location scaled by the given amount.
+
+        You can also multiply by an `SED`, which will create a `ChromaticObject` where the `SED`
+        acts like a wavelength-dependent ``flux_ratio``.
+        """
+        return self.withScaledFlux(other)
+
+    def __rmul__(self, other):
+        """Equivalent to obj * other.  See `__mul__` for details."""
+        return self.__mul__(other)
+
+    # Likewise for op/
+    def __div__(self, other):
+        """Equivalent to obj * (1/other).  See `__mul__` for details."""
+        return self * (1.0 / other)
+
+    __truediv__ = __div__
+
+    def __neg__(self):
+        return -1.0 * self
+
     def __eq__(self, other):
         return self is other or (
             isinstance(other, self.__class__)
@@ -113,6 +151,11 @@ class GSObject:
         children, aux_data = self.tree_flatten()
         aux_data["gsparams"] = gsparams
         return self.tree_unflatten(aux_data, children)
+
+    def withScaledFlux(self, flux_ratio):
+        from jax_galsim.transform import _Transform
+
+        return _Transform(self, flux_ratio=flux_ratio)
 
     def tree_flatten(self):
         """This function flattens the GSObject into a list of children
