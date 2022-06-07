@@ -481,7 +481,7 @@ class LocalWCS(UniformWCS):
 class PixelScale(LocalWCS):
     def __init__(self, scale):
         self._params = {"scale": scale}
-        self._scale = scale
+        self._scale = jnp.asarray(scale)
         self._color = None
 
     # Help make sure PixelScale is read-only.
@@ -639,25 +639,23 @@ class JacobianWCS(LocalWCS):
         numpy.array( [[ dudx, dudy ],
                       [ dvdx, dvdy ]] )
         """
-        return jnp.array(
-            [[self._dudx, self._dudy], [self._dvdx, self._dvdy]], dtype=float
-        )
+        return jnp.array([[self.dudx, self.dudy], [self.dvdx, self.dvdy]], dtype=float)
 
     def _minScale(self):
         # min scale is scale * (1-|g|) / sqrt(1-|g|^2)
         # We could get this from the decomposition, but some algebra finds that this
         # reduces to the following calculation:
         # NB: The unit tests test for the equivalence with the above formula.
-        h1 = jnp.sqrt((self._dudx + self._dvdy) ** 2 + (self._dudy - self._dvdx) ** 2)
-        h2 = jnp.sqrt((self._dudx - self._dvdy) ** 2 + (self._dudy + self._dvdx) ** 2)
+        h1 = jnp.sqrt((self.dudx + self.dvdy) ** 2 + (self.dudy - self.dvdx) ** 2)
+        h2 = jnp.sqrt((self.dudx - self.dvdy) ** 2 + (self.dudy + self.dvdx) ** 2)
         return 0.5 * abs(h1 - h2)
 
     def _maxScale(self):
         # min scale is scale * (1+|g|) / sqrt(1-|g|^2)
         # which is equivalent to the following:
         # NB: The unit tests test for the equivalence with the above formula.
-        h1 = jnp.sqrt((self._dudx + self._dvdy) ** 2 + (self._dudy - self._dvdx) ** 2)
-        h2 = jnp.sqrt((self._dudx - self._dvdy) ** 2 + (self._dudy + self._dvdx) ** 2)
+        h1 = jnp.sqrt((self.dudx + self.dvdy) ** 2 + (self.dudy - self.dvdx) ** 2)
+        h2 = jnp.sqrt((self.dudx - self.dvdy) ** 2 + (self.dudy + self.dvdx) ** 2)
         return 0.5 * (h1 + h2)
 
     def _inverse(self):
@@ -685,7 +683,7 @@ class JacobianWCS(LocalWCS):
 
     def _newOrigin(self, origin, world_origin):
         return AffineTransform(
-            self._dudx, self._dudy, self._dvdx, self._dvdy, origin, world_origin
+            self.dudx, self.dudy, self.dvdx, self.dvdy, origin, world_origin
         )
 
     def copy(self):
