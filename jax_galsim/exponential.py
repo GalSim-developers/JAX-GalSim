@@ -125,7 +125,7 @@ class Exponential(GSObject):
 
     def _kValue(self, kpos):
         ksqp1 = (kpos.x**2 + kpos.y**2) * self._r0**2 + 1.0
-        return self._flux / (ksqp1 * jnp.sqrt(ksqp1))
+        return self.flux / (ksqp1 * jnp.sqrt(ksqp1))
 
     def withFlux(self, flux):
         return Exponential(
