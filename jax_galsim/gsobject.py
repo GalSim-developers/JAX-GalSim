@@ -79,10 +79,10 @@ class GSObject:
         return Sum([self, other])
 
     def __eq__(self, other):
-        return self is other or (
-            isinstance(other, self.__class__)
-            and self.tree_flatten() == other.tree_flatten()
-        )
+        is_same = self is other
+        is_same_class = isinstance(other, self.__class__) 
+        has_same_trees = self.tree_flatten() == other.tree_flatten()
+        return is_same or (is_same_class and has_same_trees)
 
     def _xValue(self, pos):
         """Equivalent to `xValue`, but ``pos`` must be a `galsim.PositionD` instance
