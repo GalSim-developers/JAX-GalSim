@@ -91,11 +91,14 @@ class Exponential(GSObject):
 
     @property
     def _maxk(self):
-       _maxk = self.gsparams.maxk_threshold**-Exponential._one_third
+        _maxk = self.gsparams.maxk_threshold**-Exponential._one_third
         return _maxk / self.scale_radius
 
     @property
     def _stepk(self):
+        # The content of this function is inherited from the GalSim C++ layer
+        # https://github.com/GalSim-developers/GalSim/blob/ece3bd32c1ae6ed771f2b489c5ab1b25729e0ea4/src/SBExponential.cpp#L530
+        # https://github.com/GalSim-developers/GalSim/blob/ece3bd32c1ae6ed771f2b489c5ab1b25729e0ea4/src/SBExponential.cpp#L97
         # Calculate stepk:
         # int( exp(-r) r, r=0..R) = (1 - exp(-R) - Rexp(-R))
         # Fraction excluded is thus (1+R) exp(-R)
