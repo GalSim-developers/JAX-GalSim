@@ -91,9 +91,8 @@ class Exponential(GSObject):
 
     @property
     def _maxk(self):
-        return (
-            self.gsparams.maxk_threshold**-Exponential._one_third
-        ) / self.scale_radius
+       _maxk = self.gsparams.maxk_threshold**-Exponential._one_third
+        return _maxk / self.scale_radius
 
     @property
     def _stepk(self):
