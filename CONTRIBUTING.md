@@ -4,42 +4,45 @@ Everyone is welcome to contribute to this project, and contributions can take ma
 
 In order to foster an open, inclusive, and welcoming community, all contributors agree to adhere to [the Astropy code of conduct](https://www.astropy.org/code_of_conduct.html), which we adopt in this project.
 
-
 ## Contributing code using Pull Requests
 
 Code contributions are most welcome. You can in particular look for GitHub issues marked as `contributions welcome` or `good first issue`. But you can also propose adding a new functionality, in which case you may find it beneficial to first open a GitHub issue to discuss the feature you want to implement ahead of opening a Pull Request.
-
 
 Once you have some code you wish to contribute, you can follow this procedure to prepare a Pull Request:
 
 - Fork the JAX-GalSim repository under your own account, using the **Fork** button on the top right of the [GitHub page](https://github.com/GalSim-developers/JAX-GalSim).
 
 - Clone and pip install your fork of the repository like so:
+
   ```bash
-  git clone https://github.com/YOUR_USERNAME/JAX-GalSim
+  git clone --recurse-submodules https://github.com/YOUR_USERNAME/JAX-GalSim
   cd JAX-GalSIM
   pip install --user -e .
   ```
-  This will install your local fork in editable mode, meaning you can directly modify source files in this folder without having to reinstall the package for them to be taken into account.
+
+  This will install your local fork in editable mode, meaning you can directly modify source files in this folder without having to reinstall the package for them to be taken into account. Note the option `--recurse-submodules` needed to donwload the submodules required to run the tests.
 
 - Open a branch for your developments:
+
   ```bash
   git checkout -b name-that-describes-my-feature
   ```
 
 - Add your changes to the code using your favorite editor. You may at any moment test that everything is still working by running the test suite. From the root folder of the repository, run:
+
   ```bash
   pytest
   ```
 
 - Once you are happy with your modifications, commit them, and push your changes to GitHub:
+
   ```python
   git add file_I_changed.py
   git commit -m "a message that describes your modifications"
   git push -set-upstream origin name-that-describes-my-feature
   ```
 
-- From your GitHub interface, you should now be able to open a Pull Request to the JAX-GalSim repository. 
+- From your GitHub interface, you should now be able to open a Pull Request to the JAX-GalSim repository.
 
 Before submitting your PR, have a look at the procedure documented below.
 
@@ -48,6 +51,7 @@ Before submitting your PR, have a look at the procedure documented below.
 - Pull Requests should be self-contained and limited in scope, otherwise they become too difficult to review. If your modifications are broad, consider opening several smaller Pull Requests.
 
 - Make sure your fork and branch are up-to-date with the `main` branch of JAX-GalSim. To update your local branch, you may do so from the GitHub interface, or you may use this CLI command:
+
   ```bash
   # Only needs to be done once:
   git remote add upstream http://www.github.com/GalSim-developers/JAX-GalSim
@@ -57,15 +61,19 @@ Before submitting your PR, have a look at the procedure documented below.
   ```
 
 - Make sure the unit tests still work:
+
   ```bash
   pytest
   ```
+
   Ideally there should be some new unit tests for the new functionality, unless the work is completely covered by existing unit tests.
 
 - Make sure your code conforms to the [Black](https://github.com/psf/black) style:
+
   ```bash
   black .
   ```
+
   If you haven't installed it already, you can install Black with `pip install black`.
 
 - Update CHANGELOG.md to mention your change.
@@ -73,6 +81,7 @@ Before submitting your PR, have a look at the procedure documented below.
 - Make sure any new files have BSD license at the top.
 
 - If your changes contain multiple commits, we encourage you to squash them into a single (or very few) commit, before opening the PR. To do so, you can using this command:
+
 ```bash
 git rebase -i
 ```
@@ -105,20 +114,23 @@ git rebase -i
 
 ### Code Style
 
-In this project we follow the [Black](https://github.com/psf/black) code formatting guidelines` (Any color you like...) This means that all code should be automatically formatted using Black and CI will fail if that's not the case. 
+In this project we follow the [Black](https://github.com/psf/black) code formatting guidelines` (Any color you like...) This means that all code should be automatically formatted using Black and CI will fail if that's not the case.
 
 You can install Black locally like so:
+
 ```bash
-pip install black 
+pip install black
 ```
+
 And run it manually from the root directory of your local clone with `black .`
 
 We highly recommend installing `pre-commit`, which will take care of running Black for you before any commit you make:
+
 ```bash
 pip install pre-commit
 ```
-And that's all you need to do from now on.
 
+And that's all you need to do from now on.
 
 ### Documentation style
 
@@ -131,7 +143,7 @@ import galsim as _galsim
 from jax._src.numpy.util import _wraps
 from jax.tree_util import register_pytree_node_class
 
-@_wraps(_galsim.Add, 
+@_wraps(_galsim.Add,
         lax_description="Does not support `ChromaticObject` at this point.")
 def Add(*args, **kwargs):
     return Sum(*args, **kwargs)
