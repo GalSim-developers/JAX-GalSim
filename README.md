@@ -6,6 +6,8 @@
 
 **Disclaimer**: This project is still in an early development phase, **please use the [reference GalSim implementation](https://github.com/GalSim-developers/GalSim) for any scientific applications.**
 
+In fact, we are still thinking about how to name this project, checkout [this poll](https://github.com/GalSim-developers/JAX-GalSim/discussions/2).
+
 ## Objective and design
 
 See [design document](https://docs.google.com/document/d/1NalCc_5dc3Z8F4q37y-RsJS_mr9gzvfyANb2PYUpsb4/edit?usp=sharing).
