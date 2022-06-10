@@ -20,6 +20,11 @@ def pytest_collection_modifyitems(config, items):
         reason="Skipping this because functionalities are not implemented yet"
     )
     for item in items:
+        # if this is a jax test we execute it
+        if 'jax' in item.nodeid:
+            continue
+
+        # if this is a galsim test we check if it is requested or not
         if not any([t in item.nodeid for t in test_config["enabled_tests"]]):
             item.add_marker(skip)
 

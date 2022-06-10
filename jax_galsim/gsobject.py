@@ -1,4 +1,3 @@
-import numpy as np
 import jax.numpy as jnp
 
 from jax._src.numpy.util import _wraps

@@ -4,8 +4,8 @@ enabled_tests:
   - test_exponential.py
   - test_sum.py
 
-# This documents which error messages will be allowed 
-# without being reported as an error. These typically 
+# This documents which error messages will be allowed
+# without being reported as an error. These typically
 # correspond to features that are not implemented yet
 # in jax_galsim
 allowed_failures:
