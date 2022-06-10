@@ -88,7 +88,7 @@ class GSObject:
         """Equivalent to `xValue`, but ``pos`` must be a `galsim.PositionD` instance
 
         Parameters:
-            pos:        The position at which you want the surface brightness of the object.
+            pos: The position at which you want the surface brightness of the object.
 
         Returns:
             the surface brightness at that position.
