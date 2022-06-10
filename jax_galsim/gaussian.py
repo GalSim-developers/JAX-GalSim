@@ -109,12 +109,9 @@ class Gaussian(GSObject):
 
     @property
     def _stepk(self):
-        R = jnp.array(
-            [
-                jnp.sqrt(-2.0 * jnp.log(self.gsparams.folding_threshold)),
-                self.gsparams.stepk_minimum_hlr * Gaussian._hlr_factor,
-            ]
-        ).max()
+        R = jnp.sqrt(-2.0 * jnp.log(self.gsparams.folding_threshold))
+        # Bounding the value of R based on gsparams
+        R = jnp.maximum(R, self.gsparams.stepk_minimum_hlr * Gaussian._hlr_factor)
         return jnp.pi / (R * self.sigma)
 
     @property
