@@ -2,7 +2,7 @@
 
 Everyone is welcome to contribute to this project, and contributions can take many different forms, from helping to answer questions on the [discussions page](https://github.com/GalSim-developers/JAX-GalSim/discussions), to contributing to the code-base by making a Pull Request.
 
-In order to foster an open, inclusive, and welcoming community, all contributors agree to adhere to [the Astropy code of conduct](https://www.astropy.org/code_of_conduct.html), which we adopt in this project.
+In order to foster an open, inclusive, and welcoming community, all contributors agree to adhere to [JAX-GalSim code of conduct](CODE_OF_CONDUCT.md).
 
 ## Contributing code using Pull Requests
 
