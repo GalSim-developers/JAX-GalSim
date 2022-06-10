@@ -8,6 +8,6 @@ setup(
     description="The modular galaxy image simulation toolkit, but in JAX",
     packages=find_packages(),
     license="BSD License",
-    install_requires=["numpy >= 1.18.0", "jax >= 0.3.0", "galsim >= 2.3.4"],
+    install_requires=["numpy >= 1.18.0", "galsim >= 2.3.4", "jax", "jaxlib"],
     tests_require=['pytest'],
 )
