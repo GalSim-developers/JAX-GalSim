@@ -39,6 +39,17 @@ def pytest_report_teststatus(report, config):
     """This hook will allow tests to be skipped if they
     fail for a reason authorized in the config file.
     """
+    if report.when == "call" and report.outcome == "allowed failure":
+        # It's an allowed failure, so let's mark it as such
+        report.outcome = "allowed failure"
+        return report.outcome, "-", "ALLOWED FAILURE"
+
+
+@pytest.hookimpl(hookwrapper=True)
+def pytest_runtest_logreport(report):
+    """ Alters the report to allow not-implemented tests 
+    to fail
+    """
     if report.when == "call" and report.failed:
         # Ok, so we have a failure, let's see if it a failure we expect
         if any(
@@ -47,6 +58,7 @@ def pytest_report_teststatus(report, config):
                 for t in test_config["allowed_failures"]
             ]
         ):
-            # It's an allowed failure, so let's mark it as such
+            report.wasxfail = True
             report.outcome = "allowed failure"
-            return report.outcome, "-", "ALLOWED FAILURE"
+
+    yield report
