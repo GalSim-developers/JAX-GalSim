@@ -8,7 +8,7 @@ from jax_galsim.gsparams import GSParams
 from jax_galsim.gaussian import Gaussian
 from jax_galsim.exponential import Exponential
 from jax_galsim.sum import Add, Sum
-from jax_galsim.transform import Transformation
+from jax_galsim.transform import Transformation, Transform
 
 # WCS
 from jax_galsim.wcs import PixelScale, OffsetWCS, JacobianWCS, AffineTransform

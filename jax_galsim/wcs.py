@@ -76,13 +76,13 @@ class BaseWCS(_galsim.BaseWCS):
             raise TypeError("image_pos must be a PositionD or PositionI argument")
         return self._local(image_pos, color)
 
-    @_wraps(_galsim.BaseWCS.withOrigin)
-    def withOrigin(self, origin, world_origin=None, color=None):
+    @_wraps(_galsim.BaseWCS.shiftOrigin)
+    def shiftOrigin(self, origin, world_origin=None, color=None):
         if color is None:
             color = self._color
         if not isinstance(origin, Position):
             raise TypeError("origin must be a PositionD or PositionI argument")
-        return self._withOrigin(origin, world_origin, color)
+        return self._shiftOrigin(origin, world_origin, color)
 
     # A lot of classes will need these checks, so consolidate them here
     def _set_origin(self, origin, world_origin=None):
@@ -230,8 +230,8 @@ class EuclideanWCS(BaseWCS):
 
     # Each subclass has a function _newOrigin, which just calls the constructor with new
     # values for origin and world_origin.  This function figures out what those values
-    # should be to match the desired behavior of withOrigin.
-    def _withOrigin(self, origin, world_origin, color):
+    # should be to match the desired behavior of shiftOrigin.
+    def _shiftOrigin(self, origin, world_origin, color):
         # Current u,v are:
         #     u = ufunc(x-x0, y-y0) + u0
         #     v = vfunc(x-x0, y-y0) + v0
@@ -248,7 +248,7 @@ class EuclideanWCS(BaseWCS):
         # wcs.world_pos to keep it from resetting the world_pos back to None.
 
         if world_origin is None:
-            if not self.isLocal():
+            if not self._isLocal:
                 origin += self.origin
                 world_origin = self.world_origin
             return self._newOrigin(origin, world_origin)
@@ -281,7 +281,7 @@ class EuclideanWCS(BaseWCS):
                 raise TypeError(
                     "world_origin must be a PositionD or PositionI argument"
                 )
-            if not self.isLocal():
+            if not self._isLocal:
                 world_origin += self.world_origin - self._posToWorld(
                     self.origin, color=color
                 )
@@ -354,7 +354,8 @@ class EuclideanWCS(BaseWCS):
 class UniformWCS(EuclideanWCS):
     """A UniformWCS is a `EuclideanWCS` which has a uniform pixel size and shape."""
 
-    def isUniform(self):
+    @property
+    def _isUniform(self):
         return True
 
     # These can also just pass through to the _localwcs attribute.
@@ -907,3 +908,15 @@ class AffineTransform(UniformWCS):
 
     def __hash__(self):
         return hash(repr(self))
+
+
+def compatible(wcs1, wcs2):
+    """
+    A utility to check the compatibility of two WCS.  In particular, if two WCS are consistent with
+    each other modulo a shifted origin, we consider them to be compatible, even though they are not
+    equal.
+    """
+    if wcs1._isUniform and wcs2._isUniform:
+        return wcs1.jacobian() == wcs2.jacobian()
+    else:
+        return wcs1 == wcs2.shiftOrigin(wcs1.origin, wcs1.world_origin)
