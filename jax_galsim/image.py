@@ -18,6 +18,11 @@ Contrary to GalSim native Image, this implementation does not support
 sharing of the underlying numpy array between different Images or Views. 
 This is due to the fact that in JAX numpy arrays are immutable, so any 
 operation applied to this Image will create a new jnp.ndarray.
+
+    In particular the followong methods will create a copy of the Image:
+        - Image.view()
+        - Image.subImage()
+
 """,
 )
 @register_pytree_node_class
@@ -332,7 +337,6 @@ class Image(object):
 
     @scale.setter
     def scale(self, value):
-        print("Not functional programming!")
         if self.wcs is not None and not self.wcs._isPixelScale:
             raise _galsim.GalSimError(
                 "image.wcs is not a simple PixelScale; scale is undefined."
@@ -550,19 +554,8 @@ class Image(object):
         else:
             raise TypeError("image[..] requires either 1 or 2 args")
 
+    @_wraps(_galsim.Image.calculate_fft)
     def calculate_fft(self):
-        """Performs an FFT of an `Image` in real space to produce a k-space `Image`.
-
-        Note: the image will be padded with zeros as needed to make an image with bounds that
-        look like ``BoundsI(-N/2, N/2-1, -N/2, N/2-1)``.
-
-        The input image must have a `PixelScale` wcs.  The output image will be complex (an
-        `ImageCF` or `ImageCD` instance) and its scale will be 2pi / (N dx), where dx is the scale
-        of the input image.
-
-        Returns:
-            an `Image` instance with the k-space image.
-        """
         if not self.bounds.isDefined():
             raise _galsim.GalSimUndefinedBoundsError(
                 "calculate_fft requires that the image have defined bounds."
@@ -601,26 +594,8 @@ class Image(object):
         out.setOrigin(0, -No2)
         return out
 
+    @_wraps(_galsim.Image.calculate_inverse_fft)
     def calculate_inverse_fft(self):
-        """Performs an inverse FFT of an `Image` in k-space to produce a real-space `Image`.
-
-        The starting image is typically an `ImageCD`, although if the Fourier function is real
-        valued, then you could get away with using an `ImageD` or `ImageF`.
-
-        The image is assumed to be Hermitian.  In fact, only the portion with x >= 0 needs to
-        be defined, with f(-x,-y) taken to be conj(f(x,y)).
-
-        Note: the k-space image will be padded with zeros and/or wrapped as needed to make an
-        image with bounds that look like ``BoundsI(0, N/2, -N/2, N/2-1)``.  If you are building a
-        larger k-space image and then wrapping, you should wrap directly into an image of
-        this shape.
-
-        The input image must have a `PixelScale` wcs.  The output image will be real (an `ImageD`
-        instance) and its scale will be 2pi / (N dk), where dk is the scale of the input image.
-
-        Returns:
-            an `Image` instance with the real-space image.
-        """
         if not self.bounds.isDefined():
             raise _galsim.GalSimUndefinedBoundsError(
                 "calculate_fft requires that the image have defined bounds."
@@ -704,33 +679,20 @@ class Image(object):
             )
         self._array = rhs._array
 
+    @_wraps(
+        _galsim.Image.view,
+        lax_description="Contrary to GalSim, this will create a copy of the orginal image.",
+    )
     def view(
         self,
         scale=None,
         wcs=None,
         origin=None,
         center=None,
-        make_const=False,
         dtype=None,
+        make_const=False,
         contiguous=False,
     ):
-        """Make a view of this image, which lets you change the scale, wcs, origin, etc.
-        but view the same underlying data as the original image.
-
-        If you do not provide either ``scale`` or ``wcs``, the view will keep the same wcs
-        as the current `Image` object.
-
-        Parameters:
-            scale:      If provided, use this as the pixel scale for the image. [default: None]
-            wcs:        If provided, use this as the wcs for the image. [default: None]
-            origin:     If provided, use this as the origin position of the view.
-                        [default: None]
-            center:     If provided, use this as the center position of the view.
-                        [default: None]
-            dtype:      If provided, ensure that the output has this dtype.  If the original
-                        Image is a different dtype, then a copy will be made. [default: None]
-            contiguous: If provided, ensure that the output array is contiguous. [default: False]
-        """
         if origin is not None and center is not None:
             raise _galsim.GalSimIncompatibleValuesError(
                 "Cannot provide both center and origin", center=center, origin=origin
@@ -774,21 +736,8 @@ class Image(object):
 
         return ret
 
+    @_wraps(_galsim.Image.shift)
     def shift(self, *args, **kwargs):
-        """Shift the pixel coordinates by some (integral) dx,dy.
-
-        The arguments here may be either (dx, dy) or a PositionI instance.
-        Or you can provide dx, dy as named kwargs.
-
-        In terms of columns and rows, dx means a shift in the x value of each column in the
-        array, and dy means a shift in the y value of each row.  In other words, the following
-        will return the same value for ixy.  The shift function just changes the coordinates (x,y)
-        used for that pixel::
-
-            >>> ixy = im(x,y)
-            >>> im.shift(3,9)
-            >>> ixy = im(x+3, y+9)
-        """
         delta = parse_pos_args(args, kwargs, "dx", "dy", integer=True)
         self._shift(delta)
 
@@ -806,147 +755,29 @@ class Image(object):
             if self.wcs is not None:
                 self.wcs = self.wcs.shiftOrigin(delta)
 
+    @_wraps(_galsim.Image.setCenter)
     def setCenter(self, *args, **kwargs):
-        """Set the center of the image to the given (integral) (xcen, ycen)
-
-        The arguments here may be either (xcen, ycen) or a PositionI instance.
-        Or you can provide xcen, ycen as named kwargs.
-
-        In terms of the rows and columns, xcen is the new x value for the central column, and ycen
-        is the new y value of the central row.  For even-sized arrays, there is no central column
-        or row, so the convention we adopt in this case is to round up.  For example::
-
-            >>> im = galsim.Image(numpy.array(range(16),dtype=float).reshape((4,4)))
-            >>> im(1,1)
-            0.0
-            >>> im(4,1)
-            3.0
-            >>> im(4,4)
-            15.0
-            >>> im(3,3)
-            10.0
-            >>> im.setCenter(0,0)
-            >>> im(0,0)
-            10.0
-            >>> im(-2,-2)
-            0.0
-            >>> im(1,-2)
-            3.0
-            >>> im(1,1)
-            15.0
-            >>> im.setCenter(234,456)
-            >>> im(234,456)
-            10.0
-            >>> im.bounds
-            galsim.BoundsI(xmin=232, xmax=235, ymin=454, ymax=457)
-        """
         cen = parse_pos_args(args, kwargs, "xcen", "ycen", integer=True)
         self._shift(cen - self.center)
 
+    @_wraps(_galsim.Image.setOrigin)
     def setOrigin(self, *args, **kwargs):
-        """Set the origin of the image to the given (integral) (x0, y0)
-
-        The arguments here may be either (x0, y0) or a PositionI instance.
-        Or you can provide x0, y0 as named kwargs.
-
-        In terms of the rows and columns, x0 is the new x value for the first column,
-        and y0 is the new y value of the first row.  For example::
-
-            >>> im = galsim.Image(numpy.array(range(16),dtype=float).reshape((4,4)))
-            >>> im(1,1)
-            0.0
-            >>> im(4,1)
-            3.0
-            >>> im(1,4)
-            12.0
-            >>> im(4,4)
-            15.0
-            >>> im.setOrigin(0,0)
-            >>> im(0,0)
-            0.0
-            >>> im(3,0)
-            3.0
-            >>> im(0,3)
-            12.0
-            >>> im(3,3)
-            15.0
-            >>> im.setOrigin(234,456)
-            >>> im(234,456)
-            0.0
-            >>> im.bounds
-            galsim.BoundsI(xmin=234, xmax=237, ymin=456, ymax=459)
-        """
         origin = parse_pos_args(args, kwargs, "x0", "y0", integer=True)
         self._shift(origin - self.origin)
 
     @property
+    @_wraps(_galsim.Image.center)
     def center(self):
-        """The current nominal center (xcen,ycen) of the image as a PositionI instance.
-
-        In terms of the rows and columns, xcen is the x value for the central column, and ycen
-        is the y value of the central row.  For even-sized arrays, there is no central column
-        or row, so the convention we adopt in this case is to round up.  For example::
-
-            >>> im = galsim.Image(numpy.array(range(16),dtype=float).reshape((4,4)))
-            >>> im.center
-            galsim.PositionI(x=3, y=3)
-            >>> im(im.center)
-            10.0
-            >>> im.setCenter(56,72)
-            >>> im.center
-            galsim.PositionI(x=56, y=72)
-            >>> im(im.center)
-            10.0
-        """
         return self.bounds.center
 
     @property
+    @_wraps(_galsim.Image.true_center)
     def true_center(self):
-        """The current true center of the image as a PositionD instance.
-
-        Unline the nominal center returned by im.center, this value may be half-way between
-        two pixels if the image has an even number of rows or columns.  It gives the position
-        (x,y) at the exact center of the image, regardless of whether this is at the center of
-        a pixel (integer value) or halfway between two (half-integer).  For example::
-
-            >>> im = galsim.Image(numpy.array(range(16),dtype=float).reshape((4,4)))
-            >>> im.center
-            galsim.PositionI(x=3, y=3)
-            >>> im.true_center
-            galsim.PositionI(x=2.5, y=2.5)
-            >>> im.setCenter(56,72)
-            >>> im.center
-            galsim.PositionI(x=56, y=72)
-            >>> im.true_center
-            galsim.PositionD(x=55.5, y=71.5)
-            >>> im.setOrigin(0,0)
-            >>> im.true_center
-            galsim.PositionD(x=1.5, y=1.5)
-        """
         return self.bounds.true_center
 
     @property
+    @_wraps(_galsim.Image.origin)
     def origin(self):
-        """Return the origin of the image.  i.e. the (x,y) position of the lower-left pixel.
-
-        In terms of the rows and columns, this is the (x,y) coordinate of the first column, and
-        first row of the array.  For example::
-
-            >>> im = galsim.Image(numpy.array(range(16),dtype=float).reshape((4,4)))
-            >>> im.origin
-            galsim.PositionI(x=1, y=1)
-            >>> im(im.origin)
-            0.0
-            >>> im.setOrigin(23,45)
-            >>> im.origin
-            galsim.PositionI(x=23, y=45)
-            >>> im(im.origin)
-            0.0
-            >>> im(23,45)
-            0.0
-            >>> im.bounds
-            galsim.BoundsI(xmin=23, xmax=26, ymin=45, ymax=48)
-        """
         return self.bounds.origin
 
     def __call__(self, *args, **kwargs):
@@ -958,15 +789,8 @@ class Image(object):
         pos = parse_pos_args(args, kwargs, "x", "y", integer=True)
         return self.getValue(pos.x, pos.y)
 
+    @_wraps(_galsim.Image.getValue)
     def getValue(self, x, y):
-        """This method is a synonym for im(x,y).  It is a bit faster than im(x,y), since GalSim
-        does not have to parse the different options available for __call__.  (i.e. im(x,y) or
-        im(pos) or im(x=x,y=y))
-
-        Parameters:
-            x:      The x coordinate of the pixel to get.
-            y:      The y coordinate of the pixel to get.
-        """
         if not self.bounds.isDefined():
             raise _galsim.GalSimUndefinedBoundsError(
                 "Attempt to access values of an undefined image"
@@ -985,14 +809,8 @@ class Image(object):
         """
         return self.array[y - self.ymin, x - self.xmin]
 
+    @_wraps(_galsim.Image.setValue)
     def setValue(self, *args, **kwargs):
-        """Set the pixel value at given (x,y) position
-
-        The arguments here may be either (x, y, value) or (pos, value) where pos is a PositionI.
-        Or you can provide x, y, value as named kwargs.
-
-        This is equivalent to self[x,y] = rhs
-        """
         if not self.bounds.isDefined():
             raise _galsim.GalSimUndefinedBoundsError(
                 "Attempt to set value of an undefined image"
@@ -1017,14 +835,8 @@ class Image(object):
         """
         self._array = self._array.at[y - self.ymin, x - self.xmin].set(value)
 
+    @_wraps(_galsim.Image.addValue)
     def addValue(self, *args, **kwargs):
-        """Add some amount to the pixel value at given (x,y) position
-
-        The arguments here may be either (x, y, value) or (pos, value) where pos is a PositionI.
-        Or you can provide x, y, value as named kwargs.
-
-        This is equivalent to self[x,y] += rhs
-        """
         if not self.bounds.isDefined():
             raise _galsim.GalSimUndefinedBoundsError(
                 "Attempt to set value of an undefined image"
