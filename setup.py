@@ -9,5 +9,5 @@ setup(
     packages=find_packages(),
     license="BSD License",
     install_requires=["numpy >= 1.18.0", "galsim >= 2.3.0", "jax", "jaxlib"],
-    tests_require=['pytest'],
+    tests_require=["pytest"],
 )

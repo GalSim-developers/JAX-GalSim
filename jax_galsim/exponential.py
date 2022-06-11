@@ -70,7 +70,7 @@ class Exponential(GSObject):
         if "half_light_radius" in self.params:
             return self.params["half_light_radius"]
         else:
-            return self.params["half_light_radius"] * Exponential._hlr_factor
+            return self.params["scale_radius"] * Exponential._hlr_factor
 
     def __hash__(self):
         return hash(("galsim.Exponential", self.scale_radius, self.flux, self.gsparams))

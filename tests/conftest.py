@@ -21,7 +21,7 @@ def pytest_collection_modifyitems(config, items):
     )
     for item in items:
         # if this is a jax test we execute it
-        if 'jax' in item.nodeid:
+        if "jax" in item.nodeid:
             continue
 
         # if this is a galsim test we check if it is requested or not
@@ -52,7 +52,7 @@ def pytest_report_teststatus(report, config):
 
 @pytest.hookimpl(hookwrapper=True)
 def pytest_runtest_logreport(report):
-    """ Alters the report to allow not-implemented tests 
+    """Alters the report to allow not-implemented tests
     to fail
     """
     if report.when == "call" and report.failed:
