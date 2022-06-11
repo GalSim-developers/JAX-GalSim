@@ -10,5 +10,7 @@ from jax_galsim.exponential import Exponential
 
 # Derived from GSObjects
 from jax_galsim.sum import Add, Sum
-from jax_galsim.transform import Transformation
+from jax_galsim.transform import Transformation, Transform
+
+# WCS
 from jax_galsim.wcs import PixelScale, OffsetWCS, JacobianWCS, AffineTransform
