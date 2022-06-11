@@ -79,8 +79,9 @@ class Image(object):
         else:
             if "array" in kwargs:
                 array = kwargs.pop("array")
+                check_bounds = kwargs.pop("check_bounds", True)
                 array, xmin, ymin = self._get_xmin_ymin(
-                    array, kwargs, check_bounds=False
+                    array, kwargs, check_bounds=check_bounds
                 )
             elif "bounds" in kwargs:
                 bounds = kwargs.pop("bounds")
@@ -945,7 +946,9 @@ class Image(object):
     @classmethod
     def tree_unflatten(cls, aux_data, children):
         """Recreates an instance of the class from flatten representation"""
-        return cls(array=children[0], wcs=children[1], bounds=children[2])
+        return cls(
+            array=children[0], wcs=children[1], bounds=children[2], check_bounds=False
+        )
 
 
 # These are essentially aliases for the regular Image with the correct dtype
