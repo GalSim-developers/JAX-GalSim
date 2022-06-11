@@ -1,0 +1,20 @@
+# This defines which tests from the GalSim suite will run
+enabled_tests:
+  - test_gaussian.py
+  - test_exponential.py
+  - test_sum.py
+
+# This documents which error messages will be allowed
+# without being reported as an error. These typically
+# correspond to features that are not implemented yet
+# in jax_galsim
+allowed_failures:
+  - "module 'jax_galsim' has no attribute 'fits'"
+  - "module 'jax_galsim' has no attribute 'PositionD'"
+  - "module 'jax_galsim' has no attribute 'BaseDeviate"
+  - "module 'jax_galsim' has no attribute 'Kolmogorov'"
+  - "module 'jax_galsim' has no attribute 'UncorrelatedNoise'"
+  - "module 'jax_galsim' has no attribute 'Pixel'"
+  - "unsupported operand type(s) for *="
+  - "object has no attribute 'xValue'"
+  - "object has no attribute 'shear'"
