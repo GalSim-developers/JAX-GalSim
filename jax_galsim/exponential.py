@@ -70,7 +70,7 @@ class Exponential(GSObject):
         if "half_light_radius" in self.params:
             return self.params["half_light_radius"]
         else:
-            return self.params["half_light_radius"] * Exponential._hlr_factor
+            return self.params["scale_radius"] * Exponential._hlr_factor
 
     def __hash__(self):
         return hash(("galsim.Exponential", self.scale_radius, self.flux, self.gsparams))
@@ -91,12 +91,14 @@ class Exponential(GSObject):
 
     @property
     def _maxk(self):
-        return (
-            self.gsparams.maxk_threshold**-Exponential._one_third
-        ) / self.scale_radius
+        _maxk = self.gsparams.maxk_threshold**-Exponential._one_third
+        return _maxk / self.scale_radius
 
     @property
     def _stepk(self):
+        # The content of this function is inherited from the GalSim C++ layer
+        # https://github.com/GalSim-developers/GalSim/blob/ece3bd32c1ae6ed771f2b489c5ab1b25729e0ea4/src/SBExponential.cpp#L530
+        # https://github.com/GalSim-developers/GalSim/blob/ece3bd32c1ae6ed771f2b489c5ab1b25729e0ea4/src/SBExponential.cpp#L97
         # Calculate stepk:
         # int( exp(-r) r, r=0..R) = (1 - exp(-R) - Rexp(-R))
         # Fraction excluded is thus (1+R) exp(-R)
@@ -123,7 +125,7 @@ class Exponential(GSObject):
 
     def _kValue(self, kpos):
         ksqp1 = (kpos.x**2 + kpos.y**2) * self._r0**2 + 1.0
-        return self._flux / (ksqp1 * jnp.sqrt(ksqp1))
+        return self.flux / (ksqp1 * jnp.sqrt(ksqp1))
 
     def withFlux(self, flux):
         return Exponential(

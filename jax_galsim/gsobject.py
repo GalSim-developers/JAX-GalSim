@@ -1,10 +1,11 @@
-import numpy as np
 import jax.numpy as jnp
 
 from jax._src.numpy.util import _wraps
 import galsim as _galsim
 
 from jax_galsim.gsparams import GSParams
+from jax_galsim.position import PositionD
+from jax_galsim.utilities import parse_pos_args
 
 
 @_wraps(_galsim.GSObject)
@@ -69,6 +70,27 @@ class GSObject:
         """
         return self._is_analytic_k
 
+    @property
+    def centroid(self):
+        """The (x, y) centroid of an object as a `PositionD`."""
+        return self._centroid
+
+    @property
+    def _centroid(self):
+        # Most profiles are centered at 0,0, so make this the default.
+        return PositionD(0, 0)
+
+    @property
+    @_wraps(_galsim.GSObject.max_sb)
+    def max_sb(self):
+        return self._max_sb
+
+    @property
+    def _max_sb(self):
+        # The way this is used, overestimates are conservative.
+        # So the default value of 1.e500 will skip the optimization involving the maximum sb.
+        return 1.0e500
+
     def __add__(self, other):
         """Add two GSObjects.
 
@@ -117,16 +139,21 @@ class GSObject:
         return -1.0 * self
 
     def __eq__(self, other):
-        return self is other or (
-            isinstance(other, self.__class__)
-            and self.tree_flatten() == other.tree_flatten()
-        )
+        is_same = self is other
+        is_same_class = type(other) is self.__class__
+        has_same_trees = self.tree_flatten() == other.tree_flatten()
+        return is_same or (is_same_class and has_same_trees)
+
+    @_wraps(_galsim.GSObject.xValue)
+    def xValue(self, *args, **kwargs):
+        pos = parse_pos_args(args, kwargs, "x", "y")
+        return self._xValue(pos)
 
     def _xValue(self, pos):
         """Equivalent to `xValue`, but ``pos`` must be a `galsim.PositionD` instance
 
         Parameters:
-            pos:        The position at which you want the surface brightness of the object.
+            pos: The position at which you want the surface brightness of the object.
 
         Returns:
             the surface brightness at that position.
@@ -134,6 +161,11 @@ class GSObject:
         raise NotImplementedError(
             "%s does not implement xValue" % self.__class__.__name__
         )
+
+    @_wraps(_galsim.GSObject.kValue)
+    def kValue(self, *args, **kwargs):
+        kpos = parse_pos_args(args, kwargs, "kx", "ky")
+        return self._kValue(kpos)
 
     def _kValue(self, kpos):
         """Equivalent to `kValue`, but ``kpos`` must be a `galsim.PositionD` instance."""

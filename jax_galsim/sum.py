@@ -171,7 +171,7 @@ class Sum(GSObject):
         # Define auxiliary static data that doesn’t need to be traced
         aux_data = {
             "gsparams": self.gsparams,
-            "propagate_gs_params": self._propagate_gsparams,
+            "propagate_gsparams": self._propagate_gsparams,
         }
         return (children, aux_data)
 
