@@ -169,6 +169,11 @@ class GSObject:
         kpos = parse_pos_args(args, kwargs, "kx", "ky")
         return self._kValue(kpos)
 
+    @_wraps(_galsim.GSObject.kValue)
+    def kValue(self, *args, **kwargs):
+        kpos = parse_pos_args(args, kwargs, "kx", "ky")
+        return self._kValue(kpos)
+
     def _kValue(self, kpos):
         """Equivalent to `kValue`, but ``kpos`` must be a `galsim.PositionD` instance."""
         raise NotImplementedError("%s does not implement kValue" % self.__class__.__name__)

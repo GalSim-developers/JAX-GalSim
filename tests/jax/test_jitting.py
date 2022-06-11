@@ -104,3 +104,12 @@ def test_image_jitting():
     ).astype(dtype=jnp.float32)
     im1 = galsim.Image.init(ref_array, wcs=galsim.PixelScale(0.2), dtype=jnp.int32)
     assert identity(im1) == im1
+
+
+def test_position_jitting():
+    obj = galsim.PositionD(1.0, 2.0)
+
+    def test_eq(self, other):
+        return self.x == other.x and self.y == other.y
+
+    assert test_eq(identity(obj), obj)
