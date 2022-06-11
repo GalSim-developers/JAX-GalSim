@@ -7,6 +7,7 @@ from jax._src.numpy.util import _wraps
 from jax.tree_util import register_pytree_node_class
 
 
+# The reason for avoid these tests is that they are not easy to do for jitted code.
 @_wraps(
     _galsim.Bounds,
     lax_description=(
