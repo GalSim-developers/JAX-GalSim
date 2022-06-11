@@ -58,7 +58,7 @@ def pytest_runtest_logreport(report):
     if report.when == "call" and report.failed:
         # Ok, so we have a failure, let's see if it a failure we expect
         message = report.longrepr.reprcrash.message
-        if any([t in message for t in test_config["allowed_failures"]):
+        if any([t in message for t in test_config["allowed_failures"]]):
             report.wasxfail = True
             report.outcome = "allowed failure"
 

@@ -47,8 +47,7 @@ def test_exponential_jitting():
 
 def test_sum_jitting():
     obj1 = galsim.Gaussian(half_light_radius=1.0, flux=0.2, gsparams=gsparams)
-    obj2 = galsim.Exponential(half_light_radius=1.0,
-                              flux=0.2, gsparams=gsparams)
+    obj2 = galsim.Exponential(half_light_radius=1.0, flux=0.2, gsparams=gsparams)
 
     obj = obj1 + obj2
 
