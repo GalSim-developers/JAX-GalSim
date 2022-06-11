@@ -79,7 +79,9 @@ class Image(object):
         else:
             if "array" in kwargs:
                 array = kwargs.pop("array")
-                array, xmin, ymin = self._get_xmin_ymin(array, kwargs)
+                array, xmin, ymin = self._get_xmin_ymin(
+                    array, kwargs, check_bounds=False
+                )
             elif "bounds" in kwargs:
                 bounds = kwargs.pop("bounds")
             elif "image" in kwargs:
@@ -219,7 +221,7 @@ class Image(object):
             self.wcs = wcs
 
     @staticmethod
-    def _get_xmin_ymin(array, kwargs):
+    def _get_xmin_ymin(array, kwargs, check_bounds=True):
         """A helper function for parsing xmin, ymin, bounds options with a given array"""
         if not isinstance(array, (np.ndarray, jnp.ndarray)):
             raise TypeError("array must be a ndarray instance")
@@ -229,18 +231,20 @@ class Image(object):
             b = kwargs.pop("bounds")
             if not isinstance(b, BoundsI):
                 raise TypeError("bounds must be a galsim.BoundsI instance")
-            if b.xmax - b.xmin + 1 != array.shape[1]:
-                raise _galsim.GalSimIncompatibleValuesError(
-                    "Shape of array is inconsistent with provided bounds",
-                    array=array,
-                    bounds=b,
-                )
-            if b.ymax - b.ymin + 1 != array.shape[0]:
-                raise _galsim.GalSimIncompatibleValuesError(
-                    "Shape of array is inconsistent with provided bounds",
-                    array=array,
-                    bounds=b,
-                )
+            if check_bounds:
+                # We need to disable this when jitting
+                if b.xmax - b.xmin + 1 != array.shape[1]:
+                    raise _galsim.GalSimIncompatibleValuesError(
+                        "Shape of array is inconsistent with provided bounds",
+                        array=array,
+                        bounds=b,
+                    )
+                if b.ymax - b.ymin + 1 != array.shape[0]:
+                    raise _galsim.GalSimIncompatibleValuesError(
+                        "Shape of array is inconsistent with provided bounds",
+                        array=array,
+                        bounds=b,
+                    )
             if b.isDefined():
                 xmin = b.xmin
                 ymin = b.ymin
@@ -941,7 +945,7 @@ class Image(object):
     @classmethod
     def tree_unflatten(cls, aux_data, children):
         """Recreates an instance of the class from flatten representation"""
-        return cls(*children)
+        return cls(array=children[0], wcs=children[1], bounds=children[2])
 
 
 # These are essentially aliases for the regular Image with the correct dtype
