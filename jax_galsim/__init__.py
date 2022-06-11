@@ -2,6 +2,7 @@
 from galsim.angle import arcmin, arcsec, degrees, hours, radians
 
 # Inherit all Exception and Warning classes from galsim
+# Inherit all Exception and Warning classes from galsim
 from galsim.errors import (
     GalSimBoundsError,
     GalSimConfigError,
