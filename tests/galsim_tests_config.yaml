@@ -14,5 +14,4 @@ allowed_failures:
   - "module 'jax_galsim' has no attribute 'Kolmogorov'"
   - "module 'jax_galsim' has no attribute 'UncorrelatedNoise'"
   - "module 'jax_galsim' has no attribute 'Pixel'"
-  - "unsupported operand type(s) for *"
   - "object has no attribute 'shear'"
