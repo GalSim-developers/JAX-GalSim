@@ -127,3 +127,6 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+
+# We don't want to add notebooks by accident
+*.ipynb
