@@ -2,6 +2,7 @@ import jax.numpy as jnp
 
 from jax_galsim.gsobject import GSObject
 from jax_galsim.gsparams import GSParams
+from jax_galsim.core.draw import draw_by_xValue
 
 import galsim as _galsim
 from jax._src.numpy.util import _wraps
@@ -119,12 +120,17 @@ class Gaussian(GSObject):
         return self._norm
 
     def _xValue(self, pos):
-        rsq = pos.x**2 + pos.y**2
+        rsq = jnp.sum(pos**2, axis=-1)
         return self._norm * jnp.exp(-0.5 * rsq * self._inv_sigsq)
 
     def _kValue(self, kpos):
-        ksq = (kpos.x**2 + kpos.y**2) * self._sigsq
+        ksq = jnp.sum(kpos**2, axis=-1) * self._sigsq
         return self.flux * jnp.exp(-0.5 * ksq)
+
+    def _drawReal(self, image, jac=None, offset=(0.0, 0.0), flux_scaling=1.0):
+        _jac = jnp.eye(2) if jac is None else jac
+        print(flux_scaling)
+        return draw_by_xValue(self, image, _jac, jnp.asarray(offset), flux_scaling)
 
     def withFlux(self, flux):
         return Gaussian(sigma=self.sigma, flux=flux, gsparams=self.gsparams)
