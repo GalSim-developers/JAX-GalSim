@@ -157,7 +157,7 @@ class Sum(GSObject):
         return jnp.sum(kv_list, axis=0)
 
     def _drawReal(self, image, jac=None, offset=(0.0, 0.0), flux_scaling=1.0):
-        self.obj_list[0]._drawReal(image, jac, offset, flux_scaling)
+        image = self.obj_list[0]._drawReal(image, jac, offset, flux_scaling)
         if len(self.obj_list) > 1:
             for obj in self.obj_list[1:]:
                 image += obj._drawReal(image, jac, offset, flux_scaling)
