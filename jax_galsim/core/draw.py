@@ -2,8 +2,10 @@ import jax
 import jax.numpy as jnp
 
 from jax_galsim import Image
+from jax_galsim import PositionD
 
 
+@jax.jit
 def draw_by_xValue(
     gsobject, image, jacobian=jnp.eye(2), offset=jnp.zeros(2), flux_scaling=1.0
 ):
@@ -24,7 +26,13 @@ def draw_by_xValue(
     coords = jnp.dot(coords, inv_jacobian.T)
     flux_scaling *= jnp.exp(logdet)
 
-    # Draw the object and apply scaling
-    im = (gsobject._xValue(coords) * flux_scaling).astype(image.dtype)
+    # Draw the object
+    im = jax.vmap(lambda *args: gsobject._xValue(PositionD(*args)))(
+        coords[..., 0], coords[..., 1]
+    )
 
+    # Apply the flux scaling
+    im = (im * flux_scaling).astype(image.dtype)
+
+    # Return an image
     return Image(array=im, bounds=image.bounds, wcs=image.wcs, check_bounds=False)

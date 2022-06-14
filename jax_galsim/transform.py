@@ -307,13 +307,13 @@ class Transformation(GSObject):
         return self._amp_scaling * self._original.max_sb
 
     def _xValue(self, pos):
-        pos -= self._offset.array
-        inv_pos = jnp.asarray(self._inv(pos[0], pos[1]))
+        pos -= self._offset
+        inv_pos = PositionD(self._inv(pos.x, pos.y))
         return self._original._xValue(inv_pos) * self._amp_scaling
 
     def _kValue(self, kpos):
-        fwdT_kpos = jnp.asarray(self._fwdT(kpos[0], kpos[1]))
-        return self._original._kValue(fwdT_kpos) * self._kfactor(kpos[0], kpos[1])
+        fwdT_kpos = PositionD(self._fwdT(kpos.x, kpos.y))
+        return self._original._kValue(fwdT_kpos) * self._kfactor(kpos.x, kpos.y)
 
     def _drawReal(self, image, jac=None, offset=(0.0, 0.0), flux_scaling=1.0):
         dx, dy = offset

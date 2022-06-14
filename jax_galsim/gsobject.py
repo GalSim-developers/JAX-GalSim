@@ -152,10 +152,10 @@ class GSObject:
     @_wraps(_galsim.GSObject.xValue)
     def xValue(self, *args, **kwargs):
         pos = parse_pos_args(args, kwargs, "x", "y")
-        return self._xValue(pos.array)
+        return self._xValue(pos)
 
     def _xValue(self, pos):
-        """Equivalent to `xValue`, but ``pos`` must be a numpy array of last dimenstion 2
+        """Equivalent to `xValue`, but ``pos`` must be a PositionD.
 
         Parameters:
             pos: The position at which you want the surface brightness of the object.
@@ -170,7 +170,7 @@ class GSObject:
     @_wraps(_galsim.GSObject.kValue)
     def kValue(self, *args, **kwargs):
         kpos = parse_pos_args(args, kwargs, "kx", "ky")
-        return self._kValue(kpos.array)
+        return self._kValue(kpos)
 
     def _kValue(self, kpos):
         """Equivalent to `kValue`, but ``kpos`` must be a jnp.ndarray of last dimension 2."""
