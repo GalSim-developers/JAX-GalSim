@@ -59,3 +59,12 @@ def test_sum_jitting():
         )
 
     assert test_eq(identity(obj), obj)
+
+
+def test_position_jitting():
+    obj = galsim.PositionD(1.0, 2.0)
+
+    def test_eq(self, other):
+        return self.x == other.x and self.y == other.y
+
+    assert test_eq(identity(obj), obj)
