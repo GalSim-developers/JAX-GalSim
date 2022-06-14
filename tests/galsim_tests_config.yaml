@@ -3,8 +3,6 @@ enabled_tests:
   - test_gaussian.py
   - test_exponential.py
   - test_sum.py
-  - test_transforms.py
-  - test_wcs.py
 
 # This documents which error messages will be allowed
 # without being reported as an error. These typically
