@@ -16,6 +16,19 @@ from galsim.errors import GalSimFFTSizeError
 from galsim.errors import GalSimConfigError, GalSimConfigValueError
 from galsim.errors import GalSimWarning, GalSimDeprecationWarning
 
+# Image
+from .image import (
+    Image,
+    ImageS,
+    ImageI,
+    ImageF,
+    ImageD,
+    ImageCF,
+    ImageCD,
+    ImageUS,
+    ImageUI,
+)
+
 # GSObject
 from jax_galsim.gsobject import GSObject
 from jax_galsim.gsparams import GSParams
