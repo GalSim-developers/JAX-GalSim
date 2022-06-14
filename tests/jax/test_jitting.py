@@ -88,3 +88,12 @@ def test_affine_transform_jitting():
         )
 
     assert test_eq(identity(obj), obj)
+
+
+def test_bounds_jitting():
+    obj = galsim.BoundsD(0.0, 1.0, 0.0, 1.0)
+
+    objI = galsim.BoundsI(0.0, 1.0, 0.0, 1.0)
+
+    assert identity(obj) == obj
+    assert identity(objI) == objI
