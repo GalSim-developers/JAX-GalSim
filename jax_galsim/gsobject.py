@@ -151,7 +151,7 @@ class GSObject:
     @_wraps(_galsim.GSObject.xValue)
     def xValue(self, *args, **kwargs):
         pos = parse_pos_args(args, kwargs, "x", "y")
-        return self._xValue(pos.array)
+        return self._xValue(pos)
 
     def _xValue(self, pos):
         """Equivalent to `xValue`, but ``pos`` must be a PositionD.
@@ -172,7 +172,7 @@ class GSObject:
     @_wraps(_galsim.GSObject.kValue)
     def kValue(self, *args, **kwargs):
         kpos = parse_pos_args(args, kwargs, "kx", "ky")
-        return self._kValue(kpos.array)
+        return self._kValue(kpos)
 
     def _kValue(self, kpos):
         """Equivalent to `kValue`, but ``kpos`` must be a `galsim.PositionD` instance."""
