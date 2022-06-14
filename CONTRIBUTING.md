@@ -16,7 +16,7 @@ Once you have some code you wish to contribute, you can follow this procedure to
 
   ```bash
   git clone --recurse-submodules https://github.com/YOUR_USERNAME/JAX-GalSim
-  cd JAX-GalSIM
+  cd JAX-GalSim
   pip install --user -e .
   ```
 
