@@ -4,3 +4,4 @@ repos:
     hooks:
     - id: black
       language: python
+      exclude: tests/GalSim/
