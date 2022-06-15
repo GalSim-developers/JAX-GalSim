@@ -34,6 +34,22 @@ class BaseWCS(_galsim.BaseWCS):
             raise TypeError("image_pos must be a PositionD or PositionI argument")
         return self._posToWorld(image_pos, color=color, **kwargs)
 
+    @_wraps(_galsim.BaseWCS.profileToWorld)
+    def profileToWorld(
+        self,
+        image_profile,
+        image_pos=None,
+        world_pos=None,
+        color=None,
+        flux_ratio=1.0,
+        offset=(0, 0),
+    ):
+        if color is None:
+            color = self._color
+        return self.local(image_pos, world_pos, color=color)._profileToWorld(
+            image_profile, flux_ratio, PositionD(offset)
+        )
+
     @_wraps(_galsim.BaseWCS.toImage)
     def toImage(self, *args, **kwargs):
         if len(args) == 1:
@@ -59,6 +75,22 @@ class BaseWCS(_galsim.BaseWCS):
         elif not self.isCelestial() and not isinstance(world_pos, Position):
             raise TypeError("world_pos must be a PositionD or PositionI argument")
         return self._posToImage(world_pos, color=color)
+
+    @_wraps(_galsim.BaseWCS.profileToImage)
+    def profileToImage(
+        self,
+        world_profile,
+        image_pos=None,
+        world_pos=None,
+        color=None,
+        flux_ratio=1.0,
+        offset=(0, 0),
+    ):
+        if color is None:
+            color = self._color
+        return self.local(image_pos, world_pos, color=color)._profileToImage(
+            world_profile, flux_ratio, PositionD(offset)
+        )
 
     @_wraps(_galsim.BaseWCS.local)
     def local(self, image_pos=None, world_pos=None, color=None):

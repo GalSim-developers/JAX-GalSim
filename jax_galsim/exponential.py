@@ -2,6 +2,7 @@ import jax.numpy as jnp
 
 from jax_galsim.gsobject import GSObject
 from jax_galsim.gsparams import GSParams
+from jax_galsim.core.draw import draw_by_xValue
 
 import galsim as _galsim
 from jax._src.numpy.util import _wraps
@@ -126,6 +127,10 @@ class Exponential(GSObject):
     def _kValue(self, kpos):
         ksqp1 = (kpos.x**2 + kpos.y**2) * self._r0**2 + 1.0
         return self.flux / (ksqp1 * jnp.sqrt(ksqp1))
+
+    def _drawReal(self, image, jac=None, offset=(0.0, 0.0), flux_scaling=1.0):
+        _jac = jnp.eye(2) if jac is None else jac
+        return draw_by_xValue(self, image, _jac, jnp.asarray(offset), flux_scaling)
 
     def withFlux(self, flux):
         return Exponential(

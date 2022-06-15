@@ -315,6 +315,22 @@ class Transformation(GSObject):
         fwdT_kpos = PositionD(self._fwdT(kpos.x, kpos.y))
         return self._original._kValue(fwdT_kpos) * self._kfactor(kpos.x, kpos.y)
 
+    def _drawReal(self, image, jac=None, offset=(0.0, 0.0), flux_scaling=1.0):
+        dx, dy = offset
+        if jac is not None:
+            x1 = jac.dot(self.offset.array)
+            dx += x1[0]
+            dy += x1[1]
+        flux_scaling *= self._flux_scaling
+        jac = (
+            self._jac
+            if jac is None
+            else jac
+            if self._jac is None
+            else jac.dot(self._jac)
+        )
+        return self._original._drawReal(image, jac, (dx, dy), flux_scaling)
+
     def tree_flatten(self):
         """This function flattens the GSObject into a list of children
         nodes that will be traced by JAX and auxiliary static data."""

@@ -753,12 +753,9 @@ class Image(object):
         Parameters:
             delta:  The amount to shift as a `PositionI`.
         """
-        # The parse_pos_args function is a bit slow, so go directly to this point when we
-        # call shift from setCenter or setOrigin.
-        if delta.x != 0 or delta.y != 0:
-            self._bounds = self._bounds.shift(delta)
-            if self.wcs is not None:
-                self.wcs = self.wcs.shiftOrigin(delta)
+        self._bounds = self._bounds.shift(delta)
+        if self.wcs is not None:
+            self.wcs = self.wcs.shiftOrigin(delta)
 
     @_wraps(_galsim.Image.setCenter)
     def setCenter(self, *args, **kwargs):
@@ -1025,7 +1022,9 @@ def Image_add(self, other):
         a = other.array
     except AttributeError:
         a = other
-    return Image(self.array + a, bounds=self.bounds, wcs=self.wcs)
+    return Image(
+        array=self.array + a, bounds=self.bounds, wcs=self.wcs, check_bounds=False
+    )
 
 
 def Image_iadd(self, other):
@@ -1040,7 +1039,7 @@ def Image_iadd(self, other):
         array = self.array + a
     else:
         array = (self.array + a).astype(self.array.dtype)
-    return Image(array, bounds=self.bounds, wcs=self.wcs)
+    return Image(array=array, bounds=self.bounds, wcs=self.wcs, check_bounds=False)
 
 
 def Image_sub(self, other):
@@ -1049,11 +1048,15 @@ def Image_sub(self, other):
         a = other.array
     except AttributeError:
         a = other
-    return Image(self.array - a, bounds=self.bounds, wcs=self.wcs)
+    return Image(
+        array=self.array - a, bounds=self.bounds, wcs=self.wcs, check_bounds=False
+    )
 
 
 def Image_rsub(self, other):
-    return Image(other - self.array, bounds=self.bounds, wcs=self.wcs)
+    return Image(
+        array=other - self.array, bounds=self.bounds, wcs=self.wcs, check_bounds=False
+    )
 
 
 def Image_isub(self, other):
@@ -1068,7 +1071,7 @@ def Image_isub(self, other):
         array = self.array - a
     else:
         array = (self.array - a).astype(self.array.dtype)
-    return Image(array, bounds=self.bounds, wcs=self.wcs)
+    return Image(array=array, bounds=self.bounds, wcs=self.wcs, check_bounds=False)
 
 
 def Image_mul(self, other):
@@ -1077,7 +1080,9 @@ def Image_mul(self, other):
         a = other.array
     except AttributeError:
         a = other
-    return Image(self.array * a, bounds=self.bounds, wcs=self.wcs)
+    return Image(
+        array=self.array * a, bounds=self.bounds, wcs=self.wcs, check_bounds=False
+    )
 
 
 def Image_imul(self, other):
@@ -1092,7 +1097,7 @@ def Image_imul(self, other):
         array = self.array * a
     else:
         array = (self.array * a).astype(self.array.dtype)
-    return Image(array, bounds=self.bounds, wcs=self.wcs)
+    return Image(array=array, bounds=self.bounds, wcs=self.wcs, check_bounds=False)
 
 
 def Image_div(self, other):
@@ -1101,11 +1106,15 @@ def Image_div(self, other):
         a = other.array
     except AttributeError:
         a = other
-    return Image(self.array / a, bounds=self.bounds, wcs=self.wcs)
+    return Image(
+        array=self.array / a, bounds=self.bounds, wcs=self.wcs, check_bounds=False
+    )
 
 
 def Image_rdiv(self, other):
-    return Image(other / self.array, bounds=self.bounds, wcs=self.wcs)
+    return Image(
+        array=other / self.array, bounds=self.bounds, wcs=self.wcs, check_bounds=False
+    )
 
 
 def Image_idiv(self, other):
@@ -1122,7 +1131,7 @@ def Image_idiv(self, other):
         array = self.array / a
     else:
         array = (self.array / a).astype(self.array.dtype)
-    return Image(array, bounds=self.bounds, wcs=self.wcs)
+    return Image(array=array, bounds=self.bounds, wcs=self.wcs, check_bounds=False)
 
 
 def Image_floordiv(self, other):
@@ -1131,12 +1140,16 @@ def Image_floordiv(self, other):
         a = other.array
     except AttributeError:
         a = other
-    return Image(self.array // a, bounds=self.bounds, wcs=self.wcs)
+    return Image(
+        array=self.array // a, bounds=self.bounds, wcs=self.wcs, check_bounds=False
+    )
 
 
 def Image_rfloordiv(self, other):
     check_image_consistency(self, other, integer=True)
-    return Image(other // self.array, bounds=self.bounds, wcs=self.wcs)
+    return Image(
+        array=other // self.array, bounds=self.bounds, wcs=self.wcs, check_bounds=False
+    )
 
 
 def Image_ifloordiv(self, other):
@@ -1151,7 +1164,7 @@ def Image_ifloordiv(self, other):
         array = self.array // a
     else:
         array = (self.array // a).astype(self.array.dtype)
-    return Image(array, bounds=self.bounds, wcs=self.wcs)
+    return Image(array=array, bounds=self.bounds, wcs=self.wcs, check_bounds=False)
 
 
 def Image_mod(self, other):
@@ -1160,12 +1173,16 @@ def Image_mod(self, other):
         a = other.array
     except AttributeError:
         a = other
-    return Image(self.array % a, bounds=self.bounds, wcs=self.wcs)
+    return Image(
+        array=self.array % a, bounds=self.bounds, wcs=self.wcs, check_bounds=False
+    )
 
 
 def Image_rmod(self, other):
     check_image_consistency(self, other, integer=True)
-    return Image(other % self.array, bounds=self.bounds, wcs=self.wcs)
+    return Image(
+        array=other % self.array, bounds=self.bounds, wcs=self.wcs, check_bounds=False
+    )
 
 
 def Image_imod(self, other):
@@ -1180,17 +1197,21 @@ def Image_imod(self, other):
         array = self.array % a
     else:
         array = (self.array % a).astype(self.array.dtype)
-    return Image(array, bounds=self.bounds, wcs=self.wcs)
+    return Image(array=array, bounds=self.bounds, wcs=self.wcs, check_bounds=False)
 
 
 def Image_pow(self, other):
-    return Image(self.array**other, bounds=self.bounds, wcs=self.wcs)
+    return Image(
+        array=self.array**other, bounds=self.bounds, wcs=self.wcs, check_bounds=False
+    )
 
 
 def Image_ipow(self, other):
     if not isinstance(other, int) and not isinstance(other, float):
         raise TypeError("Can only raise an image to a float or int power!")
-    return Image(self.array**other, bounds=self.bounds, wcs=self.wcs)
+    return Image(
+        array=self.array**other, bounds=self.bounds, wcs=self.wcs, check_bounds=False
+    )
 
 
 def Image_neg(self):
@@ -1206,7 +1227,9 @@ def Image_and(self, other):
         a = other.array
     except AttributeError:
         a = other
-    return Image(self.array & a, bounds=self.bounds, wcs=self.wcs)
+    return Image(
+        array=self.array & a, bounds=self.bounds, wcs=self.wcs, check_bounds=False
+    )
 
 
 def Image_xor(self, other):
@@ -1215,7 +1238,9 @@ def Image_xor(self, other):
         a = other.array
     except AttributeError:
         a = other
-    return Image(self.array ^ a, bounds=self.bounds, wcs=self.wcs)
+    return Image(
+        array=self.array ^ a, bounds=self.bounds, wcs=self.wcs, check_bounds=False
+    )
 
 
 def Image_or(self, other):
@@ -1224,7 +1249,9 @@ def Image_or(self, other):
         a = other.array
     except AttributeError:
         a = other
-    return Image(self.array | a, bounds=self.bounds, wcs=self.wcs)
+    return Image(
+        array=self.array | a, bounds=self.bounds, wcs=self.wcs, check_bounds=False
+    )
 
 
 # inject the arithmetic operators as methods of the Image class:
