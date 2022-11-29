@@ -1,6 +1,8 @@
 import jax
 import jax_galsim as galsim
 
+import jax.numpy as jnp
+
 # Defining jitting identity
 identity = jax.jit(lambda x: x)
 gsparams = galsim.GSParams(minimum_fft_size=32)
@@ -59,3 +61,55 @@ def test_sum_jitting():
         )
 
     assert test_eq(identity(obj), obj)
+
+
+def test_position_jitting():
+    obj = galsim.PositionD(1.0, 2.0)
+
+    def test_eq(self, other):
+        return self.x == other.x and self.y == other.y
+
+    assert test_eq(identity(obj), obj)
+
+
+def test_affine_transform_jitting():
+    obj = galsim.AffineTransform(
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        origin=galsim.PositionD(1.0, 2.0),
+        world_origin=galsim.PositionD(1.0, 2.0),
+    )
+
+    def test_eq(self, other):
+        return (
+            self._local_wcs == other._local_wcs
+            and self.origin == other.origin
+            and self.world_origin == other.world_origin
+        )
+
+    assert test_eq(identity(obj), obj)
+
+
+def test_bounds_jitting():
+    obj = galsim.BoundsD(0.0, 1.0, 0.0, 1.0)
+
+    objI = galsim.BoundsI(0.0, 1.0, 0.0, 1.0)
+
+    assert identity(obj) == obj
+    assert identity(objI) == objI
+
+
+def test_image_jitting():
+    ref_array = jnp.array(
+        [
+            [11, 21, 31, 41, 51, 61, 71],
+            [12, 22, 32, 42, 52, 62, 72],
+            [13, 23, 33, 43, 53, 63, 73],
+            [14, 24, 34, 44, 54, 64, 74],
+            [15, 25, 35, 45, 55, 65, 75],
+        ]
+    ).astype(dtype=jnp.float32)
+    im1 = galsim.Image(ref_array, wcs=galsim.PixelScale(0.2), dtype=jnp.int32)
+    assert identity(im1) == im1

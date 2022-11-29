@@ -130,3 +130,5 @@ dmypy.json
 
 # We don't want to add notebooks by accident
 *.ipynb
+
+tests/output
