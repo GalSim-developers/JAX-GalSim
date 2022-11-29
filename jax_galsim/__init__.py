@@ -43,5 +43,6 @@ from jax_galsim.transform import Transformation, Transform
 from jax_galsim.wcs import PixelScale, OffsetWCS, JacobianWCS, AffineTransform
 
 # Noise
-from jax_galsim.noise import GaussianNoise
+from jax_galsim.noise import sample, GaussianNoise
+from jax_galsim.helpers import seed 
 
