@@ -275,3 +275,28 @@ class BoundsI(Bounds):
             self.xmin + (self.xmax - self.xmin + 1) // 2,
             self.ymin + (self.ymax - self.ymin + 1) // 2,
         )
+
+
+def _BoundsD(xmin, xmax, ymin, ymax):
+    """Equivalent to `BoundsD` constructor, but skips some sanity checks and argument parsing.
+    This requires that the four values be float types.
+    """
+    ret = BoundsD.__new__(BoundsD)
+    ret._isdefined = True
+    ret.xmin = jnp.asarray(xmin).astype("float")
+    ret.xmax = jnp.asarray(xmax).astype("float")
+    ret.ymin = jnp.asarray(ymin).astype("float")
+    ret.ymax = jnp.asarray(ymax).astype("float")
+    return ret
+
+def _BoundsI(xmin, xmax, ymin, ymax):
+    """Equivalent to `BoundsI` constructor, but skips some sanity checks and argument parsing.
+    This requires that the four values be float types.
+    """
+    ret = BoundsI.__new__(BoundsI)
+    ret._isdefined = True
+    ret.xmin = jnp.asarray(xmin).astype("int")
+    ret.xmax = jnp.asarray(xmax).astype("int")
+    ret.ymin = jnp.asarray(ymin).astype("int")
+    ret.ymax = jnp.asarray(ymax).astype("int")
+    return ret
