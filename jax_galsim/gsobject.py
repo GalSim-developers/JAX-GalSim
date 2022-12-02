@@ -543,6 +543,61 @@ class GSObject:
         N = 2 * ((N + 1) // 2)
         return N
 
+
+
+    def drawFFT_makeKImage(self, image):
+        """
+        This is a helper routine for drawFFT that just makes the (blank) k-space image
+        onto which the profile will be drawn.  This can be useful if you want to break
+        up the calculation into parts for extra efficiency.  E.g. save the k-space image of
+        the PSF so drawing many models of the galaxy with the given PSF profile can avoid
+        drawing the PSF each time.
+
+        Parameters:
+            image:      The `Image` onto which to place the flux.
+
+        Returns:
+            (kimage, wrap_size), where wrap_size is either the size of kimage or smaller if
+            the result should be wrapped before doing the inverse fft.
+        """
+        from .bounds import _BoundsI
+        from .image import ImageCD, ImageCF
+        # Start with what this profile thinks a good size would be given the image's pixel scale.
+        N = self.getGoodImageSize(image.scale)
+
+        # We must make something big enough to cover the target image size:
+        image_N = max(jnp.max(jnp.abs((image.bounds._getinitargs()))) * 2,
+                      jnp.max(image.bounds.numpyShape()))
+        N = max(N, image_N)
+
+        # Round up to a good size for making FFTs:
+        N = image.good_fft_size(N)
+
+        # Make sure we hit the minimum size specified in the gsparams.
+        N = max(N, self.gsparams.minimum_fft_size)
+
+        dk = 2.*jnp.pi / (N * image.scale)
+
+        maxk = self.maxk
+        if N*dk/2 > maxk:
+            Nk = N
+        else:
+            # There will be aliasing.  Make a larger image and then wrap it.
+            Nk = int(jnp.ceil(maxk/dk)) * 2
+
+        if Nk > self.gsparams.maximum_fft_size:
+            raise _galsim.GalSimFFTSizeError("drawFFT requires an FFT that is too large.", Nk)
+
+        bounds = _BoundsI(0,Nk//2,-Nk//2,Nk//2)
+        if image.dtype in (jnp.complex128, jnp.float64, jnp.int32, jnp.uint32):
+            kimage = ImageCD(bounds=bounds, scale=dk)
+        else:
+            kimage = ImageCF(bounds=bounds, scale=dk)
+        return kimage, N
+
+
+
+
     def tree_flatten(self):
         """This function flattens the GSObject into a list of children
         nodes that will be traced by JAX and auxiliary static data."""
