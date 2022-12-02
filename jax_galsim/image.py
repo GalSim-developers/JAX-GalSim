@@ -657,19 +657,20 @@ class Image(object):
         going to be performing FFTs on an image, these will tend to be faster at performing
         the FFT.
         """
+
         # Reference from GalSim C++
         # https://github.com/GalSim-developers/GalSim/blob/ece3bd32c1ae6ed771f2b489c5ab1b25729e0ea4/src/Image.cpp#L1009
         input_size = int(input_size)
-        if input <= 2:
+        if input_size <= 2:
             return 2
         # Reduce slightly to eliminate potential rounding errors:
-        insize = (1.0 - 1.0e-5) * input
-        log2n = np.log(2.0) * np.ceil(np.log(insize) / np.log(2.0))
-        log2n3 = np.log(3.0) + np.log(2.0) * np.ceil(
-            (np.log(insize) - np.log(3.0)) / np.log(2.0)
+        insize = (1.0 - 1.0e-5) * input_size
+        log2n = jnp.log(2.0) * jnp.ceil(jnp.log(insize) / jnp.log(2.0))
+        log2n3 = jnp.log(3.0) + jnp.log(2.0) * jnp.ceil(
+            (jnp.log(insize) - jnp.log(3.0)) / jnp.log(2.0)
         )
-        log2n3 = np.max(log2n3, np.log(6.0))  # must be even number
-        Nk = int(np.ceil(np.exp(np.min(log2n, log2n3)) - 1.0e-5))
+        log2n3 = max(log2n3, jnp.log(6.0))  # must be even number
+        Nk = int(jnp.ceil(jnp.exp(min(log2n, log2n3)) - 1.0e-5))
         return Nk
 
     def copyFrom(self, rhs):
