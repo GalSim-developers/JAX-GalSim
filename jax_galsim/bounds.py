@@ -300,3 +300,28 @@ def _BoundsI(xmin, xmax, ymin, ymax):
     ret.ymin = jnp.asarray(ymin).astype("int")
     ret.ymax = jnp.asarray(ymax).astype("int")
     return ret
+
+## def _BoundsD(xmin, xmax, ymin, ymax):
+##     """Equivalent to `BoundsD` constructor, but skips some sanity checks and argument parsing.
+##     This requires that the four values be float types.
+##     """
+##     ret = BoundsD.__new__(BoundsD)
+##     ret._isdefined = True
+##     ret.xmin = float(xmin)
+##     ret.xmax = float(xmax)
+##     ret.ymin = float(ymin)
+##     ret.ymax = float(ymax)
+##     return ret
+
+
+## def _BoundsI(xmin, xmax, ymin, ymax):
+##     """Equivalent to `BoundsI` constructor, but skips some sanity checks and argument parsing.
+##     This requires that the four values be int types.
+##     """
+##     ret = BoundsI.__new__(BoundsI)
+##     ret._isdefined = True
+##     ret.xmin = int(xmin)
+##     ret.xmax = int(xmax)
+##     ret.ymin = int(ymin)
+##     ret.ymax = int(ymax)
+##     return ret
