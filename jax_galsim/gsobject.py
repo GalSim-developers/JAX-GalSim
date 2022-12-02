@@ -566,8 +566,10 @@ class GSObject:
         N = self.getGoodImageSize(image.scale)
 
         # We must make something big enough to cover the target image size:
-        image_N = max(jnp.max(jnp.abs((image.bounds._getinitargs()))) * 2,
-                      jnp.max(image.bounds.numpyShape()))
+
+        image_N = max(jnp.max(jnp.abs(jnp.array(image.bounds._getinitargs()))) * 2,
+                      jnp.max(jnp.array(image.bounds.numpyShape()))
+                      )
         N = max(N, image_N)
 
         # Round up to a good size for making FFTs:
