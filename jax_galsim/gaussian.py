@@ -133,3 +133,7 @@ class Gaussian(GSObject):
 
     def withFlux(self, flux):
         return Gaussian(sigma=self.sigma, flux=flux, gsparams=self.gsparams)
+
+    def _drawKImage(self, image, jac=None):
+        _jac = 0 if jac is None else jac.__array_interface__['data'][0]
+        ####to implement self._sbp.drawK(image._image, image.scale, _jac)
