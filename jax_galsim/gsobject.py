@@ -516,6 +516,9 @@ class GSObject:
             "%s does not implement drawReal" % self.__class__.__name__
         )
 
+
+
+
     def getGoodImageSize(self, pixel_scale):
         """Return a good size to use for drawing this profile.
 
@@ -566,7 +569,7 @@ class GSObject:
         N = self.getGoodImageSize(image.scale)
 
         # We must make something big enough to cover the target image size:
-
+        
         image_N = max(jnp.max(jnp.abs(jnp.array(image.bounds._getinitargs()))) * 2,
                       jnp.max(jnp.array(image.bounds.numpyShape()))
                       )
@@ -598,6 +601,57 @@ class GSObject:
         return kimage, N
 
 
+
+    def _drawKImage(self, image, jac=None):  # pragma: no cover  (all our classes override this)
+        """A version of `drawKImage` without the sanity checks or some options.
+
+        Equivalent to ``drawKImage(image, add_to_image=False, recenter=False, add_to_image=False)``,
+        but without the option to create the image automatically.
+
+        The input image must be provided as a complex `Image` instance (dtype=complex64 or
+        complex128), and the bounds should be set up appropriately (e.g. with 0,0 in the center if
+        so desired).  This corresponds to recenter=False for the normal `drawKImage`.  And, it must
+        have a c_contiguous array (image.iscontiguous must be True).
+
+        Parameters:
+            image:      The `Image` onto which to draw the k-space image. [required]
+        """
+        raise NotImplementedError("%s does not implement drawKImage"%self.__class__.__name__)
+
+
+
+    def drawFFT(self, image, add_to_image=False):
+        """
+        Draw this profile into an `Image` by computing the k-space image and performing an FFT.
+
+        This is usually called from the `drawImage` function, rather than called directly by the
+        user.  In particular, the input image must be already set up with defined bounds.  The
+        profile will be drawn centered on whatever pixel corresponds to (0,0) with the given
+        bounds, not the image center (unlike `drawImage`).  The image also must have a `PixelScale`
+        wcs.  The profile being drawn should have already been converted to image coordinates via::
+
+            >>> image_profile = original_wcs.toImage(original_profile)
+
+        Note that the `Image` produced by drawFFT represents the profile sampled at the center
+        of each pixel and then multiplied by the pixel area.  That is, the profile is NOT
+        integrated over the area of the pixel.  This is equivalent to method='no_pixel' in
+        `drawImage`.  If you want to render a profile integrated over the pixel, you can convolve
+        with a `Pixel` first and draw that.
+
+        Parameters:
+            image:          The `Image` onto which to place the flux. [required]
+            add_to_image:   Whether to add flux to the existing image rather than clear out
+                            anything in the image before drawing. [default: False]
+
+        Returns:
+            The total flux drawn inside the image bounds.
+        """
+        if image.wcs is None or not image.wcs._isPixelScale:
+            raise _galsim.GalSimValueError("drawPhot requires an image with a PixelScale wcs", image)
+
+        kimage, wrap_size = self.drawFFT_makeKImage(image)
+        self._drawKImage(kimage)
+        return self.drawFFT_finish(image, kimage, wrap_size, add_to_image)
 
 
     def tree_flatten(self):
