@@ -135,5 +135,5 @@ class Gaussian(GSObject):
         return Gaussian(sigma=self.sigma, flux=flux, gsparams=self.gsparams)
 
     def _drawKImage(self, image, jac=None):
-        _jac = 0 if jac is None else jac.__array_interface__['data'][0]
-        ####to implement self._sbp.drawK(image._image, image.scale, _jac)
+        _jac = jnp.eye(2) if jac is None else jac
+        return draw_by_kValue(self,image, _jac)

@@ -36,3 +36,25 @@ def draw_by_xValue(
 
     # Return an image
     return Image(array=im, bounds=image.bounds, wcs=image.wcs, check_bounds=False)
+
+def draw_by_kValue(
+    gsobject, image, jacobian=jnp.eye(2)
+):
+
+    # Create an array of coordinates
+    coords = jnp.stack(image.get_pixel_centers(), axis=-1)
+    coords = coords - image.true_center.array  # Subtract the true center
+    coords = coords * image.scale  # Scale by the image pixel scale
+    
+    coords = jnp.dot(coords, jacobian.T)
+
+    # Draw the object
+    im = jax.vmap(lambda *args: gsobject._kValue(PositionD(*args)))(
+        coords[..., 0], coords[..., 1]
+    )
+    im = (im).astype(image.dtype)
+
+    # Return an image
+    return Image(array=im, bounds=image.bounds, wcs=image.wcs, check_bounds=False)
+
+

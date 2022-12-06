@@ -22,7 +22,8 @@ class GSObject:
     @property
     def _flux(self):
         """By default, the flux is contained in the parameters dictionay."""
-        return self._params["flux"]
+        return self._
+  params["flux"]
 
     @property
     def gsparams(self):
@@ -631,7 +632,7 @@ class GSObject:
         wcs.  The profile being drawn should have already been converted to image coordinates via::
 
             >>> image_profile = original_wcs.toImage(original_profile)
-
+     
         Note that the `Image` produced by drawFFT represents the profile sampled at the center
         of each pixel and then multiplied by the pixel area.  That is, the profile is NOT
         integrated over the area of the pixel.  This is equivalent to method='no_pixel' in
@@ -650,7 +651,7 @@ class GSObject:
             raise _galsim.GalSimValueError("drawPhot requires an image with a PixelScale wcs", image)
 
         kimage, wrap_size = self.drawFFT_makeKImage(image)
-        self._drawKImage(kimage)
+        kimage = self._drawKImage(kimage)
         return self.drawFFT_finish(image, kimage, wrap_size, add_to_image)
 
 
