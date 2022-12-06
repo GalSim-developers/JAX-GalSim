@@ -2,7 +2,7 @@ import jax.numpy as jnp
 
 from jax_galsim.gsobject import GSObject
 from jax_galsim.gsparams import GSParams
-from jax_galsim.core.draw import draw_by_xValue
+from jax_galsim.core.draw import draw_by_xValue, draw_by_kValue
 
 import galsim as _galsim
 from jax._src.numpy.util import _wraps

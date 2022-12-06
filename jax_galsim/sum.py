@@ -170,6 +170,15 @@ class Sum(GSObject):
                 image += obj._drawReal(image, jac, offset, flux_scaling)
         return image
 
+
+    def _drawKImage(self, image, jac=None):
+        image = self.obj_list[0]._drawKImage(image, jac)
+        if len(self.obj_list) > 1:
+            for obj in self.obj_list[1:]:
+                image += obj._drawKImage(image, jac)
+        return image
+
+
     def tree_flatten(self):
         """This function flattens the GSObject into a list of children
         nodes that will be traced by JAX and auxiliary static data."""

@@ -22,8 +22,7 @@ class GSObject:
     @property
     def _flux(self):
         """By default, the flux is contained in the parameters dictionay."""
-        return self._
-  params["flux"]
+        return self._params["flux"]
 
     @property
     def gsparams(self):
