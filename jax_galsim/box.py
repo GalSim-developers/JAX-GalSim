@@ -23,6 +23,11 @@ class Box(GSObject):
         super().__init__(width=width, height=height, flux=flux, gsparams=gsparams)
         
         self._norm = flux / (width * height)
+        self._wo2 = 0.5*width;
+        self._ho2 = 0.5*height;
+        self._wo2pi = width/(2.*jnp.pi);
+        self._ho2pi = height/(2.*jnp.pi);
+
 
         self._minL = width
         self._maxL = height
@@ -77,9 +82,7 @@ class Box(GSObject):
                          0.)
 
     def _kValue(self, kpos):
-        raise NotImplementedError(
-            "%s does not implement _kValue" % self.__class__.__name__
-        )
+        return self.flux * jnp.sinc(kpos.x*self._wo2pi)*jnp.sinc(kpos.y*self._ho2pi)
 
 
     def _drawReal(self, image, jac=None, offset=(0.0, 0.0), flux_scaling=1.0):
