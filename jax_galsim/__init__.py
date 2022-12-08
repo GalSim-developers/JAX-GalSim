@@ -39,6 +39,9 @@ from jax_galsim.exponential import Exponential
 from jax_galsim.sum import Add, Sum
 from jax_galsim.transform import Transformation, Transform
 
+from jax_galsim.box import Box, Pixel
+
+
 # WCS
 from jax_galsim.wcs import PixelScale, OffsetWCS, JacobianWCS, AffineTransform
 
