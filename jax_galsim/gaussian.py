@@ -131,9 +131,9 @@ class Gaussian(GSObject):
         _jac = jnp.eye(2) if jac is None else jac
         return draw_by_xValue(self, image, _jac, jnp.asarray(offset), flux_scaling)
 
-    def withFlux(self, flux):
-        return Gaussian(sigma=self.sigma, flux=flux, gsparams=self.gsparams)
-
     def _drawKImage(self, image, jac=None):
         _jac = jnp.eye(2) if jac is None else jac
         return draw_by_kValue(self,image, _jac)
+
+    def withFlux(self, flux):
+        return Gaussian(sigma=self.sigma, flux=flux, gsparams=self.gsparams)
