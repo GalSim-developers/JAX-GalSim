@@ -132,3 +132,6 @@ dmypy.json
 *.ipynb
 
 tests/output
+
+#copoy
+*~
