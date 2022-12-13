@@ -280,7 +280,7 @@ class EuclideanWCS(BaseWCS):
         # wcs.world_pos to keep it from resetting the world_pos back to None.
 
         if world_origin is None:
-            if not self._isLocal
+            if not self._isLocal:
                 origin += self.origin
                 world_origin = self.world_origin
             return self._newOrigin(origin, world_origin)
