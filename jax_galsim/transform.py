@@ -331,6 +331,10 @@ class Transformation(GSObject):
         )
         return self._original._drawReal(image, jac, (dx, dy), flux_scaling)
 
+
+    
+
+
     def tree_flatten(self):
         """This function flattens the GSObject into a list of children
         nodes that will be traced by JAX and auxiliary static data."""

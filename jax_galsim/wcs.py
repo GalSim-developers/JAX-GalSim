@@ -280,7 +280,7 @@ class EuclideanWCS(BaseWCS):
         # wcs.world_pos to keep it from resetting the world_pos back to None.
 
         if world_origin is None:
-            if not self._isLocal:
+            if not self._isLocal
                 origin += self.origin
                 world_origin = self.world_origin
             return self._newOrigin(origin, world_origin)
@@ -438,7 +438,7 @@ class LocalWCS(UniformWCS):
     as (0,0) in world coordinates
     """
 
-    def isLocal(self):
+    def _isLocal(self): #JEC _isLocal instead of isLocal
         return True
 
     # The origins are definitionally (0,0) for these.  So just define them here.
@@ -523,7 +523,7 @@ class PixelScale(LocalWCS):
         """The pixel scale"""
         return self._scale
 
-    def isPixelScale(self):
+    def _isPixelScale(self): #JEC _is instead of is
         return True
 
     def _u(self, x, y, color=None):
@@ -797,7 +797,7 @@ class OffsetWCS(UniformWCS):
         """The world coordinate position to use as the origin."""
         return self._world_origin
 
-    def isPixelScale(self):
+    def _isPixelScale(self): #JEC _is instead of is
         return True
 
     def _writeHeader(self, header, bounds):
