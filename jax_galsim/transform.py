@@ -339,7 +339,7 @@ class Transformation(GSObject):
       jac1 = self._jac if jac is None else jac if self._jac is None else jac.dot(self._jac)
       image = draw_by_kValue(self._original,image, jac1)
 
-      if self._offset != galsim.PositionD(0.,0.):
+      if self._offset != PositionD(0.,0.):
         _jac = jnp.eye(2) if jac is None else jac
         image = draw_KImagePhases(self, image, _jac, debug=False)
 

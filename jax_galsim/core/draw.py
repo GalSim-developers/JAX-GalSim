@@ -80,7 +80,7 @@ def draw_KImagePhases(
   if debug:
     return im_phase, image
   else:
-    return Image(array=jax.numpy.multiply(image.array, im_phase),
+    return Image(array=jnp.multiply(image.array, im_phase),
                  bounds=image.bounds,
                  wcs=image.wcs)
 
