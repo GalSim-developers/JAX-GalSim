@@ -56,4 +56,32 @@ def draw_by_kValue(
     # Return an image
     return Image(array=im, bounds=image.bounds, wcs=image.wcs, check_bounds=False)
 
+#JEC Todo: remove the debug arg asap.
+def draw_KImagePhases(
+    gsobject, image, jacobian, debug=False
+):
+  flux_scaling = gsobject._flux_scaling
+  # Create an array of coordinates
+  kcoords = jnp.stack(image.get_pixel_centers(), axis=-1)
+  kcoords = kcoords * image.scale  # Scale by the image pixel scale  
+  kcoords = jnp.dot(kcoords, jacobian.T)
+  cenx, ceny = gsobject._offset.x, gsobject._offset.y
+  #
+  # flux Exp(-i (kx cx + kxy cx + kyx cy + ky cy ) )
+  # NB: seems that tere is no jax.lax.polar equivalent to c++ std::polar function
+  def phase(kpos):
+    arg = kpos.x * cenx +kpos.y * ceny 
+    return jnp.cos(arg) - 1j * jnp.sin(arg)
+  im_phase = jax.vmap(lambda *args : flux_scaling* phase(galsim.PositionD(*args)))(
+    kcoords[..., 0], kcoords[..., 1]
+  )
+
+  #apply these phases to the original phase 
+  if debug:
+    return im_phase, image
+  else:
+    return Image(array=jax.numpy.multiply(image.array, im_phase),
+                 bounds=image.bounds,
+                 wcs=image.wcs)
+
 
