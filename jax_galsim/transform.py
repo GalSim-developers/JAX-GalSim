@@ -3,6 +3,8 @@ import jax.numpy as jnp
 from jax_galsim.gsobject import GSObject
 from jax_galsim.gsparams import GSParams
 from jax_galsim.position import PositionD
+from jax_galsim.core.draw import draw_by_kValue, draw_KImagePhases
+
 
 import galsim as _galsim
 from jax._src.numpy.util import _wraps
@@ -331,7 +333,8 @@ class Transformation(GSObject):
         )
         return self._original._drawReal(image, jac, (dx, dy), flux_scaling)
 
-
+    #note JEC: this implementation follow the GalSim counterpart but it may be worth to
+    # have a look at above _kValue function. 
     def _drawKImage(self, image, jac=None):
       jac1 = self._jac if jac is None else jac if self._jac is None else jac.dot(self._jac)
       image = draw_by_kValue(self._original,image, jac1)
