@@ -332,6 +332,19 @@ class Transformation(GSObject):
         return self._original._drawReal(image, jac, (dx, dy), flux_scaling)
 
 
+    def _drawKImage(self, image, jac=None):
+      jac1 = self._jac if jac is None else jac if self._jac is None else jac.dot(self._jac)
+      image = draw_by_kValue(self._original,image, jac1)
+
+      if self._offset != galsim.PositionD(0.,0.):
+        _jac = jnp.eye(2) if jac is None else jac
+        image = draw_KImagePhases(self, image, _jac, debug=False)
+
+      elif jnp.abs(self._flux_scaling-1.) > self._gsparams.kvalue_accuracy:
+        image *= self._flux_scaling
+
+      return image
+
     
 
 
