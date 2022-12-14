@@ -593,7 +593,8 @@ class Image(object):
         dk = jnp.pi / (No2 * dx)
 
         out = Image(BoundsI(0, No2, -No2, No2 - 1), dtype=np.complex128, scale=dk)
-        out._image = jnp.fft.rfft2(ximage._image)
+
+        out._image = jnp.fft.rfft2(ximage._image) #JEC this code is dubious: _image not available, may be _array should be used with possible adaptation
 
         out *= dx * dx
         out.setOrigin(0, -No2)
@@ -620,7 +621,8 @@ class Image(object):
                 self.bounds,
             )
 
-        No2 = jnp.maximum(self.bounds.xmax, -self.bounds.ymin, self.bounds.ymax)
+
+        No2 = jnp.maximum(self.bounds.xmax, -self.bounds.ymin, self.bounds.ymax) #JEC : clearly this is not possible as jax.maximum takes only 2 arrays => needs to be revisited
 
         target_bounds = BoundsI(0, No2, -No2, No2 - 1)
         if self.bounds == target_bounds:
@@ -634,7 +636,7 @@ class Image(object):
                 0, self.bounds.xmax, self.bounds.ymin, self.bounds.ymax
             )
             kimage[posx_bounds] = self[posx_bounds]
-            kimage = kimage.wrap(target_bounds, hermitian="x")
+            kimage = kimage.wrap(target_bounds, hermitian="x") #JEC the image.wrap is not available (yet)
 
         dk = self.scale
         # dx = 2pi / (N dk)
@@ -642,7 +644,8 @@ class Image(object):
 
         # For the inverse, we need a bit of extra space for the fft.
         out_extra = Image(BoundsI(-No2, No2 + 1, -No2, No2 - 1), dtype=float, scale=dx)
-        out_extra._image = jnp.fft.irfft2(kimage._image)
+        out_extra._image = jnp.fft.irfft2(kimage._image)  #JEC this code is dubious: _image not available, may be _array should be used with possible adaptation
+        
         # Now cut off the bit we don't need.
         out = out_extra.subImage(BoundsI(-No2, No2 - 1, -No2, No2 - 1))
         out *= (dk * No2 / jnp.pi) ** 2
