@@ -1,6 +1,4 @@
 # First some basic building blocks that don't usually depend on anything else
-from jax_galsim.position import Position, PositionD, PositionI
-from jax_galsim.bounds import Bounds, BoundsI, BoundsD
 from galsim.angle import radians, hours, degrees, arcmin, arcsec
 
 # Inherit all Exception and Warning classes from galsim
@@ -33,12 +31,23 @@ from .image import (
 from jax_galsim.gsobject import GSObject
 from jax_galsim.gsparams import GSParams
 
+# Position
+from jax_galsim.position import Position, PositionD, PositionI
 
+# Bounds
+from jax_galsim.bounds import Bounds, BoundsI, BoundsD
+
+# Profiles
 from jax_galsim.gaussian import Gaussian
 from jax_galsim.exponential import Exponential
+
+# Sum
 from jax_galsim.sum import Add, Sum
+
+# Transfromation
 from jax_galsim.transform import Transformation, Transform
 
+# Boxes
 from jax_galsim.box import Box, Pixel
 
 
