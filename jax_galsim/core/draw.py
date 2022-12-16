@@ -1,8 +1,11 @@
 import jax
 import jax.numpy as jnp
 
-from jax_galsim import Image
-from jax_galsim import PositionD
+#JEC try to avoid circular import due to
+# image -> wcs -> transform -> core/draw -> image
+import jax_galsim
+#from jax_galsim import Image
+#from jax_galsim import PositionD
 
 
 @jax.jit
@@ -35,7 +38,7 @@ def draw_by_xValue(
     im = (im * flux_scaling).astype(image.dtype)
 
     # Return an image
-    return Image(array=im, bounds=image.bounds, wcs=image.wcs, check_bounds=False)
+    return jax_galsim.Image(array=im, bounds=image.bounds, wcs=image.wcs, check_bounds=False)
 
 def draw_by_kValue(
     gsobject, image, jacobian=jnp.eye(2)
@@ -48,13 +51,13 @@ def draw_by_kValue(
     coords = jnp.dot(coords, jacobian.T)
 
     # Draw the object
-    im = jax.vmap(lambda *args: gsobject._kValue(PositionD(*args)))(
+    im = jax.vmap(lambda *args: gsobject._kValue(jax_galsim.PositionD(*args)))(
         coords[..., 0], coords[..., 1]
     )
     im = (im).astype(image.dtype)
 
     # Return an image
-    return Image(array=im, bounds=image.bounds, wcs=image.wcs, check_bounds=False)
+    return jax_galsim.Image(array=im, bounds=image.bounds, wcs=image.wcs, check_bounds=False)
 
 #JEC Todo: remove the debug arg asap.
 def draw_KImagePhases(
@@ -72,7 +75,7 @@ def draw_KImagePhases(
   def phase(kpos):
     arg = kpos.x * cenx +kpos.y * ceny 
     return jnp.cos(arg) - 1j * jnp.sin(arg)
-  im_phase = jax.vmap(lambda *args : flux_scaling* phase(galsim.PositionD(*args)))(
+  im_phase = jax.vmap(lambda *args : flux_scaling* phase(jax_galsim.PositionD(*args)))(
     kcoords[..., 0], kcoords[..., 1]
   )
 
@@ -80,7 +83,7 @@ def draw_KImagePhases(
   if debug:
     return im_phase, image
   else:
-    return Image(array=jnp.multiply(image.array, im_phase),
+    return jax_galsim.Image(array=jnp.multiply(image.array, im_phase),
                  bounds=image.bounds,
                  wcs=image.wcs)
 
