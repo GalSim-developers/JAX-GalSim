@@ -619,6 +619,53 @@ class GSObject:
         raise NotImplementedError("%s does not implement drawKImage"%self.__class__.__name__)
 
 
+    def drawFFT_finish(self, image, kimage, wrap_size, add_to_image):
+        """
+        This is a helper routine for drawFFT that finishes the calculation, based on the
+        drawn k-space image.
+
+        It applies the Fourier transform to ``kimage`` and adds the result to ``image``.
+
+        Parameters:
+            image:          The `Image` onto which to place the flux.
+            kimage:         The k-space `Image` where the object was drawn.
+            wrap_size:      The size of the region to wrap kimage, which must be either the same
+                            size as kimage or smaller.
+            add_to_image:   Whether to add flux to the existing image rather than clear out
+                            anything in the image before drawing.
+
+        Returns:
+            The total flux drawn inside the image bounds.
+        """
+        # JEC this is very preliminary. It does not takes into account the wrapping mechanism
+        
+        from jax_galsim.image import Image
+        from jax_galsim.bounds import BoundsI
+
+        #usage the kImage containing Fourier hat[f](kx,ky) with phases on a "half-x, full-y" rectangle space
+        # to get an Image on Real space (full x, y as on demanded by "image")
+        # the kImage is "centred along the y-axis" and located on the left edge of x-axis to get
+        # centred Image in real space here are the manipukations to use irfft2
+        
+        kimg_shift = jnp.fft.ifftshift(kimage, axes=(-2,))
+        real_image_arr = jnp.fft.fftshift(jnp.fft.irfft2(kimg_shift))
+
+        #the following bounding is adapted to the size of the previous manipulation
+        breal = BoundsI(xmin=-wrap_size//2,xmax=wrap_size//2-1,
+                        ymin=-wrap_size//2,ymax=wrap_size//2)
+        real_image = Image(array=real_image_arr,bounds=breal,dtype=image.dtype) #nb why not to use image dtype? it was float fixed once for all. See issue in Galsim code
+
+        # reduce the image size to the demand and add to the original image if asked too
+        temp = real_image.subImage(image.bounds)
+        if add_to_image:
+            image += temp
+        else:
+            image._copyFrom(temp)
+
+        # compute the added photons
+        added_photons = temp.array.sum(dtype=jnp.float32)
+        return added_photons
+
 
     def drawFFT(self, image, add_to_image=False):
         """
