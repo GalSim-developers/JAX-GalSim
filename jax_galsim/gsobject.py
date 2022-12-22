@@ -499,11 +499,17 @@ class GSObject:
             raise _galsim.GalSimValueError(
                 "drawReal requires an image with a PixelScale wcs", image
             )
-        im1 = self._drawReal(image)
+        temp = self._drawReal(image)
         if add_to_image:
-            return image + im1
+##JEC            return image + im1
+##        else:
+##            return im1
+            image += temp
         else:
-            return im1
+            image.copyFrom()
+
+        added_photons = temp.array.sum(dtype=jnp.float32)
+        return added_photons
 
     def _drawReal(self, image, jac=None, offset=(0.0, 0.0), flux_scaling=1.0):
         """A version of `drawReal` without the sanity checks or some options.
@@ -660,7 +666,7 @@ class GSObject:
         if add_to_image:
             image += temp
         else:
-            image._copyFrom(temp)
+            image.copyFrom(temp)
 
         # compute the added photons
         added_photons = temp.array.sum(dtype=jnp.float32)
