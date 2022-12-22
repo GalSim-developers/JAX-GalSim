@@ -500,13 +500,11 @@ class GSObject:
                 "drawReal requires an image with a PixelScale wcs", image
             )
         temp = self._drawReal(image)
+        #Copy/adapt the drawFFT / Galsim coding
         if add_to_image:
-##JEC            return image + im1
-##        else:
-##            return im1
             image += temp
         else:
-            image.copyFrom()
+            image.copyFrom(temp)
 
         added_photons = temp.array.sum(dtype=jnp.float32)
         return added_photons
