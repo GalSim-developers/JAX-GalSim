@@ -651,7 +651,7 @@ class GSObject:
         # the kImage is "centred along the y-axis" and located on the left edge of x-axis to get
         # centred Image in real space here are the manipukations to use irfft2
         
-        kimg_shift = jnp.fft.ifftshift(kimage, axes=(-2,))
+        kimg_shift = jnp.fft.ifftshift(kimage.array, axes=(-2,))
         real_image_arr = jnp.fft.fftshift(jnp.fft.irfft2(kimg_shift))
 
         #the following bounding is adapted to the size of the previous manipulation
