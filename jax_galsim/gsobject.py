@@ -592,7 +592,8 @@ class GSObject:
             Nk = N
         else:
             # There will be aliasing.  Make a larger image and then wrap it.
-            Nk = int(jnp.ceil(maxk/dk)) * 2
+            Nk = N # JEC the wrapping is not yet implemented ... int(jnp.ceil(maxk/dk)) * 2
+            print("Warning: drawFFT_makeKImage aliasing Nk will be too small. wrapping not implemented")
 
         if Nk > self.gsparams.maximum_fft_size:
             raise _galsim.GalSimFFTSizeError("drawFFT requires an FFT that is too large.", Nk)
@@ -650,13 +651,15 @@ class GSObject:
         # to get an Image on Real space (full x, y as on demanded by "image")
         # the kImage is "centred along the y-axis" and located on the left edge of x-axis to get
         # centred Image in real space here are the manipukations to use irfft2
-        
+
         kimg_shift = jnp.fft.ifftshift(kimage.array, axes=(-2,))
         real_image_arr = jnp.fft.fftshift(jnp.fft.irfft2(kimg_shift))
 
         #the following bounding is adapted to the size of the previous manipulation
         breal = BoundsI(xmin=-wrap_size//2,xmax=wrap_size//2-1,
                         ymin=-wrap_size//2,ymax=wrap_size//2)
+
+        
         real_image = Image(array=real_image_arr,bounds=breal,dtype=image.dtype) #nb why not to use image dtype? it was float fixed once for all. See issue in Galsim code
 
         # reduce the image size to the demand and add to the original image if asked too
