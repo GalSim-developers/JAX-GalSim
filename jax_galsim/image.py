@@ -306,6 +306,18 @@ class Image(object):
         return self._array
 
     @property
+    def nrow(self):
+        """The number of rows in the image
+        """
+        return self._array.shape[0]
+
+    @property
+    def ncol(self):
+        """The number of columns in the image
+        """
+        return self._array.shape[1]
+
+    @property
     def isconst(self):
         """Whether the `Image` is constant.  I.e. modifying its values is an error."""
         return True
