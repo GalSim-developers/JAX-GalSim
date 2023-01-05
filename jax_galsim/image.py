@@ -51,6 +51,9 @@ class Image(object):
         bounds = None
         array = None
         image = None
+
+        print("(JEC) args <",args, ">")
+        
         if len(args) > 2:
             raise TypeError("Error, too many unnamed arguments to Image constructor")
         elif len(args) == 2:
