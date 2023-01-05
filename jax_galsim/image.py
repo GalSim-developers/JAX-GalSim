@@ -52,9 +52,6 @@ class Image(object):
         array = None
         image = None
 
-        print("(JEC): len args=",len(args), " type args[0]", type(args[0]))
-
-        
         if len(args) > 2:
             raise TypeError("Error, too many unnamed arguments to Image constructor")
         elif len(args) == 2:
@@ -63,11 +60,7 @@ class Image(object):
             xmin = kwargs.pop("xmin", 1)
             ymin = kwargs.pop("ymin", 1)
         elif len(args) == 1:
-
-            print("(JEC): type args[0]", type(args[0]))
-            
             if isinstance(args[0], np.ndarray):
-                print("(JEC) image transform np.array in jnp.array")
                 array = jnp.array(args[0])
                 array, xmin, ymin = self._get_xmin_ymin(array, kwargs)
             elif isinstance(args[0], jnp.ndarray):
@@ -87,6 +80,11 @@ class Image(object):
         else:
             if "array" in kwargs:
                 array = kwargs.pop("array")
+
+                #JEC assure that the array is a JAX array as in the "args" case
+                if isinstance(array, np.ndarray):
+                    array = jnp.array(array)
+                
                 check_bounds = kwargs.pop("check_bounds", True)
                 array, xmin, ymin = self._get_xmin_ymin(
                     array, kwargs, check_bounds=check_bounds
