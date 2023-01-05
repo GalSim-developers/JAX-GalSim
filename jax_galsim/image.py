@@ -59,8 +59,11 @@ class Image(object):
             xmin = kwargs.pop("xmin", 1)
             ymin = kwargs.pop("ymin", 1)
         elif len(args) == 1:
+
+            print("(JEC): type args[0]", type(args[0]))
+            
             if isinstance(args[0], np.ndarray):
-                print("image transform np.array in jnp.array")
+                print("(JEC) image transform np.array in jnp.array")
                 array = jnp.array(args[0])
                 array, xmin, ymin = self._get_xmin_ymin(array, kwargs)
             elif isinstance(args[0], jnp.ndarray):
