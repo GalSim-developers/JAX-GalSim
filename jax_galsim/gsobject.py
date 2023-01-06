@@ -612,11 +612,10 @@ class GSObject:
             print("makeKImg Case 1 Nk=", Nk)
         else:
             # There will be aliasing.  Make a larger image and then wrap it.
-            Nk = N # JEC the wrapping is not yet implemented ... int(jnp.ceil(maxk/dk)) * 2
-            print("makeKImg Case 2 Nk should have been = ", int(jnp.ceil(maxk/dk)) * 2)
+            #Nk = N # JEC the wrapping is not yet implemented ... int(jnp.ceil(maxk/dk)) * 2
+            print("makeKImg Case 2 Nk = ", int(jnp.ceil(maxk/dk)) * 2)
             #print("Warning: drawFFT_makeKImage aliasing Nk will be too small. wrapping not implemented")
-            #Nk= int(jnp.ceil(maxk/dk)) * 2
-            #print("makeKImg Case 2 Nk=", Nk)
+            Nk= int(jnp.ceil(maxk/dk)) * 2
 
         if Nk > self.gsparams.maximum_fft_size:
             raise _galsim.GalSimFFTSizeError("drawFFT requires an FFT that is too large.", Nk)
@@ -684,7 +683,6 @@ class GSObject:
         # Test wrap
         bwrap = BoundsI(0, wrap_size//2, -wrap_size//2, wrap_size//2-1)
         kimage_wrap = kimage._wrap(bwrap, True, False)
-
         print("finish kimage_wrap bounds: ",kimage_wrap.bounds)
         print("finish kimage_wrap shape: ",kimage_wrap.array.shape)
 
@@ -694,8 +692,9 @@ class GSObject:
         real_image_arr = jnp.fft.fftshift(jnp.fft.irfft2(kimg_shift))
 
         #the following bounding is adapted to the size of the previous manipulation
+        #update ymax with wrap
         breal = BoundsI(xmin=-wrap_size//2,xmax=wrap_size//2-1,
-                        ymin=-wrap_size//2,ymax=wrap_size//2)
+                        ymin=-wrap_size//2,ymax=wrap_size//2-1)  
 
         print("finish breal: ",breal)
         print("finish real_image shape: ",real_image_arr.shape)
