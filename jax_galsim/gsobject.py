@@ -674,22 +674,23 @@ class GSObject:
         # to get an Image on Real space (full x, y as on demanded by "image")
         # the kImage is "centred along the y-axis" and located on the left edge of x-axis to get
         # centred Image in real space here are the manipukations to use irfft2
-        import numpy as onp
 
-        print("finish image bounds: ",image.bounds)
-        
+
+        print("finish image bounds: ",image.bounds)        
         print("finish kimage bounds: ",kimage.bounds)
         print("finish kimage shape: ",kimage.array.shape)
-        tmp = onp.abs(onp.array(kimage.array, dtype=onp.complex64))
-        tmp = tmp[tmp !=0.]
-        print("tmp min/max:",tmp.min(), tmp.max())
-                        
-        print(onp.array(kimage.array, dtype=onp.complex64)[0,:5], onp.array(kimage.array, dtype=onp.complex64))
-        print("finish wrap_size: ",wrap_size)
+        print("finish wrap_size: ",wrap_size)        
 
-        
+        # Test wrap
+        bwrap = BoundsI(0, wrap_size//2, -wrap_size//2, wrap_size//2-1)
+        kimage_wrap = kimage._wrap(bwrap, True, False)
 
-        kimg_shift = jnp.fft.ifftshift(kimage.array, axes=(-2,))
+        print("finish kimage_wrap bounds: ",kimage_wrap.bounds)
+        print("finish kimage_wrap shape: ",kimage_wrap.array.shape)
+
+
+        # Inverse FFT
+        kimg_shift = jnp.fft.ifftshift(kimage_wrap.array, axes=(-2,))
         real_image_arr = jnp.fft.fftshift(jnp.fft.irfft2(kimg_shift))
 
         #the following bounding is adapted to the size of the previous manipulation
