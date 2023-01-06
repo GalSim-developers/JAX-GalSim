@@ -570,30 +570,53 @@ class GSObject:
         from .bounds import _BoundsI
         from .image import ImageCD, ImageCF
         # Start with what this profile thinks a good size would be given the image's pixel scale.
+
+        print("makeKImg: img scale", image.scale)
+        
         N = self.getGoodImageSize(image.scale)
 
+        print("makeKImg: N (0)", N)
+
         # We must make something big enough to cover the target image size:
+
         
         image_N = max(jnp.max(jnp.abs(jnp.array(image.bounds._getinitargs()))) * 2,
                       jnp.max(jnp.array(image.bounds.numpyShape()))
                       )
+
+        print("makeKImg: ", jnp.array(image.bounds._getinitargs()), jnp.array(image.bounds.numpyShape()), image_N)
+        
+        
         N = max(N, image_N)
 
+        print("makeKImg: N (1)", N)
+        
         # Round up to a good size for making FFTs:
         N = image.good_fft_size(N)
+
+        print("makeKImg: N (2)", N)
 
         # Make sure we hit the minimum size specified in the gsparams.
         N = max(N, self.gsparams.minimum_fft_size)
 
+        print("makeKImg: N (3)", N)
+        
         dk = 2.*jnp.pi / (N * image.scale)
 
+        print("makeKImg: dk ", dk, "stepk, maxk: ",   self.stepk, self.maxk)
+
         maxk = self.maxk
+        
         if N*dk/2 > maxk:
             Nk = N
+            print("makeKImg Case 1 Nk=", Nk)
         else:
             # There will be aliasing.  Make a larger image and then wrap it.
             Nk = N # JEC the wrapping is not yet implemented ... int(jnp.ceil(maxk/dk)) * 2
-            print("Warning: drawFFT_makeKImage aliasing Nk will be too small. wrapping not implemented")
+            print("makeKImg Case 2 Nk should have been = ", int(jnp.ceil(maxk/dk)) * 2)
+            #print("Warning: drawFFT_makeKImage aliasing Nk will be too small. wrapping not implemented")
+            #Nk= int(jnp.ceil(maxk/dk)) * 2
+            #print("makeKImg Case 2 Nk=", Nk)
 
         if Nk > self.gsparams.maximum_fft_size:
             raise _galsim.GalSimFFTSizeError("drawFFT requires an FFT that is too large.", Nk)
@@ -651,6 +674,20 @@ class GSObject:
         # to get an Image on Real space (full x, y as on demanded by "image")
         # the kImage is "centred along the y-axis" and located on the left edge of x-axis to get
         # centred Image in real space here are the manipukations to use irfft2
+        import numpy as onp
+
+        print("finish image bounds: ",image.bounds)
+        
+        print("finish kimage bounds: ",kimage.bounds)
+        print("finish kimage shape: ",kimage.array.shape)
+        tmp = onp.abs(onp.array(kimage.array, dtype=onp.complex64))
+        tmp = tmp[tmp !=0.]
+        print("tmp min/max:",tmp.min(), tmp.max())
+                        
+        print(onp.array(kimage.array, dtype=onp.complex64)[0,:5], onp.array(kimage.array, dtype=onp.complex64))
+        print("finish wrap_size: ",wrap_size)
+
+        
 
         kimg_shift = jnp.fft.ifftshift(kimage.array, axes=(-2,))
         real_image_arr = jnp.fft.fftshift(jnp.fft.irfft2(kimg_shift))
@@ -659,6 +696,8 @@ class GSObject:
         breal = BoundsI(xmin=-wrap_size//2,xmax=wrap_size//2-1,
                         ymin=-wrap_size//2,ymax=wrap_size//2)
 
+        print("finish breal: ",breal)
+        print("finish real_image shape: ",real_image_arr.shape)
         
         real_image = Image(array=real_image_arr,bounds=breal,dtype=image.dtype) #nb why not to use image dtype? it was float fixed once for all. See issue in Galsim code
 
@@ -668,6 +707,9 @@ class GSObject:
             image += temp
         else:
             image.copyFrom(temp)
+
+        print("finish final image shape: ",image.array.shape)
+
 
         # compute the added photons
         added_photons = temp.array.sum(dtype=jnp.float32)
