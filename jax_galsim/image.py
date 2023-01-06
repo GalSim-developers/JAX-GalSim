@@ -10,20 +10,19 @@ from jax_galsim.bounds import BoundsI, BoundsD
 from jax_galsim.wcs import BaseWCS, PixelScale, JacobianWCS
 from jax_galsim.utilities import parse_pos_args
 
+## JEC 6/1/23 wraping for FFT
+## debug = False
+## #JEC just for debugging cplx array as (real,imag) instead of real + 1j imag
+## def format_float(num):
+##     return ('%i' if num == int(num) else '%s') % num
+## def str_cplx(x):
+##   return '({0},{1})'.format(format_float(x.real),format_float(x.imag))
 
-debug = False
-
-#JEC just for debugging cplx array as (real,imag) instead of real + 1j imag
-def format_float(num):
-    return ('%i' if num == int(num) else '%s') % num
-def str_cplx(x):
-  return '({0},{1})'.format(format_float(x.real),format_float(x.imag))
-
-def print_cplxarr(x):
-  for r_row, i_row in zip(x.real, x.imag):
-      for r, i in zip(r_row, i_row):
-        print('({0},{1})'.format(format_float(r),format_float(i)), end=" ")  
-      print()
+## def print_cplxarr(x):
+##   for r_row, i_row in zip(x.real, x.imag):
+##       for r, i in zip(r_row, i_row):
+##         print('({0},{1})'.format(format_float(r),format_float(i)), end=" ")  
+##       print()
 
 #JEC this method is a simple implementation of GalSim Image.cpp equivalent method
 def wrap_hermx_cols_pair(img_arr, j_pt1,i_pt1,j_pt2,i_pt2,m,mwrap,step):
@@ -61,10 +60,10 @@ def wrap_hermx_cols_pair(img_arr, j_pt1,i_pt1,j_pt2,i_pt2,m,mwrap,step):
   i_pt1wrap = i_pt1 #we are on row j_pt1
   i_pt2wrap = i_pt2 #we are on row j_pt2
   
-  nturn =1 # just for debug
+##   nturn =1 # just for debug
 
   while True: 
-    if debug: print("<<<< ", nturn,  " >>>>"); nturn += 1
+##     if debug: print("<<<< ", nturn,  " >>>>"); nturn += 1
 
     # Do the first column with a temporary to avoid overwriting.
 
@@ -79,25 +78,25 @@ def wrap_hermx_cols_pair(img_arr, j_pt1,i_pt1,j_pt2,i_pt2,m,mwrap,step):
 
     # Progress as normal (starting at i=mwrap for the first loop).
     k = min(m-i, mwrap-2)
-    if debug: print("(1) start  k:",k," i:",i,"(",m-i,",",mwrap-2,")")
+##     if debug: print("(1) start  k:",k," i:",i,"(",m-i,",",mwrap-2,")")
     for _ in range(k,0,-1):
 
-      print("loop  k:",k," i:",i,"ptw1: ",str_cplx(img_arr[j_pt1, i_pt1wrap]))
+##    if debug:   print("loop  k:",k," i:",i,"ptw1: ",str_cplx(img_arr[j_pt1, i_pt1wrap]))
       img_arr = img_arr.at[j_pt1, i_pt1wrap].add( img_arr[j_pt2, i_pt2].conj() )
       img_arr = img_arr.at[j_pt2, i_pt2wrap].add( img_arr[j_pt1, i_pt1].conj() )
 
       i += 1; i_pt1 += step; i_pt2 += step; i_pt1wrap -= step; i_pt2wrap -= step
 
-    if debug: print("(1) end i:",i)
+##     if debug: print("(1) end i:",i)
     if i == m : break;
 
     # On the last one, don't increment ptrs, since we need to repeat with the non-conj add.
-    if debug: print("ptw1: ", str_cplx(img_arr[j_pt1, i_pt1wrap]))
+##     if debug: print("ptw1: ", str_cplx(img_arr[j_pt1, i_pt1wrap]))
     img_arr = img_arr.at[j_pt1, i_pt1wrap].add( img_arr[j_pt2, i_pt2].conj() )
     img_arr = img_arr.at[j_pt2, i_pt2wrap].add( img_arr[j_pt1, i_pt1].conj() )
     
     k = min(m-i, mwrap-1)
-    if debug: print("(2) start  k:",k," i:",i,"(",m-i,",",mwrap-1,")")
+##     if debug: print("(2) start  k:",k," i:",i,"(",m-i,",",mwrap-1,")")
     for _ in range(k,0,-1):
       
       if debug: print("loop  k:",k," i:",i,"ptw1: ",str_cplx(img_arr[j_pt1, i_pt1wrap]))
@@ -106,7 +105,7 @@ def wrap_hermx_cols_pair(img_arr, j_pt1,i_pt1,j_pt2,i_pt2,m,mwrap,step):
 
       i += 1; i_pt1 += step; i_pt2 += step; i_pt1wrap += step; i_pt2wrap += step
 
-    if debug: print("(2) end i:",i)
+##     if debug: print("(2) end i:",i)
     if i == m : break;
     img_arr = img_arr.at[j_pt1, i_pt1wrap].add( img_arr[j_pt1, i_pt1] )
     img_arr = img_arr.at[j_pt2, i_pt2wrap].add( img_arr[j_pt2, i_pt2] )
@@ -698,16 +697,16 @@ class Image(object):
         assert hermx==True and hermy==False, 'Alertnatives to hermx=True, hermy=False are not yet implemented'
         
         imgXmin, imgXmax, imgYmin, imgYmax = self.xmin, self.xmax, self.ymin, self.ymax
-        print("img  bnds: ",imgXmin, imgXmax, imgYmin, imgYmax)
+##         print("img  bnds: ",imgXmin, imgXmax, imgYmin, imgYmax)
         wrapXmin, wrapXmax, wrapYmin, wrapYmax = bounds.xmin, bounds.xmax, bounds.ymin, bounds.ymax
-        print("wrap bnds: ", wrapXmin, wrapXmax, wrapYmin, wrapYmax)
+##         print("wrap bnds: ", wrapXmin, wrapXmax, wrapYmin, wrapYmax)
          
         i1 = wrapXmin - imgXmin;
         i2 = wrapXmax - imgXmin +1;
         j1 = wrapYmin - imgYmin;
         j2 = wrapYmax - imgYmin +1;
 
-        print("i1, i2, j1, j2: ",i1, i2, j1, j2)
+##         print("i1, i2, j1, j2: ",i1, i2, j1, j2)
         
         # hermx = True
         # In the hermitian x case, we need to wrap the columns first, otherwise the bookkeeping
@@ -721,7 +720,7 @@ class Image(object):
         mwrap =i2-i1; nwrap =j2-j1; # col, row wrap
         m=self.ncol; n=self.nrow;   # col, row Img
         
-        print("n,m,nwrap,mwrap: ",n,m,nwrap,mwrap)
+##         print("n,m,nwrap,mwrap: ",n,m,nwrap,mwrap)
         
         # for the time beeing the following parameters are required 
         # May be induced by contiguity of self._array: strides vs itemsize...
@@ -730,7 +729,7 @@ class Image(object):
         skip=0; # number of col elements to skip to jump to the next row (Img)
 
         stride = skip + m*step; # number of elements in a row (Img)
-        print("stride: ", stride)
+##         print("stride: ", stride)
          
         mid = (n-1)//2 # The value of j that corresponds to the j==0 in the normal notation.
          
@@ -742,11 +741,11 @@ class Image(object):
         j_skip2 = -1
          
         img_arr = self._array
-        print("type img_arr: ", type(img_arr))
-        print("first element:  ",str_cplx(img_arr[0,0])," 1st next line : ", str_cplx(img_arr[1,0]))
+##         print("type img_arr: ", type(img_arr))
+##         print("first element:  ",str_cplx(img_arr[0,0])," 1st next line : ", str_cplx(img_arr[1,0]))
         
         for j in range(mid):
-            if debug: print("Wrap rows ",j,",",n-j-1," into columns [",i1,',',i2,")")
+##             if debug: print("Wrap rows ",j,",",n-j-1," into columns [",i1,',',i2,")")
             img_arr = wrap_hermx_cols_pair(img_arr, j_pt1,i_pt1,j_pt2,i_pt2,m,mwrap,step)
             j_pt1  += j_skip1;
             j_pt2  += j_skip2; 
@@ -757,36 +756,31 @@ class Image(object):
         # the rows j<j1, then skip over [j1,j2) when we get there and continue with j>=j2.
         # Row 0 maps onto j2 - (j2 % nwrap) (although we may need to subtract nwrap).
         
-        #         img_arr = ImgOrig.array  # for debug
-        #         print_cplxarr(img_arr) 
-        
-        
         jj = j2 - (j2 % nwrap);
         if jj == j2 : jj = j1;  
         j_ptrwrap = j_ptr + jj; i_ptrwrap = i_ptr;
 
-        if debug:
-            print("j2, nwrap, jj:",j2,", ",nwrap,", ",jj)
-            print("ptr: ",  str_cplx(img_arr[j_ptr, i_ptr]), 
-              " ptrwrap: ", str_cplx(img_arr[j_ptrwrap, i_ptrwrap]))
+##         if debug:
+##             print("j2, nwrap, jj:",j2,", ",nwrap,", ",jj)
+##             print("ptr: ",  str_cplx(img_arr[j_ptr, i_ptr]), 
+##               " ptrwrap: ", str_cplx(img_arr[j_ptrwrap, i_ptrwrap]))
 
         j=0
         while j<n:
-            if debug: print(">>>> j: ", j)
+##             if debug: print(">>>> j: ", j)
             if j == j1:
-                if debug: print("j == j1")
+##                 if debug: print("j == j1")
                 assert i_ptr == i_ptrwrap and j_ptr == j_ptrwrap
                 j = j2
                 j_ptr += nwrap
 
             k = min(n-j,j2-jj) # How many to do before looping back.
             for _ in range(k,0,-1):
-                if debug:
-                    print("Wrap row ",j," onto row = ",jj)
-                    print("j_ptr, i_ptr: ", j_ptr,", ", i_ptr," ",
-                          "j_ptrwrap, i_ptrwrap: ", j_ptrwrap, ", " , i_ptrwrap)
-                    
-                    print("ptr: ", str_cplx(img_arr[j_ptr, i_ptr]),"ptrwrap: ", str_cplx(img_arr[j_ptrwrap, i_ptrwrap]))
+##                 if debug:
+##                     print("Wrap row ",j," onto row = ",jj)
+##                     print("j_ptr, i_ptr: ", j_ptr,", ", i_ptr," ",
+##                           "j_ptrwrap, i_ptrwrap: ", j_ptrwrap, ", " , i_ptrwrap)                    
+##                     print("ptr: ", str_cplx(img_arr[j_ptr, i_ptr]),"ptrwrap: ", str_cplx(img_arr[j_ptrwrap, i_ptrwrap]))
                 
                 # wrap_row (need to update col numbers w/o passing ptr nor addresses)
                 for _ in range(m,0,-1):
@@ -796,7 +790,7 @@ class Image(object):
                 # update j, jj and place (j_ptr, i_ptr) , (j_ptrwrap, i_ptrwrap) to the start of respective next line
                 j += 1; jj += 1; i_ptr=0; i_ptrwrap =0; j_ptr +=1; j_ptrwrap +=1;
 
-            if debug: print("update jj to j1")  
+##             if debug: print("update jj to j1")  
             jj = j1; j_ptrwrap -= nwrap
 
         # end while

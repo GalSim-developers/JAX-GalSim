@@ -571,11 +571,11 @@ class GSObject:
         from .image import ImageCD, ImageCF
         # Start with what this profile thinks a good size would be given the image's pixel scale.
 
-        print("makeKImg: img scale", image.scale)
+##         print("makeKImg: img scale", image.scale)
         
         N = self.getGoodImageSize(image.scale)
 
-        print("makeKImg: N (0)", N)
+##         print("makeKImg: N (0)", N)
 
         # We must make something big enough to cover the target image size:
 
@@ -584,38 +584,36 @@ class GSObject:
                       jnp.max(jnp.array(image.bounds.numpyShape()))
                       )
 
-        print("makeKImg: ", jnp.array(image.bounds._getinitargs()), jnp.array(image.bounds.numpyShape()), image_N)
+##         print("makeKImg: ", jnp.array(image.bounds._getinitargs()), jnp.array(image.bounds.numpyShape()), image_N)
         
         
         N = max(N, image_N)
 
-        print("makeKImg: N (1)", N)
+##         print("makeKImg: N (1)", N)
         
         # Round up to a good size for making FFTs:
         N = image.good_fft_size(N)
 
-        print("makeKImg: N (2)", N)
+##         print("makeKImg: N (2)", N)
 
         # Make sure we hit the minimum size specified in the gsparams.
         N = max(N, self.gsparams.minimum_fft_size)
 
-        print("makeKImg: N (3)", N)
+##         print("makeKImg: N (3)", N)
         
         dk = 2.*jnp.pi / (N * image.scale)
 
-        print("makeKImg: dk ", dk, "stepk, maxk: ",   self.stepk, self.maxk)
+##         print("makeKImg: dk ", dk, "stepk, maxk: ",   self.stepk, self.maxk)
 
         maxk = self.maxk
         
         if N*dk/2 > maxk:
             Nk = N
-            print("makeKImg Case 1 Nk=", Nk)
+##             print("makeKImg Case 1 Nk=", Nk)
         else:
             # There will be aliasing.  Make a larger image and then wrap it.
-            #Nk = N # JEC the wrapping is not yet implemented ... int(jnp.ceil(maxk/dk)) * 2
-            print("makeKImg Case 2 Nk = ", int(jnp.ceil(maxk/dk)) * 2)
-            #print("Warning: drawFFT_makeKImage aliasing Nk will be too small. wrapping not implemented")
             Nk= int(jnp.ceil(maxk/dk)) * 2
+##             print("makeKImg Case 2 Nk=", Nk)
 
         if Nk > self.gsparams.maximum_fft_size:
             raise _galsim.GalSimFFTSizeError("drawFFT requires an FFT that is too large.", Nk)
@@ -675,16 +673,16 @@ class GSObject:
         # centred Image in real space here are the manipukations to use irfft2
 
 
-        print("finish image bounds: ",image.bounds)        
-        print("finish kimage bounds: ",kimage.bounds)
-        print("finish kimage shape: ",kimage.array.shape)
-        print("finish wrap_size: ",wrap_size)        
+##         print("finish image bounds: ",image.bounds)        
+##         print("finish kimage bounds: ",kimage.bounds)
+##         print("finish kimage shape: ",kimage.array.shape)
+##         print("finish wrap_size: ",wrap_size)        
 
         # Test wrap
         bwrap = BoundsI(0, wrap_size//2, -wrap_size//2, wrap_size//2-1)
         kimage_wrap = kimage._wrap(bwrap, True, False)
-        print("finish kimage_wrap bounds: ",kimage_wrap.bounds)
-        print("finish kimage_wrap shape: ",kimage_wrap.array.shape)
+##         print("finish kimage_wrap bounds: ",kimage_wrap.bounds)
+##         print("finish kimage_wrap shape: ",kimage_wrap.array.shape)
 
 
         # Inverse FFT
@@ -696,8 +694,8 @@ class GSObject:
         breal = BoundsI(xmin=-wrap_size//2,xmax=wrap_size//2-1,
                         ymin=-wrap_size//2,ymax=wrap_size//2-1)  
 
-        print("finish breal: ",breal)
-        print("finish real_image shape: ",real_image_arr.shape)
+##         print("finish breal: ",breal)
+##         print("finish real_image shape: ",real_image_arr.shape)
         
         real_image = Image(array=real_image_arr,bounds=breal,dtype=image.dtype) #nb why not to use image dtype? it was float fixed once for all. See issue in Galsim code
 
@@ -708,8 +706,7 @@ class GSObject:
         else:
             image.copyFrom(temp)
 
-        print("finish final image shape: ",image.array.shape)
-
+##         print("finish final image shape: ",image.array.shape)
 
         # compute the added photons
         added_photons = temp.array.sum(dtype=jnp.float32)
