@@ -1,3 +1,4 @@
+import jax
 import jax.numpy as jnp
 import numpy as np
 
@@ -32,7 +33,7 @@ from jax_galsim.utilities import parse_pos_args
 # Unfortunaly, with jit one cannot use printing anymore for debugging,
 # so it is only possible to compare outputs of different code version
 def wrap_hermx_cols_pair(argt):
-    """
+  """
     Wrap two half-rows where one has the conjugate information for the other.
 
     We start the wrapping with col N/2 (aka i2-1), which needs to wrap its conjugate
@@ -907,7 +908,7 @@ class Image(object):
 
         #print("n,m,nwrap,mwrap: ",n,m,nwrap,mwrap)
 
-        img_arr = img._array
+        img_arr = self._array
 
         # for the time beeing the following parameters are required 
         # May be induced by contiguity of self._array: strides vs itemsize...
@@ -929,7 +930,7 @@ class Image(object):
         j_skip2 = -1
 
         #print("type img_arr: ", type(img_arr))
-        print("first element:  ",str_cplx(img_arr[0,0])," 1st next line : ", str_cplx(img_arr[1,0]))
+        #print("first element:  ",str_cplx(img_arr[0,0])," 1st next line : ", str_cplx(img_arr[1,0]))
 
         def body(j,val):
           img_arr, (j_pt1,i_pt1) , (j_pt2,i_pt2), (j_skip1, j_skip2), (m,mwrap,step) = val
@@ -945,7 +946,7 @@ class Image(object):
         val = jax.lax.fori_loop(0,mid,body,val_init)
         img_arr, (j_pt1,i_pt1) , (j_pt2,i_pt2), (j_skip1, j_skip2), (m,mwrap,step) = val
 
-        print("end:", j_pt1, j_pt2, m)
+        #print("end:", j_pt1, j_pt2, m)
 
         ############
         ## Second part
