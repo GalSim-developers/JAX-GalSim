@@ -24,8 +24,190 @@ from jax_galsim.utilities import parse_pos_args
 ##         print('({0},{1})'.format(format_float(r),format_float(i)), end=" ")  
 ##       print()
 
-#JEC this method is a simple implementation of GalSim Image.cpp equivalent method
-def wrap_hermx_cols_pair(img_arr, j_pt1,i_pt1,j_pt2,i_pt2,m,mwrap,step):
+
+#JEC 11/1/23 this method adopt a more JAX-idom coding with jax.lax control but do not use sophisticated tools
+# the code needs bookkeeping attention for decoding/encoding pass to ensure that the implicit jit compilation
+# is done. Implicit as jax.lax.fori_loop for exemple compiles the body function called at each iteration
+# The struture follows the pythonic code derived itself from the C++ Galsim code
+# Unfortunaly, with jit one cannot use printing anymore for debugging,
+# so it is only possible to compare outputs of different code version
+def wrap_hermx_cols_pair(argt):
+    """
+    Wrap two half-rows where one has the conjugate information for the other.
+
+    We start the wrapping with col N/2 (aka i2-1), which needs to wrap its conjugate
+    (-N/2) onto itself.
+    Then as i increases, we decrease ii and continue wrapping conjugates.
+    When we get to something that wraps onto col 0 (the first one will correspond to
+    i=-N, which is the conjugate of what is stored at i=N in the other row), we need to
+    repeat with a regular non-conjugate wrapping for the positive col (e.g. i=N,j=j itself)
+    which also wraps onto col 0.
+    Then we run ii back up wrapping normally, until we get to N/2 again (aka i2-1).
+    The negative col will wrap normally onto -N/2, which means we need to also do a
+    conjugate wrapping onto N/2.
+
+    input:
+      img_arr : original image array
+      j_pt1,i_pt1 : location on one row
+      j_pt2,i_pt2 : location on the other row
+      m : number of col of original image
+      mwrap: number of col of wrapped image
+      step: to iterate on a row
+
+    output: 
+      updated version of img_arr
+
+    Nb: 
+      o step=1 for the time beeing
+      o the code is rather crude python, not yet JAX optimized
+
+  """
+  #decode argt
+  img_arr, (j_pt1,i_pt1) , (j_pt2,i_pt2) , (m,mwrap,step)= argt
+    
+  #while condition
+  def cond0(val0):
+    #decode val0
+    i, (i_pt1wrap, i_pt1wrap), argt  = val0
+    img_arr, (j_pt1,i_pt1) , (j_pt2,i_pt2) , (m,mwrap,step) = argt
+    return i<m
+
+  #while body
+  def body_0(val0):
+    #decode val0
+    i, (i_pt1wrap, i_pt2wrap), argt  = val0
+    img_arr, (j_pt1,i_pt1) , (j_pt2,i_pt2) , (m,mwrap,step) = argt
+
+    i += 1
+
+
+    ######
+    # first k for-loop
+    # Progress as normal (starting at i=mwrap for the first loop).
+    ######
+    k = jax.lax.min(m-i, mwrap-2)
+    def body_1(dum,val1):
+      #decode val1
+      img_arr, i, (i_pt1, i_pt2), (i_pt1wrap, i_pt2wrap), step = val1
+      
+      img_arr = img_arr.at[j_pt1, i_pt1wrap].add( img_arr[j_pt2, i_pt2].conj() )
+      img_arr = img_arr.at[j_pt2, i_pt2wrap].add( img_arr[j_pt1, i_pt1].conj() )
+
+      i += 1; i_pt1 += step; i_pt2 += step; i_pt1wrap -= step; i_pt2wrap -= step
+
+      #encode val1
+      return (img_arr, i, (i_pt1, i_pt2), (i_pt1wrap, i_pt2wrap), step)
+
+    val1_init = (img_arr, i, (i_pt1, i_pt2), (i_pt1wrap, i_pt2wrap), step)
+    val1 = jax.lax.fori_loop(0,k,body_1, val1_init)
+    img_arr, i, (i_pt1, i_pt2), (i_pt1wrap, i_pt2wrap), step = val1
+
+    ######
+    # replace first if i==m; break the while
+    # here inverse the logic, if i<m do the following
+    ######
+    def true_f1(val1b):
+      #decode val1b
+      img_arr, i, (j_pt1, i_pt1, i_pt1wrap), (j_pt2, i_pt2, i_pt2wrap), step = val1b
+
+      # On the last one, don't increment ptrs, since we need to repeat with the non-conj add.
+      img_arr = img_arr.at[j_pt1, i_pt1wrap].add( img_arr[j_pt2, i_pt2].conj() )
+      img_arr = img_arr.at[j_pt2, i_pt2wrap].add( img_arr[j_pt1, i_pt1].conj() )
+      
+
+      ######
+      # second k for-loop
+      ######
+      k = jax.lax.min(m-i, mwrap-1)
+      def body_2(dum,val2):
+        #decode val2
+        img_arr, i, (i_pt1, i_pt2), (i_pt1wrap, i_pt2wrap), step = val2
+        
+        img_arr = img_arr.at[j_pt1, i_pt1wrap].add( img_arr[j_pt1, i_pt1] )
+        img_arr = img_arr.at[j_pt2, i_pt2wrap].add( img_arr[j_pt2, i_pt2] )
+
+        i += 1; i_pt1 += step; i_pt2 += step; i_pt1wrap += step; i_pt2wrap += step
+
+        #encode val2
+        return (img_arr, i, (i_pt1, i_pt2), (i_pt1wrap, i_pt2wrap), step)
+
+      val2_init = (img_arr, i, (i_pt1, i_pt2), (i_pt1wrap, i_pt2wrap), step)
+      val2 = jax.lax.fori_loop(0,k,body_2, val2_init)
+      img_arr, i, (i_pt1, i_pt2), (i_pt1wrap, i_pt2wrap), step = val2
+  
+      ######
+      # replace second if i==m; break the while
+      # here inverse the logic, if i<m do the following
+      ######
+      def true_f2(val2b):
+        #decode val2b
+        img_arr, (j_pt1, i_pt1, i_pt1wrap), (j_pt2, i_pt2, i_pt2wrap) = val2b
+
+        img_arr = img_arr.at[j_pt1, i_pt1wrap].add( img_arr[j_pt1, i_pt1] )
+        img_arr = img_arr.at[j_pt2, i_pt2wrap].add( img_arr[j_pt2, i_pt2] )
+        
+        #encode val2b
+        return img_arr, (j_pt1, i_pt1, i_pt1wrap), (j_pt2, i_pt2, i_pt2wrap)
+
+        # if i>=m do nothing
+      def false_f2(val2b):
+        return val2b
+
+      val2b = (img_arr, (j_pt1, i_pt1, i_pt1wrap), (j_pt2, i_pt2, i_pt2wrap))
+      val2b = jax.lax.cond(i<m,true_f2,false_f2,val2b)
+
+      #decode val2b
+      img_arr, (j_pt1, i_pt1, i_pt1wrap), (j_pt2, i_pt2, i_pt2wrap) = val2b  
+
+      # End true_f1
+      #encode val1b
+      return (img_arr, i, (j_pt1, i_pt1, i_pt1wrap), (j_pt2, i_pt2, i_pt2wrap), step)
+
+    # if i>=m do nothing
+    def false_f1(val1b):
+      return val1b
+
+    val1b = (img_arr, i, (j_pt1, i_pt1, i_pt1wrap), (j_pt2, i_pt2, i_pt2wrap), step)
+    val1b = jax.lax.cond(i<m,true_f1,false_f1,val1b)
+
+    #End body_0
+    #decode/encode val1b -> val0
+    img_arr, i, (j_pt1, i_pt1, i_pt1wrap), (j_pt2, i_pt2, i_pt2wrap), step = val1b
+    argt = (img_arr, (j_pt1,i_pt1) , (j_pt2,i_pt2) , (m,mwrap,step))
+    val0 = (i, (i_pt1wrap, i_pt2wrap), argt)
+    return val0
+
+
+  #main 
+  i = mwrap-1
+  i_pt1wrap = i_pt1  #we are on row j_pt1
+  i_pt2wrap = i_pt2  #we are on row j_pt2
+
+  # Do the first column with a temporary to avoid overwriting.
+  temp = img_arr[j_pt1, i_pt1]
+  img_arr = img_arr.at[j_pt1, i_pt1wrap].add( img_arr[j_pt2, i_pt2].conj() )
+  img_arr = img_arr.at[j_pt2, i_pt2wrap].add( temp.conj() )
+    
+  i_pt1 += step; i_pt2 += step
+  i_pt1wrap -= step; i_pt2wrap -= step
+        
+  #re-encode argt to make the while-loop
+  argt= (img_arr, (j_pt1,i_pt1) , (j_pt2,i_pt2) , (m,mwrap,step) )
+  val0_init = (i, (i_pt1wrap, i_pt2wrap), argt)
+  val0 = jax.lax.while_loop(cond0, body_0, val0_init)
+
+  #end: return the new img array
+  i, (i_pt1wrap, i_pt1wrap), argt = val0
+  img_arr, (j_pt1,i_pt1) , (j_pt2,i_pt2) , (m,mwrap,step) = argt
+
+  return img_arr
+
+
+#JEC 6/1/23 this method is a simple implementation of GalSim Image.cpp equivalent method
+# This code is superseeded by the wrap_hermx_cols_pair method. It is just kept to see how I have transposed
+# the C++ code. But it does not used the JAX.lax control flow functions which perform implict JIT compilation
+# contrary to the wrap_hermx_cols_pair method.
+def wrap_hermx_cols_pair_deprecated(img_arr, j_pt1,i_pt1,j_pt2,i_pt2,m,mwrap,step):
   """
     Wrap two half-rows where one has the conjugate information for the other.
 
@@ -681,6 +863,8 @@ class Image(object):
 
 
     #JEC
+    #JEC 11/1/23 wraping for FFT more JAX coding style implementation
+    # see wrap_hermx_cols_pair  method for the comments
     @_wraps(_galsim.Image._wrap, lax_description="""
     Contrary to GalSim equivalent method, the current implementation needs hermx=True, hermy=False
     This is designed to be used in the context of gsobject.drawFFT_finish
@@ -688,6 +872,178 @@ class Image(object):
     """,
     )
     def _wrap(self, bounds, hermx, hermy):
+        """
+        Wrap the full image onto a subset of the image and return that subset.
+        This is used to alias the data of a k-space image before doing the FFT to real space.
+        
+        only the (hermx=True, hermy=False) case is implemented
+        """ 
+        assert hermx==True and hermy==False, 'Alertnatives to hermx=True, hermy=False are not yet implemented'
+
+        imgXmin, imgXmax, imgYmin, imgYmax = self.bounds.xmin, self.bounds.xmax, self.bounds.ymin, self.bounds.ymax
+        wrapXmin, wrapXmax, wrapYmin, wrapYmax = bounds.xmin, bounds.xmax, bounds.ymin, bounds.ymax
+        #print("img  bnds: ",imgXmin, imgXmax, imgYmin, imgYmax)
+        #print("wrap bnds: ", wrapXmin, wrapXmax, wrapYmin, wrapYmax)
+
+        i1 = wrapXmin - imgXmin;
+        i2 = wrapXmax - imgXmin +1;
+        j1 = wrapYmin - imgYmin;
+        j2 = wrapYmax - imgYmin +1;
+
+        #print("i1, i2, j1, j2: ",i1, i2, j1, j2)
+
+        # hermx = True
+        # In the hermitian x case, we need to wrap the columns first, otherwise the bookkeeping
+        # becomes difficult.
+        # Each row has a corresponding row that stores the conjugate information for the
+        # negative x values that are not stored.  We do these pairs of rows together.
+        # The exception is row 0 (which here is j==(n-1)/2), which is its own conjugate, so
+        # it works slightly differently.
+        assert i1 == 0, 'image xmin must be equal to wrap xmin (aka i1=0)'
+
+
+        mwrap =i2-i1; nwrap =j2-j1; # col, row wrap
+        m=self.ncol; n=self.nrow;   # col, row Img
+
+        #print("n,m,nwrap,mwrap: ",n,m,nwrap,mwrap)
+
+        img_arr = img._array
+
+        # for the time beeing the following parameters are required 
+        # May be induced by contiguity of self._array: strides vs itemsize...
+        step=1; # col element iter step (Img)
+        skip=0; # number of col elements to skip to jump to the next row (Img)
+
+        stride = skip + m*step; # number of elements in a row (Img)
+        #print("stride: ", stride)
+
+        ############
+        # First Part
+        ############
+        
+        mid = (n-1)//2 # The value of j that corresponds to the j==0 in the normal notation.
+        j_ptr = 0;  i_ptr =0; #this is the start of the array Img (to mimic pointer arithm)
+        j_pt1 = j_ptr; i_pt1 = i_ptr + (i2-1)*step
+        j_skip1 = 1
+        j_pt2 = j_ptr + (n-1); i_pt2 = i_ptr + (i2-1)*step;
+        j_skip2 = -1
+
+        #print("type img_arr: ", type(img_arr))
+        print("first element:  ",str_cplx(img_arr[0,0])," 1st next line : ", str_cplx(img_arr[1,0]))
+
+        def body(j,val):
+          img_arr, (j_pt1,i_pt1) , (j_pt2,i_pt2), (j_skip1, j_skip2), (m,mwrap,step) = val
+          argt = img_arr, (j_pt1,i_pt1) , (j_pt2,i_pt2) , (m,mwrap,step)
+          img_arr = wrap_hermx_cols_pair(argt)
+          j_pt1  += j_skip1;
+          j_pt2  += j_skip2; 
+          return (img_arr, (j_pt1,i_pt1) , (j_pt2,i_pt2), (j_skip1, j_skip2), (m,mwrap,step))
+
+        #print("start:", j_pt1, j_pt2)
+
+        val_init = (img_arr, (j_pt1,i_pt1) , (j_pt2,i_pt2), (j_skip1, j_skip2), (m,mwrap,step))
+        val = jax.lax.fori_loop(0,mid,body,val_init)
+        img_arr, (j_pt1,i_pt1) , (j_pt2,i_pt2), (j_skip1, j_skip2), (m,mwrap,step) = val
+
+        print("end:", j_pt1, j_pt2, m)
+
+        ############
+        ## Second part
+        ############
+        # hermy = False
+        # The regular case is mostly simpler (no conjugate stuff to worry about).
+        # However, we don't have the luxury of knowing that j1==0, so we need to start with
+        # the rows j<j1, then skip over [j1,j2) when we get there and continue with j>=j2.
+        # Row 0 maps onto j2 - (j2 % nwrap) (although we may need to subtract nwrap).
+        jj = j2 - (j2 % nwrap);
+        if jj == j2 : jj = j1;  
+        j_ptrwrap = j_ptr + jj; i_ptrwrap = i_ptr;
+
+        #print("j2, nwrap, jj:",j2,", ",nwrap,", ",jj)
+
+        j = 0
+        # while j<n condition
+        def cond0(val0):
+          #decode val0
+          img_arr, (j, jj), (j1, j2), (j_ptr, i_ptr), (j_ptrwrap, i_ptrwrap), (n, m,mwrap,step) = val0
+          return j<n
+
+        # while j<n body
+        def body_0(val0):
+          #decode val0
+          img_arr, (j, jj), (j1, j2), (j_ptr, i_ptr), (j_ptrwrap, i_ptrwrap), (n, m,nwrap,step) = val0
+
+          ### Test if j==j1
+          #do if j==j1
+          def true_f1(val1): # seems not necessary: assert i_ptr == i_ptrwrap and j_ptr == j_ptrwrap
+            #decode val1
+            j,j2,j_ptr,nwrap = val1
+            #do
+            j=j2; j_ptr += nwrap
+            #encode val1
+            return j,j2,j_ptr,nwrap
+
+          #do nothing if j != j1
+          def false_f1(val1):
+            return val1
+
+          val1 = j,j2,j_ptr,nwrap
+          val1 = jax.lax.cond(j==j1,true_f1,false_f1,val1)
+          j,j2,j_ptr,nwrap = val1
+
+          # Outer Loop  on k 
+          k = jax.lax.min(n-j, j2-jj)
+
+          def body_1(dum,val1b):
+            #decode val1b
+            img_arr, (j, jj), j1, (j_ptr, i_ptr), (j_ptrwrap, i_ptrwrap), (m,step) = val1b
+
+            #Inner Loop 
+            def body_2(dum,val2):
+              #decode val2
+              img_arr, (j_ptr, i_ptr), (j_ptrwrap, i_ptrwrap), step = val2
+
+              img_arr = img_arr.at[j_ptrwrap, i_ptrwrap].add( img_arr[j_ptr, i_ptr] )
+              i_ptr+=step; i_ptrwrap+=step
+
+              #encode val2
+              return img_arr, (j_ptr, i_ptr), (j_ptrwrap, i_ptrwrap), step 
+
+            val2_init = (img_arr, (j_ptr, i_ptr), (j_ptrwrap, i_ptrwrap), step)
+            val2 = jax.lax.fori_loop(0,m,body_2, val2_init)
+            img_arr, (j_ptr, i_ptr), (j_ptrwrap, i_ptrwrap), step = val2
+
+            j += 1; jj += 1; i_ptr=0; i_ptrwrap =0; j_ptr +=1; j_ptrwrap +=1;
+
+            #end body_1
+            #endode val1b
+            return img_arr, (j, jj), j1, (j_ptr, i_ptr), (j_ptrwrap, i_ptrwrap), (m,step)
+
+          val1b_init = (img_arr, (j, jj), j1, (j_ptr, i_ptr), (j_ptrwrap, i_ptrwrap), (m,step)) 
+          val1b = jax.lax.fori_loop(0,k,body_1, val1b_init)
+          img_arr, (j, jj), j1, (j_ptr, i_ptr), (j_ptrwrap, i_ptrwrap), (m,step) = val1b
+
+
+          jj = j1; j_ptrwrap -= nwrap
+
+          #end bady_0
+          return img_arr, (j, jj), (j1, j2), (j_ptr, i_ptr), (j_ptrwrap, i_ptrwrap), (n, m,nwrap,step)
+
+
+        val0_init = (img_arr, (j, jj), (j1, j2), (j_ptr, i_ptr), (j_ptrwrap, i_ptrwrap), (n, m,nwrap,step))
+        val0 = jax.lax.while_loop(cond0, body_0, val0_init)
+        img_arr, (j, jj), (j1, j2), (j_ptr, i_ptr), (j_ptrwrap, i_ptrwrap), (n, m,nwrap,step) = val0
+
+        #print("end j=",j)
+        # update image array
+        self._array = img_arr
+        # extract wrt the bounds indication 
+        return self.subImage(bounds)
+
+
+    #JEC 6/1/23 wraping for FFT first implementation
+    # see wrap_hermx_cols_pair_deprecated method for the comments
+    def _wrap_deprecated(self, bounds, hermx, hermy):
         """
         Wrap the full image onto a subset of the image and return that subset.
         This is used to alias the data of a k-space image before doing the FFT to real space.
