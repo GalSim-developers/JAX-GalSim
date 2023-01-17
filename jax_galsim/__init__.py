@@ -58,3 +58,5 @@ from jax_galsim.wcs import PixelScale, OffsetWCS, JacobianWCS, AffineTransform
 from jax_galsim.noise import sample, GaussianNoise
 from jax_galsim.helpers import seed 
 
+#Convolution
+from jax_galsim.convolve import Convolve, Convolution
