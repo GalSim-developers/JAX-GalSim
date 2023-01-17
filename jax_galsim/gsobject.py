@@ -475,6 +475,7 @@ class GSObject:
 
         local_wcs = local_wcs.shiftOrigin(offset)
 
+
         # Make sure image is setup correctly
         image = prof._setup_image(image, nx, ny, bounds, add_to_image, dtype, center)
         image.wcs = wcs
@@ -488,10 +489,26 @@ class GSObject:
         wcs = image.wcs
         image.setCenter(0, 0)
         image.wcs = PixelScale(1.0)
-        image = prof.drawReal(image, add_to_image)
-        image.shift(original_center)
-        image.wcs = wcs
-        return image
+
+        ## JEC temporary manual switch between 'real_space' direct imaging or 'fft' Fourier space based imaging.          
+
+        draw_image = image
+        add = add_to_image
+
+        if method == 'real_space':
+          added_photons = prof.drawReal(draw_image, add)
+        elif method == 'fft':
+          added_photons = prof.drawFFT(draw_image, add)
+        else:
+            raise _galsim.GalSimIncompatibleValuesError(
+                "method should be 'real_space' or 'fft' for the time beeing",
+                method=method)
+
+        draw_image.added_flux = added_photons / flux_scale
+        draw_image.shift(original_center)
+        draw_image.wcs = wcs
+        return draw_image
+
 
     @_wraps(_galsim.GSObject.drawReal)
     def drawReal(self, image, add_to_image=False):
