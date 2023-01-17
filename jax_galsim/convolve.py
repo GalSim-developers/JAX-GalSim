@@ -5,6 +5,7 @@ import numpy as np
 import galsim as _galsim
 from jax._src.numpy.util import _wraps
 from jax_galsim.gsobject import GSObject
+from jax_galsim.gsparams import GSParams
 
 
 #JEC 17/1/23
@@ -56,7 +57,7 @@ class Convolution(GSObject):
 
         real_space = kwargs.pop("real_space", None)        
         gsparams = kwargs.pop("gsparams", None)
-        self._propagate_gsparams = kwargs.pop('propagate_gsparams', Tru
+        self._propagate_gsparams = kwargs.pop('propagate_gsparams',True)
 
         hard_edge = True
         for obj in args:
@@ -226,7 +227,7 @@ class Convolution(GSObject):
         cen_list = [obj.centroid for obj in self.obj_list]
         return sum(cen_list[1:], cen_list[0]) # gives a Position object with x=sum_i x_i and y=sum_i y_i
 
-    @lazy_property
+    @property
     def _flux(self):
         flux_list = [obj.flux for obj in self.obj_list]
         return jnp.prod(jnp.array(flux_list)).item() # return a float
