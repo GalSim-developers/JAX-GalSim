@@ -51,12 +51,23 @@ def draw_by_kValue(
     coords = jnp.dot(coords, jacobian.T)
 
     # Draw the object
-    im = jax.vmap(lambda *args: gsobject._kValue(jax_galsim.PositionD(*args)))(
-        coords[..., 0], coords[..., 1]
-    )
+
+    vf = jax.vmap(jax.vmap(lambda i,j:
+                           gsobject._kValue(jax_galsim.PositionD(coords[i,j,0],coords[i,j,1])),
+                           in_axes=(None, 0)), in_axes=(0, None))
+    im = vf(jnp.arange(coords.shape[0]), jnp.arange(coords.shape[1]))
+
+## JEC not working with convolve using 2 gsobject  
+##    im1 = jax.vmap(lambda *args: gsobject._kValue(jax_galsim.PositionD(*args)))(
+##        coords[..., 0], coords[..., 1]
+##   )
+
+    
+##    print("JEC draw_by_kValue: im.shape", im.shape, "idem im1: ", im1.shape)
     im = (im).astype(image.dtype)
 
     # Return an image
+
     return jax_galsim.Image(array=im, bounds=image.bounds, wcs=image.wcs, check_bounds=False)
 
 #JEC Todo: remove the debug arg asap.
