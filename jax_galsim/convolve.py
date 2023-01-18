@@ -6,6 +6,8 @@ import galsim as _galsim
 from jax._src.numpy.util import _wraps
 from jax_galsim.gsobject import GSObject
 from jax_galsim.gsparams import GSParams
+from jax.tree_util import register_pytree_node_class
+
 
 
 #JEC 17/1/23
@@ -40,6 +42,7 @@ def Convolve(*args, **kwargs):
 Contrary to GalSim is only implemented (yet) the 'fft' based convolution.
 Nb. this is the default for GalSim except when 2 objects have sharp edges.
 """,)
+@register_pytree_node_class
 class Convolution(GSObject):
     def __init__(self, *args, **kwargs):
         # First check for number of arguments != 0
@@ -195,7 +198,7 @@ class Convolution(GSObject):
         # Assume R_final^2 = Sum(R_i^2)
         # So 1/stepk^2 = 1/Sum(1/stepk_i^2)
         inv_stepksq_list = [obj.stepk**(-2) for obj in self.obj_list]
-        return 1./jnp.sqr(jnp.sum(jnp.array(inv_stepksq_list)))
+        return 1./jnp.sqrt(jnp.sum(jnp.array(inv_stepksq_list)))
 
     @property
     def _has_hard_edges(self):
@@ -269,9 +272,11 @@ class Convolution(GSObject):
 
     
     def _kValue(self, kpos):
-        kv_list = [obj.kValue(kpos) for obj in self.obj_list]
-        return jnp.prod(jnp.array(kv_list))
+        kv_list = [obj._kValue(kpos) for obj in self.obj_list]    # In GalSim one uses obj.kValue
+        return jnp.prod(jnp.array(kv_list))#*jnp.ones_like(kpos.x) # this is a hack to get the good output sighature
 
+
+    
     def _drawReal(self, image, jac=None, offset=(0.,0.), flux_scaling=1.):
         raise NotImplementedError("Not implemented")
 
@@ -279,20 +284,21 @@ class Convolution(GSObject):
         raise NotImplementedError("Not implemented")
 
     def _drawKImage(self, image, jac=None):
+        print("JEC: convolve:_drawKImage: just return the entry")
 
-        def body(i,val):
-            #decode val
-            image, obj_list = val 
+##         def body(i,val):
+##             #decode val
+##             image, obj_list = val 
 
-            image *= obj_list[i]._drawKImage(image, jac)
+##             image *= obj_list[i]._drawKImage(image, jac)
 
-            #recode val
-            return image, obj_list            
+##             #recode val
+##             return image, obj_list            
 
-        image = self.obj_list[0]._drawKImage(image, jac)
-        val_init = image, obj_list
-        val = jax.lax.fori_loop(1,len(self.obj_list),body,val_init)
-        image, obj_list = val
+##         image = self.obj_list[0]._drawKImage(image, jac)
+##         val_init = image, obj_list
+##         val = jax.lax.fori_loop(1,len(self.obj_list),body,val_init)
+##         image, obj_list = val
 
         return image
         
