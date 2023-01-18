@@ -193,7 +193,7 @@ class Transformation(GSObject):
 
     def __str__(self):
         s = str(self.original)
-        s += self._str_from_jac(self._jac)
+        ###JEC 18/1/23 not yet properly implemented s += self._str_from_jac(self._jac)
         if self.offset.x != 0 or self.offset.y != 0:
             s += ".shift(%s,%s)" % (self.offset.x, self.offset.y)
         if self.flux_ratio != 1.0:
