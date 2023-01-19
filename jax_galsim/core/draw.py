@@ -52,10 +52,15 @@ def draw_by_kValue(
 
     # Draw the object
 
-    vf = jax.vmap(jax.vmap(lambda i,j:
-                           gsobject._kValue(jax_galsim.PositionD(coords[i,j,0],coords[i,j,1])),
-                           in_axes=(None, 0)), in_axes=(0, None))
-    im = vf(jnp.arange(coords.shape[0]), jnp.arange(coords.shape[1]))
+##     vf = jax.vmap(jax.vmap(lambda i,j:
+##                            gsobject._kValue(jax_galsim.PositionD(coords[i,j,0],coords[i,j,1])),
+##                            in_axes=(None, 0)), in_axes=(0, None))
+##     im = vf(jnp.arange(coords.shape[0]), jnp.arange(coords.shape[1]))
+
+
+    im = jax.vmap(jax.vmap(lambda *args: gsobject._kValue(jax_galsim.PositionD(*args))))(
+        coords[..., 0], coords[..., 1]
+   )
 
 ## JEC not working with convolve using 2 gsobject  
 ##    im1 = jax.vmap(lambda *args: gsobject._kValue(jax_galsim.PositionD(*args)))(
