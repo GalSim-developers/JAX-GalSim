@@ -440,6 +440,8 @@ class GSObject:
         surface_ops=None,
     ):
         from jax_galsim.wcs import PixelScale
+        from jax_galsim.convolve import Convolve, Convolution
+        from jax_galsim.box import Pixel
 
         # Figure out what wcs we are going to use.
         wcs = self._determine_wcs(scale, wcs, image)
@@ -474,6 +476,16 @@ class GSObject:
         prof = local_wcs.profileToImage(self, flux_ratio=flux_scale, offset=offset)
 
         local_wcs = local_wcs.shiftOrigin(offset)
+
+
+        # If necessary, convolve by the pixel
+        if method in ('fft'):
+            prof = Convolve(prof, Pixel(scale=1.0, gsparams=self.gsparams),
+                            real_space=False, gsparams=self.gsparams)
+        else:
+            print("Warning: Pixel Convolve is real_space is Not implemented")
+        
+
 
 
         # Make sure image is setup correctly

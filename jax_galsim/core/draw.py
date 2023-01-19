@@ -30,6 +30,7 @@ def draw_by_xValue(
     flux_scaling *= jnp.exp(logdet)
 
     # Draw the object
+## JEC the single vmap is not really correct.
 ##    im = jax.vmap(lambda *args: gsobject._xValue(jax_galsim.PositionD(*args)))(
 ##        coords[..., 0], coords[..., 1]
 ##    )
@@ -37,8 +38,6 @@ def draw_by_xValue(
     im = jax.vmap(jax.vmap(lambda *args: gsobject._xValue(jax_galsim.PositionD(*args))))(
         coords[..., 0], coords[..., 1]
     )
-##    print("JEC draw_by_xValue: im.shape", im.shape, "idem im1: ", im1.shape)
-
 
     # Apply the flux scaling
     im = (im * flux_scaling).astype(image.dtype)
@@ -58,12 +57,13 @@ def draw_by_kValue(
 
     # Draw the object
 
+## JEC a possible solution 
 ##     vf = jax.vmap(jax.vmap(lambda i,j:
 ##                            gsobject._kValue(jax_galsim.PositionD(coords[i,j,0],coords[i,j,1])),
 ##                            in_axes=(None, 0)), in_axes=(0, None))
 ##     im = vf(jnp.arange(coords.shape[0]), jnp.arange(coords.shape[1]))
 
-
+## JEC another solution
     im = jax.vmap(jax.vmap(lambda *args: gsobject._kValue(jax_galsim.PositionD(*args))))(
         coords[..., 0], coords[..., 1]
    )
@@ -74,7 +74,6 @@ def draw_by_kValue(
 ##   )
 
     
-##    print("JEC draw_by_kValue: im.shape", im.shape, "idem im1: ", im1.shape)
     im = (im).astype(image.dtype)
 
     # Return an image
