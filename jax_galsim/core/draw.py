@@ -30,9 +30,15 @@ def draw_by_xValue(
     flux_scaling *= jnp.exp(logdet)
 
     # Draw the object
-    im = jax.vmap(lambda *args: gsobject._xValue(jax_galsim.PositionD(*args)))(
+##    im = jax.vmap(lambda *args: gsobject._xValue(jax_galsim.PositionD(*args)))(
+##        coords[..., 0], coords[..., 1]
+##    )
+
+    im = jax.vmap(jax.vmap(lambda *args: gsobject._xValue(jax_galsim.PositionD(*args))))(
         coords[..., 0], coords[..., 1]
     )
+##    print("JEC draw_by_xValue: im.shape", im.shape, "idem im1: ", im1.shape)
+
 
     # Apply the flux scaling
     im = (im * flux_scaling).astype(image.dtype)
