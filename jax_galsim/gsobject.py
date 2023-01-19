@@ -478,13 +478,14 @@ class GSObject:
         local_wcs = local_wcs.shiftOrigin(offset)
 
 
-        # If necessary, convolve by the pixel
-        if method in ('fft'):
-            prof = Convolve(prof, Pixel(scale=1.0, gsparams=self.gsparams),
-                            real_space=False, gsparams=self.gsparams)
-        else:
-            print("Warning: Pixel Convolve is real_space is Not implemented")
-        
+##         # If necessary, convolve by the pixel
+##         if method in ('fft'):
+##             prof = Convolve(prof, Pixel(scale=1.0, gsparams=self.gsparams),
+##                             real_space=False, gsparams=self.gsparams)
+##         else:
+##             print("Warning: Pixel Convolve is real_space is Not implemented")
+
+##         print("JEC: prof content: ",prof)
 
 
 
