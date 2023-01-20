@@ -479,15 +479,12 @@ class GSObject:
 
 
         # If necessary, convolve by the pixel
-        if method in ('fft'):
+        if method == 'fft':
             print("JEC do Pixel Convolve as method=",method)
-
             prof = Convolve(prof, Pixel(scale=1.0, gsparams=self.gsparams),
                             real_space=False, gsparams=self.gsparams)
-        else:
-            print("Warning: Pixel Convolve in real_space is Not implemented")
-
-        print("JEC: prof content: ",prof)
+        else
+            print("Warning: Pixel Convolve Not implemented in method=",method)
 
 
 
@@ -510,13 +507,13 @@ class GSObject:
         draw_image = image
         add = add_to_image
 
-        if method == 'real_space':
+        if 'real_space' in method:
           added_photons = prof.drawReal(draw_image, add)
-        elif method == 'fft':
+        elif 'fft' in method:
           added_photons = prof.drawFFT(draw_image, add)
         else:
             raise _galsim.GalSimIncompatibleValuesError(
-                "method should be 'real_space' or 'fft' for the time beeing",
+                "method should contain 'real_space' or 'fft' for the time beeing",
                 method=method)
 
         draw_image.added_flux = added_photons / flux_scale
