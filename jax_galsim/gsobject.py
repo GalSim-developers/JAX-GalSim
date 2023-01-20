@@ -483,7 +483,7 @@ class GSObject:
             print("JEC do Pixel Convolve as method=",method)
             prof = Convolve(prof, Pixel(scale=1.0, gsparams=self.gsparams),
                             real_space=False, gsparams=self.gsparams)
-        else
+        else:
             print("Warning: Pixel Convolve Not implemented in method=",method)
 
 
