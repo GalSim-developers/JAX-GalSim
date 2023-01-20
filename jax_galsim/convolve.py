@@ -284,7 +284,18 @@ class Convolution(GSObject):
         raise NotImplementedError("Not implemented")
 
     def _drawKImage(self, image, jac=None):
-        print("JEC: convolve:_drawKImage: just return the entry")
+
+        #JEC do it as in GalSim with little adapt as _drawKImage does not update in-place the image
+        image = self.obj_list[0]._drawKImage(image, jac)
+        if len(self.obj_list) > 1:
+            im1 = image.copy()
+            for obj in self.obj_list[1:]:
+                im1 = obj._drawKImage(im1, jac)
+                image *= im1
+        return image
+    
+
+####        print("JEC: convolve:_drawKImage: just return the entry")
 
 ##         def body(i,val):
 ##             #decode val
