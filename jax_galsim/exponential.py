@@ -46,9 +46,11 @@ class Exponential(GSObject):
         else:
             super().__init__(scale_radius=scale_radius, flux=flux, gsparams=gsparams)
 
-        self._r0 = self.scale_radius
-        self._inv_r0 = 1.0 / self._r0
-        self._norm = self.flux * Exponential._inv_twopi * self._inv_r0**2
+        #Transfert to @property
+        #self._r0 = self.scale_radius
+        #self._inv_r0 = 1.0 / self._r0
+        #self._norm = self.flux * Exponential._inv_twopi * self._inv_r0**2
+
 
     @property
     def scale_radius(self):
@@ -57,6 +59,18 @@ class Exponential(GSObject):
             return self.params["half_light_radius"] / Exponential._hlr_factor
         else:
             return self.params["scale_radius"]
+    @property
+    def _r0(self):
+        return self.scale_radius
+
+    @property
+    def _inv_r0(self):
+        return 1.0 / self._r0
+
+    @property
+    def _norm(self):
+        return self.flux * Exponential._inv_twopi * self._inv_r0**2
+    
 
     @property
     def half_light_radius(self):
@@ -65,6 +79,7 @@ class Exponential(GSObject):
             return self.params["half_light_radius"]
         else:
             return self.params["scale_radius"] * Exponential._hlr_factor
+
 
     def __hash__(self):
         return hash(("galsim.Exponential", self.scale_radius, self.flux, self.gsparams))
@@ -78,8 +93,7 @@ class Exponential(GSObject):
 
     def __str__(self):
         s = "galsim.Exponential(scale_radius=%s" % self.scale_radius
-        if self.flux != 1.0:
-            s += ", flux=%s" % self.flux
+        s += ", flux=%s" % self.flux
         s += ")"
         return s
 

@@ -58,9 +58,10 @@ class Gaussian(GSObject):
         else:
             super().__init__(sigma=sigma, flux=flux, gsparams=gsparams)
 
-        self._sigsq = self.sigma**2
-        self._inv_sigsq = 1.0 / self._sigsq
-        self._norm = self.flux * self._inv_sigsq * Gaussian._inv_twopi
+        #Transfert to @property
+        #self._sigsq = self.sigma**2
+        #self._inv_sigsq = 1.0 / self._sigsq
+        #self._norm = self.flux * self._inv_sigsq * Gaussian._inv_twopi
 
     @property
     def sigma(self):
@@ -82,6 +83,19 @@ class Gaussian(GSObject):
         """The FWHM of this Gaussian profile"""
         return self.sigma * Gaussian._fwhm_factor
 
+    @property
+    def _sigsq(self):
+        return self.sigma**2
+    
+    @property
+    def _inv_sigsq(self):
+        return  1.0 / self._sigsq
+
+    @property
+    def _norm(self):
+        return self.flux * self._inv_sigsq * Gaussian._inv_twopi
+    
+
     def __hash__(self):
         return hash(("galsim.Gaussian", self.sigma, self.flux, self.gsparams))
 
@@ -94,8 +108,7 @@ class Gaussian(GSObject):
 
     def __str__(self):
         s = "galsim.Gaussian(sigma=%s" % self.sigma
-        if self.flux != 1.0:
-            s += ", flux=%s" % self.flux
+        s += ", flux=%s" % self.flux
         s += ")"
         return s
 
