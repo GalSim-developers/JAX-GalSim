@@ -62,3 +62,32 @@ def test_position_vmapping():
     assert eq_pos(jax.vmap(galsim.PositionD)(1.0 * e, 2.0 * e), obj)
 
 
+def test_affine_transform_vmapping():
+    obj = galsim.AffineTransform(
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        origin=galsim.PositionD(1.0, 2.0),
+        world_origin=galsim.PositionD(1.0, 2.0),
+    )
+
+    print('now vmap')
+
+    obj_duplicated = jax.vmap(galsim.AffineTransform)(
+        1.0*e,
+        0.0*e,
+        0.0*e,
+        1.0*e,
+        origin=jax.vmap(galsim.PositionD)(1.0*e, 2.0*e),
+        world_origin=jax.vmap(galsim.PositionD)(1.0*e, 2.0*e),
+    )
+
+    def test_eq(self, other):
+        return (
+            (self._local_wcs.dudx == jnp.array([other._local_wcs.dudx, other._local_wcs.dudx])).all()
+            and eq_pos(self.origin, other.origin)
+            and eq_pos(self.world_origin, other.world_origin)
+        )
+
+    assert test_eq(obj_duplicated, obj)

@@ -613,7 +613,10 @@ class JacobianWCS(LocalWCS):
     def __init__(self, dudx, dudy, dvdx, dvdy):
         self._color = None
         self._params = {"dudx": dudx, "dudy": dudy, "dvdx": dvdx, "dvdy": dvdy}
-        self._det = dudx * dvdy - dudy * dvdx
+
+    @property
+    def _det(self):
+        return self.dudx * self.dvdy - self.dudy * self.dvdx
 
     # Help make sure JacobianWCS is read-only.
     @property
