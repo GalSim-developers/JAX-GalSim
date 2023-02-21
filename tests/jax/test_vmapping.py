@@ -91,3 +91,21 @@ def test_affine_transform_vmapping():
         )
 
     assert test_eq(obj_duplicated, obj)
+
+
+def test_bounds_vmapping():
+    obj = galsim.BoundsD(0.0, 1.0, 0.0, 1.0)
+    obj_d = jax.vmap(galsim.BoundsD)(0.0*e, 1.0*e, 0.0*e, 1.0*e)
+
+    objI = galsim.BoundsI(0.0, 1.0, 0.0, 1.0)
+    objI_d = jax.vmap(galsim.BoundsI)(0.0*e, 1.0*e, 0.0*e, 1.0*e)
+
+    def test_eq(self, other):
+      return (self.xmin == jnp.array([other.xmin, other.xmin])
+      ).all() and (self.xmax == jnp.array([other.xmax, other.xmax])
+      ).all() and (self.ymin == jnp.array([other.ymin, other.ymin])
+      ).all() and (self.ymax == jnp.array([other.ymax, other.ymax])).all()
+      
+
+    assert test_eq(obj_d, obj)
+    assert test_eq(objI_d, objI)

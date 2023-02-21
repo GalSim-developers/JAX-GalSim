@@ -464,7 +464,7 @@ def test_Image_basic():
         dy = 16
         im1.shift(dx, dy)
         im2_view.setOrigin(1 + dx, 1 + dy)
-        im3_view.setCenter((ncol + 1) / 2 + dx, (nrow + 1) / 2 + dy)
+        im3_view.setCenter(int((ncol + 1) / 2 + dx), int((nrow + 1) / 2 + dy))
         shifted_bounds = galsim.BoundsI(1 + dx, ncol + dx, 1 + dy, nrow + dy)
 
         assert im1.bounds == shifted_bounds

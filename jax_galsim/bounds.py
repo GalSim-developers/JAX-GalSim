@@ -202,10 +202,6 @@ class BoundsD(Bounds):
 
     def __init__(self, *args, **kwargs):
         self._parse_args(*args, **kwargs)
-        self.xmin = jnp.asarray(self.xmin).astype("float")
-        self.xmax = jnp.asarray(self.xmax).astype("float")
-        self.ymin = jnp.asarray(self.ymin).astype("float")
-        self.ymax = jnp.asarray(self.ymax).astype("float")
 
     def _check_scalar(self, x, name):
         try:
@@ -236,12 +232,7 @@ class BoundsI(Bounds):
 
     def __init__(self, *args, **kwargs):
         self._parse_args(*args, **kwargs)
-        # Now make sure they are all ints
-        self.xmin = jnp.asarray(self.xmin).astype("int")
-        self.xmax = jnp.asarray(self.xmax).astype("int")
-        self.ymin = jnp.asarray(self.ymin).astype("int")
-        self.ymax = jnp.asarray(self.ymax).astype("int")
-
+        
     def _check_scalar(self, x, name):
         try:
             if x == jnp.asarray(x).astype("int"):
