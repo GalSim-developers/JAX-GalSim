@@ -4,9 +4,10 @@ import jax_galsim as galsim
 import jax.numpy as jnp
 
 
-def duplicate(params):
-    return {x: y * jnp.ones(2) for x, y in params.items()}
+e = jnp.ones(2)
 
+def duplicate(params):
+    return {x: y * e for x, y in params.items()}
 
 def test_gaussian_vmapping():
     # Test Gaussian objects
@@ -37,9 +38,9 @@ def test_exponential_vmapping():
 
     # Test equality function from original galsim exponential.py
     def test_eq(self, other):
-        return (self.scale_radius == other.scale_radius).all() and (
-            self.flux == other.flux
-        ).all()
+        return (
+            self.scale_radius == jnp.array([other.scale_radius, other.scale_radius])
+        ).all() and (self.flux == jnp.array([other.flux, other.flux])).all()
 
     # Check that after vmapping the oject is still the same
     assert all(
@@ -48,3 +49,16 @@ def test_exponential_vmapping():
             for o in objects
         ]
     )
+
+
+def eq_pos(pos, other):
+        return (pos.x == jnp.array([other.x, other.x])).all() and (
+            pos.y == jnp.array([other.y, other.y])
+        ).all()
+
+def test_position_vmapping():
+    obj = galsim.PositionD(1.0, 2.0)
+
+    assert eq_pos(jax.vmap(galsim.PositionD)(1.0 * e, 2.0 * e), obj)
+
+
