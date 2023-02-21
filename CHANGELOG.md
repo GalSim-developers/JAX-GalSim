@@ -2,7 +2,6 @@
 
 ## JAX-GalSim 0.0.1 (Unreleased)
 
-
 * Changes
   * Added simplified versions of basic objects, with no support of Chromatic objects yet:
     * `GSObjects` and `gsparams`

@@ -22,7 +22,6 @@ def Add(*args, **kwargs):
 @register_pytree_node_class
 class Sum(GSObject):
     def __init__(self, *args, gsparams=None, propagate_gsparams=True):
-
         self._propagate_gsparams = propagate_gsparams
 
         if len(args) == 0:
