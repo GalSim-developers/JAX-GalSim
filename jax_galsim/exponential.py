@@ -11,7 +11,6 @@ from jax.tree_util import register_pytree_node_class
 @_wraps(_galsim.Exponential)
 @register_pytree_node_class
 class Exponential(GSObject):
-
     # The half-light-radius is not analytic, but can be calculated numerically
     # by iterative solution of equation:
     #     (re / r0) = ln[(re / r0) + 1] + ln(2)
@@ -27,7 +26,6 @@ class Exponential(GSObject):
     def __init__(
         self, half_light_radius=None, scale_radius=None, flux=1.0, gsparams=None
     ):
-
         # Checking gsparams
         gsparams = GSParams.check(gsparams)
 
