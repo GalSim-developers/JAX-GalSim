@@ -2,6 +2,10 @@ import os
 import pytest
 import yaml
 
+# Define the accuracy for running the tests
+from jax.config import config
+
+config.update("jax_enable_x64", True)
 
 # Identify the path to this current file
 test_directory = os.path.dirname(os.path.abspath(__file__))
