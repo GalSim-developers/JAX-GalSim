@@ -26,7 +26,6 @@ class Gaussian(GSObject):
     def __init__(
         self, half_light_radius=None, sigma=None, fwhm=None, flux=1.0, gsparams=None
     ):
-
         # Checking gsparams
         gsparams = GSParams.check(gsparams)
 

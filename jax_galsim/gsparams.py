@@ -7,7 +7,6 @@ from jax._src.numpy.util import _wraps
 @_wraps(_galsim.GSParams)
 @dataclass(frozen=True, repr=False)
 class GSParams:
-
     minimum_fft_size: int = 128
     maximum_fft_size: int = 8192
     folding_threshold: float = 5.0e-3
