@@ -128,13 +128,14 @@ We highly recommend installing `pre-commit`, which will take care of running Bla
 
 ```bash
 pip install pre-commit
+pre-commit install
 ```
 
 And that's all you need to do from now on.
 
 ### Documentation style
 
-JAX-GalSim follows the NumPy/SciPy format: https://numpydoc.readthedocs.io/en/latest/format.html
+JAX-GalSim follows the NumPy/SciPy format: <https://numpydoc.readthedocs.io/en/latest/format.html>
 
 However, most JAX-GalSim function will directly inherit the documentation from the reference GalSim project. We recommend avoid copy/pasting documentation, and instead using the `_wraps` utility to automatically reuse GalSim documentation:
 
