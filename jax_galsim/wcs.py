@@ -8,6 +8,7 @@ import galsim as _galsim
 from jax._src.numpy.util import _wraps
 from jax.tree_util import register_pytree_node_class
 
+
 # We inherit from the reference BaseWCS and only redefine the methods that
 # make references to jax_galsim objects.
 class BaseWCS(_galsim.BaseWCS):
@@ -290,7 +291,6 @@ class EuclideanWCS(BaseWCS):
     # If the class doesn't define something else, then we can approximate the local Jacobian
     # from finite differences for the derivatives.  This will be overridden by UniformWCS.
     def _local(self, image_pos, color):
-
         if image_pos is None:
             raise TypeError("origin must be a PositionD or PositionI argument")
 
