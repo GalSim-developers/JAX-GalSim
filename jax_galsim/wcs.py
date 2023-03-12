@@ -635,10 +635,10 @@ class JacobianWCS(LocalWCS):
         return abs(self._det)
 
     def getMatrix(self):
-        """Get the Jacobian as a NumPy matrix:
+        """Get the Jacobian as a JAX matrix:
 
-        numpy.array( [[ dudx, dudy ],
-                      [ dvdx, dvdy ]] )
+        jax.numpy.array( [[ dudx, dudy ],
+                          [ dvdx, dvdy ]] )
         """
         return jnp.array([[self.dudx, self.dudy], [self.dvdx, self.dvdy]], dtype=float)
 
