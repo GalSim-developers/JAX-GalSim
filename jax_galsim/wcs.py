@@ -61,6 +61,22 @@ class BaseWCS(_galsim.BaseWCS):
             raise TypeError("world_pos must be a PositionD or PositionI argument")
         return self._posToImage(world_pos, color=color)
 
+    @_wraps(_galsim.BaseWCS.profileToImage)
+    def profileToImage(
+        self,
+        world_profile,
+        image_pos=None,
+        world_pos=None,
+        color=None,
+        flux_ratio=1.0,
+        offset=(0, 0),
+    ):
+        if color is None:
+            color = self._color
+        return self.local(image_pos, world_pos, color=color)._profileToImage(
+            world_profile, flux_ratio, PositionD(offset)
+        )
+
     @_wraps(_galsim.BaseWCS.local)
     def local(self, image_pos=None, world_pos=None, color=None):
         if color is None:
@@ -76,6 +92,25 @@ class BaseWCS(_galsim.BaseWCS):
         if image_pos is not None and not isinstance(image_pos, Position):
             raise TypeError("image_pos must be a PositionD or PositionI argument")
         return self._local(image_pos, color)
+
+    @_wraps(_galsim.BaseWCS.affine)
+    def affine(self, image_pos=None, world_pos=None, color=None):
+        if color is None:
+            color = self._color
+        jac = self.jacobian(image_pos, world_pos, color=color)
+        # That call checked that only one of image_pos or world_pos is provided.
+        if world_pos is not None:
+            image_pos = self.toImage(world_pos, color=color)
+        elif image_pos is None:
+            # Both are None.  Must be a local WCS
+            image_pos = PositionD(0, 0)
+
+        if self._isCelestial:
+            return jac.withOrigin(image_pos)
+        else:
+            if world_pos is None:
+                world_pos = self.toWorld(image_pos, color=color)
+            return jac.withOrigin(image_pos, world_pos, color=color)
 
     @_wraps(_galsim.BaseWCS.shiftOrigin)
     def shiftOrigin(self, origin, world_origin=None, color=None):
