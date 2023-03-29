@@ -1,5 +1,7 @@
-import jax_galsim
+import jax_galsim as galsim
 import jax
+
+identity = jax.jit(lambda x: x)
 
 
 def test_position_jitting():
@@ -13,11 +15,11 @@ def test_position_jitting():
 
 def test_position_jit():
     """Tests that positions are preserved and correctly transformed through jit"""
-    pos = jax_galsim.PositionD(1.0, 2.0)
+    pos = galsim.PositionD(1.0, 2.0)
 
     @jax.jit
     def fun(p):
-        pos2 = jax_galsim.PositionD(1.0, 1.0)
+        pos2 = galsim.PositionD(1.0, 1.0)
         return p + pos2
 
     # Because this function is jitted, the inputs and outputs
@@ -25,4 +27,4 @@ def test_position_jit():
     pos3 = fun(pos)
 
     # Check that the result is the same compared to not jitting
-    assert pos3 == (pos + jax_galsim.PositionD(1.0, 1.0))
+    assert pos3 == (pos + galsim.PositionD(1.0, 1.0))
