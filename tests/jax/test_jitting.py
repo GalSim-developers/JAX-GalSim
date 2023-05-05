@@ -61,15 +61,6 @@ def test_sum_jitting():
     assert test_eq(identity(obj), obj)
 
 
-def test_position_jitting():
-    obj = galsim.PositionD(1.0, 2.0)
-
-    def test_eq(self, other):
-        return self.x == other.x and self.y == other.y
-
-    assert test_eq(identity(obj), obj)
-
-
 def test_affine_transform_jitting():
     obj = galsim.AffineTransform(
         1.0,
@@ -88,3 +79,12 @@ def test_affine_transform_jitting():
         )
 
     assert test_eq(identity(obj), obj)
+
+
+def test_bounds_jitting():
+    obj = galsim.BoundsD(0.0, 1.0, 0.0, 1.0)
+
+    objI = galsim.BoundsI(0.0, 1.0, 0.0, 1.0)
+
+    assert identity(obj) == obj
+    assert identity(objI) == objI
