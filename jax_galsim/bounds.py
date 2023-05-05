@@ -11,10 +11,12 @@ from jax.tree_util import register_pytree_node_class
 @_wraps(
     _galsim.Bounds,
     lax_description=(
-        "The JAX implementation will not test whether the bounds are valid, isdefined is always True."
+        "The JAX implementation will not test whether the bounds are valid."
+        "This is defined as always true."
         "It will also not test whether BoundsI is indeed initialized with integers."
     ),
 )
+@register_pytree_node_class
 class Bounds(_galsim.Bounds):
     def _parse_args(self, *args, **kwargs):
         if len(kwargs) == 0:
