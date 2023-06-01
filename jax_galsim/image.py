@@ -5,29 +5,27 @@ import galsim as _galsim
 from jax._src.numpy.util import _wraps
 from jax.tree_util import register_pytree_node_class
 
-from jax_galsim.position import PositionI, PositionD
+from jax_galsim.position import PositionI
 from jax_galsim.bounds import BoundsI, BoundsD
-from jax_galsim.wcs import BaseWCS, PixelScale, JacobianWCS
+from jax_galsim.wcs import BaseWCS, PixelScale
 from jax_galsim.utilities import parse_pos_args
 
 
 @_wraps(
     _galsim.Image,
     lax_description="""
-Contrary to GalSim native Image, this implementation does not support
-sharing of the underlying numpy array between different Images or Views. 
-This is due to the fact that in JAX numpy arrays are immutable, so any 
-operation applied to this Image will create a new jnp.ndarray.
+    Contrary to GalSim native Image, this implementation does not support
+    sharing of the underlying numpy array between different Images or Views.
+    This is due to the fact that in JAX numpy arrays are immutable, so any
+    operation applied to this Image will create a new jnp.ndarray.
 
-    In particular the followong methods will create a copy of the Image:
+    In particular the following methods will create a copy of the Image:
         - Image.view()
         - Image.subImage()
-
 """,
 )
 @register_pytree_node_class
 class Image(object):
-
     _alias_dtypes = {
         int: jnp.int32,  # So that user gets what they would expect
         float: jnp.float64,  # if using dtype=int or float or complex
@@ -223,7 +221,7 @@ class Image(object):
 
     @staticmethod
     def _get_xmin_ymin(array, kwargs, check_bounds=True):
-        """A helper function for parsing xmin, ymin, bounds options with a given array"""
+        """A helper function for parsing xmin, ymin, bounds options with a given array."""
         if not isinstance(array, (np.ndarray, jnp.ndarray)):
             raise TypeError("array must be a ndarray instance")
         xmin = kwargs.pop("xmin", 1)
@@ -233,7 +231,7 @@ class Image(object):
             if not isinstance(b, BoundsI):
                 raise TypeError("bounds must be a galsim.BoundsI instance")
             if check_bounds:
-                # We need to disable this when jitting
+                # TODO: We need to disable this when jitting
                 if b.xmax - b.xmin + 1 != array.shape[1]:
                     raise _galsim.GalSimIncompatibleValuesError(
                         "Shape of array is inconsistent with provided bounds",
@@ -1005,6 +1003,7 @@ def ImageCD(*args, **kwargs):
 # Now we have to make some modifications to the C++ layer objects.  Mostly adding some
 # arithmetic functions, so they work more intuitively.
 #
+
 
 # Define a utility function to be used by the arithmetic functions below
 def check_image_consistency(im1, im2, integer=False):
