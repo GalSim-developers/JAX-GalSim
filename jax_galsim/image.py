@@ -74,7 +74,9 @@ class Image(object):
         else:
             if "array" in kwargs:
                 array = kwargs.pop("array")
-                check_bounds = kwargs.pop("check_bounds", True)
+                check_bounds = kwargs.pop("check_bounds", False)
+                if check_bounds:
+                    raise NotImplementedError("check_bounds is not implemented in JAX-GalSim")
                 array, xmin, ymin = self._get_xmin_ymin(array, kwargs, check_bounds=check_bounds)
             elif "bounds" in kwargs:
                 bounds = kwargs.pop("bounds")
@@ -206,7 +208,7 @@ class Image(object):
             self.wcs = wcs
 
     @staticmethod
-    def _get_xmin_ymin(array, kwargs, check_bounds=True):
+    def _get_xmin_ymin(array, kwargs, check_bounds=False):
         """A helper function for parsing xmin, ymin, bounds options with a given array."""
         if not isinstance(array, (np.ndarray, jnp.ndarray)):
             raise TypeError("array must be a ndarray instance")
@@ -214,19 +216,6 @@ class Image(object):
         ymin = kwargs.pop("ymin", 1)
         if "bounds" in kwargs:
             b = kwargs.pop("bounds")
-            if check_bounds:
-                if b.xmax - b.xmin + 1 != array.shape[1]:
-                    raise _galsim.GalSimIncompatibleValuesError(
-                        "Shape of array is inconsistent with provided bounds",
-                        array=array,
-                        bounds=b,
-                    )
-                if b.ymax - b.ymin + 1 != array.shape[0]:
-                    raise _galsim.GalSimIncompatibleValuesError(
-                        "Shape of array is inconsistent with provided bounds",
-                        array=array,
-                        bounds=b,
-                    )
             if b.isDefined():
                 xmin = b.xmin
                 ymin = b.ymin
