@@ -1,14 +1,13 @@
+import galsim as _galsim
 import jax.numpy as jnp
 import numpy as np
-
-import galsim as _galsim
 from jax._src.numpy.util import _wraps
 from jax.tree_util import register_pytree_node_class
 
+from jax_galsim.bounds import BoundsD, BoundsI
 from jax_galsim.position import PositionI
-from jax_galsim.bounds import BoundsI, BoundsD
-from jax_galsim.wcs import BaseWCS, PixelScale
 from jax_galsim.utilities import parse_pos_args
+from jax_galsim.wcs import BaseWCS, PixelScale
 
 
 @_wraps(
@@ -42,7 +41,7 @@ class Image(object):
     }
     valid_dtypes = _alias_dtypes.keys()
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, dtype=jnp.float32, **kwargs):
         # Parse the args, kwargs
         ncol = None
         nrow = None
@@ -63,24 +62,20 @@ class Image(object):
             elif isinstance(args[0], jnp.ndarray):
                 array = args[0]
                 array, xmin, ymin = self._get_xmin_ymin(array, kwargs)
-            elif isinstance(args[0], BoundsI):
-                bounds = args[0]
             elif isinstance(args[0], (list, tuple)):
                 array = jnp.array(args[0])
                 array, xmin, ymin = self._get_xmin_ymin(array, kwargs)
+            elif isinstance(args[0], BoundsI):
+                bounds = args[0]
             elif isinstance(args[0], Image):
                 image = args[0]
             else:
-                raise TypeError(
-                    "Unable to parse %s as an array, bounds, or image." % args[0]
-                )
+                raise TypeError("Unable to parse %s as an array, bounds, or image." % args[0])
         else:
             if "array" in kwargs:
                 array = kwargs.pop("array")
                 check_bounds = kwargs.pop("check_bounds", True)
-                array, xmin, ymin = self._get_xmin_ymin(
-                    array, kwargs, check_bounds=check_bounds
-                )
+                array, xmin, ymin = self._get_xmin_ymin(array, kwargs, check_bounds=check_bounds)
             elif "bounds" in kwargs:
                 bounds = kwargs.pop("bounds")
             elif "image" in kwargs:
@@ -101,34 +96,24 @@ class Image(object):
         if kwargs:
             if "copy" in kwargs.keys():
                 raise TypeError(
-                    "'copy' is not a valid keyword argument for the JAX-GalSim version of the Image constructor"
+                    "'copy' is not a valid keyword argument for the JAX-GalSim version"
+                    "of the Image constructor"
                 )
             if "make_const" in kwargs.keys():
                 raise TypeError(
-                    "'make_const' is not a valid keyword argument for the JAX-GalSim version of the Image constructor"
+                    "'make_const' is not a valid keyword argument for the JAX-GalSim"
+                    "version of the Image constructor"
                 )
-            raise TypeError(
-                "Image constructor got unexpected keyword arguments: %s", kwargs
-            )
+            raise TypeError("Image constructor got unexpected keyword arguments: %s", kwargs)
 
         # Figure out what dtype we want:
         dtype = Image._alias_dtypes.get(dtype, dtype)
+        if dtype is None:
+            raise TypeError("dtype cannot be None.")
         if dtype is not None and dtype not in Image.valid_dtypes:
             raise _galsim.GalSimValueError("Invlid dtype.", dtype, Image.valid_dtypes)
         if array is not None:
-            if dtype is None:
-                dtype = array.dtype.type
-                if dtype in Image._alias_dtypes:
-                    dtype = Image._alias_dtypes[dtype]
-                    array = array.astype(dtype)
-                elif dtype not in Image.valid_dtypes:
-                    raise _galsim.GalSimValueError(
-                        "Invalid dtype of provided array.",
-                        array.dtype,
-                        Image.valid_dtypes,
-                    )
-            else:
-                array = array.astype(dtype)
+            array = array.astype(dtype)
             # Be careful here: we have to watch out for little-endian / big-endian issues.
             # The path of least resistance is to check whether the array.dtype is equal to the
             # native one (using the dtype.isnative flag), and if not, make a new array that has a
@@ -143,6 +128,7 @@ class Image(object):
 
         # Construct the image attribute
         if ncol is not None or nrow is not None:
+            # TODO: vmapping/jitting with ncol/nrow
             if ncol is None or nrow is None:
                 raise _galsim.GalSimIncompatibleValuesError(
                     "Both nrow and ncol must be provided", ncol=ncol, nrow=nrow
@@ -228,10 +214,7 @@ class Image(object):
         ymin = kwargs.pop("ymin", 1)
         if "bounds" in kwargs:
             b = kwargs.pop("bounds")
-            if not isinstance(b, BoundsI):
-                raise TypeError("bounds must be a galsim.BoundsI instance")
             if check_bounds:
-                # TODO: We need to disable this when jitting
                 if b.xmax - b.xmin + 1 != array.shape[1]:
                     raise _galsim.GalSimIncompatibleValuesError(
                         "Shape of array is inconsistent with provided bounds",
@@ -341,9 +324,7 @@ class Image(object):
     @scale.setter
     def scale(self, value):
         if self.wcs is not None and not self.wcs._isPixelScale:
-            raise _galsim.GalSimError(
-                "image.wcs is not a simple PixelScale; scale is undefined."
-            )
+            raise _galsim.GalSimError("image.wcs is not a simple PixelScale; scale is undefined.")
         else:
             self.wcs = PixelScale(value)
 
@@ -374,9 +355,7 @@ class Image(object):
 
         Equivalent to galsim.BoundsD(im.xmin-0.5, im.xmax+0.5, im.ymin-0.5, im.ymax+0.5)
         """
-        return BoundsD(
-            self.xmin - 0.5, self.xmax + 0.5, self.ymin - 0.5, self.ymax + 0.5
-        )
+        return BoundsD(self.xmin - 0.5, self.xmax + 0.5, self.ymin - 0.5, self.ymax + 0.5)
 
     # real, imag for everything, even real images.
     @property
@@ -524,9 +503,7 @@ class Image(object):
             elif isinstance(args[0], tuple):
                 return self.getValue(*args[0])
             else:
-                raise TypeError(
-                    "image[index] only accepts BoundsI or PositionI for the index"
-                )
+                raise TypeError("image[index] only accepts BoundsI or PositionI for the index")
         elif len(args) == 2:
             return self(*args)
         else:
@@ -549,9 +526,7 @@ class Image(object):
             elif isinstance(args[0], tuple):
                 self.setValue(*args)
             else:
-                raise TypeError(
-                    "image[index] only accepts BoundsI or PositionI for the index"
-                )
+                raise TypeError("image[index] only accepts BoundsI or PositionI for the index")
         elif len(args) == 3:
             return self.setValue(*args)
         else:
@@ -566,9 +541,7 @@ class Image(object):
         if self.wcs is None:
             raise _galsim.GalSimError("calculate_fft requires that the scale be set.")
         if not self.wcs._isPixelScale:
-            raise _galsim.GalSimError(
-                "calculate_fft requires that the image has a PixelScale wcs."
-            )
+            raise _galsim.GalSimError("calculate_fft requires that the image has a PixelScale wcs.")
 
         No2 = jnp.maximum(
             -self.bounds.xmin,
@@ -604,9 +577,7 @@ class Image(object):
                 "calculate_fft requires that the image have defined bounds."
             )
         if self.wcs is None:
-            raise _galsim.GalSimError(
-                "calculate_inverse_fft requires that the scale be set."
-            )
+            raise _galsim.GalSimError("calculate_inverse_fft requires that the scale be set.")
         if not self.wcs._isPixelScale:
             raise _galsim.GalSimError(
                 "calculate_inverse_fft requires that the image has a PixelScale wcs."
@@ -628,9 +599,7 @@ class Image(object):
             # Then we can pad out with zeros and wrap to get this in the form we need.
             full_bounds = BoundsI(0, No2, -No2, No2)
             kimage = Image(full_bounds, dtype=self.dtype, init_value=0)
-            posx_bounds = BoundsI(
-                0, self.bounds.xmax, self.bounds.ymin, self.bounds.ymax
-            )
+            posx_bounds = BoundsI(0, self.bounds.xmax, self.bounds.ymin, self.bounds.ymax)
             kimage[posx_bounds] = self[posx_bounds]
             kimage = kimage.wrap(target_bounds, hermitian="x")
 
@@ -663,9 +632,7 @@ class Image(object):
         # Reduce slightly to eliminate potential rounding errors:
         insize = (1.0 - 1.0e-5) * input
         log2n = np.log(2.0) * np.ceil(np.log(insize) / np.log(2.0))
-        log2n3 = np.log(3.0) + np.log(2.0) * np.ceil(
-            (np.log(insize) - np.log(3.0)) / np.log(2.0)
-        )
+        log2n3 = np.log(3.0) + np.log(2.0) * np.ceil((np.log(insize) - np.log(3.0)) / np.log(2.0))
         log2n3 = np.max(log2n3, np.log(6.0))  # must be even number
         Nk = int(np.ceil(np.exp(np.min(log2n, log2n3)) - 1.0e-5))
         return Nk
@@ -815,12 +782,8 @@ class Image(object):
     @_wraps(_galsim.Image.setValue)
     def setValue(self, *args, **kwargs):
         if not self.bounds.isDefined():
-            raise _galsim.GalSimUndefinedBoundsError(
-                "Attempt to set value of an undefined image"
-            )
-        pos, value = parse_pos_args(
-            args, kwargs, "x", "y", integer=True, others=["value"]
-        )
+            raise _galsim.GalSimUndefinedBoundsError("Attempt to set value of an undefined image")
+        pos, value = parse_pos_args(args, kwargs, "x", "y", integer=True, others=["value"])
         if not self.bounds.includes(pos):
             raise _galsim.GalSimBoundsError(
                 "Attempt to set position not in bounds of image", pos, self.bounds
@@ -841,12 +804,8 @@ class Image(object):
     @_wraps(_galsim.Image.addValue)
     def addValue(self, *args, **kwargs):
         if not self.bounds.isDefined():
-            raise _galsim.GalSimUndefinedBoundsError(
-                "Attempt to set value of an undefined image"
-            )
-        pos, value = parse_pos_args(
-            args, kwargs, "x", "y", integer=True, others=["value"]
-        )
+            raise _galsim.GalSimUndefinedBoundsError("Attempt to set value of an undefined image")
+        pos, value = parse_pos_args(args, kwargs, "x", "y", integer=True, others=["value"])
         if not self.bounds.includes(pos):
             raise _galsim.GalSimBoundsError(
                 "Attempt to set position not in bounds of image", pos, self.bounds
@@ -871,9 +830,7 @@ class Image(object):
             value:  The value to set all the pixels to.
         """
         if not self.bounds.isDefined():
-            raise _galsim.GalSimUndefinedBoundsError(
-                "Attempt to set values of an undefined image"
-            )
+            raise _galsim.GalSimUndefinedBoundsError("Attempt to set values of an undefined image")
         self._fill(value)
 
     def _fill(self, value):
@@ -891,13 +848,11 @@ class Image(object):
         on the output, rather than turning into inf.
         """
         if not self.bounds.isDefined():
-            raise _galsim.GalSimUndefinedBoundsError(
-                "Attempt to set values of an undefined image"
-            )
+            raise _galsim.GalSimUndefinedBoundsError("Attempt to set values of an undefined image")
         self._invertSelf()
 
     def _invertSelf(self):
-        """Equivalent to `invertSelf`, except that there are no checks that the bounds are defined."""
+        """Equivalent to `invertSelf`, except there are no checks that bounds are defined."""
         array = 1.0 / self._array
         array = array.at[jnp.isinf(array)].set(0.0)
         self._array = array.astype(self._array.dtype)
@@ -926,9 +881,7 @@ class Image(object):
             isinstance(other, Image)
             and self.bounds == other.bounds
             and self.wcs == other.wcs
-            and (
-                not self.bounds.isDefined() or jnp.array_equal(self.array, other.array)
-            )
+            and (not self.bounds.isDefined() or jnp.array_equal(self.array, other.array))
             and self.isconst == other.isconst
         )
 
@@ -944,9 +897,7 @@ class Image(object):
     @classmethod
     def tree_unflatten(cls, aux_data, children):
         """Recreates an instance of the class from flatten representation"""
-        return cls(
-            array=children[0], wcs=children[1], bounds=children[2], check_bounds=False
-        )
+        return cls(array=children[0], wcs=children[1], bounds=children[2], check_bounds=False)
 
 
 # These are essentially aliases for the regular Image with the correct dtype
