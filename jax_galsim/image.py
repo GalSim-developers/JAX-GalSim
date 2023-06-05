@@ -663,6 +663,9 @@ class Image(object):
         make_const=False,
         contiguous=False,
     ):
+        if make_const:
+            raise TypeError("'make_const' is not a valid option in JAX-GalSim. Set to `False`.")
+
         if origin is not None and center is not None:
             raise _galsim.GalSimIncompatibleValuesError(
                 "Cannot provide both center and origin", center=center, origin=origin
