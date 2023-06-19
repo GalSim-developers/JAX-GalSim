@@ -159,7 +159,7 @@ class Image(object):
         elif bounds is not None:
             if not isinstance(bounds, BoundsI):
                 raise TypeError("bounds must be a galsim.BoundsI instance")
-            _array = cls._make_empty(bounds.numpyShape(), dtype=self._dtype)
+            _array = cls._make_empty(bounds.numpyShape(), dtype=_dtype)
             _bounds = bounds
             if init_value:
                 _array += init_value
