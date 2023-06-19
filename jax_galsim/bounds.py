@@ -52,8 +52,7 @@ class Bounds(_galsim.Bounds):
                     self.ymax = max(args[0].y, args[1].y)
                 else:
                     raise TypeError(
-                        "Two arguments to %s must be Positions"
-                        % (self.__class__.__name__)
+                        "Two arguments to %s must be Positions" % (self.__class__.__name__)
                     )
             else:
                 raise TypeError(
