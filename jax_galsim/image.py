@@ -41,7 +41,18 @@ class Image(object):
     }
     valid_dtypes = _alias_dtypes.keys()
 
-    def __init__(self, *args, dtype=jnp.float32, **kwargs):
+    @_wraps(
+        _galsim.Image.view,
+        lax_description="Contrary to GalSim, users should use the explicit constructor `.init()`",
+    )
+    def __init__(self, _array: jnp.ndarray, _bounds: BoundsI, wcs: BaseWCS, _dtype: type):
+        self._array = _array
+        self._bounds = _bounds
+        self.wcs = wcs
+        self._dtype = _dtype
+
+    def init(self, *args, **kwargs):
+        """Explicit initializer for Image. The user should use the explicit constructor."""
         # Parse the args, kwargs
         ncol = None
         nrow = None
