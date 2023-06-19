@@ -42,16 +42,19 @@ class Image(object):
     valid_dtypes = _alias_dtypes.keys()
 
     @_wraps(
-        _galsim.Image.view,
+        _galsim.Image.__init__,
         lax_description="Contrary to GalSim, users should use the explicit constructor `.init()`",
     )
-    def __init__(self, _array: jnp.ndarray, _bounds: BoundsI, wcs: BaseWCS, _dtype: type):
+    def __init__(
+        self, _array: jnp.ndarray, _bounds: BoundsI, wcs: BaseWCS, _dtype: type = jnp.float64
+    ):
         self._array = _array
         self._bounds = _bounds
         self.wcs = wcs
         self._dtype = _dtype
 
-    def init(self, *args, **kwargs):
+    @classmethod
+    def init(cls, *args, **kwargs):
         """Explicit initializer for Image. The user should use the explicit constructor."""
         # Parse the args, kwargs
         ncol = None
@@ -69,13 +72,13 @@ class Image(object):
         elif len(args) == 1:
             if isinstance(args[0], np.ndarray):
                 array = jnp.array(args[0])
-                array, xmin, ymin = self._get_xmin_ymin(array, kwargs)
+                array, xmin, ymin = cls._get_xmin_ymin(array, kwargs)
             elif isinstance(args[0], jnp.ndarray):
                 array = args[0]
-                array, xmin, ymin = self._get_xmin_ymin(array, kwargs)
+                array, xmin, ymin = cls._get_xmin_ymin(array, kwargs)
             elif isinstance(args[0], (list, tuple)):
                 array = jnp.array(args[0])
-                array, xmin, ymin = self._get_xmin_ymin(array, kwargs)
+                array, xmin, ymin = cls._get_xmin_ymin(array, kwargs)
             elif isinstance(args[0], BoundsI):
                 bounds = args[0]
             elif isinstance(args[0], Image):
@@ -88,7 +91,7 @@ class Image(object):
                 check_bounds = kwargs.pop("check_bounds", False)
                 if check_bounds:
                     raise NotImplementedError("check_bounds is not implemented in JAX-GalSim")
-                array, xmin, ymin = self._get_xmin_ymin(array, kwargs, check_bounds=check_bounds)
+                array, xmin, ymin = cls._get_xmin_ymin(array, kwargs, check_bounds=check_bounds)
             elif "bounds" in kwargs:
                 bounds = kwargs.pop("bounds")
             elif "image" in kwargs:
@@ -133,15 +136,14 @@ class Image(object):
             # type equal to the same one but with the appropriate endian-ness.
             if not array.dtype.isnative:
                 array = array.astype(array.dtype.newbyteorder("="))
-            self._dtype = array.dtype.type
+            _dtype = array.dtype.type
         elif dtype is not None:
-            self._dtype = dtype
+            _dtype = dtype
         else:
-            self._dtype = jnp.float32
+            _dtype = jnp.float32
 
         # Construct the image attribute
         if ncol is not None or nrow is not None:
-            # TODO: vmapping/jitting with ncol/nrow
             if ncol is None or nrow is None:
                 raise _galsim.GalSimIncompatibleValuesError(
                     "Both nrow and ncol must be provided", ncol=ncol, nrow=nrow
@@ -150,21 +152,21 @@ class Image(object):
                 raise TypeError("nrow, ncol must be integers")
             ncol = int(ncol)
             nrow = int(nrow)
-            self._array = self._make_empty(shape=(nrow, ncol), dtype=self._dtype)
-            self._bounds = BoundsI(xmin, xmin + ncol - 1, ymin, ymin + nrow - 1)
+            _array = cls._make_empty(shape=(nrow, ncol), dtype=_dtype)
+            _bounds = BoundsI(xmin, xmin + ncol - 1, ymin, ymin + nrow - 1)
             if init_value:
-                self._array = self._array + init_value
+                _array += init_value
         elif bounds is not None:
             if not isinstance(bounds, BoundsI):
                 raise TypeError("bounds must be a galsim.BoundsI instance")
-            self._array = self._make_empty(bounds.numpyShape(), dtype=self._dtype)
-            self._bounds = bounds
+            _array = cls._make_empty(bounds.numpyShape(), dtype=self._dtype)
+            _bounds = bounds
             if init_value:
-                self._array = self._array + init_value
+                _array += init_value
         elif array is not None:
-            self._array = array.view()
+            _array = array.view()
             nrow, ncol = array.shape
-            self._bounds = BoundsI(xmin, xmin + ncol - 1, ymin, ymin + nrow - 1)
+            _bounds = BoundsI(xmin, xmin + ncol - 1, ymin, ymin + nrow - 1)
             if init_value is not None:
                 raise _galsim.GalSimIncompatibleValuesError(
                     "Cannot specify init_value with array",
@@ -182,19 +184,19 @@ class Image(object):
                 )
             if wcs is None and scale is None:
                 wcs = image.wcs
-            self._bounds = image.bounds
+            _bounds = image.bounds
             if dtype is None:
-                self._dtype = image.dtype
+                _dtype = image.dtype
             else:
                 # Allow dtype to force a retyping of the provided image
                 # e.g. im = ImageF(...)
                 #      im2 = ImageD(im)
-                self._dtype = dtype
-            self._array = image.array.astype(self._dtype)
+                _dtype = dtype
+            _array = image.array.astype(_dtype)
         else:
             # TODO: remove this possiblity of creating an empty image.
-            self._array = jnp.zeros(shape=(1, 1), dtype=self._dtype)
-            self._bounds = BoundsI()
+            _array = jnp.zeros(shape=(1, 1), dtype=_dtype)
+            _bounds = BoundsI()
             if init_value is not None:
                 raise _galsim.GalSimIncompatibleValuesError(
                     "Cannot specify init_value without setting an initial size",
@@ -212,11 +214,13 @@ class Image(object):
                     wcs=wcs,
                     scale=scale,
                 )
-            self.wcs = PixelScale(float(scale))
+            wcs = PixelScale(float(scale))
         else:
             if wcs is not None and not isinstance(wcs, BaseWCS):
                 raise TypeError("wcs parameters must be a galsim.BaseWCS instance")
-            self.wcs = wcs
+            wcs = wcs
+
+        return cls(_array, _bounds, wcs, _dtype)
 
     @staticmethod
     def _get_xmin_ymin(array, kwargs, check_bounds=False):
@@ -408,6 +412,7 @@ class Image(object):
         y += self.bounds.ymin
         return x, y
 
+    @staticmethod
     def _make_empty(self, shape, dtype):
         """Helper function to make an empty numpy array of the given shape."""
         return jnp.zeros(shape=shape, dtype=dtype)
@@ -900,7 +905,7 @@ class Image(object):
     @classmethod
     def tree_unflatten(cls, aux_data, children):
         """Recreates an instance of the class from flatten representation"""
-        return cls(array=children[0], wcs=children[1], bounds=children[2], check_bounds=False)
+        return cls(_array=children[0], wcs=children[1], _bounds=children[2])
 
 
 # These are essentially aliases for the regular Image with the correct dtype
