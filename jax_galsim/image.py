@@ -43,10 +43,10 @@ class Image(object):
 
     @_wraps(
         _galsim.Image.__init__,
-        lax_description="Contrary to GalSim, users should use the explicit constructor `.init()`",
+        lax_description="Contrary to GalSim, users should use the explicit constructor `.init()`.",
     )
     def __init__(
-        self, _array: jnp.ndarray, _bounds: BoundsI, wcs: BaseWCS, _dtype: type = jnp.float64
+        self, _array: jnp.ndarray, _bounds: BoundsI, wcs: BaseWCS, _dtype: type = jnp.float32
     ):
         self._array = _array
         self._bounds = _bounds
@@ -103,7 +103,7 @@ class Image(object):
                 ymin = kwargs.pop("ymin", 1)
 
         # Pop off the other valid kwargs:
-        dtype = kwargs.pop("dtype", None)
+        dtype = kwargs.pop("dtype", jnp.float32)
         init_value = kwargs.pop("init_value", None)
         scale = kwargs.pop("scale", None)
         wcs = kwargs.pop("wcs", None)
@@ -194,7 +194,6 @@ class Image(object):
                 _dtype = dtype
             _array = image.array.astype(_dtype)
         else:
-            # TODO: remove this possiblity of creating an empty image.
             _array = jnp.zeros(shape=(1, 1), dtype=_dtype)
             _bounds = BoundsI()
             if init_value is not None:
@@ -370,7 +369,7 @@ class Image(object):
 
         This works for real or complex.  For real images, it acts the same as `view`.
         """
-        return self.__class__(self.array.real, bounds=self.bounds, wcs=self.wcs)
+        return self.__class__.init(self.array.real, bounds=self.bounds, wcs=self.wcs)
 
     @property
     def imag(self):
@@ -381,7 +380,7 @@ class Image(object):
         This works for real or complex.  For real images, the returned array is read-only and
         all elements are 0.
         """
-        return self.__class__(self.array.imag, bounds=self.bounds, wcs=self.wcs)
+        return self.__class__.init(self.array.imag, bounds=self.bounds, wcs=self.wcs)
 
     @property
     def conjugate(self):
@@ -392,11 +391,11 @@ class Image(object):
         Note that for complex images, this is not a conjugate view into the original image.
         So changing the original image does not change the conjugate (or vice versa).
         """
-        return self.__class__(self.array.conjugate(), bounds=self.bounds, wcs=self.wcs)
+        return self.__class__.init(self.array.conjugate(), bounds=self.bounds, wcs=self.wcs)
 
     def copy(self):
         """Make a copy of the `Image`"""
-        return self.__class__(self.array.copy(), bounds=self.bounds, wcs=self.wcs)
+        return self.__class__.init(self.array.copy(), bounds=self.bounds, wcs=self.wcs)
 
     def get_pixel_centers(self):
         """A convenience function to get the x and y values at the centers of the image pixels.
@@ -413,7 +412,7 @@ class Image(object):
         return x, y
 
     @staticmethod
-    def _make_empty(self, shape, dtype):
+    def _make_empty(shape, dtype):
         """Helper function to make an empty numpy array of the given shape."""
         return jnp.zeros(shape=shape, dtype=dtype)
 
@@ -460,7 +459,7 @@ class Image(object):
         # NB. The wcs is still accurate, since the sub-image uses the same (x,y) values
         # as the original image did for those pixels.  It's only once you recenter or
         # reorigin that you need to update the wcs.  So that's taken care of in im.shift.
-        return self.__class__(subarray, bounds=bounds, wcs=self.wcs)
+        return self.__class__.init(subarray, bounds=bounds, wcs=self.wcs)
 
     def setSubImage(self, bounds, rhs):
         """Set a portion of the full image to the values in another image
@@ -561,14 +560,14 @@ class Image(object):
             ximage = self
         else:
             # Then we pad out with zeros
-            ximage = Image(full_bounds, dtype=self.dtype, init_value=0)
+            ximage = Image.init(full_bounds, dtype=self.dtype, init_value=0)
             ximage[self.bounds] = self[self.bounds]
 
         dx = self.scale
         # dk = 2pi / (N dk)
         dk = jnp.pi / (No2 * dx)
 
-        out = Image(BoundsI(0, No2, -No2, No2 - 1), dtype=np.complex128, scale=dk)
+        out = Image.init(BoundsI(0, No2, -No2, No2 - 1), dtype=np.complex128, scale=dk)
         out._image = jnp.fft.rfft2(ximage._image)
 
         out *= dx * dx
@@ -603,7 +602,7 @@ class Image(object):
         else:
             # Then we can pad out with zeros and wrap to get this in the form we need.
             full_bounds = BoundsI(0, No2, -No2, No2)
-            kimage = Image(full_bounds, dtype=self.dtype, init_value=0)
+            kimage = Image.init(full_bounds, dtype=self.dtype, init_value=0)
             posx_bounds = BoundsI(0, self.bounds.xmax, self.bounds.ymin, self.bounds.ymax)
             kimage[posx_bounds] = self[posx_bounds]
             kimage = kimage.wrap(target_bounds, hermitian="x")
@@ -613,7 +612,7 @@ class Image(object):
         dx = jnp.pi / (No2 * dk)
 
         # For the inverse, we need a bit of extra space for the fft.
-        out_extra = Image(BoundsI(-No2, No2 + 1, -No2, No2 - 1), dtype=float, scale=dx)
+        out_extra = Image.init(BoundsI(-No2, No2 + 1, -No2, No2 - 1), dtype=float, scale=dx)
         out_extra._image = jnp.fft.irfft2(kimage._image)
         # Now cut off the bit we don't need.
         out = out_extra.subImage(BoundsI(-No2, No2 - 1, -No2, No2 - 1))
@@ -693,7 +692,7 @@ class Image(object):
 
         # If currently empty, just return a new empty image.
         if not self.bounds.isDefined():
-            return Image(wcs=wcs, dtype=dtype)
+            return Image.init(wcs=wcs, dtype=dtype)
 
         # Recast the array type if necessary
         if dtype != self.array.dtype:
@@ -704,7 +703,7 @@ class Image(object):
             array = self.array
 
         # Make the return Image
-        ret = self.__class__(array, bounds=self.bounds, wcs=wcs)
+        ret = self.__class__.init(array, bounds=self.bounds, wcs=wcs)
 
         # Update the origin if requested
         if origin is not None:
@@ -899,62 +898,63 @@ class Image(object):
     def tree_flatten(self):
         """Flatten the image into a list of values."""
         # Define the children nodes of the PyTree that need tracing
-        children = (self.array, self.wcs, self.bounds)
-        return (children, None)
+        children = (self.array, self.bounds, self.wcs)
+        aux_data = (self.dtype,)
+        return (children, aux_data)
 
     @classmethod
     def tree_unflatten(cls, aux_data, children):
         """Recreates an instance of the class from flatten representation"""
-        return cls(_array=children[0], wcs=children[1], _bounds=children[2])
+        return cls(_array=children[0], _bounds=children[1], wcs=children[2], _dtype=aux_data[0])
 
 
 # These are essentially aliases for the regular Image with the correct dtype
 def ImageUS(*args, **kwargs):
     """Alias for galsim.Image(..., dtype=numpy.uint16)"""
     kwargs["dtype"] = jnp.uint16
-    return Image(*args, **kwargs)
+    return Image.init(*args, **kwargs)
 
 
 def ImageUI(*args, **kwargs):
     """Alias for galsim.Image(..., dtype=numpy.uint32)"""
     kwargs["dtype"] = jnp.uint32
-    return Image(*args, **kwargs)
+    return Image.init(*args, **kwargs)
 
 
 def ImageS(*args, **kwargs):
     """Alias for galsim.Image(..., dtype=numpy.int16)"""
     kwargs["dtype"] = jnp.int16
-    return Image(*args, **kwargs)
+    return Image.init(*args, **kwargs)
 
 
 def ImageI(*args, **kwargs):
     """Alias for galsim.Image(..., dtype=numpy.int32)"""
     kwargs["dtype"] = jnp.int32
-    return Image(*args, **kwargs)
+    return Image.init(*args, **kwargs)
 
 
 def ImageF(*args, **kwargs):
     """Alias for galsim.Image(..., dtype=numpy.float32)"""
     kwargs["dtype"] = jnp.float32
-    return Image(*args, **kwargs)
+    return Image.init(*args, **kwargs)
 
 
 def ImageD(*args, **kwargs):
     """Alias for galsim.Image(..., dtype=numpy.float64)"""
     kwargs["dtype"] = jnp.float64
-    return Image(*args, **kwargs)
+    return Image.init(*args, **kwargs)
 
 
 def ImageCF(*args, **kwargs):
     """Alias for galsim.Image(..., dtype=numpy.complex64)"""
     kwargs["dtype"] = jnp.complex64
-    return Image(*args, **kwargs)
+    return Image.init(*args, **kwargs)
 
 
 def ImageCD(*args, **kwargs):
     """Alias for galsim.Image(..., dtype=numpy.complex128)"""
     kwargs["dtype"] = jnp.complex128
-    return Image(*args, **kwargs)
+    return Image.init(*args, **kwargs)
 
 
 ################################################################################################
@@ -983,7 +983,7 @@ def Image_add(self, other):
         a = other.array
     except AttributeError:
         a = other
-    return Image(self.array + a, bounds=self.bounds, wcs=self.wcs)
+    return Image.init(self.array + a, bounds=self.bounds, wcs=self.wcs)
 
 
 def Image_iadd(self, other):
@@ -998,7 +998,7 @@ def Image_iadd(self, other):
         array = self.array + a
     else:
         array = (self.array + a).astype(self.array.dtype)
-    return Image(array, bounds=self.bounds, wcs=self.wcs)
+    return Image.init(array, bounds=self.bounds, wcs=self.wcs)
 
 
 def Image_sub(self, other):
@@ -1007,11 +1007,11 @@ def Image_sub(self, other):
         a = other.array
     except AttributeError:
         a = other
-    return Image(self.array - a, bounds=self.bounds, wcs=self.wcs)
+    return Image.init(self.array - a, bounds=self.bounds, wcs=self.wcs)
 
 
 def Image_rsub(self, other):
-    return Image(other - self.array, bounds=self.bounds, wcs=self.wcs)
+    return Image.init(other - self.array, bounds=self.bounds, wcs=self.wcs)
 
 
 def Image_isub(self, other):
@@ -1026,7 +1026,7 @@ def Image_isub(self, other):
         array = self.array - a
     else:
         array = (self.array - a).astype(self.array.dtype)
-    return Image(array, bounds=self.bounds, wcs=self.wcs)
+    return Image.init(array, bounds=self.bounds, wcs=self.wcs)
 
 
 def Image_mul(self, other):
@@ -1035,7 +1035,7 @@ def Image_mul(self, other):
         a = other.array
     except AttributeError:
         a = other
-    return Image(self.array * a, bounds=self.bounds, wcs=self.wcs)
+    return Image.init(self.array * a, bounds=self.bounds, wcs=self.wcs)
 
 
 def Image_imul(self, other):
@@ -1050,7 +1050,7 @@ def Image_imul(self, other):
         array = self.array * a
     else:
         array = (self.array * a).astype(self.array.dtype)
-    return Image(array, bounds=self.bounds, wcs=self.wcs)
+    return Image.init(array, bounds=self.bounds, wcs=self.wcs)
 
 
 def Image_div(self, other):
@@ -1059,11 +1059,11 @@ def Image_div(self, other):
         a = other.array
     except AttributeError:
         a = other
-    return Image(self.array / a, bounds=self.bounds, wcs=self.wcs)
+    return Image.init(self.array / a, bounds=self.bounds, wcs=self.wcs)
 
 
 def Image_rdiv(self, other):
-    return Image(other / self.array, bounds=self.bounds, wcs=self.wcs)
+    return Image.init(other / self.array, bounds=self.bounds, wcs=self.wcs)
 
 
 def Image_idiv(self, other):
@@ -1080,7 +1080,7 @@ def Image_idiv(self, other):
         array = self.array / a
     else:
         array = (self.array / a).astype(self.array.dtype)
-    return Image(array, bounds=self.bounds, wcs=self.wcs)
+    return Image.init(array, bounds=self.bounds, wcs=self.wcs)
 
 
 def Image_floordiv(self, other):
@@ -1089,12 +1089,12 @@ def Image_floordiv(self, other):
         a = other.array
     except AttributeError:
         a = other
-    return Image(self.array // a, bounds=self.bounds, wcs=self.wcs)
+    return Image.init(self.array // a, bounds=self.bounds, wcs=self.wcs)
 
 
 def Image_rfloordiv(self, other):
     check_image_consistency(self, other, integer=True)
-    return Image(other // self.array, bounds=self.bounds, wcs=self.wcs)
+    return Image.init(other // self.array, bounds=self.bounds, wcs=self.wcs)
 
 
 def Image_ifloordiv(self, other):
@@ -1109,7 +1109,7 @@ def Image_ifloordiv(self, other):
         array = self.array // a
     else:
         array = (self.array // a).astype(self.array.dtype)
-    return Image(array, bounds=self.bounds, wcs=self.wcs)
+    return Image.init(array, bounds=self.bounds, wcs=self.wcs)
 
 
 def Image_mod(self, other):
@@ -1118,12 +1118,12 @@ def Image_mod(self, other):
         a = other.array
     except AttributeError:
         a = other
-    return Image(self.array % a, bounds=self.bounds, wcs=self.wcs)
+    return Image.init(self.array % a, bounds=self.bounds, wcs=self.wcs)
 
 
 def Image_rmod(self, other):
     check_image_consistency(self, other, integer=True)
-    return Image(other % self.array, bounds=self.bounds, wcs=self.wcs)
+    return Image.init(other % self.array, bounds=self.bounds, wcs=self.wcs)
 
 
 def Image_imod(self, other):
@@ -1138,17 +1138,17 @@ def Image_imod(self, other):
         array = self.array % a
     else:
         array = (self.array % a).astype(self.array.dtype)
-    return Image(array, bounds=self.bounds, wcs=self.wcs)
+    return Image.init(array, bounds=self.bounds, wcs=self.wcs)
 
 
 def Image_pow(self, other):
-    return Image(self.array**other, bounds=self.bounds, wcs=self.wcs)
+    return Image.init(self.array**other, bounds=self.bounds, wcs=self.wcs)
 
 
 def Image_ipow(self, other):
     if not isinstance(other, int) and not isinstance(other, float):
         raise TypeError("Can only raise an image to a float or int power!")
-    return Image(self.array**other, bounds=self.bounds, wcs=self.wcs)
+    return Image.init(self.array**other, bounds=self.bounds, wcs=self.wcs)
 
 
 def Image_neg(self):
@@ -1164,7 +1164,7 @@ def Image_and(self, other):
         a = other.array
     except AttributeError:
         a = other
-    return Image(self.array & a, bounds=self.bounds, wcs=self.wcs)
+    return Image.init(self.array & a, bounds=self.bounds, wcs=self.wcs)
 
 
 def Image_xor(self, other):
@@ -1173,7 +1173,7 @@ def Image_xor(self, other):
         a = other.array
     except AttributeError:
         a = other
-    return Image(self.array ^ a, bounds=self.bounds, wcs=self.wcs)
+    return Image.init(self.array ^ a, bounds=self.bounds, wcs=self.wcs)
 
 
 def Image_or(self, other):
@@ -1182,7 +1182,7 @@ def Image_or(self, other):
         a = other.array
     except AttributeError:
         a = other
-    return Image(self.array | a, bounds=self.bounds, wcs=self.wcs)
+    return Image.init(self.array | a, bounds=self.bounds, wcs=self.wcs)
 
 
 # inject the arithmetic operators as methods of the Image class:
