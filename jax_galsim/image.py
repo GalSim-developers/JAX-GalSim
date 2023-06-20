@@ -41,7 +41,7 @@ class Image(object):
     }
 
     _valid_array_types = set(_alias_dtypes.values())
-    valid_dtypes = _alias_dtypes.keys() + list(_valid_array_types)
+    valid_dtypes = list(_alias_dtypes.keys()) + list(_valid_array_types)
 
     @_wraps(
         _galsim.Image.__init__,
@@ -88,10 +88,7 @@ class Image(object):
         else:
             if "array" in kwargs:
                 array = kwargs.pop("array")
-                check_bounds = kwargs.pop("check_bounds", False)
-                if check_bounds:
-                    raise NotImplementedError("check_bounds is not implemented in JAX-GalSim")
-                array, xmin, ymin = cls._get_xmin_ymin(array, kwargs, check_bounds=check_bounds)
+                array, xmin, ymin = cls._get_xmin_ymin(array, kwargs)
             elif "bounds" in kwargs:
                 bounds = kwargs.pop("bounds")
             elif "image" in kwargs:
