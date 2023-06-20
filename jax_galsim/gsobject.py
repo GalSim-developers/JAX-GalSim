@@ -163,9 +163,7 @@ class GSObject:
         Returns:
             the surface brightness at that position.
         """
-        raise NotImplementedError(
-            "%s does not implement xValue" % self.__class__.__name__
-        )
+        raise NotImplementedError("%s does not implement xValue" % self.__class__.__name__)
 
     @_wraps(_galsim.GSObject.kValue)
     def kValue(self, *args, **kwargs):
@@ -174,9 +172,7 @@ class GSObject:
 
     def _kValue(self, kpos):
         """Equivalent to `kValue`, but ``kpos`` must be a `galsim.PositionD` instance."""
-        raise NotImplementedError(
-            "%s does not implement kValue" % self.__class__.__name__
-        )
+        raise NotImplementedError("%s does not implement kValue" % self.__class__.__name__)
 
     def withGSParams(self, gsparams=None, **kwargs):
         """Create a version of the current object with the given `GSParams`."""

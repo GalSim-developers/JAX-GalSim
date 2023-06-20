@@ -9,16 +9,12 @@ from jax._src.numpy.util import _wraps
 from jax.tree_util import register_pytree_node_class
 
 
-@_wraps(
-    _galsim.Add, lax_description="Does not support `ChromaticObject` at this point."
-)
+@_wraps(_galsim.Add, lax_description="Does not support `ChromaticObject` at this point.")
 def Add(*args, **kwargs):
     return Sum(*args, **kwargs)
 
 
-@_wraps(
-    _galsim.Sum, lax_description="Does not support `ChromaticObject` at this point."
-)
+@_wraps(_galsim.Sum, lax_description="Does not support `ChromaticObject` at this point.")
 @register_pytree_node_class
 class Sum(GSObject):
     def __init__(self, *args, gsparams=None, propagate_gsparams=True):
@@ -33,9 +29,7 @@ class Sum(GSObject):
             elif isinstance(args[0], list) or isinstance(args[0], tuple):
                 args = args[0]
             else:
-                raise TypeError(
-                    "Single input argument must be a GSObject or list of them."
-                )
+                raise TypeError("Single input argument must be a GSObject or list of them.")
         # else args is already the list of objects
 
         # Consolidate args for Sums of Sums...

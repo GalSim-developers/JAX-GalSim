@@ -1,4 +1,5 @@
 import os
+
 import pytest
 import yaml
 
@@ -20,9 +21,7 @@ def pytest_collection_modifyitems(config, items):
     """This hook will automatically skip tests that are not enabled in the
     enabled_tests.yaml file.
     """
-    skip = pytest.mark.skip(
-        reason="Skipping this because functionalities are not implemented yet"
-    )
+    skip = pytest.mark.skip(reason="Skipping this because functionalities are not implemented yet")
     for item in items:
         # if this is a jax test we execute it
         if "jax" in item.nodeid:

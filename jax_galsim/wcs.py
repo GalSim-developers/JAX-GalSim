@@ -1,12 +1,11 @@
-import jax.numpy as jnp
-
-from jax_galsim.gsobject import GSObject
-from jax_galsim.position import Position, PositionI, PositionD
-from jax_galsim.transform import _Transform
-
 import galsim as _galsim
+import jax.numpy as jnp
 from jax._src.numpy.util import _wraps
 from jax.tree_util import register_pytree_node_class
+
+from jax_galsim.gsobject import GSObject
+from jax_galsim.position import Position, PositionD
+from jax_galsim.transform import _Transform
 
 
 # We inherit from the reference BaseWCS and only redefine the methods that
@@ -330,13 +329,9 @@ class EuclideanWCS(BaseWCS):
 
         else:
             if not isinstance(world_origin, Position):
-                raise TypeError(
-                    "world_origin must be a PositionD or PositionI argument"
-                )
+                raise TypeError("world_origin must be a PositionD or PositionI argument")
             if not self._isLocal:
-                world_origin += self.world_origin - self._posToWorld(
-                    self.origin, color=color
-                )
+                world_origin += self.world_origin - self._posToWorld(self.origin, color=color)
             return self._newOrigin(origin, world_origin)
 
     # If the class doesn't define something else, then we can approximate the local Jacobian
@@ -374,9 +369,7 @@ class EuclideanWCS(BaseWCS):
     # numpy arrays!
     def _makeSkyImage(self, image, sky_level, color):
         b = image.bounds
-        nx = (
-            b.xmax - b.xmin + 1 + 2
-        )  # +2 more than in image to get row/col off each edge.
+        nx = b.xmax - b.xmin + 1 + 2  # +2 more than in image to get row/col off each edge.
         ny = b.ymax - b.ymin + 1 + 2
         x, y = jnp.meshgrid(
             jnp.linspace(b.xmin - 1, b.xmax + 1, nx),
@@ -605,9 +598,7 @@ class PixelScale(LocalWCS):
         return PixelScale(self._scale)
 
     def __eq__(self, other):
-        return self is other or (
-            isinstance(other, PixelScale) and self.scale == other.scale
-        )
+        return self is other or (isinstance(other, PixelScale) and self.scale == other.scale)
 
     def __repr__(self):
         return "galsim.PixelScale(%r)" % self.scale
@@ -734,9 +725,7 @@ class JacobianWCS(LocalWCS):
         return JacobianWCS(dudx, dudy, dvdx, dvdy)
 
     def _newOrigin(self, origin, world_origin):
-        return AffineTransform(
-            self.dudx, self.dudy, self.dvdx, self.dvdy, origin, world_origin
-        )
+        return AffineTransform(self.dudx, self.dudy, self.dvdx, self.dvdy, origin, world_origin)
 
     def copy(self):
         return JacobianWCS(self.dudx, self.dudy, self.dvdx, self.dvdy)
@@ -938,14 +927,10 @@ class AffineTransform(UniformWCS):
         u0 = header.get("CRVAL1", 0.0)
         v0 = header.get("CRVAL2", 0.0)
 
-        return AffineTransform(
-            dudx, dudy, dvdx, dvdy, PositionD(x0, y0), PositionD(u0, v0)
-        )
+        return AffineTransform(dudx, dudy, dvdx, dvdy, PositionD(x0, y0), PositionD(u0, v0))
 
     def _newOrigin(self, origin, world_origin):
-        return AffineTransform(
-            self.dudx, self.dudy, self.dvdx, self.dvdy, origin, world_origin
-        )
+        return AffineTransform(self.dudx, self.dudy, self.dvdx, self.dvdy, origin, world_origin)
 
     def copy(self):
         return AffineTransform(
@@ -953,9 +938,14 @@ class AffineTransform(UniformWCS):
         )
 
     def __repr__(self):
-        return (
-            "galsim.AffineTransform(%r, %r, %r, %r, origin=%r, world_origin=%r)"
-        ) % (self.dudx, self.dudy, self.dvdx, self.dvdy, self.origin, self.world_origin)
+        return ("galsim.AffineTransform(%r, %r, %r, %r, origin=%r, world_origin=%r)") % (
+            self.dudx,
+            self.dudy,
+            self.dvdx,
+            self.dvdy,
+            self.origin,
+            self.world_origin,
+        )
 
     def __hash__(self):
         return hash(repr(self))

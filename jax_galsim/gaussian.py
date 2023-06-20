@@ -23,9 +23,7 @@ class Gaussian(GSObject):
     _is_analytic_x = True
     _is_analytic_k = True
 
-    def __init__(
-        self, half_light_radius=None, sigma=None, fwhm=None, flux=1.0, gsparams=None
-    ):
+    def __init__(self, half_light_radius=None, sigma=None, fwhm=None, flux=1.0, gsparams=None):
         # Checking gsparams
         gsparams = GSParams.check(gsparams)
 
@@ -48,9 +46,7 @@ class Gaussian(GSObject):
                     half_light_radius=half_light_radius,
                 )
             else:
-                super().__init__(
-                    half_light_radius=half_light_radius, flux=flux, gsparams=gsparams
-                )
+                super().__init__(half_light_radius=half_light_radius, flux=flux, gsparams=gsparams)
         elif sigma is None:
             raise _galsim.GalSimIncompatibleValuesError(
                 "One of sigma, fwhm, and half_light_radius must be specified",

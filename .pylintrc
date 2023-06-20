@@ -1,0 +1,4 @@
+disable = 
+    invalid-name,
+    missing-docstring,
+    missing-module-docstring,

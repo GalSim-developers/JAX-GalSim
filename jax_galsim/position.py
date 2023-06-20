@@ -26,8 +26,7 @@ class Position(object):
                         )
             else:
                 raise TypeError(
-                    "%s takes at most 2 arguments (%d given)"
-                    % (self.__class__, len(args))
+                    "%s takes at most 2 arguments (%d given)" % (self.__class__, len(args))
                 )
         elif len(args) != 0:
             raise TypeError(
@@ -39,9 +38,7 @@ class Position(object):
                 self.x = kwargs.pop("x")
                 self.y = kwargs.pop("y")
             except KeyError:
-                raise TypeError(
-                    "Keyword arguments x,y are required for %s" % self.__class__
-                )
+                raise TypeError("Keyword arguments x,y are required for %s" % self.__class__)
             if kwargs:
                 raise TypeError("Got unexpected keyword arguments %s" % kwargs.keys())
 
@@ -76,9 +73,7 @@ class Position(object):
 
     def __sub__(self, other):
         if not isinstance(other, Position):
-            raise TypeError(
-                "Can only subtract a Position from a %s" % self.__class__.__name__
-            )
+            raise TypeError("Can only subtract a Position from a %s" % self.__class__.__name__)
         elif isinstance(other, self.__class__):
             return self.__class__(self.x - other.x, self.y - other.y)
         else:
@@ -92,9 +87,7 @@ class Position(object):
 
     def __eq__(self, other):
         return self is other or (
-            isinstance(other, self.__class__)
-            and self.x == other.x
-            and self.y == other.y
+            isinstance(other, self.__class__) and self.x == other.x and self.y == other.y
         )
 
     def __ne__(self, other):

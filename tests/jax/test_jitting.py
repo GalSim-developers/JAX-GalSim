@@ -1,4 +1,6 @@
 import jax
+import jax.numpy as jnp
+
 import jax_galsim as galsim
 
 # Defining jitting identity
@@ -88,3 +90,17 @@ def test_bounds_jitting():
 
     assert identity(obj) == obj
     assert identity(objI) == objI
+
+
+def test_image_jitting():
+    ref_array = jnp.array(
+        [
+            [11, 21, 31, 41, 51, 61, 71],
+            [12, 22, 32, 42, 52, 62, 72],
+            [13, 23, 33, 43, 53, 63, 73],
+            [14, 24, 34, 44, 54, 64, 74],
+            [15, 25, 35, 45, 55, 65, 75],
+        ]
+    ).astype(dtype=jnp.float32)
+    im1 = galsim.Image.init(ref_array, wcs=galsim.PixelScale(0.2), dtype=jnp.int32)
+    assert identity(im1) == im1
