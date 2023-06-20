@@ -29,6 +29,7 @@ class Image(object):
         int: jnp.int32,  # So that user gets what they would expect
         float: jnp.float64,  # if using dtype=int or float or complex
         complex: jnp.complex128,
+        jnp.int64: jnp.int32,  # Not equivalent, but will convert (from original Galsim)
         np.uint16: jnp.uint16,
         np.uint32: jnp.uint32,
         np.int16: jnp.int16,
@@ -38,15 +39,15 @@ class Image(object):
         np.complex64: jnp.complex64,
         np.complex128: jnp.complex128,
     }
-    valid_dtypes = _alias_dtypes.keys()
+
+    _valid_array_types = set(_alias_dtypes.values())
+    valid_dtypes = _alias_dtypes.keys() + list(_valid_array_types)
 
     @_wraps(
         _galsim.Image.__init__,
         lax_description="Contrary to GalSim, users should use the explicit constructor `.init()`.",
     )
-    def __init__(
-        self, _array: jnp.ndarray, _bounds: BoundsI, wcs: BaseWCS, _dtype: type = jnp.float32
-    ):
+    def __init__(self, _array: jnp.ndarray, _bounds: BoundsI, wcs: BaseWCS, _dtype: type):
         self._array = _array
         self._bounds = _bounds
         self.wcs = wcs
@@ -102,7 +103,7 @@ class Image(object):
                 ymin = kwargs.pop("ymin", 1)
 
         # Pop off the other valid kwargs:
-        dtype = kwargs.pop("dtype", jnp.float32)
+        dtype = kwargs.pop("dtype", None)
         init_value = kwargs.pop("init_value", None)
         scale = kwargs.pop("scale", None)
         wcs = kwargs.pop("wcs", None)
@@ -123,12 +124,20 @@ class Image(object):
 
         # Figure out what dtype we want:
         dtype = Image._alias_dtypes.get(dtype, dtype)
-        if dtype is None:
-            raise TypeError("dtype cannot be None.")
         if dtype is not None and dtype not in Image.valid_dtypes:
-            raise _galsim.GalSimValueError("Invlid dtype.", dtype, Image.valid_dtypes)
+            raise _galsim.GalSimValueError("Invalid dtype.", dtype, Image.valid_dtypes)
         if array is not None:
-            array = array.astype(dtype)
+            if dtype is None:
+                dtype = array.dtype.type
+                if dtype in Image._alias_dtypes:
+                    dtype = Image._alias_dtypes[dtype]
+                    array = array.astype(dtype)
+                elif dtype not in Image._valid_array_types:
+                    raise _galsim.GalSimValueError(
+                        "Invalid dtype of provided array.", array.dtype, Image._valid_array_types
+                    )
+            else:
+                array = array.astype(dtype)
             # Be careful here: we have to watch out for little-endian / big-endian issues.
             # The path of least resistance is to check whether the array.dtype is equal to the
             # native one (using the dtype.isnative flag), and if not, make a new array that has a
@@ -221,7 +230,7 @@ class Image(object):
         return cls(_array, _bounds, wcs, _dtype)
 
     @staticmethod
-    def _get_xmin_ymin(array, kwargs, check_bounds=False):
+    def _get_xmin_ymin(array, kwargs):
         """A helper function for parsing xmin, ymin, bounds options with a given array."""
         if not isinstance(array, (np.ndarray, jnp.ndarray)):
             raise TypeError("array must be a ndarray instance")
@@ -229,6 +238,16 @@ class Image(object):
         ymin = kwargs.pop("ymin", 1)
         if "bounds" in kwargs:
             b = kwargs.pop("bounds")
+            if not isinstance(b, BoundsI):
+                raise TypeError("bounds must be a galsim.BoundsI instance")
+            if b.xmax - b.xmin + 1 != array.shape[1]:
+                raise _galsim.GalSimIncompatibleValuesError(
+                    "Shape of array is inconsistent with provided bounds", array=array, bounds=b
+                )
+            if b.ymax - b.ymin + 1 != array.shape[0]:
+                raise _galsim.GalSimIncompatibleValuesError(
+                    "Shape of array is inconsistent with provided bounds", array=array, bounds=b
+                )
             if b.isDefined():
                 xmin = b.xmin
                 ymin = b.ymin
@@ -667,7 +686,7 @@ class Image(object):
         contiguous=False,
     ):
         if make_const:
-            raise TypeError("'make_const' is not a valid option in JAX-GalSim. Set to `False`.")
+            raise TypeError("'make_const' is not a valid option in JAX-GalSim.")
 
         if origin is not None and center is not None:
             raise _galsim.GalSimIncompatibleValuesError(
