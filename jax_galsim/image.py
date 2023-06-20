@@ -29,7 +29,6 @@ class Image(object):
         int: jnp.int32,  # So that user gets what they would expect
         float: jnp.float64,  # if using dtype=int or float or complex
         complex: jnp.complex128,
-        jnp.int64: jnp.int32,  # Not equivalent, but will convert
         np.uint16: jnp.uint16,
         np.uint32: jnp.uint32,
         np.int16: jnp.int16,
@@ -164,7 +163,7 @@ class Image(object):
             if init_value:
                 _array += init_value
         elif array is not None:
-            _array = array.view()
+            _array = array.view(dtype=array.dtype)
             nrow, ncol = array.shape
             _bounds = BoundsI(xmin, xmin + ncol - 1, ymin, ymin + nrow - 1)
             if init_value is not None:
