@@ -1,7 +1,7 @@
 import jax
-import jax_galsim as galsim
-
 import jax.numpy as jnp
+
+import jax_galsim as galsim
 
 # Defining jitting identity
 identity = jax.jit(lambda x: x)
@@ -102,5 +102,5 @@ def test_image_jitting():
             [15, 25, 35, 45, 55, 65, 75],
         ]
     ).astype(dtype=jnp.float32)
-    im1 = galsim.Image(ref_array, wcs=galsim.PixelScale(0.2), dtype=jnp.int32)
+    im1 = galsim.Image.init(ref_array, wcs=galsim.PixelScale(0.2), dtype=jnp.int32)
     assert identity(im1) == im1
