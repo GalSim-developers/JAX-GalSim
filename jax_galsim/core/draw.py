@@ -6,9 +6,7 @@ from jax_galsim import PositionD
 
 
 @jax.jit
-def draw_by_xValue(
-    gsobject, image, jacobian=jnp.eye(2), offset=jnp.zeros(2), flux_scaling=1.0
-):
+def draw_by_xValue(gsobject, image, jacobian=jnp.eye(2), offset=jnp.zeros(2), flux_scaling=1.0):
     """Utility function to draw a real-space GSObject into an Image."""
     # Applies flux scaling to compensate for pixel scale
     # See SBProfile.draw()
@@ -27,9 +25,7 @@ def draw_by_xValue(
     flux_scaling *= jnp.exp(logdet)
 
     # Draw the object
-    im = jax.vmap(lambda *args: gsobject._xValue(PositionD(*args)))(
-        coords[..., 0], coords[..., 1]
-    )
+    im = jax.vmap(lambda *args: gsobject._xValue(PositionD(*args)))(coords[..., 0], coords[..., 1])
 
     # Apply the flux scaling
     im = (im * flux_scaling).astype(image.dtype)

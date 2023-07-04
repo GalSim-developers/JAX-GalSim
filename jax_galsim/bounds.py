@@ -232,7 +232,7 @@ class BoundsI(Bounds):
 
     def __init__(self, *args, **kwargs):
         self._parse_args(*args, **kwargs)
-        
+
     def _check_scalar(self, x, name):
         try:
             if x == jnp.asarray(x).astype("int"):

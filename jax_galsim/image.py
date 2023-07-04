@@ -131,7 +131,9 @@ class Image(object):
                     array = array.astype(dtype)
                 elif dtype not in Image._valid_array_types:
                     raise _galsim.GalSimValueError(
-                        "Invalid dtype of provided array.", array.dtype, Image._valid_array_types
+                        "Invalid dtype of provided array.",
+                        array.dtype,
+                        Image._valid_array_types,
                     )
             else:
                 array = array.astype(dtype)
@@ -239,11 +241,15 @@ class Image(object):
                 raise TypeError("bounds must be a galsim.BoundsI instance")
             if b.xmax - b.xmin + 1 != array.shape[1]:
                 raise _galsim.GalSimIncompatibleValuesError(
-                    "Shape of array is inconsistent with provided bounds", array=array, bounds=b
+                    "Shape of array is inconsistent with provided bounds",
+                    array=array,
+                    bounds=b,
                 )
             if b.ymax - b.ymin + 1 != array.shape[0]:
                 raise _galsim.GalSimIncompatibleValuesError(
-                    "Shape of array is inconsistent with provided bounds", array=array, bounds=b
+                    "Shape of array is inconsistent with provided bounds",
+                    array=array,
+                    bounds=b,
                 )
             if b.isDefined():
                 xmin = b.xmin
