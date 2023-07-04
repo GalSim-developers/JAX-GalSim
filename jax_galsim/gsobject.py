@@ -262,13 +262,13 @@ class GSObject:
                     )
                 if not bounds.isDefined():
                     raise _galsim.GalSimValueError("Cannot use undefined bounds", bounds)
-                image = Image(bounds=bounds, dtype=dtype)
+                image = Image.init(bounds=bounds, dtype=dtype)
             elif nx is not None or ny is not None:
                 if nx is None or ny is None:
                     raise _galsim.GalSimIncompatibleValuesError(
                         "Must set either both or neither of nx, ny", nx=nx, ny=ny
                     )
-                image = Image(nx, ny, dtype=dtype)
+                image = Image.init(nx, ny, dtype=dtype)
                 if center is not None:
                     image.shift(
                         PositionI(
@@ -280,7 +280,7 @@ class GSObject:
                 N = self.getGoodImageSize(1.0)
                 if odd:
                     N += 1
-                image = Image(N, N, dtype=dtype)
+                image = Image.init(N, N, dtype=dtype)
                 if center is not None:
                     image.setCenter(PositionI(jnp.ceil(center.x), jnp.ceil(center.y)))
 
