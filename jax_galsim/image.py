@@ -1064,7 +1064,11 @@ def Image_imul(self, other):
         array = (self.array * a).astype(self.array.dtype)
     return Image.init(array, bounds=self.bounds, wcs=self.wcs)
 
+
 def Image_div(self, other):
+    check_image_consistency(self, other)
+    try:
+        a = other.array
     except AttributeError:
         a = other
     return Image.init(self.array / a, bounds=self.bounds, wcs=self.wcs)
