@@ -28,32 +28,6 @@ def Transform(
         return Transformation(obj, jac, offset, flux_ratio, gsparams, propagate_gsparams)
 
 
-@_wraps(
-    _galsim.Transform,
-    lax_description="Does not support Chromatic Objects or Convolutions.",
-)
-def Transform(
-    obj,
-    jac=(1.0, 0.0, 0.0, 1.0),
-    offset=PositionD(0.0, 0.0),
-    flux_ratio=1.0,
-    gsparams=None,
-    propagate_gsparams=True,
-):
-    if not (isinstance(obj, GSObject)):
-        raise TypeError("Argument to Transform must be a GSObject.")
-    elif (
-        hasattr(jac, "__call__")
-        or hasattr(offset, "__call__")
-        or hasattr(flux_ratio, "__call__")
-    ):
-        raise NotImplementedError("Transform does not support callable arguments.")
-    else:
-        return Transformation(
-            obj, jac, offset, flux_ratio, gsparams, propagate_gsparams
-        )
-
-
 @_wraps(_galsim.Transformation)
 @register_pytree_node_class
 class Transformation(GSObject):
