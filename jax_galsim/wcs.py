@@ -526,8 +526,11 @@ class LocalWCS(UniformWCS):
 class PixelScale(LocalWCS):
     def __init__(self, scale):
         self._params = {"scale": scale}
-        self._scale = jnp.asarray(scale)
         self._color = None
+
+    @property
+    def _scale(self):
+        return jnp.asarray(self._params["scale"])
 
     # Help make sure PixelScale is read-only.
     @property
