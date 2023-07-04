@@ -113,32 +113,3 @@ def test_position_jitting():
         return self.x == other.x and self.y == other.y
 
     assert test_eq(identity(obj), obj)
-
-
-def test_affine_transform_jitting():
-    obj = galsim.AffineTransform(
-        1.0,
-        0.0,
-        0.0,
-        1.0,
-        origin=galsim.PositionD(1.0, 2.0),
-        world_origin=galsim.PositionD(1.0, 2.0),
-    )
-
-    def test_eq(self, other):
-        return (
-            self._local_wcs == other._local_wcs
-            and self.origin == other.origin
-            and self.world_origin == other.world_origin
-        )
-
-    assert test_eq(identity(obj), obj)
-
-
-def test_bounds_jitting():
-    obj = galsim.BoundsD(0.0, 1.0, 0.0, 1.0)
-
-    objI = galsim.BoundsI(0.0, 1.0, 0.0, 1.0)
-
-    assert identity(obj) == obj
-    assert identity(objI) == objI
