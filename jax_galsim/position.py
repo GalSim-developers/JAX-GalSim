@@ -42,10 +42,6 @@ class Position(object):
             if kwargs:
                 raise TypeError("Got unexpected keyword arguments %s" % kwargs.keys())
 
-        # Make sure the inputs are indeed jax numpy values
-        self.x = jnp.asarray(self.x)
-        self.y = jnp.asarray(self.y)
-
     @property
     def array(self):
         """Return the position as a 2-element numpy array."""
@@ -134,8 +130,6 @@ class Position(object):
 class PositionD(Position):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.x = self.x.astype("float")
-        self.y = self.y.astype("float")
 
 
 @_wraps(_galsim.PositionI)
@@ -143,5 +137,3 @@ class PositionD(Position):
 class PositionI(Position):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.x = self.x.astype("int")
-        self.y = self.y.astype("int")

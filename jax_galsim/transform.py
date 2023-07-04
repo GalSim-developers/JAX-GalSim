@@ -40,7 +40,6 @@ class Transformation(GSObject):
         gsparams=None,
         propagate_gsparams=True,
     ):
-        self._jac = jnp.asarray(jac, dtype=float).reshape(2, 2)
         self._offset = PositionD(offset)
         self._flux_ratio = flux_ratio
         self._gsparams = GSParams.check(gsparams, obj.gsparams)
@@ -50,7 +49,7 @@ class Transformation(GSObject):
 
         self._params = {
             "obj": obj,
-            "jac": self._jac,
+            "jac": jac,
             "offset": self._offset,
             "flux_ratio": self._flux_ratio,
         }
@@ -65,6 +64,10 @@ class Transformation(GSObject):
             self._original = obj.original
         else:
             self._original = obj
+
+    @property
+    def _jac(self):
+        return jnp.asarray(self._params["jac"], dtype=float).reshape(2, 2)
 
     @property
     def original(self):

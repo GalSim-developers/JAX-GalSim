@@ -86,6 +86,7 @@ class Exponential(GSObject):
 
     def __str__(self):
         s = "galsim.Exponential(scale_radius=%s" % self.scale_radius
+        # if self.flux != 1.0:
         s += ", flux=%s" % self.flux
         s += ")"
         return s
