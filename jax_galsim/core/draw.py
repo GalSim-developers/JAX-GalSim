@@ -1,8 +1,7 @@
 import jax
 import jax.numpy as jnp
 
-from jax_galsim import Image
-from jax_galsim import PositionD
+from jax_galsim import Image, PositionD
 
 
 @jax.jit
@@ -31,4 +30,4 @@ def draw_by_xValue(gsobject, image, jacobian=jnp.eye(2), offset=jnp.zeros(2), fl
     im = (im * flux_scaling).astype(image.dtype)
 
     # Return an image
-    return Image(array=im, bounds=image.bounds, wcs=image.wcs, check_bounds=False)
+    return Image.init(array=im, bounds=image.bounds, wcs=image.wcs, check_bounds=False)
