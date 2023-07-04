@@ -27,19 +27,6 @@ from jax_galsim.exponential import Exponential
 from jax_galsim.gaussian import Gaussian
 from jax_galsim.gsobject import GSObject
 
-# Image
-from .image import (
-    Image,
-    ImageS,
-    ImageI,
-    ImageF,
-    ImageD,
-    ImageCF,
-    ImageCD,
-    ImageUS,
-    ImageUI,
-)
-
 # GSObject
 from jax_galsim.gsparams import GSParams
 
