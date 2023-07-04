@@ -101,7 +101,6 @@ class Gaussian(GSObject):
 
     def __str__(self):
         s = "galsim.Gaussian(sigma=%s" % self.sigma
-        # if self.flux != 1.0:
         s += ", flux=%s" % self.flux
         s += ")"
         return s
