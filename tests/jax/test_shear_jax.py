@@ -186,6 +186,11 @@ def test_shear_initialization():
         s2 = galsim.Shear(s.shear)
         all_shear_vals(s2, ind)
 
+        # JAX specific modification
+        # -------------------------
+        # We don't allow jax objects to be pickled.
+        # do_pickle(s)
+
     # finally check some examples of invalid initializations for Shear
     assert_raises(TypeError, galsim.Shear, 0.3)
     assert_raises(TypeError, galsim.Shear, 0.3, 0.3)
