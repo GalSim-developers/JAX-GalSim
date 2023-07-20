@@ -30,3 +30,4 @@ allowed_failures:
   - "'Image' object has no attribute 'wrap'"
   - "object has no attribute 'shear'"
   - "NotImplementedError"
+  - "module 'jax_galsim' has no attribute 'Convolve'"
