@@ -107,3 +107,26 @@ def test_bounds_vmapping():
 
     assert test_eq(obj_d, obj)
     assert test_eq(objI_d, objI)
+
+
+def test_drawing_vmapping():
+    @jax.vmap
+    def drawGalaxy(flux):
+        # Define a galsim galaxy as the sum of two objects
+        obj1 = galsim.Gaussian(half_light_radius=1.0)
+        obj2 = galsim.Exponential(half_light_radius=0.5)
+
+        # Rescale the flux of one object
+        obj2 = obj2.withFlux(flux)
+
+        # Sum the two components of my galaxy
+        gal = obj1 + obj2
+
+        return gal.drawImage(nx=128, ny=128, scale=0.02, method="no_pixel")
+
+    im = drawGalaxy(jnp.array([10, 20]))
+    arr = im.array
+    assert arr.ndim == 3
+    assert arr.shape[0] == 2
+    assert arr.shape[1] == arr.shape[2] == 128
+    assert arr[0].sum() < arr[1].sum()
