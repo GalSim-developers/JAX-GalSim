@@ -81,7 +81,6 @@ class Convolution(GSObject):
                 real_space = False
         elif bool(real_space) != real_space:
             raise TypeError("real_space must be a boolean")
-
         # Warn if doing DFT convolution for objects with hard edges
         if not real_space and hard_edge:
             if len(args) == 2:
