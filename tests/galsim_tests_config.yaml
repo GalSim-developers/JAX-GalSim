@@ -10,6 +10,7 @@ enabled_tests:
 # correspond to features that are not implemented yet
 # in jax_galsim
 allowed_failures:
+  - "NotImplementedError"
   - "module 'jax_galsim' has no attribute 'fits'"
   - "module 'jax_galsim' has no attribute 'BaseDeviate"
   - "module 'jax_galsim' has no attribute 'Airy'"
@@ -28,6 +29,7 @@ allowed_failures:
   - "module 'jax_galsim' has no attribute 'GSFitsWCS'"
   - "module 'jax_galsim' has no attribute 'WcsToolsWCS'"
   - "'Image' object has no attribute 'wrap'"
-  - "object has no attribute 'shear'"
-  - "NotImplementedError"
   - "module 'jax_galsim' has no attribute 'Convolve'"
+  - "'Gaussian' object has no attribute 'rotate'"
+  - "'Transformation' object has no attribute 'rotate'"
+  - "'Image' object has no attribute 'bin'"
