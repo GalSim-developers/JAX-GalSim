@@ -212,7 +212,6 @@ class Shear(object):
         return obj
 
 
-@register_pytree_node_class
 @_wraps(_galsim._Shear)
 def _Shear(shear):
     ret = Shear.__new__(Shear)
