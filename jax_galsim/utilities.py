@@ -1,4 +1,5 @@
 import galsim as _galsim
+import jax.numpy as jnp
 from jax._src.numpy.util import _wraps
 
 from jax_galsim.position import PositionD, PositionI
@@ -67,7 +68,7 @@ def parse_pos_args(args, kwargs, name1, name2, integer=False, others=[]):
         return pos
 
 
-@_wraps(_galsim.g1g2_to_e1e2)
+@_wraps(_galsim.utilities.g1g2_to_e1e2)
 def g1g2_to_e1e2(g1, g2):
     # Conversion:
     # e = (a^2-b^2) / (a^2+b^2)
@@ -78,7 +79,7 @@ def g1g2_to_e1e2(g1, g2):
     if gsq == 0.0:
         return 0.0, 0.0
     else:
-        g = np.sqrt(gsq)
+        g = jnp.sqrt(gsq)
         boa = (1 - g) / (1 + g)
         e = (1 - boa * boa) / (1 + boa * boa)
         e1 = g1 * (e / g)
