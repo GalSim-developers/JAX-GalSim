@@ -122,7 +122,9 @@ def test_drawing_vmapping():
         # Sum the two components of my galaxy
         gal = obj1 + obj2
 
-        return gal.drawImage(nx=128, ny=128, scale=0.02, method="no_pixel")
+        gal.shear(g1=0.02, g2=0.0)
+
+        return gal.drawImage(nx=128, ny=128, scale=0.2, method="no_pixel")
 
     im = drawGalaxy(jnp.array([10, 20]))
     arr = im.array
