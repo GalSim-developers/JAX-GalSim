@@ -93,7 +93,7 @@ class Transformation(GSObject):
     def _flux(self):
         return self._flux_scaling * self._original.flux
 
-    def withGSParams(self, gsparams):
+    def withGSParams(self, gsparams=None, **kwargs):
         """Create a version of the current object with the given gsparams
 
         .. note::
@@ -103,11 +103,12 @@ class Transformation(GSObject):
         """
         if gsparams == self.gsparams:
             return self
-        ret = self.__class__(
-            **(self.params),
-            gsparams=gsparams,
-            propagate_gsparams=self._propagate_gsparams,
-        )
+        from copy import copy
+
+        ret = copy(self)
+        ret._gsparams = GSParams.check(gsparams, self.gsparams, **kwargs)
+        if self._propagate_gsparams:
+            ret._original = self._original.withGSParams(ret._gsparams)
         return ret
 
     def __eq__(self, other):
@@ -115,7 +116,7 @@ class Transformation(GSObject):
             isinstance(other, Transformation)
             and self.original == other.original
             and jnp.array_equal(self.jac, other.jac)
-            and jnp.array_equal(self.offset, other.offset)
+            and self.offset == other.offset
             and self.flux_ratio == other.flux_ratio
             and self.gsparams == other.gsparams
             and self._propagate_gsparams == other._propagate_gsparams
