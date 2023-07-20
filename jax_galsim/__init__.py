@@ -38,3 +38,6 @@ from .transform import Transform, Transformation
 
 # WCS
 from .wcs import AffineTransform, JacobianWCS, OffsetWCS, PixelScale
+
+# Shear
+from .shear import Shear
