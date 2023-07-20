@@ -40,4 +40,4 @@ from .transform import Transform, Transformation
 from .wcs import AffineTransform, JacobianWCS, OffsetWCS, PixelScale, ShearWCS, OffsetShearWCS
 
 # Shear
-from .shear import Shear
+from .shear import Shear, _Shear
