@@ -30,4 +30,4 @@ def draw_by_xValue(gsobject, image, jacobian=jnp.eye(2), offset=jnp.zeros(2), fl
     im = (im * flux_scaling).astype(image.dtype)
 
     # Return an image
-    return Image.init(array=im, bounds=image.bounds, wcs=image.wcs)
+    return Image(_array=im, _bounds=image.bounds, wcs=image.wcs, _dtype=image.dtype)
