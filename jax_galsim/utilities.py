@@ -65,3 +65,22 @@ def parse_pos_args(args, kwargs, name1, name2, integer=False, others=[]):
         return (pos,) + tuple(other_vals)
     else:
         return pos
+
+
+@_wraps(_galsim.g1g2_to_e1e2)
+def g1g2_to_e1e2(g1, g2):
+    # Conversion:
+    # e = (a^2-b^2) / (a^2+b^2)
+    # g = (a-b) / (a+b)
+    # b/a = (1-g)/(1+g)
+    # e = (1-(b/a)^2) / (1+(b/a)^2)
+    gsq = g1 * g1 + g2 * g2
+    if gsq == 0.0:
+        return 0.0, 0.0
+    else:
+        g = np.sqrt(gsq)
+        boa = (1 - g) / (1 + g)
+        e = (1 - boa * boa) / (1 + boa * boa)
+        e1 = g1 * (e / g)
+        e2 = g2 * (e / g)
+        return e1, e2
