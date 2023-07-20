@@ -1,11 +1,11 @@
-import jax.numpy as jnp
-
-from jax_galsim.gsobject import GSObject
-from jax_galsim.gsparams import GSParams
-
 import galsim as _galsim
+import jax.numpy as jnp
 from jax._src.numpy.util import _wraps
 from jax.tree_util import register_pytree_node_class
+
+from jax_galsim.core.draw import draw_by_xValue
+from jax_galsim.gsobject import GSObject
+from jax_galsim.gsparams import GSParams
 
 
 @_wraps(_galsim.Exponential)
@@ -46,10 +46,6 @@ class Exponential(GSObject):
         else:
             super().__init__(scale_radius=scale_radius, flux=flux, gsparams=gsparams)
 
-        self._r0 = self.scale_radius
-        self._inv_r0 = 1.0 / self._r0
-        self._norm = self.flux * Exponential._inv_twopi * self._inv_r0**2
-
     @property
     def scale_radius(self):
         """The scale radius of the profile."""
@@ -57,6 +53,18 @@ class Exponential(GSObject):
             return self.params["half_light_radius"] / Exponential._hlr_factor
         else:
             return self.params["scale_radius"]
+
+    @property
+    def _r0(self):
+        return self.scale_radius
+
+    @property
+    def _inv_r0(self):
+        return 1.0 / self._r0
+
+    @property
+    def _norm(self):
+        return self.flux * Exponential._inv_twopi * self._inv_r0**2
 
     @property
     def half_light_radius(self):
@@ -78,8 +86,7 @@ class Exponential(GSObject):
 
     def __str__(self):
         s = "galsim.Exponential(scale_radius=%s" % self.scale_radius
-        if self.flux != 1.0:
-            s += ", flux=%s" % self.flux
+        s += ", flux=%s" % self.flux
         s += ")"
         return s
 
@@ -120,6 +127,10 @@ class Exponential(GSObject):
     def _kValue(self, kpos):
         ksqp1 = (kpos.x**2 + kpos.y**2) * self._r0**2 + 1.0
         return self.flux / (ksqp1 * jnp.sqrt(ksqp1))
+
+    def _drawReal(self, image, jac=None, offset=(0.0, 0.0), flux_scaling=1.0):
+        _jac = jnp.eye(2) if jac is None else jac
+        return draw_by_xValue(self, image, _jac, jnp.asarray(offset), flux_scaling)
 
     def withFlux(self, flux):
         return Exponential(scale_radius=self.scale_radius, flux=flux, gsparams=self.gsparams)

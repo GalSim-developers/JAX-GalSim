@@ -1,12 +1,11 @@
+import galsim as _galsim
 import jax.numpy as jnp
+from jax._src.numpy.util import _wraps
+from jax.tree_util import register_pytree_node_class
 
 from jax_galsim.gsobject import GSObject
 from jax_galsim.gsparams import GSParams
 from jax_galsim.position import PositionD
-
-import galsim as _galsim
-from jax._src.numpy.util import _wraps
-from jax.tree_util import register_pytree_node_class
 
 
 @_wraps(
@@ -41,7 +40,6 @@ class Transformation(GSObject):
         gsparams=None,
         propagate_gsparams=True,
     ):
-        self._jac = jnp.asarray(jac, dtype=float).reshape(2, 2)
         self._offset = PositionD(offset)
         self._flux_ratio = flux_ratio
         self._gsparams = GSParams.check(gsparams, obj.gsparams)
@@ -51,7 +49,7 @@ class Transformation(GSObject):
 
         self._params = {
             "obj": obj,
-            "jac": self._jac,
+            "jac": jac,
             "offset": self._offset,
             "flux_ratio": self._flux_ratio,
         }
@@ -66,6 +64,10 @@ class Transformation(GSObject):
             self._original = obj.original
         else:
             self._original = obj
+
+    @property
+    def _jac(self):
+        return jnp.asarray(self._params["jac"], dtype=float).reshape(2, 2)
 
     @property
     def original(self):
@@ -304,6 +306,16 @@ class Transformation(GSObject):
     def _kValue(self, kpos):
         fwdT_kpos = PositionD(self._fwdT(kpos.x, kpos.y))
         return self._original._kValue(fwdT_kpos) * self._kfactor(kpos.x, kpos.y)
+
+    def _drawReal(self, image, jac=None, offset=(0.0, 0.0), flux_scaling=1.0):
+        dx, dy = offset
+        if jac is not None:
+            x1 = jac.dot(self.offset.array)
+            dx += x1[0]
+            dy += x1[1]
+        flux_scaling *= self._flux_scaling
+        jac = self._jac if jac is None else jac if self._jac is None else jac.dot(self._jac)
+        return self._original._drawReal(image, jac, (dx, dy), flux_scaling)
 
     def tree_flatten(self):
         """This function flattens the GSObject into a list of children

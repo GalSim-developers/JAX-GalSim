@@ -1,10 +1,9 @@
-import jax.numpy as jnp
-
-from jax_galsim.position import Position, PositionD, PositionI
-
 import galsim as _galsim
+import jax.numpy as jnp
 from jax._src.numpy.util import _wraps
 from jax.tree_util import register_pytree_node_class
+
+from jax_galsim.position import Position, PositionD, PositionI
 
 
 # The reason for avoid these tests is that they are not easy to do for jitted code.
@@ -203,10 +202,6 @@ class BoundsD(Bounds):
 
     def __init__(self, *args, **kwargs):
         self._parse_args(*args, **kwargs)
-        self.xmin = jnp.asarray(self.xmin).astype("float")
-        self.xmax = jnp.asarray(self.xmax).astype("float")
-        self.ymin = jnp.asarray(self.ymin).astype("float")
-        self.ymax = jnp.asarray(self.ymax).astype("float")
 
     def _check_scalar(self, x, name):
         try:
@@ -237,11 +232,6 @@ class BoundsI(Bounds):
 
     def __init__(self, *args, **kwargs):
         self._parse_args(*args, **kwargs)
-        # Now make sure they are all ints
-        self.xmin = jnp.asarray(self.xmin).astype("int")
-        self.xmax = jnp.asarray(self.xmax).astype("int")
-        self.ymin = jnp.asarray(self.ymin).astype("int")
-        self.ymax = jnp.asarray(self.ymax).astype("int")
 
     def _check_scalar(self, x, name):
         try:

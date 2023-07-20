@@ -1,11 +1,11 @@
-import jax.numpy as jnp
-
-from jax_galsim.gsobject import GSObject
-from jax_galsim.gsparams import GSParams
-
 import galsim as _galsim
+import jax.numpy as jnp
 from jax._src.numpy.util import _wraps
 from jax.tree_util import register_pytree_node_class
+
+from jax_galsim.core.draw import draw_by_xValue
+from jax_galsim.gsobject import GSObject
+from jax_galsim.gsparams import GSParams
 
 
 @_wraps(_galsim.Gaussian)
@@ -57,10 +57,6 @@ class Gaussian(GSObject):
         else:
             super().__init__(sigma=sigma, flux=flux, gsparams=gsparams)
 
-        self._sigsq = self.sigma**2
-        self._inv_sigsq = 1.0 / self._sigsq
-        self._norm = self.flux * self._inv_sigsq * Gaussian._inv_twopi
-
     @property
     def sigma(self):
         """The sigma of this Gaussian profile"""
@@ -81,6 +77,18 @@ class Gaussian(GSObject):
         """The FWHM of this Gaussian profile"""
         return self.sigma * Gaussian._fwhm_factor
 
+    @property
+    def _sigsq(self):
+        return self.sigma**2
+
+    @property
+    def _inv_sigsq(self):
+        return 1.0 / self._sigsq
+
+    @property
+    def _norm(self):
+        return self.flux * self._inv_sigsq * Gaussian._inv_twopi
+
     def __hash__(self):
         return hash(("galsim.Gaussian", self.sigma, self.flux, self.gsparams))
 
@@ -93,8 +101,7 @@ class Gaussian(GSObject):
 
     def __str__(self):
         s = "galsim.Gaussian(sigma=%s" % self.sigma
-        if self.flux != 1.0:
-            s += ", flux=%s" % self.flux
+        s += ", flux=%s" % self.flux
         s += ")"
         return s
 
@@ -120,6 +127,10 @@ class Gaussian(GSObject):
     def _kValue(self, kpos):
         ksq = (kpos.x**2 + kpos.y**2) * self._sigsq
         return self.flux * jnp.exp(-0.5 * ksq)
+
+    def _drawReal(self, image, jac=None, offset=(0.0, 0.0), flux_scaling=1.0):
+        _jac = jnp.eye(2) if jac is None else jac
+        return draw_by_xValue(self, image, _jac, jnp.asarray(offset), flux_scaling)
 
     def withFlux(self, flux):
         return Gaussian(sigma=self.sigma, flux=flux, gsparams=self.gsparams)

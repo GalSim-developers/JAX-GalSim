@@ -1,12 +1,11 @@
-import numpy as np
-import jax.numpy as jnp
-
-from jax_galsim.gsparams import GSParams
-from jax_galsim.gsobject import GSObject
-
 import galsim as _galsim
+import jax.numpy as jnp
+import numpy as np
 from jax._src.numpy.util import _wraps
 from jax.tree_util import register_pytree_node_class
+
+from jax_galsim.gsobject import GSObject
+from jax_galsim.gsparams import GSParams
 
 
 @_wraps(_galsim.Add, lax_description="Does not support `ChromaticObject` at this point.")
@@ -155,6 +154,13 @@ class Sum(GSObject):
     def _kValue(self, pos):
         kv_list = jnp.array([obj._kValue(pos) for obj in self.obj_list])
         return jnp.sum(kv_list, axis=0)
+
+    def _drawReal(self, image, jac=None, offset=(0.0, 0.0), flux_scaling=1.0):
+        image = self.obj_list[0]._drawReal(image, jac, offset, flux_scaling)
+        if len(self.obj_list) > 1:
+            for obj in self.obj_list[1:]:
+                image += obj._drawReal(image, jac, offset, flux_scaling)
+        return image
 
     def tree_flatten(self):
         """This function flattens the GSObject into a list of children

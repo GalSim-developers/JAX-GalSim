@@ -131,7 +131,9 @@ class Image(object):
                     array = array.astype(dtype)
                 elif dtype not in Image._valid_array_types:
                     raise _galsim.GalSimValueError(
-                        "Invalid dtype of provided array.", array.dtype, Image._valid_array_types
+                        "Invalid dtype of provided array.",
+                        array.dtype,
+                        Image._valid_array_types,
                     )
             else:
                 array = array.astype(dtype)
@@ -239,11 +241,15 @@ class Image(object):
                 raise TypeError("bounds must be a galsim.BoundsI instance")
             if b.xmax - b.xmin + 1 != array.shape[1]:
                 raise _galsim.GalSimIncompatibleValuesError(
-                    "Shape of array is inconsistent with provided bounds", array=array, bounds=b
+                    "Shape of array is inconsistent with provided bounds",
+                    array=array,
+                    bounds=b,
                 )
             if b.ymax - b.ymin + 1 != array.shape[0]:
                 raise _galsim.GalSimIncompatibleValuesError(
-                    "Shape of array is inconsistent with provided bounds", array=array, bounds=b
+                    "Shape of array is inconsistent with provided bounds",
+                    array=array,
+                    bounds=b,
                 )
             if b.isDefined():
                 xmin = b.xmin
@@ -740,12 +746,9 @@ class Image(object):
         Parameters:
             delta:  The amount to shift as a `PositionI`.
         """
-        # The parse_pos_args function is a bit slow, so go directly to this point when we
-        # call shift from setCenter or setOrigin.
-        if delta.x != 0 or delta.y != 0:
-            self._bounds = self._bounds.shift(delta)
-            if self.wcs is not None:
-                self.wcs = self.wcs.shiftOrigin(delta)
+        self._bounds = self._bounds.shift(delta)
+        if self.wcs is not None:
+            self.wcs = self.wcs.shiftOrigin(delta)
 
     @_wraps(_galsim.Image.setCenter)
     def setCenter(self, *args, **kwargs):

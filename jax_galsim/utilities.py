@@ -1,7 +1,7 @@
-from jax_galsim.position import PositionD, PositionI
-
 import galsim as _galsim
 from jax._src.numpy.util import _wraps
+
+from jax_galsim.position import PositionD, PositionI
 
 
 @_wraps(_galsim.utilities.parse_pos_args)

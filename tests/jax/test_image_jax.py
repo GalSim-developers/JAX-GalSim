@@ -464,7 +464,7 @@ def test_Image_basic():
         dy = 16
         im1.shift(dx, dy)
         im2_view.setOrigin(1 + dx, 1 + dy)
-        im3_view.setCenter((ncol + 1) / 2 + dx, (nrow + 1) / 2 + dy)
+        im3_view.setCenter(int((ncol + 1) / 2 + dx), int((nrow + 1) / 2 + dy))
         shifted_bounds = galsim.BoundsI(1 + dx, ncol + dx, 1 + dy, nrow + dy)
 
         assert im1.bounds == shifted_bounds
@@ -3172,7 +3172,10 @@ def test_Image_view():
 
     assert_raises(TypeError, im.view, origin=(0, 0), center=(0, 0))
     assert_raises(TypeError, im.view, scale=0.3, wcs=galsim.JacobianWCS(1.1, 0.1, 0.1, 1.0))
-    assert_raises(TypeError, im.view, scale=galsim.PixelScale(0.3))
+    # JAX specific modification
+    # -------------------------
+    # PixelScale does not raise TypeError in JAX version to be jittable.
+    # assert_raises(TypeError, im.view, scale=galsim.PixelScale(0.3))
     assert_raises(TypeError, im.view, wcs=0.3)
 
 
