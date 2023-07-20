@@ -59,7 +59,7 @@ class Transformation(GSObject):
             dx, dy = self._fwd(obj.offset.x, obj.offset.y)
             self._offset.x += dx
             self._offset.y += dy
-            self._jac = self._jac.dot(obj.jac)
+            self._params["jac"] = self._jac.dot(obj.jac)
             self._flux_ratio *= obj._flux_ratio
             self._original = obj.original
         else:
