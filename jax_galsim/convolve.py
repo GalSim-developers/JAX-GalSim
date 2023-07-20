@@ -8,20 +8,8 @@ from jax_galsim.gsobject import GSObject
 from jax_galsim.gsparams import GSParams
 from jax.tree_util import register_pytree_node_class
 
-
-
-#JEC 17/1/23
-# First attempt to perform Convolution
-# Do it in Fourier space using _drawKImage of each object
-# Does not include:
-#  o Convolution in Real Space
-#  o ChromaticConvolution
-#  o Deconvolution & AutoConvolution of any kind
-
-
 @_wraps(_galsim.Convolve,     lax_description="""
-Contrary to GalSim the ChromaticConvolution is not (yet implemented)
-""",)
+Does not support ChromaticConvolutions""",)
 def Convolve(*args, **kwargs):
     
     if len(args) == 0:
@@ -39,8 +27,7 @@ def Convolve(*args, **kwargs):
     return Convolution(*args, **kwargs)
 
 @_wraps(_galsim.Convolution,  lax_description="""
-Contrary to GalSim is only implemented (yet) the 'fft' based convolution.
-Nb. this is the default for GalSim except when 2 objects have sharp edges.
+Only supports 'fft' convolution.
 """,)
 @register_pytree_node_class
 class Convolution(GSObject):
@@ -62,6 +49,13 @@ class Convolution(GSObject):
         gsparams = kwargs.pop("gsparams", None)
         self._propagate_gsparams = kwargs.pop('propagate_gsparams',True)
 
+        # Make sure there is nothing left in the dict.
+        if kwargs:
+            raise TypeError(
+                "Convolution constructor got unexpected keyword argument(s): %s"%kwargs.keys())
+
+        # Check whether to perform real space convolution...
+        # Start by checking if all objects have a hard edge.
         hard_edge = True
         for obj in args:
             if not isinstance(obj, GSObject):
@@ -77,12 +71,7 @@ class Convolution(GSObject):
                 real_space = False
         elif bool(real_space) != real_space:
             raise TypeError("real_space must be a boolean")
-
-
-        #JEC force 'fft' convolution
-        real_space = False
         
-
         # Warn if doing DFT convolution for objects with hard edges
         if not real_space and hard_edge:
 
@@ -92,26 +81,27 @@ class Convolution(GSObject):
             else:
                 galsim_warn("Doing convolution where all objects have hard edges. "
                             "There might be some inaccuracies due to ringing in k-space.")
-##         if real_space:
-##             # Can't do real space if nobj > 2
-##             if len(args) > 2:
-##                 galsim_warn("Real-space convolution of more than 2 objects is not implemented. "
-##                             "Switching to DFT method.")
-##                 real_space = False
+        if real_space:
+            # Can't do real space if nobj > 2
+            if len(args) > 2:
+                galsim_warn("Real-space convolution of more than 2 objects is not implemented. "
+                            "Switching to DFT method.")
+                real_space = False
 
-##             # Also can't do real space if any object is not analytic, so check for that.
-##             else:
-##                 for obj in args:
-##                     if not obj.is_analytic_x:
-##                         galsim_warn("A component to be convolved is not analytic in real space. "
-##                                     "Cannot use real space convolution. Switching to DFT method.")
-##                         real_space = False
-##                         break
+            # Also can't do real space if any object is not analytic, so check for that.
+            else:
+                for obj in args:
+                    if not obj.is_analytic_x:
+                        galsim_warn("A component to be convolved is not analytic in real space. "
+                                    "Cannot use real space convolution. Switching to DFT method.")
+                        real_space = False
+                        break
 
         # Save the construction parameters (as they are at this point) as attributes so they
         # can be inspected later if necessary.
-        
-        self._real_space = False # bool(real_space)
+        if bool(real_space):
+            raise NotImplementedError("Real space convolutions are not implemented")
+        self._real_space = bool(real_space)
 
         # Figure out what gsparams to use
         if gsparams is None:
@@ -158,14 +148,6 @@ class Convolution(GSObject):
             ret._obj_list = [ obj.withGSParams(ret._gsparams) for obj in self.obj_list ]
         return ret
 
-    def __eq__(self, other):
-        return (self is other or
-                (isinstance(other, Convolution) and
-                 self.obj_list == other.obj_list and
-                 self.real_space == other.real_space and
-                 self.gsparams == other.gsparams and
-                 self._propagate_gsparams == other._propagate_gsparams))
-
     def __hash__(self):
         return hash(("galsim.Convolution", tuple(self.obj_list), self.real_space, self.gsparams,
                      self._propagate_gsparams))
@@ -207,8 +189,7 @@ class Convolution(GSObject):
     @property
     def _is_axisymmetric(self):
         axi_list = [obj.is_axisymmetric for obj in self.obj_list]
-        ##return jnp.alltrue(jnp.array(axi_list))  # return here an DeviceArray
-        return jnp.alltrue(jnp.array(axi_list)).item()  # return a bool
+        return jnp.alltrue(jnp.array(axi_list)).item()
 
     @property
     def _is_analytic_x(self):
@@ -272,11 +253,9 @@ class Convolution(GSObject):
 
     
     def _kValue(self, kpos):
-        kv_list = [obj._kValue(kpos) for obj in self.obj_list]    # In GalSim one uses obj.kValue
-        return jnp.prod(jnp.array(kv_list))#*jnp.ones_like(kpos.x) # this is a hack to get the good output sighature
+        kv_list = [obj.kValue(kpos) for obj in self.obj_list]    # In GalSim one uses obj.kValue
+        return jnp.prod(jnp.array(kv_list))
 
-
-    
     def _drawReal(self, image, jac=None, offset=(0.,0.), flux_scaling=1.):
         raise NotImplementedError("Not implemented")
 
@@ -284,32 +263,8 @@ class Convolution(GSObject):
         raise NotImplementedError("Not implemented")
 
     def _drawKImage(self, image, jac=None):
-
-        #JEC do it as in GalSim with little adapt as _drawKImage does not update in-place the image
         image = self.obj_list[0]._drawKImage(image, jac)
         if len(self.obj_list) > 1:
-            im1 = image.copy()
             for obj in self.obj_list[1:]:
-                im1 = obj._drawKImage(im1, jac)
-                image *= im1
+                image *= obj._drawKImage(image, jac)
         return image
-    
-
-####        print("JEC: convolve:_drawKImage: just return the entry")
-
-##         def body(i,val):
-##             #decode val
-##             image, obj_list = val 
-
-##             image *= obj_list[i]._drawKImage(image, jac)
-
-##             #recode val
-##             return image, obj_list            
-
-##         image = self.obj_list[0]._drawKImage(image, jac)
-##         val_init = image, obj_list
-##         val = jax.lax.fori_loop(1,len(self.obj_list),body,val_init)
-##         image, obj_list = val
-
-        return image
-        
