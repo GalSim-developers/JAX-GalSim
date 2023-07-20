@@ -21,10 +21,19 @@ from galsim.errors import (
     GalSimWarning,
 )
 
+# Bessel
+from .bessel import J0
+
 # Basic building blocks
 from .bounds import Bounds, BoundsD, BoundsI
+from .box import Box, Pixel
+from .convolve import Convolution, Convolve
+
+# GSObject
+from .exponential import Exponential
+from .gaussian import Gaussian
+from .gsobject import GSObject
 from .gsparams import GSParams
-from .position import Position, PositionD, PositionI
 
 # Image
 from .image import (
@@ -39,36 +48,25 @@ from .image import (
     ImageUS,
 )
 
-# GSObject
-from .exponential import Exponential
-from .gaussian import Gaussian
-from .moffat import Moffat
-from .box import Pixel, Box
-from .gsobject import GSObject
-from .sum import Add, Sum
-from .transform import Transform, Transformation
-from .convolve import Convolve, Convolution
-
-
-# Bessel
-from .bessel import J0
-
 # Integration
 from .integrate import ClenshawCurtisQuad, quad_integral
 
 # Interpolation
 from .interpolate import InterpolatedUnivariateSpline
+from .moffat import Moffat
+from .position import Position, PositionD, PositionI
 
+# Shear
+from .shear import Shear, _Shear
+from .sum import Add, Sum
+from .transform import Transform, Transformation
 
 # WCS
 from .wcs import (
     AffineTransform,
     JacobianWCS,
+    OffsetShearWCS,
     OffsetWCS,
     PixelScale,
     ShearWCS,
-    OffsetShearWCS,
 )
-
-# Shear
-from .shear import Shear, _Shear
