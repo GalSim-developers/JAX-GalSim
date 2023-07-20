@@ -351,6 +351,59 @@ class GSObject:
         new_obj = Transform(self, offset=(dx, dy))
         return new_obj
 
+    def shear(self, *args, **kwargs):
+        """Create a version of the current object with an area-preserving shear applied to it.
+
+        The arguments may be either a `Shear` instance or arguments to be used to initialize one.
+
+        For more details about the allowed keyword arguments, see the `Shear` docstring.
+
+        The shear() method precisely preserves the area.  To include a lensing distortion with
+        the appropriate change in area, either use shear() with magnify(), or use lens(), which
+        combines both operations.
+
+        Parameters:
+            shear:      The `Shear` to be applied. Or, as described above, you may instead supply
+                        parameters do construct a shear directly.  eg. ``obj.shear(g1=g1,g2=g2)``.
+
+        Returns:
+            the sheared object.
+        """
+        from .shear import Shear
+        from .transform import Transform
+
+        if len(args) == 1:
+            shear = args[0]
+        if len(args) == 1:
+            if kwargs:
+                raise TypeError("Error, gave both unnamed and named arguments to GSObject.shear!")
+            if not isinstance(args[0], Shear):
+                raise TypeError("Error, unnamed argument to GSObject.shear is not a Shear!")
+            shear = args[0]
+        elif len(args) > 1:
+            raise TypeError("Error, too many unnamed arguments to GSObject.shear!")
+        elif len(kwargs) == 0:
+            raise TypeError("Error, shear argument is required")
+        else:
+            shear = Shear(**kwargs)
+        return Transform(self, shear.getMatrix())
+
+    def _shear(self, shear):
+        """Equivalent to `GSObject.shear`, but without the overhead of sanity checks or other
+        ways to input the ``shear`` value.
+
+        Also, it won't propagate any noise attribute.
+
+        Parameters:
+            shear:      The `Shear` to be applied.
+
+        Returns:
+            the sheared object.
+        """
+        from .transform import _Transform
+
+        return _Transform(self, shear.getMatrix())
+
     # Make sure the image is defined with the right size and wcs for drawImage()
     def _setup_image(
         self, image, nx, ny, bounds, add_to_image, dtype, center, odd=False
