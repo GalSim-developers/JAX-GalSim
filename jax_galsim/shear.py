@@ -134,6 +134,16 @@ class Shear(object):
             )
 
     @property
+    def g1(self):
+        """The first component of the shear in the "reduced shear" definition."""
+        return self._g.real
+
+    @property
+    def g2(self):
+        """The second component of the shear in the "reduced shear" definition."""
+        return self._g.imag
+
+    @property
     def g(self):
         """The magnitude of the shear in the "reduced shear" definition."""
         return abs(self._g)
@@ -143,9 +153,59 @@ class Shear(object):
         """The position angle as an `Angle` instance"""
         return _Angle(0.5 * jnp.angle(self._g))
 
+    @property
+    def shear(self):
+        """The reduced shear as a complex number g1 + 1j * g2."""
+
+        return self._g
+
+    @property
+    def e1(self):
+        """The first component of the shear in the "distortion" definition."""
+        return self._g.real * self._g2e(self.g**2)
+
+    @property
+    def e2(self):
+        """The second component of the shear in the "distortion" definition."""
+        return self._g.imag * self._g2e(self.g**2)
+
+    @property
+    def e(self):
+        """The magnitude of the shear in the "distortion" definition."""
+        return self.g * self._g2e(self.g**2)
+
+    @property
+    def esq(self):
+        """The square of the magnitude of the shear in the "distortion" definition."""
+        return self.e**2
+
+    @property
+    def eta1(self):
+        """The first component of the shear in the "conformal shear" definition."""
+        return self._g.real * self._g2eta(self.g)
+
+    @property
+    def eta2(self):
+        """The second component of the shear in the "conformal shear" definition."""
+        return self._g.imag * self._g2eta(self.g)
+
+    @property
+    def eta(self):
+        """The magnitude of the shear in the "conformal shear" definition."""
+        return self.g * self._g2eta(self.g)
+
+    @property
+    def q(self):
+        """The minor-to-major axis ratio"""
+        return (1.0 - self.g) / (1.0 + self.g)
+
+    # Helpers to convert between different conventions
+    # Note: These return the scale factor by which to multiply.  Not the final value.
+    def _g2e(self, absgsq):
+        return 2.0 / (1.0 + absgsq)
+
     def _e2g(self, absesq):
         if absesq > 1.0e-4:
-            # return (1. - np.sqrt(1.-absesq)) / absesq
             return 1.0 / (1.0 + jnp.sqrt(1.0 - absesq))
         else:
             # Avoid numerical issues near e=0 using Taylor expansion
