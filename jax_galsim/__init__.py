@@ -36,9 +36,11 @@ from .box import Pixel, Box
 from .gsobject import GSObject
 from .sum import Add, Sum
 from .transform import Transform, Transformation
+from .convolve import Convolve, Convolution
 
 # WCS
 from .wcs import AffineTransform, JacobianWCS, OffsetWCS, PixelScale, ShearWCS, OffsetShearWCS
 
 # Shear
 from .shear import Shear, _Shear
+
