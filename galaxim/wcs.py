@@ -1,15 +1,14 @@
 import galsim as _galsim
 import jax.numpy as jnp
+from galaxim.gsobject import GSObject
+from galaxim.position import Position, PositionD
+from galaxim.transform import _Transform
 from jax._src.numpy.util import _wraps
 from jax.tree_util import register_pytree_node_class
 
-from jax_galsim.gsobject import GSObject
-from jax_galsim.position import Position, PositionD
-from jax_galsim.transform import _Transform
-
 
 # We inherit from the reference BaseWCS and only redefine the methods that
-# make references to jax_galsim objects.
+# make references to galaxim objects.
 class BaseWCS(_galsim.BaseWCS):
     @_wraps(_galsim.BaseWCS.toWorld)
     def toWorld(self, *args, **kwargs):

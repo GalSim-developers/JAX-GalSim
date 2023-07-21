@@ -1,6 +1,5 @@
+import galaxim as galsim
 import jax
-
-import jax_galsim as galsim
 
 identity = jax.jit(lambda x: x)
 

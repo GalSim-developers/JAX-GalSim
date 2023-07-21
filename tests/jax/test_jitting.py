@@ -1,7 +1,6 @@
+import galaxim as galsim
 import jax
 import jax.numpy as jnp
-
-import jax_galsim as galsim
 
 # Defining jitting identity
 identity = jax.jit(lambda x: x)

@@ -1,10 +1,9 @@
 import galsim as _galsim
 import jax.numpy as jnp
+from galaxim.gsparams import GSParams
+from galaxim.position import Position, PositionD, PositionI
+from galaxim.utilities import parse_pos_args
 from jax._src.numpy.util import _wraps
-
-from jax_galsim.gsparams import GSParams
-from jax_galsim.position import Position, PositionD, PositionI
-from jax_galsim.utilities import parse_pos_args
 
 
 @_wraps(_galsim.GSObject)
@@ -100,7 +99,7 @@ class GSObject:
 
         Equivalent to Add(self, other)
         """
-        from jax_galsim.sum import Sum
+        from galaxim.sum import Sum
 
         return Sum([self, other])
 
@@ -185,7 +184,7 @@ class GSObject:
         return self.tree_unflatten(aux_data, children)
 
     def withScaledFlux(self, flux_ratio):
-        from jax_galsim.transform import _Transform
+        from galaxim.transform import _Transform
 
         return _Transform(self, flux_ratio=flux_ratio)
 
@@ -244,8 +243,8 @@ class GSObject:
 
     # Make sure the image is defined with the right size and wcs for drawImage()
     def _setup_image(self, image, nx, ny, bounds, add_to_image, dtype, center, odd=False):
-        from jax_galsim.bounds import BoundsI
-        from jax_galsim.image import Image
+        from galaxim.bounds import BoundsI
+        from galaxim.image import Image
 
         # If image is given, check validity of nx,ny,bounds:
         if image is not None:
@@ -377,7 +376,7 @@ class GSObject:
             return PositionD(center[0], center[1])
 
     def _get_new_bounds(self, image, nx, ny, bounds, center):
-        from jax_galsim.bounds import BoundsI
+        from galaxim.bounds import BoundsI
 
         if image is not None and image.bounds.isDefined():
             return image.bounds
@@ -421,7 +420,7 @@ class GSObject:
         return offset
 
     def _determine_wcs(self, scale, wcs, image, default_wcs=None):
-        from jax_galsim.wcs import BaseWCS, PixelScale
+        from galaxim.wcs import BaseWCS, PixelScale
 
         # Determine the correct wcs given the input scale, wcs and image.
         if wcs is not None:
@@ -481,7 +480,7 @@ class GSObject:
         setup_only=False,
         surface_ops=None,
     ):
-        from jax_galsim.wcs import PixelScale
+        from galaxim.wcs import PixelScale
 
         # Figure out what wcs we are going to use.
         wcs = self._determine_wcs(scale, wcs, image)

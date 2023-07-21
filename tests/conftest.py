@@ -2,7 +2,6 @@ import os
 
 import pytest
 import yaml
-
 # Define the accuracy for running the tests
 from jax.config import config
 
@@ -34,12 +33,12 @@ def pytest_collection_modifyitems(config, items):
 
 def pytest_pycollect_makemodule(module_path, path, parent):
     """This hook is tasked with overriding the galsim import
-    at the top of each test file. Replaces it by jax-galsim.
+    at the top of each test file. Replaces it by galaxim.
     """
     # Load the module
     module = pytest.Module.from_parent(parent, path=module_path)
     # Overwrites the galsim module
-    module.obj.galsim = __import__("jax_galsim")
+    module.obj.galsim = __import__("galaxim")
     return module
 
 

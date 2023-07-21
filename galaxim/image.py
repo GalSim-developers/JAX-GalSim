@@ -4,10 +4,10 @@ import numpy as np
 from jax._src.numpy.util import _wraps
 from jax.tree_util import register_pytree_node_class
 
-from jax_galsim.bounds import BoundsD, BoundsI
-from jax_galsim.position import PositionI
-from jax_galsim.utilities import parse_pos_args
-from jax_galsim.wcs import BaseWCS, PixelScale
+from galaxim.bounds import BoundsD, BoundsI
+from galaxim.position import PositionI
+from galaxim.utilities import parse_pos_args
+from galaxim.wcs import BaseWCS, PixelScale
 
 
 @_wraps(
@@ -109,12 +109,12 @@ class Image(object):
         if kwargs:
             if "copy" in kwargs.keys():
                 raise TypeError(
-                    "'copy' is not a valid keyword argument for the JAX-GalSim version"
+                    "'copy' is not a valid keyword argument for the Galaxim version"
                     "of the Image constructor"
                 )
             if "make_const" in kwargs.keys():
-                raise TypeError(
-                    "'make_const' is not a valid keyword argument for the JAX-GalSim"
+                raise TypeError(Galaxim
+                    "'make_const' is not a valid keyword argument for the Galaxim"
                     "version of the Image constructor"
                 )
             raise TypeError("Image constructor got unexpected keyword arguments: %s", kwargs)
@@ -689,7 +689,7 @@ class Image(object):
         contiguous=False,
     ):
         if make_const:
-            raise TypeError("'make_const' is not a valid option in JAX-GalSim.")
+            raise TypeError("'make_const' is not a valid option in Galaxim.")
 
         if origin is not None and center is not None:
             raise _galsim.GalSimIncompatibleValuesError(
@@ -1017,6 +1017,8 @@ def Image_iadd(self, other):
     else:
         array = (self.array + a).astype(self.array.dtype)
     return Image.init(array, bounds=self.bounds, wcs=self.wcs)
+# return Image(array, self.bounds, self.wcs, self.dtype)
+# all of them should be replaced to use the __init__
 
 
 def Image_sub(self, other):

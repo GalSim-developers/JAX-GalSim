@@ -1,11 +1,10 @@
 import galsim as _galsim
 import jax.numpy as jnp
 import numpy as np
+from galaxim.gsobject import GSObject
+from galaxim.gsparams import GSParams
 from jax._src.numpy.util import _wraps
 from jax.tree_util import register_pytree_node_class
-
-from jax_galsim.gsobject import GSObject
-from jax_galsim.gsparams import GSParams
 
 
 @_wraps(_galsim.Add, lax_description="Does not support `ChromaticObject` at this point.")

@@ -1,11 +1,10 @@
 import galsim as _galsim
 import jax.numpy as jnp
+from galaxim.gsobject import GSObject
+from galaxim.gsparams import GSParams
+from galaxim.position import PositionD
 from jax._src.numpy.util import _wraps
 from jax.tree_util import register_pytree_node_class
-
-from jax_galsim.gsobject import GSObject
-from jax_galsim.gsparams import GSParams
-from jax_galsim.position import PositionD
 
 
 @_wraps(
@@ -151,7 +150,7 @@ class Transformation(GSObject):
 
     @classmethod
     def _str_from_jac(cls, jac):
-        from jax_galsim.wcs import JacobianWCS
+        from galaxim.wcs import JacobianWCS
 
         dudx, dudy, dvdx, dvdy = jac.ravel()
         if dudx != 1 or dudy != 0 or dvdx != 0 or dvdy != 1:

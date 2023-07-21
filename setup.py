@@ -1,9 +1,9 @@
-from setuptools import setup, find_packages
+from setuptools import find_packages, setup
 
 setup(
-    name="JAX-GalSim",
+    name="Galaxim",
     version="0.0.1rc1",
-    url="https://github.com/GalSim-developers/JAX-GalSim",
+    url="https://github.com/GalSim-developers/Galaxim",
     author="GalSim Developers",
     description="The modular galaxy image simulation toolkit, but in JAX",
     packages=find_packages(),

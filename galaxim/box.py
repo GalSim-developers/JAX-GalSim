@@ -1,11 +1,10 @@
 import galsim as _galsim
 import jax.numpy as jnp
+from galaxim.core.draw import draw_by_xValue
+from galaxim.gsobject import GSObject
+from galaxim.gsparams import GSParams
 from jax._src.numpy.util import _wraps
 from jax.tree_util import register_pytree_node_class
-
-from jax_galsim.core.draw import draw_by_xValue
-from jax_galsim.gsobject import GSObject
-from jax_galsim.gsparams import GSParams
 
 
 @register_pytree_node_class

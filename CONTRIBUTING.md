@@ -1,8 +1,8 @@
-# Contributing to JAX-GalSim
+# Contributing to Galaxim
 
-Everyone is welcome to contribute to this project, and contributions can take many different forms, from helping to answer questions on the [discussions page](https://github.com/GalSim-developers/JAX-GalSim/discussions), to contributing to the code-base by making a Pull Request.
+Everyone is welcome to contribute to this project, and contributions can take many different forms, from helping to answer questions on the [discussions page](https://github.com/GalSim-developers/Galaxim/discussions), to contributing to the code-base by making a Pull Request.
 
-In order to foster an open, inclusive, and welcoming community, all contributors agree to adhere to [JAX-GalSim code of conduct](CODE_OF_CONDUCT.md).
+In order to foster an open, inclusive, and welcoming community, all contributors agree to adhere to [Galaxim code of conduct](CODE_OF_CONDUCT.md).
 
 ## Contributing code using Pull Requests
 
@@ -10,13 +10,13 @@ Code contributions are most welcome. You can in particular look for GitHub issue
 
 Once you have some code you wish to contribute, you can follow this procedure to prepare a Pull Request:
 
-- Fork the JAX-GalSim repository under your own account, using the **Fork** button on the top right of the [GitHub page](https://github.com/GalSim-developers/JAX-GalSim).
+- Fork the Galaxim repository under your own account, using the **Fork** button on the top right of the [GitHub page](https://github.com/GalSim-developers/Galaxim).
 
 - Clone and pip install your fork of the repository like so:
 
   ```bash
-  git clone --recurse-submodules https://github.com/YOUR_USERNAME/JAX-GalSim
-  cd JAX-GalSim
+  git clone --recurse-submodules https://github.com/YOUR_USERNAME/Galaxim
+  cd Galaxim
   pip install --user -e .
   ```
 
@@ -42,7 +42,7 @@ Once you have some code you wish to contribute, you can follow this procedure to
   git push -set-upstream origin name-that-describes-my-feature
   ```
 
-- From your GitHub interface, you should now be able to open a Pull Request to the JAX-GalSim repository.
+- From your GitHub interface, you should now be able to open a Pull Request to the Galaxim repository.
 
 Before submitting your PR, have a look at the procedure documented below.
 
@@ -50,11 +50,11 @@ Before submitting your PR, have a look at the procedure documented below.
 
 - Pull Requests should be self-contained and limited in scope, otherwise they become too difficult to review. If your modifications are broad, consider opening several smaller Pull Requests.
 
-- Make sure your fork and branch are up-to-date with the `main` branch of JAX-GalSim. To update your local branch, you may do so from the GitHub interface, or you may use this CLI command:
+- Make sure your fork and branch are up-to-date with the `main` branch of Galaxim. To update your local branch, you may do so from the GitHub interface, or you may use this CLI command:
 
   ```bash
   # Only needs to be done once:
-  git remote add upstream http://www.github.com/GalSim-developers/JAX-GalSim
+  git remote add upstream http://www.github.com/GalSim-developers/Galaxim
   # This will update your local branch
   git fetch upstream
   git rebase upstream/main
@@ -135,9 +135,9 @@ And that's all you need to do from now on.
 
 ### Documentation style
 
-JAX-GalSim follows the NumPy/SciPy format: <https://numpydoc.readthedocs.io/en/latest/format.html>
+Galaxim follows the NumPy/SciPy format: <https://numpydoc.readthedocs.io/en/latest/format.html>
 
-However, most JAX-GalSim function will directly inherit the documentation from the reference GalSim project. We recommend avoid copy/pasting documentation, and instead using the `_wraps` utility to automatically reuse GalSim documentation:
+However, most Galaxim function will directly inherit the documentation from the reference GalSim project. We recommend avoid copy/pasting documentation, and instead using the `_wraps` utility to automatically reuse GalSim documentation:
 
 ```python
 import galsim as _galsim

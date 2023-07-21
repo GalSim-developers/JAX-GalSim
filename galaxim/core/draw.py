@@ -1,7 +1,6 @@
 import jax
 import jax.numpy as jnp
-
-from jax_galsim import Image, PositionD
+from galaxim import Image, PositionD
 
 
 @jax.jit

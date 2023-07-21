@@ -1,6 +1,6 @@
 # Change log
 
-## JAX-GalSim 0.0.1 (Unreleased)
+## Galaxim 0.0.1 (Unreleased)
 
 * Changes
   * Added simplified versions of basic objects, with no support of Chromatic objects yet:
