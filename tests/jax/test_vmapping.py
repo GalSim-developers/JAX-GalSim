@@ -133,7 +133,7 @@ def test_drawing_vmapping_and_jitting():
 
         gal_conv = galsim.Convolution(gal, psf).withGSParams(gsparams)
 
-        return gal.drawImage(nx=128, ny=128, scale=0.2, method="no_pixel")
+        return gal_conv.drawImage(nx=128, ny=128, scale=0.2)
 
     im = drawGalaxy(jnp.array([10, 20]))
     arr = im.array
