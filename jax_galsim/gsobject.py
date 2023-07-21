@@ -274,8 +274,8 @@ class GSObject:
         Returns:
             the lensed object.
         """
-        from jax_galsim.transform import Transform
         from jax_galsim.shear import Shear
+        from jax_galsim.transform import Transform
 
         shear = Shear(g1=g1, g2=g2)
         return Transform(self, shear.getMatrix() * jnp.sqrt(mu))
@@ -313,6 +313,7 @@ class GSObject:
         Note: Not differentiable with respect to theta (yet).
         """
         from coord.angle import Angle
+
         from jax_galsim.transform import Transform
 
         if not isinstance(theta, Angle):
@@ -376,9 +377,13 @@ class GSObject:
             shear = args[0]
         if len(args) == 1:
             if kwargs:
-                raise TypeError("Error, gave both unnamed and named arguments to GSObject.shear!")
+                raise TypeError(
+                    "Error, gave both unnamed and named arguments to GSObject.shear!"
+                )
             if not isinstance(args[0], Shear):
-                raise TypeError("Error, unnamed argument to GSObject.shear is not a Shear!")
+                raise TypeError(
+                    "Error, unnamed argument to GSObject.shear is not a Shear!"
+                )
             shear = args[0]
         elif len(args) > 1:
             raise TypeError("Error, too many unnamed arguments to GSObject.shear!")
