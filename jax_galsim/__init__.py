@@ -61,6 +61,7 @@ from .position import Position, PositionD, PositionI
 from .shear import Shear, _Shear
 from .sum import Add, Sum
 from .transform import Transform, Transformation
+from .convolve import Convolve, Convolution
 
 # WCS
 from .wcs import (
