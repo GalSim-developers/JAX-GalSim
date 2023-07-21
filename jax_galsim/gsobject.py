@@ -4,6 +4,7 @@ import jax.numpy as jnp
 import numpy as np
 from jax._src.numpy.util import _wraps
 
+from jax_galsim.convolve import Convolve
 from jax_galsim.gsparams import GSParams
 from jax_galsim.position import Position, PositionD, PositionI
 from jax_galsim.utilities import parse_pos_args
@@ -517,18 +518,20 @@ class GSObject:
 
         local_wcs = local_wcs.shiftOrigin(offset)
 
-        # TODO: Uncomment when pixel convolution is implemented
-        # # If necessary, convolve by the pixel
-        # if method in ('auto', 'fft', 'real_space'):
-        #     if method == 'auto':
-        #         real_space = None
-        #     elif method == 'fft':
-        #         real_space = False
-        #     else:
-        #         real_space = True
-        #     prof_no_pixel = prof
-        #     prof = Convolve(prof, Pixel(scale=1.0, gsparams=self.gsparams),
-        #                     real_space=real_space, gsparams=self.gsparams)
+        # If necessary, convolve by the pixel
+        if method in ("auto", "fft", "real_space"):
+            if method == "auto":
+                real_space = None
+            elif method == "fft":
+                real_space = False
+            else:
+                real_space = True
+            prof = Convolve(
+                prof,
+                Pixel(scale=1.0, gsparams=self.gsparams),
+                real_space=real_space,
+                gsparams=self.gsparams,
+            )
 
         # Make sure image is setup correctly
         image = prof._setup_image(image, nx, ny, bounds, add_to_image, dtype, center)
