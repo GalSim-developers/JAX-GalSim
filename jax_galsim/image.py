@@ -220,7 +220,7 @@ class Image(object):
                     wcs=wcs,
                     scale=scale,
                 )
-            wcs = PixelScale(float(scale))
+            wcs = PixelScale(scale)
         else:
             if wcs is not None and not isinstance(wcs, BaseWCS):
                 raise TypeError("wcs parameters must be a galsim.BaseWCS instance")
@@ -489,7 +489,7 @@ class Image(object):
         # NB. The wcs is still accurate, since the sub-image uses the same (x,y) values
         # as the original image did for those pixels.  It's only once you recenter or
         # reorigin that you need to update the wcs.  So that's taken care of in im.shift.
-        return self.__class__.init(subarray, bounds=bounds, wcs=self.wcs)
+        return self.__class__(_array=subarray, _bounds=bounds, wcs=self.wcs, _dtype=self.dtype)
 
     def setSubImage(self, bounds, rhs):
         """Set a portion of the full image to the values in another image
@@ -565,6 +565,47 @@ class Image(object):
             return self.setValue(*args)
         else:
             raise TypeError("image[..] requires either 1 or 2 args")
+
+    def wrap(self, bounds, hermitian=False):
+        if not isinstance(bounds, BoundsI):
+            raise TypeError("bounds must be a galsim.BoundsI instance")
+        # Get this at the start to check for invalid bounds and raise the exception before
+        # possibly writing data past the edge of the image.
+        if not hermitian:
+            return self._wrap(bounds, False, False)
+        elif hermitian == 'x':
+            if self.bounds.xmin != 0:
+                raise _galsim.GalSimIncompatibleValuesError(
+                    "hermitian == 'x' requires self.bounds.xmin == 0",
+                    hermitian=hermitian, bounds=self.bounds)
+            if bounds.xmin != 0:
+                raise _galsim.GalSimIncompatibleValuesError(
+                    "hermitian == 'x' requires bounds.xmin == 0",
+                    hermitian=hermitian, bounds=bounds)
+            return self._wrap(bounds, True, False)
+        elif hermitian == 'y':
+            if self.bounds.ymin != 0:
+                raise _galsim.GalSimIncompatibleValuesError(
+                    "hermitian == 'y' requires self.bounds.ymin == 0",
+                    hermitian=hermitian, bounds=self.bounds)
+            if bounds.ymin != 0:
+                raise _galsim.GalSimIncompatibleValuesError(
+                    "hermitian == 'y' requires bounds.ymin == 0",
+                    hermitian=hermitian, bounds=bounds)
+            return self._wrap(bounds, False, True)
+        else:
+            raise _galsim.GalSimValueError("Invalid value for hermitian", hermitian, (False, 'x', 'y'))
+
+    def _wrap(self, bounds, hermx, hermy):
+        """A version of `wrap` without the sanity checks.
+
+        Equivalent to ``image.wrap(bounds, hermitian=='x', hermitian=='y')``.
+        """
+        ret = self.subImage(bounds)
+        # print(bounds, hermx, hermy)
+        # _galsim.wrapImage(self._image, bounds._b, hermx, hermy)
+        return ret
+
 
     @_wraps(_galsim.Image.calculate_fft)
     def calculate_fft(self):
@@ -661,14 +702,14 @@ class Image(object):
         # Reference from GalSim C++
         # https://github.com/GalSim-developers/GalSim/blob/ece3bd32c1ae6ed771f2b489c5ab1b25729e0ea4/src/Image.cpp#L1009
         input_size = int(input_size)
-        if input <= 2:
+        if input_size <= 2:
             return 2
         # Reduce slightly to eliminate potential rounding errors:
-        insize = (1.0 - 1.0e-5) * input
-        log2n = np.log(2.0) * np.ceil(np.log(insize) / np.log(2.0))
-        log2n3 = np.log(3.0) + np.log(2.0) * np.ceil((np.log(insize) - np.log(3.0)) / np.log(2.0))
-        log2n3 = np.max(log2n3, np.log(6.0))  # must be even number
-        Nk = int(np.ceil(np.exp(np.min(log2n, log2n3)) - 1.0e-5))
+        insize = (1.0 - 1.0e-5) * input_size
+        log2n = jnp.log(2.0) * jnp.ceil(jnp.log(insize) / jnp.log(2.0))
+        log2n3 = jnp.log(3.0) + jnp.log(2.0) * jnp.ceil((jnp.log(insize) - jnp.log(3.0)) / jnp.log(2.0))
+        log2n3 = max(log2n3, jnp.log(6.0))  # must be even number
+        Nk = int(jnp.ceil(jnp.exp(min(log2n, log2n3)) - 1.0e-5))
         return Nk
 
     def copyFrom(self, rhs):
@@ -925,14 +966,14 @@ class Image(object):
     def tree_flatten(self):
         """Flatten the image into a list of values."""
         # Define the children nodes of the PyTree that need tracing
-        children = (self.array, self.bounds, self.wcs)
-        aux_data = (self.dtype,)
+        children = (self.array, self.wcs)
+        aux_data = (self.dtype, self.bounds)
         return (children, aux_data)
 
     @classmethod
     def tree_unflatten(cls, aux_data, children):
         """Recreates an instance of the class from flatten representation"""
-        return cls(_array=children[0], _bounds=children[1], wcs=children[2], _dtype=aux_data[0])
+        return cls(_array=children[0], _bounds=aux_data[1], wcs=children[1], _dtype=aux_data[0])
 
 
 # These are essentially aliases for the regular Image with the correct dtype
@@ -1025,7 +1066,7 @@ def Image_iadd(self, other):
         array = self.array + a
     else:
         array = (self.array + a).astype(self.array.dtype)
-    return Image.init(array, bounds=self.bounds, wcs=self.wcs)
+    return Image(array, _bounds=self.bounds, wcs=self.wcs, _dtype=self.dtype)
 
 
 def Image_sub(self, other):
@@ -1062,7 +1103,7 @@ def Image_mul(self, other):
         a = other.array
     except AttributeError:
         a = other
-    return Image.init(self.array * a, bounds=self.bounds, wcs=self.wcs)
+    return Image(self.array * a, _bounds=self.bounds, wcs=self.wcs, _dtype=self.dtype)
 
 
 def Image_imul(self, other):
@@ -1077,7 +1118,7 @@ def Image_imul(self, other):
         array = self.array * a
     else:
         array = (self.array * a).astype(self.array.dtype)
-    return Image.init(array, bounds=self.bounds, wcs=self.wcs)
+    return Image(array, _bounds=self.bounds, wcs=self.wcs, _dtype=self.dtype)
 
 
 def Image_div(self, other):

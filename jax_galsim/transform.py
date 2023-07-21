@@ -7,7 +7,6 @@ from jax_galsim.gsobject import GSObject
 from jax_galsim.gsparams import GSParams
 from jax_galsim.position import PositionD
 
-
 @_wraps(
     _galsim.Transform,
     lax_description="Does not support Chromatic Objects or Convolutions.",
@@ -317,6 +316,18 @@ class Transformation(GSObject):
         flux_scaling *= self._flux_scaling
         jac = self._jac if jac is None else jac if self._jac is None else jac.dot(self._jac)
         return self._original._drawReal(image, jac, (dx, dy), flux_scaling)
+
+    def _drawKImage(self, image, jac=None):
+        from jax_galsim.core.draw import apply_kImage_phases
+        
+        jac1 = self._jac if jac is None else jac if self._jac is None else jac.dot(self._jac)
+        image = self._original._drawKImage(image, jac1)
+
+        _jac = jnp.eye(2) if jac is None else jac
+        image = apply_kImage_phases(self, image, _jac)
+        
+        image = image * self._flux_scaling
+        return image
 
     def tree_flatten(self):
         """This function flattens the GSObject into a list of children

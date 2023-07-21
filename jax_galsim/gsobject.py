@@ -1,4 +1,5 @@
 import galsim as _galsim
+import jax
 import jax.numpy as jnp
 import numpy as np
 from jax._src.numpy.util import _wraps
@@ -516,6 +517,19 @@ class GSObject:
 
         local_wcs = local_wcs.shiftOrigin(offset)
 
+        #TODO: Uncomment when pixel convolution is implemented
+        # # If necessary, convolve by the pixel
+        # if method in ('auto', 'fft', 'real_space'):
+        #     if method == 'auto':
+        #         real_space = None
+        #     elif method == 'fft':
+        #         real_space = False
+        #     else:
+        #         real_space = True
+        #     prof_no_pixel = prof
+        #     prof = Convolve(prof, Pixel(scale=1.0, gsparams=self.gsparams),
+        #                     real_space=real_space, gsparams=self.gsparams)
+
         # Make sure image is setup correctly
         image = prof._setup_image(image, nx, ny, bounds, add_to_image, dtype, center)
         image.wcs = wcs
@@ -524,12 +538,25 @@ class GSObject:
             image.added_flux = 0.0
             return image
 
+
+        if method == 'phot':
+            raise NotImplementedError("Phot shooting not yet implemented in drawImage")
+        if sensor is not None:
+            raise NotImplementedError("Sensor not yet implemented in drawImage")
+
         # Making a view of the image lets us change the center without messing up the original.
         original_center = image.center
         wcs = image.wcs
         image.setCenter(0, 0)
         image.wcs = PixelScale(1.0)
-        image = prof.drawReal(image, add_to_image)
+
+        if prof.is_analytic_x:
+            added_photons, image = prof.drawReal(image, add_to_image)
+        else:
+            added_photons, image = prof.drawFFT(image, add_to_image)
+
+        image.added_flux = added_photons / flux_scale
+        # Restore the original center and wcs
         image.shift(original_center)
         image.wcs = wcs
         return image
@@ -542,9 +569,9 @@ class GSObject:
             )
         im1 = self._drawReal(image)
         if add_to_image:
-            return image + im1
+            return im1.array.sum(dtype=float), image + im1
         else:
-            return im1
+            return im1.array.sum(dtype=float), im1
 
     def _drawReal(self, image, jac=None, offset=(0.0, 0.0), flux_scaling=1.0):
         """A version of `drawReal` without the sanity checks or some options.
@@ -570,35 +597,43 @@ class GSObject:
 
     @_wraps(_galsim.GSObject.drawFFT_makeKImage)
     def drawFFT_makeKImage(self, image):
-        from jax_galsim.bounds import _BoundsI
+        from jax_galsim.bounds import BoundsI
         from jax_galsim.image import ImageCD, ImageCF
-        # Start with what this profile thinks a good size would be given the image's pixel scale.
-        N = self.getGoodImageSize(image.scale)
 
-        # We must make something big enough to cover the target image size:
-        image_N = max(jnp.max(jnp.abs((image.bounds._getinitargs()))) * 2,
-                      jnp.max(image.bounds.numpyShape()))
-        N = max(N, image_N)
-
-        # Round up to a good size for making FFTs:
-        N = image.good_fft_size(N)
-
-        # Make sure we hit the minimum size specified in the gsparams.
-        N = max(N, self.gsparams.minimum_fft_size)
-
-        dk = 2. * jnp.pi / (N * image.scale)
-
-        maxk = self.maxk
-        if N*dk/2 > maxk:
-            Nk = N
+        # Before any computations, let's check if we actually have a choice based on the gsparams.
+        if self.gsparams.maximum_fft_size == self.gsparams.minimum_fft_size:
+            with jax.ensure_compile_time_eval():
+                Nk = self.gsparams.maximum_fft_size
+                N = Nk
+                dk = 2. * np.pi / (N * image.scale)
         else:
-            # There will be aliasing.  Make a larger image and then wrap it.
-            Nk = int(jnp.ceil(maxk/dk)) * 2
+            # Start with what this profile thinks a good size would be given the image's pixel scale.
+            N = self.getGoodImageSize(image.scale)
 
-        if Nk > self.gsparams.maximum_fft_size:
-            raise _galsim.GalSimFFTSizeError("drawFFT requires an FFT that is too large.", Nk)
+            # We must make something big enough to cover the target image size:
+            image_N = jnp.max(jnp.array([jnp.max(jnp.abs(jnp.array(image.bounds._getinitargs()))) * 2,
+                        jnp.max(jnp.array(image.bounds.numpyShape()))]))
+            N = jnp.max(jnp.array([N, image_N]))
 
-        bounds = _BoundsI(0,Nk//2,-Nk//2,Nk//2)
+            # Round up to a good size for making FFTs:
+            N = image.good_fft_size(N)
+
+            # Make sure we hit the minimum size specified in the gsparams.
+            N = max(N, self.gsparams.minimum_fft_size)
+
+            dk = 2. * jnp.pi / (N * image.scale)
+
+            maxk = self.maxk
+            if N*dk/2 > maxk:
+                Nk = N
+            else:
+                # There will be aliasing.  Make a larger image and then wrap it.
+                Nk = int(jnp.ceil(maxk/dk)) * 2
+
+            if Nk > self.gsparams.maximum_fft_size:
+                raise _galsim.GalSimFFTSizeError("drawFFT requires an FFT that is too large.", Nk)
+
+        bounds = BoundsI(0,Nk//2,-Nk//2,Nk//2)
         if image.dtype in (np.complex128, np.float64, np.int32, np.uint32):
             kimage = ImageCD(bounds=bounds, scale=dk)
         else:
@@ -623,28 +658,33 @@ class GSObject:
         Returns:
             The total flux drawn inside the image bounds.
         """
-        from jax_galsim.bounds import _BoundsI
+        from jax_galsim.bounds import BoundsI
         from jax_galsim.image import Image
         # Wrap the full image to the size we want for the FT.
         # Even if N == Nk, this is useful to make this portion properly Hermitian in the
         # N/2 column and N/2 row.
-        bwrap = _BoundsI(0, wrap_size//2, -wrap_size//2, wrap_size//2-1)
+        bwrap = BoundsI(0, wrap_size//2, -wrap_size//2, wrap_size//2-1)
         kimage_wrap = kimage._wrap(bwrap, True, False)
 
+        # Inverse FFT
+        kimg_shift = jnp.fft.ifftshift(kimage_wrap.array, axes=(-2,))
+        real_image_arr = jnp.fft.fftshift(jnp.fft.irfft2(kimg_shift))
+
         # Perform the fourier transform.
-        breal = _BoundsI(-wrap_size//2, wrap_size//2+1, -wrap_size//2, wrap_size//2-1)
-        real_image = Image(breal, dtype=float)
-        with convert_cpp_errors():
-            _galsim.irfft(kimage_wrap._image, real_image._image, True, True)
+        breal = BoundsI(-wrap_size//2, wrap_size//2+1, -wrap_size//2, wrap_size//2-1)
+        real_image = Image(_bounds=breal, 
+                           _array=real_image_arr,
+                           _dtype=image.dtype, wcs=image.wcs)
 
         # Add (a portion of) this to the original image.
         temp = real_image.subImage(image.bounds)
         if add_to_image:
-            image += temp
+            image = image + temp
         else:
-            image._copyFrom(temp)
+            image = temp
         added_photons = temp.array.sum(dtype=float)
-        return added_photons
+        return added_photons, image
+    
 
     def drawFFT(self, image, add_to_image=False):
         """
@@ -672,11 +712,11 @@ class GSObject:
         Returns:
             The total flux drawn inside the image bounds.
         """
-        if image.wcs is None or not image.wcs._isPixelScale:
-            raise _galsim.GalSimValueError("drawPhot requires an image with a PixelScale wcs", image)
+        if image.wcs is None or not image.wcs.isPixelScale:
+            raise _galsim.GalSimValueError("drawFFT requires an image with a PixelScale wcs", image)
 
         kimage, wrap_size = self.drawFFT_makeKImage(image)
-        self._drawKImage(kimage)
+        kimage = self._drawKImage(kimage)
         return self.drawFFT_finish(image, kimage, wrap_size, add_to_image)
 
     @_wraps(_galsim.GSObject.drawKImage)
@@ -703,7 +743,7 @@ class GSObject:
         if scale is None or scale <= 0:
             dk = self.stepk
         else:
-            dk = float(scale)
+            dk = scale
         if image is not None and image.bounds.isDefined():
             dx = np.pi/( max(image.array.shape) // 2 * dk )
         elif scale is None or scale <= 0:

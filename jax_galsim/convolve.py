@@ -117,6 +117,9 @@ class Convolution(GSObject):
         else:
             self._obj_list = args
 
+        # Save the list of objects
+        self._params = {"obj_list": self._obj_list}
+
 
     @property
     def obj_list(self):
@@ -268,3 +271,21 @@ class Convolution(GSObject):
             for obj in self.obj_list[1:]:
                 image *= obj._drawKImage(image, jac)
         return image
+    
+    def tree_flatten(self):
+        """This function flattens the GSObject into a list of children
+        nodes that will be traced by JAX and auxiliary static data."""
+        # Define the children nodes of the PyTree that need tracing
+        children = (self.params,)
+        # Define auxiliary static data that doesn’t need to be traced
+        aux_data = {
+            "gsparams": self.gsparams,
+            "propagate_gsparams": self._propagate_gsparams,
+            "real_space": self._real_space
+        }
+        return (children, aux_data)
+
+    @classmethod
+    def tree_unflatten(cls, aux_data, children):
+        """Recreates an instance of the class from flatten representation"""
+        return cls(children[0]["obj_list"], **aux_data)

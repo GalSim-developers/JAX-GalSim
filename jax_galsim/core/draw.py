@@ -43,8 +43,31 @@ def draw_by_kValue(
     coords = jnp.dot(coords, jacobian.T)
 
     # Draw the object
-    im = jax.vmap(jax.vmap(lambda *args: gsobject._kValue(PositionD(*args))))(coords[..., 0], coords[..., 1])
+    im = jax.vmap(lambda *args: gsobject._kValue(PositionD(*args)))(coords[..., 0], coords[..., 1])
     im = (im).astype(image.dtype)
 
     # Return an image
     return Image(_array=im, _bounds=image.bounds, wcs=image.wcs, _dtype=image.dtype)
+
+
+@jax.jit
+def apply_kImage_phases(gsobject, image, jacobian=jnp.eye(2)):
+    # Create an array of coordinates
+    kcoords = jnp.stack(image.get_pixel_centers(), axis=-1)
+    kcoords = kcoords * image.scale  # Scale by the image pixel scale  
+    kcoords = jnp.dot(kcoords, jacobian.T)
+    cenx, ceny = gsobject._offset.x, gsobject._offset.y
+    #
+    # flux Exp(-i (kx cx + kxy cx + kyx cy + ky cy ) )
+    # NB: seems that tere is no jax.lax.polar equivalent to c++ std::polar function
+    def phase(kpos):
+        arg = kpos.x * cenx + kpos.y * ceny 
+        return jnp.cos(arg) - 1j * jnp.sin(arg)
+    im_phase = jax.vmap(lambda *args :phase(PositionD(*args)))(
+    kcoords[..., 0], kcoords[..., 1]
+    )
+
+    return Image(_array=image.array * im_phase,
+                 _bounds=image.bounds,
+                 wcs=image.wcs,
+                _dtype=image.dtype)
