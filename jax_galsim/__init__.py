@@ -32,6 +32,7 @@ from .image import Image, ImageCD, ImageCF, ImageD, ImageF, ImageI, ImageS, Imag
 # GSObject
 from .exponential import Exponential
 from .gaussian import Gaussian
+from .box import Pixel, Box
 from .gsobject import GSObject
 from .sum import Add, Sum
 from .transform import Transform, Transformation
