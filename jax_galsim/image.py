@@ -1114,7 +1114,7 @@ def Image_mul(self, other):
         a = other.array
     except AttributeError:
         a = other
-    return Image(self.array * a, _bounds=self.bounds, wcs=self.wcs, _dtype=self.dtype)
+    return Image(_array=self.array * a, _bounds=self.bounds, wcs=self.wcs, _dtype=self.dtype)
 
 
 def Image_imul(self, other):
