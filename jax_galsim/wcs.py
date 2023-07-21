@@ -164,6 +164,14 @@ class BaseWCS(_galsim.BaseWCS):
         """Recreates an instance of the class from flatten representation"""
         return cls(**(children[0]))
 
+    @_wraps(_galsim.BaseWCS.isPixelScale)
+    def isPixelScale(self):
+        return self._isPixelScale
+
+    @property
+    def _isPixelScale(self):
+        return False  # Overridden by PixelScale and OffsetWCS
+
 
 #########################################################################################
 #
@@ -538,7 +546,8 @@ class PixelScale(LocalWCS):
         """The pixel scale"""
         return self._scale
 
-    def isPixelScale(self):
+    @property
+    def _isPixelScale(self):
         return True
 
     def _u(self, x, y, color=None):
@@ -919,7 +928,8 @@ class OffsetWCS(UniformWCS):
         """The world coordinate position to use as the origin."""
         return self._world_origin
 
-    def isPixelScale(self):
+    @property
+    def _isPixelScale(self):
         return True
 
     def _writeHeader(self, header, bounds):
