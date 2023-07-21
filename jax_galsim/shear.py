@@ -61,7 +61,9 @@ class Shear(object):
         elif "g" in kwargs:
             if "beta" not in kwargs:
                 raise GalSimIncompatibleValuesError(
-                    "Shear constructor requires beta when g is specified.", g=kwargs["g"], beta=None
+                    "Shear constructor requires beta when g is specified.",
+                    g=kwargs["g"],
+                    beta=None,
                 )
             beta = kwargs.pop("beta")
             if not isinstance(beta, Angle):
@@ -75,7 +77,9 @@ class Shear(object):
         elif "e" in kwargs:
             if "beta" not in kwargs:
                 raise GalSimIncompatibleValuesError(
-                    "Shear constructor requires beta when e is specified.", e=kwargs["e"], beta=None
+                    "Shear constructor requires beta when e is specified.",
+                    e=kwargs["e"],
+                    beta=None,
                 )
             beta = kwargs.pop("beta")
             if not isinstance(beta, Angle):
@@ -105,7 +109,9 @@ class Shear(object):
         elif "q" in kwargs:
             if "beta" not in kwargs:
                 raise GalSimIncompatibleValuesError(
-                    "Shear constructor requires beta when q is specified.", q=kwargs["q"], beta=None
+                    "Shear constructor requires beta when q is specified.",
+                    q=kwargs["q"],
+                    beta=None,
                 )
             beta = kwargs.pop("beta")
             if not isinstance(beta, Angle):
