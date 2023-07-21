@@ -18,7 +18,6 @@ allowed_failures:
   - "module 'jax_galsim' has no attribute 'Sersic'"
   - "module 'jax_galsim' has no attribute 'UncorrelatedNoise'"
   - "module 'jax_galsim' has no attribute 'GaussianNoise'"
-  - "module 'jax_galsim' has no attribute 'Pixel'"
   - "module 'jax_galsim' has no attribute 'Shapelet'"
   - "module 'jax_galsim' has no attribute 'UVFunction'"
   - "module 'jax_galsim' has no attribute 'FitsWCS'"
