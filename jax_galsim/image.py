@@ -332,7 +332,7 @@ class Image(object):
         Note: it is ok for the end of one row to not be contiguous with the start of the
         next row.  This just checks that each individual row has a stride of 1.
         """
-        return True # In JAX all arrays are contiguous (almost)
+        return True  # In JAX all arrays are contiguous (almost)
 
     # Allow scale to work as a PixelScale wcs.
     @property
@@ -573,28 +573,38 @@ class Image(object):
         # possibly writing data past the edge of the image.
         if not hermitian:
             return self._wrap(bounds, False, False)
-        elif hermitian == 'x':
+        elif hermitian == "x":
             if self.bounds.xmin != 0:
                 raise _galsim.GalSimIncompatibleValuesError(
                     "hermitian == 'x' requires self.bounds.xmin == 0",
-                    hermitian=hermitian, bounds=self.bounds)
+                    hermitian=hermitian,
+                    bounds=self.bounds,
+                )
             if bounds.xmin != 0:
                 raise _galsim.GalSimIncompatibleValuesError(
                     "hermitian == 'x' requires bounds.xmin == 0",
-                    hermitian=hermitian, bounds=bounds)
+                    hermitian=hermitian,
+                    bounds=bounds,
+                )
             return self._wrap(bounds, True, False)
-        elif hermitian == 'y':
+        elif hermitian == "y":
             if self.bounds.ymin != 0:
                 raise _galsim.GalSimIncompatibleValuesError(
                     "hermitian == 'y' requires self.bounds.ymin == 0",
-                    hermitian=hermitian, bounds=self.bounds)
+                    hermitian=hermitian,
+                    bounds=self.bounds,
+                )
             if bounds.ymin != 0:
                 raise _galsim.GalSimIncompatibleValuesError(
                     "hermitian == 'y' requires bounds.ymin == 0",
-                    hermitian=hermitian, bounds=bounds)
+                    hermitian=hermitian,
+                    bounds=bounds,
+                )
             return self._wrap(bounds, False, True)
         else:
-            raise _galsim.GalSimValueError("Invalid value for hermitian", hermitian, (False, 'x', 'y'))
+            raise _galsim.GalSimValueError(
+                "Invalid value for hermitian", hermitian, (False, "x", "y")
+            )
 
     def _wrap(self, bounds, hermx, hermy):
         """A version of `wrap` without the sanity checks.
@@ -605,7 +615,6 @@ class Image(object):
         # print(bounds, hermx, hermy)
         # _galsim.wrapImage(self._image, bounds._b, hermx, hermy)
         return ret
-
 
     @_wraps(_galsim.Image.calculate_fft)
     def calculate_fft(self):
@@ -707,7 +716,9 @@ class Image(object):
         # Reduce slightly to eliminate potential rounding errors:
         insize = (1.0 - 1.0e-5) * input_size
         log2n = jnp.log(2.0) * jnp.ceil(jnp.log(insize) / jnp.log(2.0))
-        log2n3 = jnp.log(3.0) + jnp.log(2.0) * jnp.ceil((jnp.log(insize) - jnp.log(3.0)) / jnp.log(2.0))
+        log2n3 = jnp.log(3.0) + jnp.log(2.0) * jnp.ceil(
+            (jnp.log(insize) - jnp.log(3.0)) / jnp.log(2.0)
+        )
         log2n3 = max(log2n3, jnp.log(6.0))  # must be even number
         Nk = int(jnp.ceil(jnp.exp(min(log2n, log2n3)) - 1.0e-5))
         return Nk
