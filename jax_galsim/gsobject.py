@@ -735,8 +735,8 @@ class GSObject:
         bandpass=None,
         setup_only=False,
     ):
-        from jax_galsim.wcs import PixelScale
         from jax_galsim.image import Image
+        from jax_galsim.wcs import PixelScale
 
         # Make sure provided image is complex
         if image is not None:
