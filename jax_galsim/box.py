@@ -3,7 +3,7 @@ import jax.numpy as jnp
 from jax._src.numpy.util import _wraps
 from jax.tree_util import register_pytree_node_class
 
-from jax_galsim.core.draw import draw_by_xValue
+from jax_galsim.core.draw import draw_by_kValue, draw_by_xValue
 from jax_galsim.gsobject import GSObject
 from jax_galsim.gsparams import GSParams
 
@@ -88,6 +88,10 @@ class Box(GSObject):
     def _drawReal(self, image, jac=None, offset=(0.0, 0.0), flux_scaling=1.0):
         _jac = jnp.eye(2) if jac is None else jac
         return draw_by_xValue(self, image, _jac, jnp.asarray(offset), flux_scaling)
+
+    def _drawKImage(self, image, jac=None):
+        _jac = jnp.eye(2) if jac is None else jac
+        return draw_by_kValue(self, image, _jac)
 
     def withFlux(self, flux):
         return Box(width=self.width, height=self.height, flux=flux, gsparams=self.gsparams)
