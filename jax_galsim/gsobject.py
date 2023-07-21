@@ -4,6 +4,7 @@ import jax.numpy as jnp
 import numpy as np
 from jax._src.numpy.util import _wraps
 
+from jax_galsim.convolve import Convolve
 from jax_galsim.gsparams import GSParams
 from jax_galsim.position import Position, PositionD, PositionI
 from jax_galsim.utilities import parse_pos_args
