@@ -1129,7 +1129,7 @@ def Image_imul(self, other):
         array = self.array * a
     else:
         array = (self.array * a).astype(self.array.dtype)
-    return Image(array, _bounds=self.bounds, wcs=self.wcs, _dtype=self.dtype)
+    return Image(_array=array, _bounds=self.bounds, wcs=self.wcs, _dtype=self.dtype)
 
 
 def Image_div(self, other):
