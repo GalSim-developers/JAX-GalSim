@@ -517,7 +517,7 @@ class GSObject:
 
         local_wcs = local_wcs.shiftOrigin(offset)
 
-        #TODO: Uncomment when pixel convolution is implemented
+        # TODO: Uncomment when pixel convolution is implemented
         # # If necessary, convolve by the pixel
         # if method in ('auto', 'fft', 'real_space'):
         #     if method == 'auto':
@@ -538,8 +538,7 @@ class GSObject:
             image.added_flux = 0.0
             return image
 
-
-        if method == 'phot':
+        if method == "phot":
             raise NotImplementedError("Phot shooting not yet implemented in drawImage")
         if sensor is not None:
             raise NotImplementedError("Sensor not yet implemented in drawImage")
@@ -605,14 +604,20 @@ class GSObject:
             with jax.ensure_compile_time_eval():
                 Nk = self.gsparams.maximum_fft_size
                 N = Nk
-                dk = 2. * np.pi / (N * image.scale)
+                dk = 2.0 * np.pi / (N * image.scale)
         else:
             # Start with what this profile thinks a good size would be given the image's pixel scale.
             N = self.getGoodImageSize(image.scale)
 
             # We must make something big enough to cover the target image size:
-            image_N = jnp.max(jnp.array([jnp.max(jnp.abs(jnp.array(image.bounds._getinitargs()))) * 2,
-                        jnp.max(jnp.array(image.bounds.numpyShape()))]))
+            image_N = jnp.max(
+                jnp.array(
+                    [
+                        jnp.max(jnp.abs(jnp.array(image.bounds._getinitargs()))) * 2,
+                        jnp.max(jnp.array(image.bounds.numpyShape())),
+                    ]
+                )
+            )
             N = jnp.max(jnp.array([N, image_N]))
 
             # Round up to a good size for making FFTs:
@@ -621,19 +626,19 @@ class GSObject:
             # Make sure we hit the minimum size specified in the gsparams.
             N = max(N, self.gsparams.minimum_fft_size)
 
-            dk = 2. * jnp.pi / (N * image.scale)
+            dk = 2.0 * jnp.pi / (N * image.scale)
 
             maxk = self.maxk
-            if N*dk/2 > maxk:
+            if N * dk / 2 > maxk:
                 Nk = N
             else:
                 # There will be aliasing.  Make a larger image and then wrap it.
-                Nk = int(jnp.ceil(maxk/dk)) * 2
+                Nk = int(jnp.ceil(maxk / dk)) * 2
 
             if Nk > self.gsparams.maximum_fft_size:
                 raise _galsim.GalSimFFTSizeError("drawFFT requires an FFT that is too large.", Nk)
 
-        bounds = BoundsI(0,Nk//2,-Nk//2,Nk//2)
+        bounds = BoundsI(0, Nk // 2, -Nk // 2, Nk // 2)
         if image.dtype in (np.complex128, np.float64, np.int32, np.uint32):
             kimage = ImageCD(bounds=bounds, scale=dk)
         else:
@@ -660,10 +665,11 @@ class GSObject:
         """
         from jax_galsim.bounds import BoundsI
         from jax_galsim.image import Image
+
         # Wrap the full image to the size we want for the FT.
         # Even if N == Nk, this is useful to make this portion properly Hermitian in the
         # N/2 column and N/2 row.
-        bwrap = BoundsI(0, wrap_size//2, -wrap_size//2, wrap_size//2-1)
+        bwrap = BoundsI(0, wrap_size // 2, -wrap_size // 2, wrap_size // 2 - 1)
         kimage_wrap = kimage._wrap(bwrap, True, False)
 
         # Inverse FFT
@@ -671,10 +677,8 @@ class GSObject:
         real_image_arr = jnp.fft.fftshift(jnp.fft.irfft2(kimg_shift))
 
         # Perform the fourier transform.
-        breal = BoundsI(-wrap_size//2, wrap_size//2+1, -wrap_size//2, wrap_size//2-1)
-        real_image = Image(_bounds=breal, 
-                           _array=real_image_arr,
-                           _dtype=image.dtype, wcs=image.wcs)
+        breal = BoundsI(-wrap_size // 2, wrap_size // 2 + 1, -wrap_size // 2, wrap_size // 2 - 1)
+        real_image = Image(_bounds=breal, _array=real_image_arr, _dtype=image.dtype, wcs=image.wcs)
 
         # Add (a portion of) this to the original image.
         temp = real_image.subImage(image.bounds)
@@ -684,7 +688,6 @@ class GSObject:
             image = temp
         added_photons = temp.array.sum(dtype=float)
         return added_photons, image
-    
 
     def drawFFT(self, image, add_to_image=False):
         """
@@ -720,10 +723,21 @@ class GSObject:
         return self.drawFFT_finish(image, kimage, wrap_size, add_to_image)
 
     @_wraps(_galsim.GSObject.drawKImage)
-    def drawKImage(self, image=None, nx=None, ny=None, bounds=None, scale=None,
-                   add_to_image=False, recenter=True, bandpass=None, setup_only=False):
+    def drawKImage(
+        self,
+        image=None,
+        nx=None,
+        ny=None,
+        bounds=None,
+        scale=None,
+        add_to_image=False,
+        recenter=True,
+        bandpass=None,
+        setup_only=False,
+    ):
         from jax_galsim.wcs import PixelScale
         from jax_galsim.image import Image
+
         # Make sure provided image is complex
         if image is not None:
             if not isinstance(image, Image):
@@ -745,7 +759,7 @@ class GSObject:
         else:
             dk = scale
         if image is not None and image.bounds.isDefined():
-            dx = np.pi/( max(image.array.shape) // 2 * dk )
+            dx = np.pi / (max(image.array.shape) // 2 * dk)
         elif scale is None or scale <= 0:
             dx = self.nyquist_scale
         else:
@@ -759,25 +773,36 @@ class GSObject:
         if image is None or not image.bounds.isDefined():
             real_prof = PixelScale(dx).profileToImage(self)
             dtype = np.complex128 if image is None else image.dtype
-            image = real_prof._setup_image(image, nx, ny, bounds, add_to_image, dtype,
-                                           center=None, odd=True)
+            image = real_prof._setup_image(
+                image, nx, ny, bounds, add_to_image, dtype, center=None, odd=True
+            )
         else:
             # Do some checks that setup_image would have done for us
             if bounds is not None:
                 raise _galsim.GalSimIncompatibleValuesError(
-                    "Cannot provide bounds if image is provided", bounds=bounds, image=image)
+                    "Cannot provide bounds if image is provided",
+                    bounds=bounds,
+                    image=image,
+                )
             if nx is not None or ny is not None:
                 raise _galsim.GalSimIncompatibleValuesError(
-                    "Cannot provide nx,ny if image is provided", nx=nx, ny=ny, image=image)
+                    "Cannot provide nx,ny if image is provided",
+                    nx=nx,
+                    ny=ny,
+                    image=image,
+                )
 
         # Can't both recenter a provided image and add to it.
-        if recenter and image.center != PositionI(0,0) and add_to_image:
+        if recenter and image.center != PositionI(0, 0) and add_to_image:
             raise _galsim.GalSimIncompatibleValuesError(
                 "Cannot use add_to_image=True unless image is centered at (0,0) or recenter=False",
-                recenter=recenter, image=image, add_to_image=add_to_image)
+                recenter=recenter,
+                image=image,
+                add_to_image=add_to_image,
+            )
 
         # Set the center to 0,0 if appropriate
-        if recenter and image.center != PositionI(0,0):
+        if recenter and image.center != PositionI(0, 0):
             image._shift(-image.center)
 
         # Set the wcs of the images to use the dk scale size
@@ -796,8 +821,7 @@ class GSObject:
 
     @_wraps(_galsim.GSObject._drawKImage)
     def _drawKImage(self, image, jac=None):  # pragma: no cover  (all our classes override this)
-        raise NotImplementedError("%s does not implement drawKImage"%self.__class__.__name__)
-
+        raise NotImplementedError("%s does not implement drawKImage" % self.__class__.__name__)
 
     def tree_flatten(self):
         """This function flattens the GSObject into a list of children
