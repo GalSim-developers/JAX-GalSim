@@ -52,6 +52,7 @@ from unicodedata import decimal
 sys.path.insert(1, os.path.abspath(os.path.join(os.path.dirname(__file__), "../GalSim/tests")))
 import galsim
 import numpy as np
+import pytest
 from galsim._pyfits import pyfits
 from galsim_test_helpers import *
 
@@ -3013,7 +3014,8 @@ def test_Image_constructor():
         assert_raises(ValueError, galsim.Image.init, array=test_arr, dtype=bool)
         assert_raises(ValueError, galsim.Image.init, array=test_arr.astype(bool))
         # Invalid scale
-        assert_raises(ValueError, galsim.Image.init, 4, 3, scale="invalid")
+        # JAX-specific modification: We remove the check for scale to allow jitting of Image.
+        # assert_raises(ValueError, galsim.Image.init, 4, 3, scale="invalid")
         # Invalid wcs
         assert_raises(TypeError, galsim.Image.init, 4, 3, wcs="invalid")
         # Disallowed combinations
@@ -4156,7 +4158,8 @@ def test_int_image_arith():
     with assert_raises(ValueError):
         full %= imd
 
-
+# TODO: add back once wrapping is implemented.
+@pytest.mark.skip(reason="Wrapping not currently implemented")
 @timer
 def test_wrap():
     """Test the image.wrap() function."""
