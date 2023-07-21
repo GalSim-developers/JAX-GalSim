@@ -325,6 +325,15 @@ class Image(object):
         """Whether the `Image` values are integral."""
         return self._array.dtype.kind in ("i", "u")
 
+    @property
+    def iscontiguous(self):
+        """Indicates whether each row of the image is contiguous in memory.
+
+        Note: it is ok for the end of one row to not be contiguous with the start of the
+        next row.  This just checks that each individual row has a stride of 1.
+        """
+        return True # In JAX all arrays are contiguous (almost)
+
     # Allow scale to work as a PixelScale wcs.
     @property
     def scale(self):

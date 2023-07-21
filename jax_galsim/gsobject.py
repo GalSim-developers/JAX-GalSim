@@ -1,5 +1,6 @@
 import galsim as _galsim
 import jax.numpy as jnp
+import numpy as np
 from jax._src.numpy.util import _wraps
 
 from jax_galsim.gsparams import GSParams
@@ -554,22 +555,8 @@ class GSObject:
         """
         raise NotImplementedError("%s does not implement drawReal" % self.__class__.__name__)
 
+    @_wraps(_galsim.GSObject.getGoodImageSize)
     def getGoodImageSize(self, pixel_scale):
-        """Return a good size to use for drawing this profile.
-
-        The size will be large enough to cover most of the flux of the object.  Specifically,
-        at least (1-gsparams.folding_threshold) (i.e. 99.5% by default) of the flux should fall
-        in the image.
-
-        Also, the returned size is always an even number, which is usually desired in practice.
-        Of course, if you prefer an odd-sized image, you can add 1 to the result.
-
-        Parameters:
-            pixel_scale:    The desired pixel scale of the image to be built.
-
-        Returns:
-            N, a good (linear) size of an image on which to draw this object.
-        """
         # Start with a good size from stepk and the pixel scale
         Nd = 2.0 * jnp.pi / (pixel_scale * self.stepk)
 
@@ -580,6 +567,197 @@ class GSObject:
         # Round up to an even value
         N = 2 * ((N + 1) // 2)
         return N
+
+    @_wraps(_galsim.GSObject.drawFFT_makeKImage)
+    def drawFFT_makeKImage(self, image):
+        from jax_galsim.bounds import _BoundsI
+        from jax_galsim.image import ImageCD, ImageCF
+        # Start with what this profile thinks a good size would be given the image's pixel scale.
+        N = self.getGoodImageSize(image.scale)
+
+        # We must make something big enough to cover the target image size:
+        image_N = max(jnp.max(jnp.abs((image.bounds._getinitargs()))) * 2,
+                      jnp.max(image.bounds.numpyShape()))
+        N = max(N, image_N)
+
+        # Round up to a good size for making FFTs:
+        N = image.good_fft_size(N)
+
+        # Make sure we hit the minimum size specified in the gsparams.
+        N = max(N, self.gsparams.minimum_fft_size)
+
+        dk = 2. * jnp.pi / (N * image.scale)
+
+        maxk = self.maxk
+        if N*dk/2 > maxk:
+            Nk = N
+        else:
+            # There will be aliasing.  Make a larger image and then wrap it.
+            Nk = int(jnp.ceil(maxk/dk)) * 2
+
+        if Nk > self.gsparams.maximum_fft_size:
+            raise _galsim.GalSimFFTSizeError("drawFFT requires an FFT that is too large.", Nk)
+
+        bounds = _BoundsI(0,Nk//2,-Nk//2,Nk//2)
+        if image.dtype in (np.complex128, np.float64, np.int32, np.uint32):
+            kimage = ImageCD(bounds=bounds, scale=dk)
+        else:
+            kimage = ImageCF(bounds=bounds, scale=dk)
+        return kimage, N
+
+    def drawFFT_finish(self, image, kimage, wrap_size, add_to_image):
+        """
+        This is a helper routine for drawFFT that finishes the calculation, based on the
+        drawn k-space image.
+
+        It applies the Fourier transform to ``kimage`` and adds the result to ``image``.
+
+        Parameters:
+            image:          The `Image` onto which to place the flux.
+            kimage:         The k-space `Image` where the object was drawn.
+            wrap_size:      The size of the region to wrap kimage, which must be either the same
+                            size as kimage or smaller.
+            add_to_image:   Whether to add flux to the existing image rather than clear out
+                            anything in the image before drawing.
+
+        Returns:
+            The total flux drawn inside the image bounds.
+        """
+        from jax_galsim.bounds import _BoundsI
+        from jax_galsim.image import Image
+        # Wrap the full image to the size we want for the FT.
+        # Even if N == Nk, this is useful to make this portion properly Hermitian in the
+        # N/2 column and N/2 row.
+        bwrap = _BoundsI(0, wrap_size//2, -wrap_size//2, wrap_size//2-1)
+        kimage_wrap = kimage._wrap(bwrap, True, False)
+
+        # Perform the fourier transform.
+        breal = _BoundsI(-wrap_size//2, wrap_size//2+1, -wrap_size//2, wrap_size//2-1)
+        real_image = Image(breal, dtype=float)
+        with convert_cpp_errors():
+            _galsim.irfft(kimage_wrap._image, real_image._image, True, True)
+
+        # Add (a portion of) this to the original image.
+        temp = real_image.subImage(image.bounds)
+        if add_to_image:
+            image += temp
+        else:
+            image._copyFrom(temp)
+        added_photons = temp.array.sum(dtype=float)
+        return added_photons
+
+    def drawFFT(self, image, add_to_image=False):
+        """
+        Draw this profile into an `Image` by computing the k-space image and performing an FFT.
+
+        This is usually called from the `drawImage` function, rather than called directly by the
+        user.  In particular, the input image must be already set up with defined bounds.  The
+        profile will be drawn centered on whatever pixel corresponds to (0,0) with the given
+        bounds, not the image center (unlike `drawImage`).  The image also must have a `PixelScale`
+        wcs.  The profile being drawn should have already been converted to image coordinates via::
+
+            >>> image_profile = original_wcs.toImage(original_profile)
+
+        Note that the `Image` produced by drawFFT represents the profile sampled at the center
+        of each pixel and then multiplied by the pixel area.  That is, the profile is NOT
+        integrated over the area of the pixel.  This is equivalent to method='no_pixel' in
+        `drawImage`.  If you want to render a profile integrated over the pixel, you can convolve
+        with a `Pixel` first and draw that.
+
+        Parameters:
+            image:          The `Image` onto which to place the flux. [required]
+            add_to_image:   Whether to add flux to the existing image rather than clear out
+                            anything in the image before drawing. [default: False]
+
+        Returns:
+            The total flux drawn inside the image bounds.
+        """
+        if image.wcs is None or not image.wcs._isPixelScale:
+            raise _galsim.GalSimValueError("drawPhot requires an image with a PixelScale wcs", image)
+
+        kimage, wrap_size = self.drawFFT_makeKImage(image)
+        self._drawKImage(kimage)
+        return self.drawFFT_finish(image, kimage, wrap_size, add_to_image)
+
+    @_wraps(_galsim.GSObject.drawKImage)
+    def drawKImage(self, image=None, nx=None, ny=None, bounds=None, scale=None,
+                   add_to_image=False, recenter=True, bandpass=None, setup_only=False):
+        from jax_galsim.wcs import PixelScale
+        from jax_galsim.image import Image
+        # Make sure provided image is complex
+        if image is not None:
+            if not isinstance(image, Image):
+                raise TypeError("Provided image must be galsim.Image", image)
+
+            if not image.iscomplex:
+                raise _galsim.GalSimValueError("Provided image must be complex", image)
+
+        # Possibly get the scale from image.
+        if image is not None and scale is None:
+            # Grab the scale to use from the image.
+            # This will raise a TypeError if image.wcs is not a PixelScale
+            scale = image.scale
+
+        # The input scale (via scale or image.scale) is really a dk value, so call it that for
+        # clarity here, since we also need the real-space pixel scale, which we will call dx.
+        if scale is None or scale <= 0:
+            dk = self.stepk
+        else:
+            dk = float(scale)
+        if image is not None and image.bounds.isDefined():
+            dx = np.pi/( max(image.array.shape) // 2 * dk )
+        elif scale is None or scale <= 0:
+            dx = self.nyquist_scale
+        else:
+            # Then dk = scale, which implies that we need to have dx smaller than nyquist_scale
+            # by a factor of (dk/stepk)
+            dx = self.nyquist_scale * dk / self.stepk
+
+        # If the profile needs to be constructed from scratch, the _setup_image function will
+        # do that, but only if the profile is in image coordinates for the real space image.
+        # So make that profile.
+        if image is None or not image.bounds.isDefined():
+            real_prof = PixelScale(dx).profileToImage(self)
+            dtype = np.complex128 if image is None else image.dtype
+            image = real_prof._setup_image(image, nx, ny, bounds, add_to_image, dtype,
+                                           center=None, odd=True)
+        else:
+            # Do some checks that setup_image would have done for us
+            if bounds is not None:
+                raise _galsim.GalSimIncompatibleValuesError(
+                    "Cannot provide bounds if image is provided", bounds=bounds, image=image)
+            if nx is not None or ny is not None:
+                raise _galsim.GalSimIncompatibleValuesError(
+                    "Cannot provide nx,ny if image is provided", nx=nx, ny=ny, image=image)
+
+        # Can't both recenter a provided image and add to it.
+        if recenter and image.center != PositionI(0,0) and add_to_image:
+            raise _galsim.GalSimIncompatibleValuesError(
+                "Cannot use add_to_image=True unless image is centered at (0,0) or recenter=False",
+                recenter=recenter, image=image, add_to_image=add_to_image)
+
+        # Set the center to 0,0 if appropriate
+        if recenter and image.center != PositionI(0,0):
+            image._shift(-image.center)
+
+        # Set the wcs of the images to use the dk scale size
+        image.scale = dk
+
+        if setup_only:
+            return image
+
+        if not add_to_image and image.iscontiguous:
+            image = self._drawKImage(image)
+        else:
+            im2 = Image(bounds=image.bounds, dtype=image.dtype, scale=image.scale)
+            im2 = self._drawKImage(im2)
+            image += im2
+        return image
+
+    @_wraps(_galsim.GSObject._drawKImage)
+    def _drawKImage(self, image, jac=None):  # pragma: no cover  (all our classes override this)
+        raise NotImplementedError("%s does not implement drawKImage"%self.__class__.__name__)
+
 
     def tree_flatten(self):
         """This function flattens the GSObject into a list of children
