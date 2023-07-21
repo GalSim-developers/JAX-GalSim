@@ -4,7 +4,6 @@ import jax.numpy as jnp
 import numpy as np
 from jax._src.numpy.util import _wraps
 
-from jax_galsim.convolve import Convolve
 from jax_galsim.gsparams import GSParams
 from jax_galsim.position import Position, PositionD, PositionI
 from jax_galsim.utilities import parse_pos_args
@@ -484,6 +483,8 @@ class GSObject:
         setup_only=False,
         surface_ops=None,
     ):
+        from jax_galsim.box import Pixel
+        from jax_galsim.convolve import Convolve
         from jax_galsim.wcs import PixelScale
 
         # Figure out what wcs we are going to use.
