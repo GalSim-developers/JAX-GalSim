@@ -1,17 +1,18 @@
-import jax
-import jax.numpy as jnp
-import numpy as np
-
 import galsim as _galsim
+import jax.numpy as jnp
+from galsim.errors import galsim_warn
 from jax._src.numpy.util import _wraps
-from jax_galsim.gsobject import GSObject
-from jax_galsim.gsparams import GSParams
 from jax.tree_util import register_pytree_node_class
 
-@_wraps(_galsim.Convolve,     lax_description="""
-Does not support ChromaticConvolutions""",)
+from jax_galsim.gsobject import GSObject
+from jax_galsim.gsparams import GSParams
+
+
+@_wraps(
+    _galsim.Convolve,
+    lax_description="""Does not support ChromaticConvolutions""",
+)
 def Convolve(*args, **kwargs):
-    
     if len(args) == 0:
         raise TypeError("At least one GSObject must be provided.")
     elif len(args) == 1:
@@ -20,15 +21,18 @@ def Convolve(*args, **kwargs):
         elif isinstance(args[0], list) or isinstance(args[0], tuple):
             args = args[0]
         else:
-            raise TypeError("Single input argument must be a GSObject, "
-                            + "or a (possibly mixed) list of them.")
+            raise TypeError(
+                "Single input argument must be a GSObject, " + "or a (possibly mixed) list of them."
+            )
     # else args is already the list of objects
 
     return Convolution(*args, **kwargs)
 
-@_wraps(_galsim.Convolution,  lax_description="""
-Only supports 'fft' convolution.
-""",)
+
+@_wraps(
+    _galsim.Convolution,
+    lax_description="""Only supports 'fft' convolution.""",
+)
 @register_pytree_node_class
 class Convolution(GSObject):
     def __init__(self, *args, **kwargs):
@@ -44,25 +48,25 @@ class Convolution(GSObject):
                 raise TypeError("Single input argument must be a GSObject or list of them.")
         # else args is already the list of objects
 
-
-        real_space = kwargs.pop("real_space", None)        
+        real_space = kwargs.pop("real_space", None)
         gsparams = kwargs.pop("gsparams", None)
-        self._propagate_gsparams = kwargs.pop('propagate_gsparams',True)
+        self._propagate_gsparams = kwargs.pop("propagate_gsparams", True)
 
         # Make sure there is nothing left in the dict.
         if kwargs:
             raise TypeError(
-                "Convolution constructor got unexpected keyword argument(s): %s"%kwargs.keys())
+                "Convolution constructor got unexpected keyword argument(s): %s" % kwargs.keys()
+            )
 
         # Check whether to perform real space convolution...
         # Start by checking if all objects have a hard edge.
         hard_edge = True
         for obj in args:
             if not isinstance(obj, GSObject):
-                raise TypeError("Arguments to Convolution must be GSObjects, not %s"%obj)
+                raise TypeError("Arguments to Convolution must be GSObjects, not %s" % obj)
             if not obj.has_hard_edges:
                 hard_edge = False
-                                             
+
         if real_space is None:
             # The automatic determination is to use real_space if 2 items, both with hard edges.
             if len(args) <= 2:
@@ -71,29 +75,36 @@ class Convolution(GSObject):
                 real_space = False
         elif bool(real_space) != real_space:
             raise TypeError("real_space must be a boolean")
-        
+
         # Warn if doing DFT convolution for objects with hard edges
         if not real_space and hard_edge:
-
             if len(args) == 2:
-                galsim_warn("Doing convolution of 2 objects, both with hard edges. "
-                            "This might be more accurate")##### and/or faster using real_space=True")
+                galsim_warn(
+                    "Doing convolution of 2 objects, both with hard edges. "
+                    "This might be more accurate"
+                )  ##### and/or faster using real_space=True")
             else:
-                galsim_warn("Doing convolution where all objects have hard edges. "
-                            "There might be some inaccuracies due to ringing in k-space.")
+                galsim_warn(
+                    "Doing convolution where all objects have hard edges. "
+                    "There might be some inaccuracies due to ringing in k-space."
+                )
         if real_space:
             # Can't do real space if nobj > 2
             if len(args) > 2:
-                galsim_warn("Real-space convolution of more than 2 objects is not implemented. "
-                            "Switching to DFT method.")
+                galsim_warn(
+                    "Real-space convolution of more than 2 objects is not implemented. "
+                    "Switching to DFT method."
+                )
                 real_space = False
 
             # Also can't do real space if any object is not analytic, so check for that.
             else:
                 for obj in args:
                     if not obj.is_analytic_x:
-                        galsim_warn("A component to be convolved is not analytic in real space. "
-                                    "Cannot use real space convolution. Switching to DFT method.")
+                        galsim_warn(
+                            "A component to be convolved is not analytic in real space. "
+                            "Cannot use real space convolution. Switching to DFT method."
+                        )
                         real_space = False
                         break
 
@@ -120,11 +131,9 @@ class Convolution(GSObject):
         # Save the list of objects
         self._params = {"obj_list": self._obj_list}
 
-
     @property
     def obj_list(self):
-        """The list of objects being convolved.
-        """
+        """The list of objects being convolved."""
         return self._obj_list
 
     @property
@@ -134,7 +143,6 @@ class Convolution(GSObject):
         """
         return self._real_space
 
-
     def withGSParams(self, gsparams=None, **kwargs):
         """Create a version of the current object with the given gsparams
 
@@ -143,32 +151,45 @@ class Convolution(GSObject):
             Unless you set ``propagate_gsparams=False``, this method will also update the gsparams
             of each object being convolved.
         """
-        if gsparams == self.gsparams: return self
+        if gsparams == self.gsparams:
+            return self
         from copy import copy
+
         ret = copy(self)
         ret._gsparams = GSParams.check(gsparams, self.gsparams, **kwargs)
         if self._propagate_gsparams:
-            ret._obj_list = [ obj.withGSParams(ret._gsparams) for obj in self.obj_list ]
+            ret._obj_list = [obj.withGSParams(ret._gsparams) for obj in self.obj_list]
         return ret
 
     def __hash__(self):
-        return hash(("galsim.Convolution", tuple(self.obj_list), self.real_space, self.gsparams,
-                     self._propagate_gsparams))
+        return hash(
+            (
+                "galsim.Convolution",
+                tuple(self.obj_list),
+                self.real_space,
+                self.gsparams,
+                self._propagate_gsparams,
+            )
+        )
 
     def __repr__(self):
-        return 'galsim.Convolution(%r, real_space=%r, gsparams=%r, propagate_gsparams=%r)'%(
-                self.obj_list, self.real_space, self.gsparams, self._propagate_gsparams)
+        return "galsim.Convolution(%r, real_space=%r, gsparams=%r, propagate_gsparams=%r)" % (
+            self.obj_list,
+            self.real_space,
+            self.gsparams,
+            self._propagate_gsparams,
+        )
 
     def __str__(self):
-        str_list = [ str(obj) for obj in self.obj_list ]
-        s = 'galsim.Convolve(%s'%(', '.join(str_list))
+        str_list = [str(obj) for obj in self.obj_list]
+        s = "galsim.Convolve(%s" % (", ".join(str_list))
         if self.real_space:
-            s += ', real_space=True'
-        s += ')'
+            s += ", real_space=True"
+        s += ")"
         return s
 
-    #JEC not sure if it is used
-    #def _prepareDraw(self):
+    # JEC not sure if it is used
+    # def _prepareDraw(self):
     #    for obj in self.obj_list:
     #        obj._prepareDraw()
 
@@ -182,8 +203,8 @@ class Convolution(GSObject):
         # This is approximate.  stepk ~ 2pi/R
         # Assume R_final^2 = Sum(R_i^2)
         # So 1/stepk^2 = 1/Sum(1/stepk_i^2)
-        inv_stepksq_list = [obj.stepk**(-2) for obj in self.obj_list]
-        return 1./jnp.sqrt(jnp.sum(jnp.array(inv_stepksq_list)))
+        inv_stepksq_list = [obj.stepk ** (-2) for obj in self.obj_list]
+        return 1.0 / jnp.sqrt(jnp.sum(jnp.array(inv_stepksq_list)))
 
     @property
     def _has_hard_edges(self):
@@ -212,18 +233,19 @@ class Convolution(GSObject):
     @property
     def _centroid(self):
         cen_list = [obj.centroid for obj in self.obj_list]
-        return sum(cen_list[1:], cen_list[0]) # gives a Position object with x=sum_i x_i and y=sum_i y_i
+        return sum(
+            cen_list[1:], cen_list[0]
+        )  # gives a Position object with x=sum_i x_i and y=sum_i y_i
 
     @property
     def _flux(self):
         flux_list = [obj.flux for obj in self.obj_list]
-        return jnp.prod(jnp.array(flux_list)).item() # return a float
-
+        return jnp.prod(jnp.array(flux_list)).item()  # return a float
 
     @property
     def _positive_flux(self):
         raise NotImplementedError("Not implemented")
-    
+
     @property
     def _negative_flux(self):
         raise NotImplementedError("Not implemented")
@@ -232,7 +254,6 @@ class Convolution(GSObject):
     def _flux_per_photon(self):
         raise NotImplementedError("Not implemented")
 
-    
     @property
     def _max_sb(self):
         # This one is probably the least accurate of all the estimates of maxSB.
@@ -254,12 +275,11 @@ class Convolution(GSObject):
     def _xValue(self, pos):
         raise NotImplementedError("Not implemented")
 
-    
     def _kValue(self, kpos):
-        kv_list = [obj.kValue(kpos) for obj in self.obj_list]    # In GalSim one uses obj.kValue
+        kv_list = [obj.kValue(kpos) for obj in self.obj_list]  # In GalSim one uses obj.kValue
         return jnp.prod(jnp.array(kv_list))
 
-    def _drawReal(self, image, jac=None, offset=(0.,0.), flux_scaling=1.):
+    def _drawReal(self, image, jac=None, offset=(0.0, 0.0), flux_scaling=1.0):
         raise NotImplementedError("Not implemented")
 
     def _shoot(self, photons, rng):
@@ -271,7 +291,7 @@ class Convolution(GSObject):
             for obj in self.obj_list[1:]:
                 image *= obj._drawKImage(image, jac)
         return image
-    
+
     def tree_flatten(self):
         """This function flattens the GSObject into a list of children
         nodes that will be traced by JAX and auxiliary static data."""
@@ -281,7 +301,7 @@ class Convolution(GSObject):
         aux_data = {
             "gsparams": self.gsparams,
             "propagate_gsparams": self._propagate_gsparams,
-            "real_space": self._real_space
+            "real_space": self._real_space,
         }
         return (children, aux_data)
 
