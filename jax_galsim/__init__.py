@@ -32,6 +32,7 @@ from .convolve import Convolution, Convolve
 # GSObject
 from .exponential import Exponential
 from .gaussian import Gaussian
+from .box import Pixel, Box
 from .gsobject import GSObject
 from .gsparams import GSParams
 
