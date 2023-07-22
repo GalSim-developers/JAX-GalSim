@@ -531,7 +531,7 @@ class LocalWCS(UniformWCS):
 @register_pytree_node_class
 class PixelScale(LocalWCS):
     def __init__(self, scale):
-        self._params = {"scale": jnp.float64(scale)}
+        self._params = {"scale": scale}
         self._color = None
 
     @property

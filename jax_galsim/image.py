@@ -943,14 +943,18 @@ class Image(object):
         """Flatten the image into a list of values."""
         # Define the children nodes of the PyTree that need tracing
         children = (self.array, self.wcs, self.bounds)
-        return (children, None)
+        aux_data = {"dtype": self.dtype}
+        return (children, aux_data)
 
     @classmethod
     def tree_unflatten(cls, aux_data, children):
         """Recreates an instance of the class from flatten representation"""
-        return cls(
-            array=children[0], wcs=children[1], bounds=children[2], check_bounds=False
-        )
+        obj = object.__new__(cls)
+        obj._array = children[0]
+        obj.wcs = children[1]
+        obj._bounds = children[2]
+        obj._dtype = aux_data["dtype"]
+        return obj
 
 
 # These are essentially aliases for the regular Image with the correct dtype

@@ -120,7 +120,7 @@ class Position(object):
             a `galsim.PositionD` instance.
         """
         shear_mat = shear.getMatrix()
-        shear_pos = jnp.dot(shear_mat, self.array)
+        shear_pos = jnp.dot(shear_mat, jnp.stack([self.x, self.y], axis=0))
         return PositionD(shear_pos[0], shear_pos[1])
 
     def tree_flatten(self):
@@ -133,7 +133,11 @@ class Position(object):
     @classmethod
     def tree_unflatten(cls, aux_data, children):
         """Recreates an instance of the class from flatten representation"""
-        return cls(x=children[0], y=children[1])
+        del aux_data
+        obj = object.__new__(cls)
+        obj.x = children[0]
+        obj.y = children[1]
+        return obj
 
 
 @_wraps(_galsim.PositionD)

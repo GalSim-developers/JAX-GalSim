@@ -3369,7 +3369,11 @@ def test_Image_view():
     assert_raises(
         TypeError, im.view, scale=0.3, wcs=galsim.JacobianWCS(1.1, 0.1, 0.1, 1.0)
     )
-    assert_raises(TypeError, im.view, scale=galsim.PixelScale(0.3))
+    # JAX specific modification
+    # -------------------------
+    # this test cannot work in JAX because during the tracing process
+    # a PixelScale object may be given to the WCS init function
+    # assert_raises(TypeError, im.view, scale=galsim.PixelScale(0.3))
     assert_raises(TypeError, im.view, wcs=0.3)
 
 
