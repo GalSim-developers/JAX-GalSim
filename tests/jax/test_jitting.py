@@ -47,6 +47,24 @@ def test_exponential_jitting():
     assert all([test_eq(identity(o), o) for o in objects])
 
 
+def test_pixel_jitting():
+    objects = [
+        galsim.Pixel(scale=0.2, flux=100, gsparams=gsparams),
+        galsim.Pixel(scale=0.2, flux=1000, gsparams=gsparams),
+    ]
+
+    def test_eq(self, other):
+        return (
+            self.width == other.width
+            and self.height == other.height
+            and self.gsparams == other.gsparams
+            and self.scale == other.scale
+        )
+
+    # Check that after jitting the oject is still the same
+    assert all([test_eq(identity(o), o) for o in objects])
+
+
 def test_sum_jitting():
     obj1 = galsim.Gaussian(half_light_radius=1.0, flux=0.2, gsparams=gsparams)
     obj2 = galsim.Exponential(half_light_radius=1.0, flux=0.2, gsparams=gsparams)
