@@ -4359,6 +4359,7 @@ def test_int_image_arith():
     with assert_raises(ValueError):
         full %= imd
 
+
 # TODO: add back once wrapping is implemented.
 @pytest.mark.skip(reason="Wrapping not currently implemented")
 @timer
