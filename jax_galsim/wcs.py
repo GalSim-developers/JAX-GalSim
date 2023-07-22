@@ -610,6 +610,114 @@ class PixelScale(LocalWCS):
         return hash(repr(self))
 
 
+@_wraps(_galsim.ShearWCS)
+@register_pytree_node_class
+class ShearWCS(LocalWCS):
+    from jax_galsim.shear import Shear
+
+    _req_params = {"scale": float, "shear": Shear}
+
+    def __init__(self, scale, shear):
+        self._color = None
+        self._scale = scale
+        self._shear = shear
+        self._g1 = shear.g1
+        self._g2 = shear.g2
+
+    @property
+    def _gsq(self):
+        return self._g1**2 + self._g2**2
+
+    @property
+    def _gfactor(self):
+        return 1.0 / jnp.sqrt(1.0 - self._gsq)
+
+    # Help make sure ShearWCS is read-only.
+    @property
+    def scale(self):
+        """The pixel scale."""
+        return self._scale
+
+    @property
+    def shear(self):
+        """The applied `Shear`."""
+        return self._shear
+
+    def _u(self, x, y, color=None):
+        u = x * (1.0 - self._g1) - y * self._g2
+        u *= self._gfactor * self._scale
+        return u
+
+    def _v(self, x, y, color=None):
+        v = y * (1.0 + self._g1) - x * self._g2
+        v *= self._gfactor * self._scale
+        return v
+
+    def _x(self, u, v, color=None):
+        x = u * (1.0 + self._g1) + v * self._g2
+        x *= self._gfactor / self._scale
+        return x
+
+    def _y(self, u, v, color=None):
+        y = v * (1.0 - self._g1) + u * self._g2
+        y *= self._gfactor / self._scale
+        return y
+
+    def _profileToWorld(self, image_profile, flux_ratio, offset):
+        return image_profile.dilate(self._scale).shear(-self.shear).shift(offset) * flux_ratio
+
+    def _profileToImage(self, world_profile, flux_ratio, offset):
+        return world_profile.dilate(1.0 / self._scale).shear(self.shear).shift(offset) * flux_ratio
+
+    def _pixelArea(self):
+        return self._scale**2
+
+    def _minScale(self):
+        return self._scale * (1.0 - jnp.sqrt(self._gsq)) * self._gfactor
+
+    def _maxScale(self):
+        # max stretch is (1+|g|) / sqrt(1-|g|^2)
+        import math
+
+        return self._scale * (1.0 + jnp.sqrt(self._gsq)) * self._gfactor
+
+    def _inverse(self):
+        return ShearWCS(1.0 / self._scale, -self._shear)
+
+    def _toJacobian(self):
+        return JacobianWCS(
+            (1.0 - self._g1) * self._scale * self._gfactor,
+            -self._g2 * self._scale * self._gfactor,
+            -self._g2 * self._scale * self._gfactor,
+            (1.0 + self._g1) * self._scale * self._gfactor,
+        )
+
+    def _newOrigin(self, origin, world_origin):
+        return OffsetShearWCS(self._scale, self._shear, origin, world_origin)
+
+    def copy(self):
+        return ShearWCS(self._scale, self._shear)
+
+    def __eq__(self, other):
+        return self is other or (
+            isinstance(other, ShearWCS) and self.scale == other.scale and self.shear == other.shear
+        )
+
+    def __repr__(self):
+        return "galsim.ShearWCS(%r, %r)" % (self.scale, self.shear)
+
+    def __hash__(self):
+        return hash(repr(self))
+
+    def tree_flatten(self):
+        children = (self.scale, self.shear)
+        return (children, None)
+
+    @classmethod
+    def tree_unflatten(cls, aux_data, children):
+        return cls(*children)
+
+
 @_wraps(_galsim.JacobianWCS)
 @register_pytree_node_class
 class JacobianWCS(LocalWCS):
@@ -847,6 +955,68 @@ class OffsetWCS(UniformWCS):
 
     def __hash__(self):
         return hash(repr(self))
+
+
+@_wraps(_galsim.OffsetShearWCS)
+@register_pytree_node_class
+class OffsetShearWCS(UniformWCS):
+    from .shear import Shear
+
+    _req_params = {"scale": float, "shear": Shear}
+    _opt_params = {"origin": PositionD, "world_origin": PositionD}
+
+    def __init__(self, scale, shear, origin=None, world_origin=None):
+        self._color = None
+        self._set_origin(origin, world_origin)
+        # The shear stuff is not too complicated, but enough so that it is worth
+        # encapsulating in the ShearWCS class.  So here, we just create one of those
+        # and we'll pass along any shear calculations to that.
+        self._local_wcs = ShearWCS(scale, shear)
+
+    @property
+    def scale(self):
+        """The pixel scale."""
+        return self._local_wcs.scale
+
+    @property
+    def shear(self):
+        """The applied `Shear`."""
+        return self._local_wcs.shear
+
+    @property
+    def origin(self):
+        """The image coordinate position to use as the origin."""
+        return self._origin
+
+    @property
+    def world_origin(self):
+        """The world coordinate position to use as the origin."""
+        return self._world_origin
+
+    def _newOrigin(self, origin, world_origin):
+        return OffsetShearWCS(self.scale, self.shear, origin, world_origin)
+
+    def copy(self):
+        return OffsetShearWCS(self.scale, self.shear, self.origin, self.world_origin)
+
+    def __repr__(self):
+        return "galsim.OffsetShearWCS(%r, %r, %r, %r)" % (
+            self.scale,
+            self.shear,
+            self.origin,
+            self.world_origin,
+        )
+
+    def __hash__(self):
+        return hash(repr(self))
+
+    def tree_flatten(self):
+        children = (self.scale, self.shear, self.origin, self.world_origin)
+        return (children, None)
+
+    @classmethod
+    def tree_unflatten(cls, aux_data, children):
+        return cls(*children)
 
 
 @_wraps(_galsim.AffineTransform)

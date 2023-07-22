@@ -1,5 +1,6 @@
 import copy
 from dataclasses import dataclass
+
 import galsim as _galsim
 from jax._src.numpy.util import _wraps
 
@@ -47,12 +48,12 @@ class GSParams:
         if len(kwargs) == 0:
             return self
         else:
-            ret = copy.copy(self)
+            d = self.__dict__.copy()
             for k in kwargs:
-                if not hasattr(ret, "_" + k):
+                if k not in d:
                     raise TypeError("parameter %s is invalid" % k)
-                setattr(ret, "_" + k, kwargs[k])
-            return ret
+                d[k] = kwargs[k]
+            return GSParams(**d)
 
     @staticmethod
     def combine(gsp_list):

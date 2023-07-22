@@ -37,4 +37,7 @@ from .sum import Add, Sum
 from .transform import Transform, Transformation
 
 # WCS
-from .wcs import AffineTransform, JacobianWCS, OffsetWCS, PixelScale
+from .wcs import AffineTransform, JacobianWCS, OffsetWCS, PixelScale, ShearWCS, OffsetShearWCS
+
+# Shear
+from .shear import Shear, _Shear

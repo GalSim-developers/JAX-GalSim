@@ -113,3 +113,14 @@ def test_position_jitting():
         return self.x == other.x and self.y == other.y
 
     assert test_eq(identity(obj), obj)
+
+
+def test_shear_jitting():
+    g = galsim.Shear(g1=0.1, g2=0.2)
+    e = galsim.Shear(e1=0.1, e2=0.2)
+
+    def test_eq(self, other):
+        return self._g == other._g
+
+    assert test_eq(identity(g), g)
+    assert test_eq(identity(e), e)
