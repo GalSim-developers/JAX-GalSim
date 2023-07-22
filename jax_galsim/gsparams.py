@@ -108,7 +108,10 @@ class GSParams:
         self.__init__(*state)
 
     def __repr__(self):
-        return "galsim.GSParams(%d,%d,%r,%r,%r,%r,%r,%d,%r,%r,%r,%r,%r)" % self._getinitargs()
+        return (
+            "galsim.GSParams(%d,%d,%r,%r,%r,%r,%r,%d,%r,%r,%r,%r,%r)"
+            % self._getinitargs()
+        )
 
     def __eq__(self, other):
         return self is other or (

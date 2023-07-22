@@ -22,9 +22,12 @@ def parse_pos_args(args, kwargs, name1, name2, integer=False, others=[]):
             x = kwargs.pop(name1)
             y = kwargs.pop(name2)
         except KeyError:
-            raise TypeError("Expecting kwargs %s, %s.  Got %s" % (name1, name2, kwargs.keys()))
+            raise TypeError(
+                "Expecting kwargs %s, %s.  Got %s" % (name1, name2, kwargs.keys())
+            )
     elif (
-        isinstance(args[0], PositionI) or (not integer and isinstance(args[0], PositionD))
+        isinstance(args[0], PositionI)
+        or (not integer and isinstance(args[0], PositionD))
     ) and len(args) <= 1 + len(others):
         x = args[0].x
         y = args[0].y

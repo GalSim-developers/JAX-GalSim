@@ -34,14 +34,59 @@ beta = [
     -0.25 * np.pi,
     -0.5 * np.pi,
 ]
-g = [0.0, 0.333333, 0.538462, 0.818182, 0.176471, 0.05263157897, 0.005025125626, 4.375191415e-5]
-g1 = [0.0, -0.33333334, 0.0, 0.81818175, -0.088235296, 0.05263157897, 0.0, -4.375191415e-5]
+g = [
+    0.0,
+    0.333333,
+    0.538462,
+    0.818182,
+    0.176471,
+    0.05263157897,
+    0.005025125626,
+    4.375191415e-5,
+]
+g1 = [
+    0.0,
+    -0.33333334,
+    0.0,
+    0.81818175,
+    -0.088235296,
+    0.05263157897,
+    0.0,
+    -4.375191415e-5,
+]
 g2 = [0.0, 0.0, 0.53846157, 0.0, 0.15282802, 0.0, -0.005025125626, 0.0]
-e = [0.0, 0.600000, 0.834862, 0.980198, 0.342282, 0.1049723757, 0.01004999747, 8.750382812e-5]
+e = [
+    0.0,
+    0.600000,
+    0.834862,
+    0.980198,
+    0.342282,
+    0.1049723757,
+    0.01004999747,
+    8.750382812e-5,
+]
 e1 = [0.0, -0.6000000, 0.0, 0.98019803, -0.17114094, 0.1049723757, 0.0, -8.750382812e-5]
 e2 = [0.0, 0.0, 0.83486235, 0.0, 0.29642480, 0.0, -0.01004999747, 0.0]
-eta = [0.0, 0.693147, 1.20397, 2.30259, 0.356675, 0.1053605157, 0.01005033585, 8.750382835e-5]
-eta1 = [0.0, -0.69314718, 0.0, 2.3025851, -0.17833748, 0.1053605157, 0.0, -8.750382835e-5]
+eta = [
+    0.0,
+    0.693147,
+    1.20397,
+    2.30259,
+    0.356675,
+    0.1053605157,
+    0.01005033585,
+    8.750382835e-5,
+]
+eta1 = [
+    0.0,
+    -0.69314718,
+    0.0,
+    2.3025851,
+    -0.17833748,
+    0.1053605157,
+    0.0,
+    -8.750382835e-5,
+]
 eta2 = [0.0, 0.0, 1.2039728, 0.0, 0.30888958, 0.0, -0.01005033585, 0.0]
 decimal = 5
 
@@ -108,8 +153,12 @@ def all_shear_vals(test_shear, index, mult_val=1.0):
         )
     # Test that the utiltiy function g1g2_to_e1e2 is equivalent to the Shear calculation.
     test_e1, test_e2 = galsim.utilities.g1g2_to_e1e2(test_shear.g1, test_shear.g2)
-    np.testing.assert_almost_equal(test_e1, test_shear.e1, err_msg="Incorrect e1 calculation")
-    np.testing.assert_almost_equal(test_e2, test_shear.e2, err_msg="Incorrect e2 calculation")
+    np.testing.assert_almost_equal(
+        test_e1, test_shear.e1, err_msg="Incorrect e1 calculation"
+    )
+    np.testing.assert_almost_equal(
+        test_e2, test_shear.e2, err_msg="Incorrect e2 calculation"
+    )
 
 
 def add_distortions(d1, d2, d1app, d2app):
@@ -294,9 +343,9 @@ def test_shear_matrix():
     for ind in range(n_shear):
         s1 = galsim.Shear(g1=g1[ind], g2=g2[ind])
 
-        true_m1 = np.array([[1.0 + g1[ind], g2[ind]], [g2[ind], 1.0 - g1[ind]]]) / np.sqrt(
-            1.0 - g1[ind] ** 2 - g2[ind] ** 2
-        )
+        true_m1 = np.array(
+            [[1.0 + g1[ind], g2[ind]], [g2[ind], 1.0 - g1[ind]]]
+        ) / np.sqrt(1.0 - g1[ind] ** 2 - g2[ind] ** 2)
         m1 = s1.getMatrix()
 
         np.testing.assert_array_almost_equal(
@@ -311,9 +360,14 @@ def test_shear_matrix():
             m3 = s3.getMatrix()
 
             theta = s1.rotationWith(s2)
-            r = np.array([[np.cos(theta), -np.sin(theta)], [np.sin(theta), np.cos(theta)]])
+            r = np.array(
+                [[np.cos(theta), -np.sin(theta)], [np.sin(theta), np.cos(theta)]]
+            )
             np.testing.assert_array_almost_equal(
-                m3.dot(r), m1.dot(m2), decimal=12, err_msg="rotationWith returned wrong angle"
+                m3.dot(r),
+                m1.dot(m2),
+                decimal=12,
+                err_msg="rotationWith returned wrong angle",
             )
 
 

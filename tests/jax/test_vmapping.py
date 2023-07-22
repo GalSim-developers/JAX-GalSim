@@ -25,7 +25,9 @@ def test_gaussian_vmapping():
         ).all()
 
     # Check that after vmapping the oject is still the same
-    assert all([test_eq(jax.vmap(galsim.Gaussian)(**duplicate(o.params)), o) for o in objects])
+    assert all(
+        [test_eq(jax.vmap(galsim.Gaussian)(**duplicate(o.params)), o) for o in objects]
+    )
 
 
 def test_exponential_vmapping():
@@ -42,7 +44,12 @@ def test_exponential_vmapping():
         ).all() and (self.flux == jnp.array([other.flux, other.flux])).all()
 
     # Check that after vmapping the oject is still the same
-    assert all([test_eq(jax.vmap(galsim.Exponential)(**duplicate(o.params)), o) for o in objects])
+    assert all(
+        [
+            test_eq(jax.vmap(galsim.Exponential)(**duplicate(o.params)), o)
+            for o in objects
+        ]
+    )
 
 
 def eq_pos(pos, other):
@@ -81,7 +88,8 @@ def test_affine_transform_vmapping():
     def test_eq(self, other):
         return (
             (
-                self._local_wcs.dudx == jnp.array([other._local_wcs.dudx, other._local_wcs.dudx])
+                self._local_wcs.dudx
+                == jnp.array([other._local_wcs.dudx, other._local_wcs.dudx])
             ).all()
             and eq_pos(self.origin, other.origin)
             and eq_pos(self.world_origin, other.world_origin)

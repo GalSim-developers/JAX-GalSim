@@ -83,21 +83,27 @@ class Box(GSObject):
         )
 
     def _kValue(self, kpos):
-        return self.flux * jnp.sinc(kpos.x * self._wo2pi) * jnp.sinc(kpos.y * self._ho2pi)
+        return (
+            self.flux * jnp.sinc(kpos.x * self._wo2pi) * jnp.sinc(kpos.y * self._ho2pi)
+        )
 
     def _drawReal(self, image, jac=None, offset=(0.0, 0.0), flux_scaling=1.0):
         _jac = jnp.eye(2) if jac is None else jac
         return draw_by_xValue(self, image, _jac, jnp.asarray(offset), flux_scaling)
 
     def withFlux(self, flux):
-        return Box(width=self.width, height=self.height, flux=flux, gsparams=self.gsparams)
+        return Box(
+            width=self.width, height=self.height, flux=flux, gsparams=self.gsparams
+        )
 
 
 @_wraps(_galsim.Pixel)
 @register_pytree_node_class
 class Pixel(Box):
     def __init__(self, scale, flux=1.0, gsparams=None):
-        super(Pixel, self).__init__(width=scale, height=scale, flux=flux, gsparams=gsparams)
+        super(Pixel, self).__init__(
+            width=scale, height=scale, flux=flux, gsparams=gsparams
+        )
 
     @property
     def scale(self):

@@ -111,6 +111,9 @@ class Image(object):
             raise TypeError(
                 "Image constructor got unexpected keyword arguments: %s", kwargs
             )
+            raise TypeError(
+                "Image constructor got unexpected keyword arguments: %s", kwargs
+            )
 
         # Figure out what dtype we want:
         dtype = Image._alias_dtypes.get(dtype, dtype)
