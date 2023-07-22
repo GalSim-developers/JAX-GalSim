@@ -23,7 +23,9 @@ class Exponential(GSObject):
     _is_analytic_x = True
     _is_analytic_k = True
 
-    def __init__(self, half_light_radius=None, scale_radius=None, flux=1.0, gsparams=None):
+    def __init__(
+        self, half_light_radius=None, scale_radius=None, flux=1.0, gsparams=None
+    ):
         # Checking gsparams
         gsparams = GSParams.check(gsparams)
 
@@ -35,7 +37,9 @@ class Exponential(GSObject):
                     scale_radius=scale_radius,
                 )
             else:
-                super().__init__(half_light_radius=half_light_radius, flux=flux, gsparams=gsparams)
+                super().__init__(
+                    half_light_radius=half_light_radius, flux=flux, gsparams=gsparams
+                )
 
         elif scale_radius is None:
             raise _galsim.GalSimIncompatibleValuesError(
@@ -133,4 +137,6 @@ class Exponential(GSObject):
         return draw_by_xValue(self, image, _jac, jnp.asarray(offset), flux_scaling)
 
     def withFlux(self, flux):
-        return Exponential(scale_radius=self.scale_radius, flux=flux, gsparams=self.gsparams)
+        return Exponential(
+            scale_radius=self.scale_radius, flux=flux, gsparams=self.gsparams
+        )

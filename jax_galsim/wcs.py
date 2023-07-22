@@ -329,9 +329,13 @@ class EuclideanWCS(BaseWCS):
 
         else:
             if not isinstance(world_origin, Position):
-                raise TypeError("world_origin must be a PositionD or PositionI argument")
+                raise TypeError(
+                    "world_origin must be a PositionD or PositionI argument"
+                )
             if not self._isLocal:
-                world_origin += self.world_origin - self._posToWorld(self.origin, color=color)
+                world_origin += self.world_origin - self._posToWorld(
+                    self.origin, color=color
+                )
             return self._newOrigin(origin, world_origin)
 
     # If the class doesn't define something else, then we can approximate the local Jacobian
@@ -369,7 +373,9 @@ class EuclideanWCS(BaseWCS):
     # numpy arrays!
     def _makeSkyImage(self, image, sky_level, color):
         b = image.bounds
-        nx = b.xmax - b.xmin + 1 + 2  # +2 more than in image to get row/col off each edge.
+        nx = (
+            b.xmax - b.xmin + 1 + 2
+        )  # +2 more than in image to get row/col off each edge.
         ny = b.ymax - b.ymin + 1 + 2
         x, y = jnp.meshgrid(
             jnp.linspace(b.xmin - 1, b.xmax + 1, nx),
@@ -601,7 +607,9 @@ class PixelScale(LocalWCS):
         return PixelScale(self._scale)
 
     def __eq__(self, other):
-        return self is other or (isinstance(other, PixelScale) and self.scale == other.scale)
+        return self is other or (
+            isinstance(other, PixelScale) and self.scale == other.scale
+        )
 
     def __repr__(self):
         return "galsim.PixelScale(%r)" % self.scale
@@ -664,10 +672,16 @@ class ShearWCS(LocalWCS):
         return y
 
     def _profileToWorld(self, image_profile, flux_ratio, offset):
-        return image_profile.dilate(self._scale).shear(-self.shear).shift(offset) * flux_ratio
+        return (
+            image_profile.dilate(self._scale).shear(-self.shear).shift(offset)
+            * flux_ratio
+        )
 
     def _profileToImage(self, world_profile, flux_ratio, offset):
-        return world_profile.dilate(1.0 / self._scale).shear(self.shear).shift(offset) * flux_ratio
+        return (
+            world_profile.dilate(1.0 / self._scale).shear(self.shear).shift(offset)
+            * flux_ratio
+        )
 
     def _pixelArea(self):
         return self._scale**2
@@ -700,7 +714,9 @@ class ShearWCS(LocalWCS):
 
     def __eq__(self, other):
         return self is other or (
-            isinstance(other, ShearWCS) and self.scale == other.scale and self.shear == other.shear
+            isinstance(other, ShearWCS)
+            and self.scale == other.scale
+            and self.shear == other.shear
         )
 
     def __repr__(self):
@@ -839,7 +855,9 @@ class JacobianWCS(LocalWCS):
         return JacobianWCS(dudx, dudy, dvdx, dvdy)
 
     def _newOrigin(self, origin, world_origin):
-        return AffineTransform(self.dudx, self.dudy, self.dvdx, self.dvdy, origin, world_origin)
+        return AffineTransform(
+            self.dudx, self.dudy, self.dvdx, self.dvdy, origin, world_origin
+        )
 
     def copy(self):
         return JacobianWCS(self.dudx, self.dudy, self.dvdx, self.dvdy)
@@ -1103,10 +1121,14 @@ class AffineTransform(UniformWCS):
         u0 = header.get("CRVAL1", 0.0)
         v0 = header.get("CRVAL2", 0.0)
 
-        return AffineTransform(dudx, dudy, dvdx, dvdy, PositionD(x0, y0), PositionD(u0, v0))
+        return AffineTransform(
+            dudx, dudy, dvdx, dvdy, PositionD(x0, y0), PositionD(u0, v0)
+        )
 
     def _newOrigin(self, origin, world_origin):
-        return AffineTransform(self.dudx, self.dudy, self.dvdx, self.dvdy, origin, world_origin)
+        return AffineTransform(
+            self.dudx, self.dudy, self.dvdx, self.dvdy, origin, world_origin
+        )
 
     def copy(self):
         return AffineTransform(
@@ -1114,7 +1136,9 @@ class AffineTransform(UniformWCS):
         )
 
     def __repr__(self):
-        return ("galsim.AffineTransform(%r, %r, %r, %r, origin=%r, world_origin=%r)") % (
+        return (
+            "galsim.AffineTransform(%r, %r, %r, %r, origin=%r, world_origin=%r)"
+        ) % (
             self.dudx,
             self.dudy,
             self.dvdx,

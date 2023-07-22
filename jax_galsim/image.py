@@ -47,7 +47,9 @@ class Image(object):
         _galsim.Image.__init__,
         lax_description="Contrary to GalSim, users should use the explicit constructor `.init()`.",
     )
-    def __init__(self, _array: jnp.ndarray, _bounds: BoundsI, wcs: BaseWCS, _dtype: type):
+    def __init__(
+        self, _array: jnp.ndarray, _bounds: BoundsI, wcs: BaseWCS, _dtype: type
+    ):
         self._array = _array
         self._bounds = _bounds
         self.wcs = wcs
@@ -84,7 +86,9 @@ class Image(object):
             elif isinstance(args[0], Image):
                 image = args[0]
             else:
-                raise TypeError("Unable to parse %s as an array, bounds, or image." % args[0])
+                raise TypeError(
+                    "Unable to parse %s as an array, bounds, or image." % args[0]
+                )
         else:
             if "array" in kwargs:
                 array = kwargs.pop("array")
@@ -117,7 +121,9 @@ class Image(object):
                     "'make_const' is not a valid keyword argument for the JAX-GalSim"
                     "version of the Image constructor"
                 )
-            raise TypeError("Image constructor got unexpected keyword arguments: %s", kwargs)
+            raise TypeError(
+                "Image constructor got unexpected keyword arguments: %s", kwargs
+            )
 
         # Figure out what dtype we want:
         dtype = Image._alias_dtypes.get(dtype, dtype)
@@ -348,7 +354,9 @@ class Image(object):
     @scale.setter
     def scale(self, value):
         if self.wcs is not None and not self.wcs._isPixelScale:
-            raise _galsim.GalSimError("image.wcs is not a simple PixelScale; scale is undefined.")
+            raise _galsim.GalSimError(
+                "image.wcs is not a simple PixelScale; scale is undefined."
+            )
         else:
             self.wcs = PixelScale(value)
 
@@ -379,7 +387,9 @@ class Image(object):
 
         Equivalent to galsim.BoundsD(im.xmin-0.5, im.xmax+0.5, im.ymin-0.5, im.ymax+0.5)
         """
-        return BoundsD(self.xmin - 0.5, self.xmax + 0.5, self.ymin - 0.5, self.ymax + 0.5)
+        return BoundsD(
+            self.xmin - 0.5, self.xmax + 0.5, self.ymin - 0.5, self.ymax + 0.5
+        )
 
     # real, imag for everything, even real images.
     @property
@@ -412,7 +422,9 @@ class Image(object):
         Note that for complex images, this is not a conjugate view into the original image.
         So changing the original image does not change the conjugate (or vice versa).
         """
-        return self.__class__.init(self.array.conjugate(), bounds=self.bounds, wcs=self.wcs)
+        return self.__class__.init(
+            self.array.conjugate(), bounds=self.bounds, wcs=self.wcs
+        )
 
     def copy(self):
         """Make a copy of the `Image`"""
@@ -528,7 +540,9 @@ class Image(object):
             elif isinstance(args[0], tuple):
                 return self.getValue(*args[0])
             else:
-                raise TypeError("image[index] only accepts BoundsI or PositionI for the index")
+                raise TypeError(
+                    "image[index] only accepts BoundsI or PositionI for the index"
+                )
         elif len(args) == 2:
             return self(*args)
         else:
@@ -551,7 +565,9 @@ class Image(object):
             elif isinstance(args[0], tuple):
                 self.setValue(*args)
             else:
-                raise TypeError("image[index] only accepts BoundsI or PositionI for the index")
+                raise TypeError(
+                    "image[index] only accepts BoundsI or PositionI for the index"
+                )
         elif len(args) == 3:
             return self.setValue(*args)
         else:
@@ -566,7 +582,9 @@ class Image(object):
         if self.wcs is None:
             raise _galsim.GalSimError("calculate_fft requires that the scale be set.")
         if not self.wcs._isPixelScale:
-            raise _galsim.GalSimError("calculate_fft requires that the image has a PixelScale wcs.")
+            raise _galsim.GalSimError(
+                "calculate_fft requires that the image has a PixelScale wcs."
+            )
 
         No2 = jnp.maximum(
             -self.bounds.xmin,
@@ -602,7 +620,9 @@ class Image(object):
                 "calculate_fft requires that the image have defined bounds."
             )
         if self.wcs is None:
-            raise _galsim.GalSimError("calculate_inverse_fft requires that the scale be set.")
+            raise _galsim.GalSimError(
+                "calculate_inverse_fft requires that the scale be set."
+            )
         if not self.wcs._isPixelScale:
             raise _galsim.GalSimError(
                 "calculate_inverse_fft requires that the image has a PixelScale wcs."
@@ -624,7 +644,9 @@ class Image(object):
             # Then we can pad out with zeros and wrap to get this in the form we need.
             full_bounds = BoundsI(0, No2, -No2, No2)
             kimage = Image.init(full_bounds, dtype=self.dtype, init_value=0)
-            posx_bounds = BoundsI(0, self.bounds.xmax, self.bounds.ymin, self.bounds.ymax)
+            posx_bounds = BoundsI(
+                0, self.bounds.xmax, self.bounds.ymin, self.bounds.ymax
+            )
             kimage[posx_bounds] = self[posx_bounds]
             kimage = kimage.wrap(target_bounds, hermitian="x")
 
@@ -633,7 +655,9 @@ class Image(object):
         dx = jnp.pi / (No2 * dk)
 
         # For the inverse, we need a bit of extra space for the fft.
-        out_extra = Image.init(BoundsI(-No2, No2 + 1, -No2, No2 - 1), dtype=float, scale=dx)
+        out_extra = Image.init(
+            BoundsI(-No2, No2 + 1, -No2, No2 - 1), dtype=float, scale=dx
+        )
         out_extra._image = jnp.fft.irfft2(kimage._image)
         # Now cut off the bit we don't need.
         out = out_extra.subImage(BoundsI(-No2, No2 - 1, -No2, No2 - 1))
@@ -657,7 +681,9 @@ class Image(object):
         # Reduce slightly to eliminate potential rounding errors:
         insize = (1.0 - 1.0e-5) * input
         log2n = np.log(2.0) * np.ceil(np.log(insize) / np.log(2.0))
-        log2n3 = np.log(3.0) + np.log(2.0) * np.ceil((np.log(insize) - np.log(3.0)) / np.log(2.0))
+        log2n3 = np.log(3.0) + np.log(2.0) * np.ceil(
+            (np.log(insize) - np.log(3.0)) / np.log(2.0)
+        )
         log2n3 = np.max(log2n3, np.log(6.0))  # must be even number
         Nk = int(np.ceil(np.exp(np.min(log2n, log2n3)) - 1.0e-5))
         return Nk
@@ -807,8 +833,12 @@ class Image(object):
     @_wraps(_galsim.Image.setValue)
     def setValue(self, *args, **kwargs):
         if not self.bounds.isDefined():
-            raise _galsim.GalSimUndefinedBoundsError("Attempt to set value of an undefined image")
-        pos, value = parse_pos_args(args, kwargs, "x", "y", integer=True, others=["value"])
+            raise _galsim.GalSimUndefinedBoundsError(
+                "Attempt to set value of an undefined image"
+            )
+        pos, value = parse_pos_args(
+            args, kwargs, "x", "y", integer=True, others=["value"]
+        )
         if not self.bounds.includes(pos):
             raise _galsim.GalSimBoundsError(
                 "Attempt to set position not in bounds of image", pos, self.bounds
@@ -829,8 +859,12 @@ class Image(object):
     @_wraps(_galsim.Image.addValue)
     def addValue(self, *args, **kwargs):
         if not self.bounds.isDefined():
-            raise _galsim.GalSimUndefinedBoundsError("Attempt to set value of an undefined image")
-        pos, value = parse_pos_args(args, kwargs, "x", "y", integer=True, others=["value"])
+            raise _galsim.GalSimUndefinedBoundsError(
+                "Attempt to set value of an undefined image"
+            )
+        pos, value = parse_pos_args(
+            args, kwargs, "x", "y", integer=True, others=["value"]
+        )
         if not self.bounds.includes(pos):
             raise _galsim.GalSimBoundsError(
                 "Attempt to set position not in bounds of image", pos, self.bounds
@@ -855,7 +889,9 @@ class Image(object):
             value:  The value to set all the pixels to.
         """
         if not self.bounds.isDefined():
-            raise _galsim.GalSimUndefinedBoundsError("Attempt to set values of an undefined image")
+            raise _galsim.GalSimUndefinedBoundsError(
+                "Attempt to set values of an undefined image"
+            )
         self._fill(value)
 
     def _fill(self, value):
@@ -873,7 +909,9 @@ class Image(object):
         on the output, rather than turning into inf.
         """
         if not self.bounds.isDefined():
-            raise _galsim.GalSimUndefinedBoundsError("Attempt to set values of an undefined image")
+            raise _galsim.GalSimUndefinedBoundsError(
+                "Attempt to set values of an undefined image"
+            )
         self._invertSelf()
 
     def _invertSelf(self):
@@ -906,7 +944,9 @@ class Image(object):
             isinstance(other, Image)
             and self.bounds == other.bounds
             and self.wcs == other.wcs
-            and (not self.bounds.isDefined() or jnp.array_equal(self.array, other.array))
+            and (
+                not self.bounds.isDefined() or jnp.array_equal(self.array, other.array)
+            )
             and self.isconst == other.isconst
         )
 
@@ -923,7 +963,9 @@ class Image(object):
     @classmethod
     def tree_unflatten(cls, aux_data, children):
         """Recreates an instance of the class from flatten representation"""
-        return cls(_array=children[0], _bounds=children[1], wcs=children[2], _dtype=aux_data[0])
+        return cls(
+            _array=children[0], _bounds=children[1], wcs=children[2], _dtype=aux_data[0]
+        )
 
 
 # These are essentially aliases for the regular Image with the correct dtype
