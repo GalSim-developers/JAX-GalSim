@@ -27,7 +27,7 @@ jobs:
           python -m pip install .
       - name: Ensure black formatting
         run: |
-          black --check jax_galsim/ tests/ --exclude tests/GalSim/ --line-length 100
+          black --check jax_galsim/ tests/ --exclude tests/GalSim/
       - name: Lint with flake8
         run: |
           # stop the build if there are Python syntax errors or undefined names
