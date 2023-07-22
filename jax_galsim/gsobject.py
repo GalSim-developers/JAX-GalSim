@@ -352,26 +352,27 @@ class GSObject:
         new_obj = Transform(self, offset=(dx, dy))
         return new_obj
 
+    @_wraps(_galsim.GSObject.expand)
+    def expand(self, scale):
+        from jax_galsim.transform import _Transform
+
+        return _Transform(self, jac=[scale, 0.0, 0.0, scale])
+
+    @_wraps(_galsim.GSObject.dilate)
+    def dilate(self, scale):
+        from jax_galsim.transform import _Transform
+
+        # equivalent to self.expand(scale) * (1./scale**2)
+        return _Transform(self, jac=[scale, 0.0, 0.0, scale], flux_ratio=scale**-2)
+
+    @_wraps(_galsim.GSObject.magnify)
+    def magnify(self, mu):
+        return self.expand(jnp.sqrt(mu))
+
+    @_wraps(_galsim.GSObject.shear)
     def shear(self, *args, **kwargs):
-        """Create a version of the current object with an area-preserving shear applied to it.
-
-        The arguments may be either a `Shear` instance or arguments to be used to initialize one.
-
-        For more details about the allowed keyword arguments, see the `Shear` docstring.
-
-        The shear() method precisely preserves the area.  To include a lensing distortion with
-        the appropriate change in area, either use shear() with magnify(), or use lens(), which
-        combines both operations.
-
-        Parameters:
-            shear:      The `Shear` to be applied. Or, as described above, you may instead supply
-                        parameters do construct a shear directly.  eg. ``obj.shear(g1=g1,g2=g2)``.
-
-        Returns:
-            the sheared object.
-        """
-        from .shear import Shear
-        from .transform import Transform
+        from jax_galsim.shear import Shear
+        from jax_galsim.transform import _Transform
 
         if len(args) == 1:
             shear = args[0]
@@ -391,7 +392,7 @@ class GSObject:
             raise TypeError("Error, shear argument is required")
         else:
             shear = Shear(**kwargs)
-        return Transform(self, shear.getMatrix())
+        return _Transform(self, shear.getMatrix())
 
     def _shear(self, shear):
         """Equivalent to `GSObject.shear`, but without the overhead of sanity checks or other
@@ -405,7 +406,7 @@ class GSObject:
         Returns:
             the sheared object.
         """
-        from .transform import _Transform
+        from jax_galsim.transform import _Transform
 
         return _Transform(self, shear.getMatrix())
 
