@@ -22,10 +22,16 @@ def Transform(
 ):
     if not (isinstance(obj, GSObject)):
         raise TypeError("Argument to Transform must be a GSObject.")
-    elif hasattr(jac, "__call__") or hasattr(offset, "__call__") or hasattr(flux_ratio, "__call__"):
+    elif (
+        hasattr(jac, "__call__")
+        or hasattr(offset, "__call__")
+        or hasattr(flux_ratio, "__call__")
+    ):
         raise NotImplementedError("Transform does not support callable arguments.")
     else:
-        return Transformation(obj, jac, offset, flux_ratio, gsparams, propagate_gsparams)
+        return Transformation(
+            obj, jac, offset, flux_ratio, gsparams, propagate_gsparams
+        )
 
 
 @_wraps(_galsim.Transformation)
@@ -237,8 +243,12 @@ class Transformation(GSObject):
 
     def _major_minor(self):
         if not hasattr(self, "_major"):
-            h1 = jnp.hypot(self._jac[0, 0] + self._jac[1, 1], self._jac[0, 1] - self._jac[1, 0])
-            h2 = jnp.hypot(self._jac[0, 0] - self._jac[1, 1], self._jac[0, 1] + self._jac[1, 0])
+            h1 = jnp.hypot(
+                self._jac[0, 0] + self._jac[1, 1], self._jac[0, 1] - self._jac[1, 0]
+            )
+            h2 = jnp.hypot(
+                self._jac[0, 0] - self._jac[1, 1], self._jac[0, 1] + self._jac[1, 0]
+            )
             self._major = 0.5 * abs(h1 + h2)
             self._minor = 0.5 * abs(h1 - h2)
 
@@ -315,13 +325,25 @@ class Transformation(GSObject):
             dx += x1[0]
             dy += x1[1]
         flux_scaling *= self._flux_scaling
-        jac = self._jac if jac is None else jac if self._jac is None else jac.dot(self._jac)
+        jac = (
+            self._jac
+            if jac is None
+            else jac
+            if self._jac is None
+            else jac.dot(self._jac)
+        )
         return self._original._drawReal(image, jac, (dx, dy), flux_scaling)
 
     def _drawKImage(self, image, jac=None):
         from jax_galsim.core.draw import apply_kImage_phases
 
-        jac1 = self._jac if jac is None else jac if self._jac is None else jac.dot(self._jac)
+        jac1 = (
+            self._jac
+            if jac is None
+            else jac
+            if self._jac is None
+            else jac.dot(self._jac)
+        )
         image = self._original._drawKImage(image, jac1)
 
         _jac = jnp.eye(2) if jac is None else jac

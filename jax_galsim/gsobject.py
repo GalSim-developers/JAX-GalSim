@@ -164,7 +164,9 @@ class GSObject:
         Returns:
             the surface brightness at that position.
         """
-        raise NotImplementedError("%s does not implement xValue" % self.__class__.__name__)
+        raise NotImplementedError(
+            "%s does not implement xValue" % self.__class__.__name__
+        )
 
     @_wraps(_galsim.GSObject.kValue)
     def kValue(self, *args, **kwargs):
@@ -173,7 +175,9 @@ class GSObject:
 
     def _kValue(self, kpos):
         """Equivalent to `kValue`, but ``kpos`` must be a `galsim.PositionD` instance."""
-        raise NotImplementedError("%s does not implement kValue" % self.__class__.__name__)
+        raise NotImplementedError(
+            "%s does not implement kValue" % self.__class__.__name__
+        )
 
     def withGSParams(self, gsparams=None, **kwargs):
         """Create a version of the current object with the given `GSParams`."""
@@ -216,9 +220,13 @@ class GSObject:
             shear = args[0]
         if len(args) == 1:
             if kwargs:
-                raise TypeError("Error, gave both unnamed and named arguments to GSObject.shear!")
+                raise TypeError(
+                    "Error, gave both unnamed and named arguments to GSObject.shear!"
+                )
             if not isinstance(args[0], Shear):
-                raise TypeError("Error, unnamed argument to GSObject.shear is not a Shear!")
+                raise TypeError(
+                    "Error, unnamed argument to GSObject.shear is not a Shear!"
+                )
             shear = args[0]
         elif len(args) > 1:
             raise TypeError("Error, too many unnamed arguments to GSObject.shear!")
@@ -245,7 +253,9 @@ class GSObject:
         return _Transform(self, shear.getMatrix())
 
     # Make sure the image is defined with the right size and wcs for drawImage()
-    def _setup_image(self, image, nx, ny, bounds, add_to_image, dtype, center, odd=False):
+    def _setup_image(
+        self, image, nx, ny, bounds, add_to_image, dtype, center, odd=False
+    ):
         from jax_galsim.bounds import BoundsI
         from jax_galsim.image import Image
 
@@ -306,7 +316,9 @@ class GSObject:
                         bounds=bounds,
                     )
                 if not bounds.isDefined():
-                    raise _galsim.GalSimValueError("Cannot use undefined bounds", bounds)
+                    raise _galsim.GalSimValueError(
+                        "Cannot use undefined bounds", bounds
+                    )
                 image = Image.init(bounds=bounds, dtype=dtype)
             elif nx is not None or ny is not None:
                 if nx is None or ny is None:
@@ -405,7 +417,9 @@ class GSObject:
                 offset += center - new_bounds.center
             else:
                 # Then will be created as even sized image.
-                offset += PositionD(center.x - jnp.ceil(center.x), center.y - jnp.ceil(center.y))
+                offset += PositionD(
+                    center.x - jnp.ceil(center.x), center.y - jnp.ceil(center.y)
+                )
         elif use_true_center:
             # For even-sized images, the SBProfile draw function centers the result in the
             # pixel just up and right of the real center.  So shift it back to make sure it really
@@ -499,7 +513,9 @@ class GSObject:
         new_bounds = self._get_new_bounds(image, nx, ny, bounds, center)
 
         # Get the local WCS, accounting for the offset correctly.
-        local_wcs = self._local_wcs(wcs, image, offset, center, use_true_center, new_bounds)
+        local_wcs = self._local_wcs(
+            wcs, image, offset, center, use_true_center, new_bounds
+        )
 
         # Account for area and exptime.
         flux_scale = area * exptime
@@ -583,7 +599,9 @@ class GSObject:
         the image's dtype must be either float32 or float64, and it must have a c_contiguous array
         (``image.iscontiguous`` must be True).
         """
-        raise NotImplementedError("%s does not implement drawReal" % self.__class__.__name__)
+        raise NotImplementedError(
+            "%s does not implement drawReal" % self.__class__.__name__
+        )
 
     @_wraps(_galsim.GSObject.getGoodImageSize)
     def getGoodImageSize(self, pixel_scale):
@@ -640,7 +658,9 @@ class GSObject:
                 Nk = int(jnp.ceil(maxk / dk)) * 2
 
             if Nk > self.gsparams.maximum_fft_size:
-                raise _galsim.GalSimFFTSizeError("drawFFT requires an FFT that is too large.", Nk)
+                raise _galsim.GalSimFFTSizeError(
+                    "drawFFT requires an FFT that is too large.", Nk
+                )
 
         bounds = BoundsI(0, Nk // 2, -Nk // 2, Nk // 2)
         if image.dtype in (np.complex128, np.float64, np.int32, np.uint32):
@@ -681,8 +701,12 @@ class GSObject:
         real_image_arr = jnp.fft.fftshift(jnp.fft.irfft2(kimg_shift))
 
         # Perform the fourier transform.
-        breal = BoundsI(-wrap_size // 2, wrap_size // 2 + 1, -wrap_size // 2, wrap_size // 2 - 1)
-        real_image = Image(_bounds=breal, _array=real_image_arr, _dtype=image.dtype, wcs=image.wcs)
+        breal = BoundsI(
+            -wrap_size // 2, wrap_size // 2 + 1, -wrap_size // 2, wrap_size // 2 - 1
+        )
+        real_image = Image(
+            _bounds=breal, _array=real_image_arr, _dtype=image.dtype, wcs=image.wcs
+        )
 
         # Add (a portion of) this to the original image.
         temp = real_image.subImage(image.bounds)
@@ -720,7 +744,9 @@ class GSObject:
             The total flux drawn inside the image bounds.
         """
         if image.wcs is None or not image.wcs.isPixelScale:
-            raise _galsim.GalSimValueError("drawFFT requires an image with a PixelScale wcs", image)
+            raise _galsim.GalSimValueError(
+                "drawFFT requires an image with a PixelScale wcs", image
+            )
 
         kimage, wrap_size = self.drawFFT_makeKImage(image)
         kimage = self._drawKImage(kimage)
@@ -824,8 +850,12 @@ class GSObject:
         return image
 
     @_wraps(_galsim.GSObject._drawKImage)
-    def _drawKImage(self, image, jac=None):  # pragma: no cover  (all our classes override this)
-        raise NotImplementedError("%s does not implement drawKImage" % self.__class__.__name__)
+    def _drawKImage(
+        self, image, jac=None
+    ):  # pragma: no cover  (all our classes override this)
+        raise NotImplementedError(
+            "%s does not implement drawKImage" % self.__class__.__name__
+        )
 
     def tree_flatten(self):
         """This function flattens the GSObject into a list of children

@@ -22,7 +22,8 @@ def Convolve(*args, **kwargs):
             args = args[0]
         else:
             raise TypeError(
-                "Single input argument must be a GSObject, " + "or a (possibly mixed) list of them."
+                "Single input argument must be a GSObject, "
+                + "or a (possibly mixed) list of them."
             )
     # else args is already the list of objects
 
@@ -45,7 +46,9 @@ class Convolution(GSObject):
             elif isinstance(args[0], list) or isinstance(args[0], tuple):
                 args = args[0]
             else:
-                raise TypeError("Single input argument must be a GSObject or list of them.")
+                raise TypeError(
+                    "Single input argument must be a GSObject or list of them."
+                )
         # else args is already the list of objects
 
         real_space = kwargs.pop("real_space", None)
@@ -55,7 +58,8 @@ class Convolution(GSObject):
         # Make sure there is nothing left in the dict.
         if kwargs:
             raise TypeError(
-                "Convolution constructor got unexpected keyword argument(s): %s" % kwargs.keys()
+                "Convolution constructor got unexpected keyword argument(s): %s"
+                % kwargs.keys()
             )
 
         # Check whether to perform real space convolution...
@@ -63,7 +67,9 @@ class Convolution(GSObject):
         hard_edge = True
         for obj in args:
             if not isinstance(obj, GSObject):
-                raise TypeError("Arguments to Convolution must be GSObjects, not %s" % obj)
+                raise TypeError(
+                    "Arguments to Convolution must be GSObjects, not %s" % obj
+                )
             if not obj.has_hard_edges:
                 hard_edge = False
 
@@ -173,11 +179,14 @@ class Convolution(GSObject):
         )
 
     def __repr__(self):
-        return "galsim.Convolution(%r, real_space=%r, gsparams=%r, propagate_gsparams=%r)" % (
-            self.obj_list,
-            self.real_space,
-            self.gsparams,
-            self._propagate_gsparams,
+        return (
+            "galsim.Convolution(%r, real_space=%r, gsparams=%r, propagate_gsparams=%r)"
+            % (
+                self.obj_list,
+                self.real_space,
+                self.gsparams,
+                self._propagate_gsparams,
+            )
         )
 
     def __str__(self):
@@ -276,7 +285,9 @@ class Convolution(GSObject):
         raise NotImplementedError("Not implemented")
 
     def _kValue(self, kpos):
-        kv_list = [obj.kValue(kpos) for obj in self.obj_list]  # In GalSim one uses obj.kValue
+        kv_list = [
+            obj.kValue(kpos) for obj in self.obj_list
+        ]  # In GalSim one uses obj.kValue
         return jnp.prod(jnp.array(kv_list))
 
     def _drawReal(self, image, jac=None, offset=(0.0, 0.0), flux_scaling=1.0):
