@@ -27,8 +27,6 @@ allowed_failures:
   - "module 'jax_galsim' has no attribute 'AstropyWCS'"
   - "module 'jax_galsim' has no attribute 'GSFitsWCS'"
   - "module 'jax_galsim' has no attribute 'WcsToolsWCS'"
-  - "'Image' object has no attribute 'wrap'"
-  - "module 'jax_galsim' has no attribute 'Convolve'"
   - "'Gaussian' object has no attribute 'rotate'"
   - "'Transformation' object has no attribute 'rotate'"
   - "'Image' object has no attribute 'bin'"
