@@ -4,6 +4,7 @@ enabled_tests:
   - test_exponential.py
   - test_sum.py
   - test_transforms.py
+  - test_convolve.py
 
 # This documents which error messages will be allowed
 # without being reported as an error. These typically
@@ -16,6 +17,8 @@ allowed_failures:
   - "module 'jax_galsim' has no attribute 'Airy'"
   - "module 'jax_galsim' has no attribute 'Kolmogorov'"
   - "module 'jax_galsim' has no attribute 'Sersic'"
+  - "module 'jax_galsim' has no attribute 'Moffat'"
+  - "module 'jax_galsim' has no attribute 'DeVaucouleurs'"
   - "module 'jax_galsim' has no attribute 'UncorrelatedNoise'"
   - "module 'jax_galsim' has no attribute 'GaussianNoise'"
   - "module 'jax_galsim' has no attribute 'Shapelet'"
@@ -27,6 +30,6 @@ allowed_failures:
   - "module 'jax_galsim' has no attribute 'AstropyWCS'"
   - "module 'jax_galsim' has no attribute 'GSFitsWCS'"
   - "module 'jax_galsim' has no attribute 'WcsToolsWCS'"
-  - "'Gaussian' object has no attribute 'rotate'"
-  - "'Transformation' object has no attribute 'rotate'"
+  - "module 'jax_galsim' has no attribute 'AutoCorrelate'"
+  - "module 'jax_galsim' has no attribute 'AutoConvolve'"
   - "'Image' object has no attribute 'bin'"

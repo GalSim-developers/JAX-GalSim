@@ -253,6 +253,104 @@ class GSObject:
 
         return _Transform(self, shear.getMatrix())
 
+    def lens(self, g1, g2, mu):
+        """Create a version of the current object with both a lensing shear and magnification
+        applied to it.
+
+        This `GSObject` method applies a lensing (reduced) shear and magnification.  The shear must
+        be specified using the g1, g2 definition of shear (see `Shear` for more details).
+        This is the same definition as the outputs of the PowerSpectrum and NFWHalo classes, which
+        compute shears according to some lensing power spectrum or lensing by an NFW dark matter
+        halo.  The magnification determines the rescaling factor for the object area and flux,
+        preserving surface brightness.
+
+        Parameters:
+            g1:         First component of lensing (reduced) shear to apply to the object.
+            g2:         Second component of lensing (reduced) shear to apply to the object.
+            mu:         Lensing magnification to apply to the object.  This is the factor by which
+                        the solid angle subtended by the object is magnified, preserving surface
+                        brightness.
+
+        Returns:
+            the lensed object.
+        """
+        from jax_galsim.transform import _Transform
+        from jax_galsim.shear import Shear
+
+        shear = Shear(g1=g1, g2=g2)
+        return _Transform(self, shear.getMatrix() * jnp.sqrt(mu))
+
+    def _lens(self, g1, g2, mu):
+        """Equivalent to `GSObject.lens`, but without the overhead of some of the sanity checks.
+
+        Also, it won't propagate any noise attribute.
+
+        Parameters:
+            g1:         First component of lensing (reduced) shear to apply to the object.
+            g2:         Second component of lensing (reduced) shear to apply to the object.
+            mu:         Lensing magnification to apply to the object.  This is the factor by which
+                        the solid angle subtended by the object is magnified, preserving surface
+                        brightness.
+
+        Returns:
+            the lensed object.
+        """
+        from .shear import _Shear
+        from .transform import _Transform
+
+        shear = _Shear(g1 + 1j * g2)
+        return _Transform(self, shear.getMatrix() * jnp.sqrt(mu))
+
+    def rotate(self, theta):
+        """Rotate this object by an `Angle` ``theta``.
+
+        Parameters:
+            theta:      Rotation angle (`Angle` object, positive means anticlockwise).
+
+        Returns:
+            the rotated object.
+
+        Note: Not differentiable with respect to theta (yet).
+        """
+        from coord.angle import Angle
+        from jax_galsim.transform import _Transform
+
+        if not isinstance(theta, Angle):
+            raise TypeError("Input theta should be an Angle")
+        s, c = theta.sincos()
+        return _Transform(self, jac=[c, -s, s, c])
+
+    @_wraps(_galsim.GSObject.transform)
+    def transform(self, dudx, dudy, dvdx, dvdy):
+        from jax_galsim.transform import _Transform
+
+        return _Transform(self, jac=[dudx, dudy, dvdx, dvdy])
+
+    @_wraps(_galsim.GSObject.shift)
+    def shift(self, *args, **kwargs):
+        from jax_galsim.transform import _Transform
+
+        offset = parse_pos_args(args, kwargs, "dx", "dy")
+        return _Transform(self, offset=offset)
+
+    def _shift(self, dx, dy):
+        """Equivalent to `shift`, but without the overhead of sanity checks or option
+        to give the shift as a PositionD.
+
+        Also, it won't propagate any noise attribute.
+
+        Parameters:
+            dx:         The x-component of the shift to apply
+            dy:         The y-component of the shift to apply
+
+        Returns:
+            the shifted object.
+        """
+        from .transform import _Transform
+
+        new_obj = _Transform(self, offset=(dx, dy))
+        return new_obj
+
     # Make sure the image is defined with the right size and wcs for drawImage()
     def _setup_image(
         self, image, nx, ny, bounds, add_to_image, dtype, center, odd=False

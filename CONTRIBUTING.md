@@ -151,3 +151,13 @@ def Add(*args, **kwargs):
 ```
 
 Note that this tool has the option of providing a `lax_description` which will be added to the reference documentation, and which can be use to document any differences with GalSim, typically a restricted set of features being available.
+
+
+## Technical implementation tips
+
+### Flattening and Unflattening of objects
+
+In order to be able to use JAX transformations, we need to be able to flatten and unflatten objects. This happens within the `tree_flatten` and `tree_unflatten` methods. 
+The unflattening can fail to work as expected when type checks are performed in the `__init__` method of a given object. To avoid this issue, the following strategy can used:
+
+https://jax.readthedocs.io/en/latest/pytrees.html#custom-pytrees-and-initialization

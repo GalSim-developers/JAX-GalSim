@@ -167,6 +167,15 @@ class Convolution(GSObject):
             ret._obj_list = [obj.withGSParams(ret._gsparams) for obj in self.obj_list]
         return ret
 
+    def __eq__(self, other):
+        return self is other or (
+            isinstance(other, Convolution)
+            and self.obj_list == other.obj_list
+            and self.real_space == other.real_space
+            and self.gsparams == other.gsparams
+            and self._propagate_gsparams == other._propagate_gsparams
+        )
+
     def __hash__(self):
         return hash(
             (
