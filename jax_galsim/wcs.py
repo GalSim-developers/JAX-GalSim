@@ -613,7 +613,7 @@ class PixelScale(LocalWCS):
 @_wraps(_galsim.ShearWCS)
 @register_pytree_node_class
 class ShearWCS(LocalWCS):
-    from .shear import Shear
+    from jax_galsim.shear import Shear
 
     _req_params = {"scale": float, "shear": Shear}
 
