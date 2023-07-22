@@ -37,16 +37,16 @@ class Shear(object):
             g1 = kwargs.pop("g1", 0.0)
             g2 = kwargs.pop("g2", 0.0)
             self._g = g1 + 1j * g2
-            if abs(self._g) > 1.0:
-                raise GalSimRangeError("Requested shear exceeds 1.", self._g, 0.0, 1.0)
+            # if abs(self._g) > 1.0:
+            #     raise GalSimRangeError("Requested shear exceeds 1.", self._g, 0.0, 1.0)
 
         # e1,e2
         elif "e1" in kwargs or "e2" in kwargs:
             e1 = kwargs.pop("e1", 0.0)
             e2 = kwargs.pop("e2", 0.0)
             absesq = e1**2 + e2**2
-            if absesq > 1.0:
-                raise GalSimRangeError("Requested distortion exceeds 1.", np.sqrt(absesq), 0.0, 1.0)
+            # if absesq > 1.0:
+            #     raise GalSimRangeError("Requested distortion exceeds 1.", np.sqrt(absesq), 0.0, 1.0)
             self._g = (e1 + 1j * e2) * self._e2g(absesq)
 
         # eta1,eta2
@@ -67,9 +67,9 @@ class Shear(object):
             if not isinstance(beta, Angle):
                 raise TypeError("beta must be an Angle instance.")
             g = kwargs.pop("g")
-            if g > 1 or g < 0:
-                raise GalSimRangeError("Requested |shear| is outside [0,1].", g, 0.0, 1.0)
-            self._g = g * np.exp(2j * beta.rad)
+            # if g > 1 or g < 0:
+            #     raise GalSimRangeError("Requested |shear| is outside [0,1].", g, 0.0, 1.0)
+            self._g = g * jnp.exp(2j * beta.rad)
 
         # e,beta
         elif "e" in kwargs:
@@ -81,9 +81,9 @@ class Shear(object):
             if not isinstance(beta, Angle):
                 raise TypeError("beta must be an Angle instance.")
             e = kwargs.pop("e")
-            if e > 1 or e < 0:
-                raise GalSimRangeError("Requested distortion is outside [0,1].", e, 0.0, 1.0)
-            self._g = self._e2g(e**2) * e * np.exp(2j * beta.rad)
+            # if e > 1 or e < 0:
+            #     raise GalSimRangeError("Requested distortion is outside [0,1].", e, 0.0, 1.0)
+            self._g = self._e2g(e**2) * e * jnp.exp(2j * beta.rad)
 
         # eta,beta
         elif "eta" in kwargs:
@@ -97,9 +97,9 @@ class Shear(object):
             if not isinstance(beta, Angle):
                 raise TypeError("beta must be an Angle instance.")
             eta = kwargs.pop("eta")
-            if eta < 0:
-                raise GalSimRangeError("Requested eta is below 0.", eta, 0.0)
-            self._g = self._eta2g(eta) * eta * np.exp(2j * beta.rad)
+            # if eta < 0:
+            #     raise GalSimRangeError("Requested eta is below 0.", eta, 0.0)
+            self._g = self._eta2g(eta) * eta * jnp.exp(2j * beta.rad)
 
         # q,beta
         elif "q" in kwargs:
@@ -111,10 +111,10 @@ class Shear(object):
             if not isinstance(beta, Angle):
                 raise TypeError("beta must be an Angle instance.")
             q = kwargs.pop("q")
-            if q <= 0 or q > 1:
-                raise GalSimRangeError("Cannot use requested axis ratio.", q, 0.0, 1.0)
-            eta = -np.log(q)
-            self._g = self._eta2g(eta) * eta * np.exp(2j * beta.rad)
+            # if q <= 0 or q > 1:
+            #     raise GalSimRangeError("Cannot use requested axis ratio.", q, 0.0, 1.0)
+            eta = -jnp.log(q)
+            self._g = self._eta2g(eta) * eta * jnp.exp(2j * beta.rad)
 
         elif "beta" in kwargs:
             raise GalSimIncompatibleValuesError(
@@ -146,7 +146,7 @@ class Shear(object):
     @property
     def g(self):
         """The magnitude of the shear in the "reduced shear" definition."""
-        return abs(self._g)
+        return jnp.abs(self._g)
 
     @property
     def beta(self):
