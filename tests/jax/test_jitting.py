@@ -120,7 +120,7 @@ def test_image_jitting():
             [15, 25, 35, 45, 55, 65, 75],
         ]
     ).astype(dtype=jnp.float32)
-    im1 = galsim.Image.init(ref_array, wcs=galsim.PixelScale(0.2), dtype=jnp.int32)
+    im1 = galsim.Image(ref_array, wcs=galsim.PixelScale(0.2), dtype=jnp.int32)
     assert identity(im1) == im1
 
 

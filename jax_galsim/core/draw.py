@@ -32,7 +32,7 @@ def draw_by_xValue(
     im = (im * flux_scaling).astype(image.dtype)
 
     # Return an image
-    return Image(_array=im, _bounds=image.bounds, wcs=image.wcs, _dtype=image.dtype)
+    return Image(array=im, bounds=image.bounds, wcs=image.wcs, check_bounds=False)
 
 
 def draw_by_kValue(gsobject, image, jacobian=jnp.eye(2)):
@@ -48,7 +48,7 @@ def draw_by_kValue(gsobject, image, jacobian=jnp.eye(2)):
     im = (im).astype(image.dtype)
 
     # Return an image
-    return Image(_array=im, _bounds=image.bounds, wcs=image.wcs, _dtype=image.dtype)
+    return Image(array=im, bounds=image.bounds, wcs=image.wcs, check_bounds=False)
 
 
 def apply_kImage_phases(gsobject, image, jacobian=jnp.eye(2)):
@@ -68,10 +68,9 @@ def apply_kImage_phases(gsobject, image, jacobian=jnp.eye(2)):
     im_phase = jax.vmap(lambda *args: phase(PositionD(*args)))(
         kcoords[..., 0], kcoords[..., 1]
     )
-
     return Image(
-        _array=image.array * im_phase,
-        _bounds=image.bounds,
+        array=image.array * im_phase,
+        bounds=image.bounds,
         wcs=image.wcs,
-        _dtype=image.dtype,
+        check_bounds=False,
     )
