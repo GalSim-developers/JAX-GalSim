@@ -805,7 +805,7 @@ class GSObject:
 
         # Perform the fourier transform.
         breal = BoundsI(
-            -wrap_size // 2, wrap_size // 2 + 1, -wrap_size // 2, wrap_size // 2 - 1
+            -wrap_size // 2, wrap_size // 2 - 1, -wrap_size // 2, wrap_size // 2 - 1
         )
         kimg_shift = jnp.fft.ifftshift(kimage_wrap.array, axes=(-2,))
         real_image_arr = jnp.fft.fftshift(
