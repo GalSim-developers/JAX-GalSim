@@ -4360,8 +4360,6 @@ def test_int_image_arith():
         full %= imd
 
 
-# TODO: add back once wrapping is implemented.
-@pytest.mark.skip(reason="Wrapping not currently implemented")
 @timer
 def test_wrap():
     """Test the image.wrap() function."""
