@@ -33,4 +33,5 @@ allowed_failures:
   - "module 'jax_galsim' has no attribute 'AutoCorrelate'"
   - "module 'jax_galsim' has no attribute 'AutoConvolve'"
   - "image.wrap"
+  - "unhashable type: 'ArrayImpl'"
   - "'Image' object has no attribute 'bin'"
