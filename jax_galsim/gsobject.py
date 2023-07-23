@@ -804,7 +804,7 @@ class GSObject:
             -wrap_size // 2, wrap_size // 2 + 1, -wrap_size // 2, wrap_size // 2 - 1
         )
         real_image = Image(
-            _bounds=breal, _array=real_image_arr, _dtype=image.dtype, wcs=image.wcs
+            bounds=breal, array=real_image_arr, dtype=image.dtype, wcs=image.wcs
         )
 
         # Add (a portion of) this to the original image.
