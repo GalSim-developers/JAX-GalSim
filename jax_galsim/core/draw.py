@@ -14,7 +14,6 @@ def draw_by_xValue(
 
     # Create an array of coordinates
     coords = jnp.stack(image.get_pixel_centers(), axis=-1)
-    coords = coords - image.true_center.array  # Subtract the true center
     coords = coords * image.scale  # Scale by the image pixel scale
     coords = coords - offset  # Add the offset
 

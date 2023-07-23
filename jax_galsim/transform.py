@@ -324,6 +324,9 @@ class Transformation(GSObject):
             x1 = jac.dot(self.offset.array)
             dx += x1[0]
             dy += x1[1]
+        else:
+            dx += self.offset.x
+            dy += self.offset.y
         flux_scaling *= self._flux_scaling
         jac = (
             self._jac
@@ -344,9 +347,10 @@ class Transformation(GSObject):
             if self._jac is None
             else jac.dot(self._jac)
         )
+
         image = self._original._drawKImage(image, jac1)
 
-        _jac = jnp.eye(2) if jac is None else jac
+        _jac = jnp.eye(2)  # if jac is None else jac
         image = apply_kImage_phases(self, image, _jac)
 
         image = image * self._flux_scaling
