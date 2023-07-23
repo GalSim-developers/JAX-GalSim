@@ -1,3 +1,4 @@
+import jax
 import jax.numpy as jnp
 import numpy as np
 
@@ -41,7 +42,17 @@ class Image(object):
         np.complex64: jnp.complex64,
         np.complex128: jnp.complex128,
     }
-    valid_dtypes = _alias_dtypes.keys()
+    _valid_dtypes = [
+        jnp.int32,
+        jnp.float64,
+        jnp.uint16,
+        jnp.uint32,
+        jnp.int16,
+        jnp.float32,
+        jnp.complex64,
+        jnp.complex128,
+    ]
+    valid_dtypes = set(_valid_dtypes)
 
     def __init__(self, *args, **kwargs):
         # Parse the args, kwargs
@@ -116,20 +127,20 @@ class Image(object):
             )
 
         # Figure out what dtype we want:
-        dtype = Image._alias_dtypes.get(dtype, dtype)
-        if dtype is not None and dtype not in Image.valid_dtypes:
-            raise _galsim.GalSimValueError("Invlid dtype.", dtype, Image.valid_dtypes)
+        dtype = self._alias_dtypes.get(dtype, dtype)
+        if dtype is not None and dtype not in self._valid_dtypes:
+            raise _galsim.GalSimValueError("Invlid dtype.", dtype, self._valid_dtypes)
         if array is not None:
             if dtype is None:
                 dtype = array.dtype.type
-                if dtype in Image._alias_dtypes:
-                    dtype = Image._alias_dtypes[dtype]
+                if dtype in self._alias_dtypes:
+                    dtype = self._alias_dtypes[dtype]
                     array = array.astype(dtype)
-                elif dtype not in Image.valid_dtypes:
+                elif dtype not in self._valid_dtypes:
                     raise _galsim.GalSimValueError(
                         "Invalid dtype of provided array.",
                         array.dtype,
-                        Image.valid_dtypes,
+                        self._valid_dtypes,
                     )
             else:
                 array = array.astype(dtype)
@@ -485,6 +496,7 @@ class Image(object):
         i2 = bounds.ymax - self.ymin + 1
         j1 = bounds.xmin - self.xmin
         j2 = bounds.xmax - self.xmin + 1
+
         subarray = self.array[i1:i2, j1:j2]
         # NB. The wcs is still accurate, since the sub-image uses the same (x,y) values
         # as the original image did for those pixels.  It's only once you recenter or
@@ -814,12 +826,9 @@ class Image(object):
         Parameters:
             delta:  The amount to shift as a `PositionI`.
         """
-        # The parse_pos_args function is a bit slow, so go directly to this point when we
-        # call shift from setCenter or setOrigin.
-        if delta.x != 0 or delta.y != 0:
-            self._bounds = self._bounds.shift(delta)
-            if self.wcs is not None:
-                self.wcs = self.wcs.shiftOrigin(delta)
+        self._bounds = self._bounds.shift(delta)
+        if self.wcs is not None:
+            self.wcs = self.wcs.shiftOrigin(delta)
 
     @_wraps(_galsim.Image.setCenter)
     def setCenter(self, *args, **kwargs):
@@ -974,7 +983,7 @@ class Image(object):
         Parameters:
             replace_value:  The value with which to replace any negative pixels. [default: 0]
         """
-        self.array.at[self.array < 0].set(replace_value)
+        self._array = self.array.at[self.array < 0].set(replace_value)
 
     def __eq__(self, other):
         # Note that numpy.array_equal can return True if the dtypes of the two arrays involved are
@@ -1001,8 +1010,8 @@ class Image(object):
     def tree_flatten(self):
         """Flatten the image into a list of values."""
         # Define the children nodes of the PyTree that need tracing
-        children = (self.array, self.wcs, self.bounds)
-        aux_data = {"dtype": self.dtype}
+        children = (self.array, self.wcs)
+        aux_data = {"dtype": self.dtype, "bounds": self.bounds}
         return (children, aux_data)
 
     @classmethod
@@ -1011,7 +1020,7 @@ class Image(object):
         obj = object.__new__(cls)
         obj._array = children[0]
         obj.wcs = children[1]
-        obj._bounds = children[2]
+        obj._bounds = aux_data["bounds"]
         obj._dtype = aux_data["dtype"]
         return obj
 

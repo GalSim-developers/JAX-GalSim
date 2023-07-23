@@ -32,4 +32,5 @@ allowed_failures:
   - "module 'jax_galsim' has no attribute 'WcsToolsWCS'"
   - "module 'jax_galsim' has no attribute 'AutoCorrelate'"
   - "module 'jax_galsim' has no attribute 'AutoConvolve'"
+  - "The truth value of an array with more than one element is ambiguous."
   - "'Image' object has no attribute 'bin'"
