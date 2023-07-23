@@ -795,18 +795,17 @@ class GSObject:
         bwrap = BoundsI(0, wrap_size // 2, -wrap_size // 2, wrap_size // 2 - 1)
         kimage_wrap = kimage._wrap(bwrap, True, False)
 
-        # Inverse FFT
-        kimg_shift = jnp.fft.ifftshift(kimage_wrap.array, axes=(-2,))
-        real_image_arr = jnp.fft.fftshift(jnp.fft.irfft2(kimg_shift))
-
         # Perform the fourier transform.
         breal = BoundsI(
             -wrap_size // 2, wrap_size // 2 + 1, -wrap_size // 2, wrap_size // 2 - 1
         )
+        kimg_shift = jnp.fft.ifftshift(kimage_wrap.array, axes=(-2,))
+        real_image_arr = jnp.fft.fftshift(
+            jnp.fft.irfft2(kimg_shift, breal.numpyShape())
+        )
         real_image = Image(
             bounds=breal, array=real_image_arr, dtype=image.dtype, wcs=image.wcs
         )
-
         # Add (a portion of) this to the original image.
         temp = real_image.subImage(image.bounds)
         if add_to_image:
