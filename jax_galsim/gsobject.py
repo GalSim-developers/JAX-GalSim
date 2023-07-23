@@ -938,7 +938,7 @@ class GSObject:
             )
 
         # Set the center to 0,0 if appropriate
-        if recenter and image.center != PositionI(0, 0):
+        if recenter:
             image._shift(-image.center)
 
         # Set the wcs of the images to use the dk scale size
@@ -946,13 +946,16 @@ class GSObject:
 
         if setup_only:
             return image
-
+        # For GalSim compatibility, we will attempt to update the input image
+        image_in = image
         if not add_to_image and image.iscontiguous:
             image = self._drawKImage(image)
         else:
             im2 = Image(bounds=image.bounds, dtype=image.dtype, scale=image.scale)
             im2 = self._drawKImage(im2)
             image += im2
+        image_in._array = image._array
+        image_in._bounds = image.bounds
         return image
 
     @_wraps(_galsim.GSObject._drawKImage)
