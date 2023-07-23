@@ -651,6 +651,9 @@ class GSObject:
 
         # Make sure image is setup correctly
         image = prof._setup_image(image, nx, ny, bounds, add_to_image, dtype, center)
+        image_in = (
+            image  # For compatibility with normal galsim, we update image_in below.
+        )
         image.wcs = wcs
 
         if setup_only:
@@ -677,6 +680,11 @@ class GSObject:
         # Restore the original center and wcs
         image.shift(original_center)
         image.wcs = wcs
+
+        # Update image_in to satisfy GalSim API
+        image_in._array = image._array
+        image_in.added_flux = image.added_flux
+        image_in._bounds = image.bounds
         return image
 
     @_wraps(_galsim.GSObject.drawReal)
