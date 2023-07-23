@@ -34,4 +34,4 @@ def draw_by_xValue(
     im = (im * flux_scaling).astype(image.dtype)
 
     # Return an image
-    return Image(_array=im, _bounds=image.bounds, wcs=image.wcs, _dtype=image.dtype)
+    return Image(array=im, bounds=image.bounds, wcs=image.wcs, check_bounds=False)

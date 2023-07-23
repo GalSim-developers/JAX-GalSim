@@ -536,7 +536,7 @@ class PixelScale(LocalWCS):
 
     @property
     def _scale(self):
-        return jnp.asarray(self._params["scale"])
+        return self._params["scale"]
 
     # Help make sure PixelScale is read-only.
     @property
