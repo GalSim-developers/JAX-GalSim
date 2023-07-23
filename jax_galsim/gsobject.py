@@ -354,16 +354,16 @@ class GSObject:
 
     @_wraps(_galsim.GSObject.expand)
     def expand(self, scale):
-        from jax_galsim.transform import _Transform
+        from jax_galsim.transform import Transform
 
-        return _Transform(self, jac=[scale, 0.0, 0.0, scale])
+        return Transform(self, jac=[scale, 0.0, 0.0, scale])
 
     @_wraps(_galsim.GSObject.dilate)
     def dilate(self, scale):
-        from jax_galsim.transform import _Transform
+        from jax_galsim.transform import Transform
 
         # equivalent to self.expand(scale) * (1./scale**2)
-        return _Transform(self, jac=[scale, 0.0, 0.0, scale], flux_ratio=scale**-2)
+        return Transform(self, jac=[scale, 0.0, 0.0, scale], flux_ratio=scale**-2)
 
     @_wraps(_galsim.GSObject.magnify)
     def magnify(self, mu):
@@ -372,7 +372,7 @@ class GSObject:
     @_wraps(_galsim.GSObject.shear)
     def shear(self, *args, **kwargs):
         from jax_galsim.shear import Shear
-        from jax_galsim.transform import _Transform
+        from jax_galsim.transform import Transform
 
         if len(args) == 1:
             shear = args[0]
@@ -392,7 +392,7 @@ class GSObject:
             raise TypeError("Error, shear argument is required")
         else:
             shear = Shear(**kwargs)
-        return _Transform(self, shear.getMatrix())
+        return Transform(self, shear.getMatrix())
 
     def _shear(self, shear):
         """Equivalent to `GSObject.shear`, but without the overhead of sanity checks or other
@@ -406,9 +406,9 @@ class GSObject:
         Returns:
             the sheared object.
         """
-        from jax_galsim.transform import _Transform
+        from jax_galsim.transform import Transform
 
-        return _Transform(self, shear.getMatrix())
+        return Transform(self, shear.getMatrix())
 
     def lens(self, g1, g2, mu):
         """Create a version of the current object with both a lensing shear and magnification
@@ -431,11 +431,11 @@ class GSObject:
         Returns:
             the lensed object.
         """
-        from jax_galsim.transform import _Transform
         from jax_galsim.shear import Shear
+        from jax_galsim.transform import Transform
 
         shear = Shear(g1=g1, g2=g2)
-        return _Transform(self, shear.getMatrix() * jnp.sqrt(mu))
+        return Transform(self, shear.getMatrix() * jnp.sqrt(mu))
 
     def _lens(self, g1, g2, mu):
         """Equivalent to `GSObject.lens`, but without the overhead of some of the sanity checks.
@@ -453,10 +453,10 @@ class GSObject:
             the lensed object.
         """
         from .shear import _Shear
-        from .transform import _Transform
+        from .transform import Transform
 
         shear = _Shear(g1 + 1j * g2)
-        return _Transform(self, shear.getMatrix() * jnp.sqrt(mu))
+        return Transform(self, shear.getMatrix() * jnp.sqrt(mu))
 
     def rotate(self, theta):
         """Rotate this object by an `Angle` ``theta``.
@@ -470,25 +470,26 @@ class GSObject:
         Note: Not differentiable with respect to theta (yet).
         """
         from coord.angle import Angle
-        from jax_galsim.transform import _Transform
+
+        from jax_galsim.transform import Transform
 
         if not isinstance(theta, Angle):
             raise TypeError("Input theta should be an Angle")
         s, c = theta.sincos()
-        return _Transform(self, jac=[c, -s, s, c])
+        return Transform(self, jac=[c, -s, s, c])
 
     @_wraps(_galsim.GSObject.transform)
     def transform(self, dudx, dudy, dvdx, dvdy):
-        from jax_galsim.transform import _Transform
+        from jax_galsim.transform import Transform
 
-        return _Transform(self, jac=[dudx, dudy, dvdx, dvdy])
+        return Transform(self, jac=[dudx, dudy, dvdx, dvdy])
 
     @_wraps(_galsim.GSObject.shift)
     def shift(self, *args, **kwargs):
-        from jax_galsim.transform import _Transform
+        from jax_galsim.transform import Transform
 
         offset = parse_pos_args(args, kwargs, "dx", "dy")
-        return _Transform(self, offset=offset)
+        return Transform(self, offset=offset)
 
     def _shift(self, dx, dy):
         """Equivalent to `shift`, but without the overhead of sanity checks or option
@@ -503,9 +504,9 @@ class GSObject:
         Returns:
             the shifted object.
         """
-        from .transform import _Transform
+        from jax_galsim.transform import Transform
 
-        new_obj = _Transform(self, offset=(dx, dy))
+        new_obj = Transform(self, offset=(dx, dy))
         return new_obj
 
     # Make sure the image is defined with the right size and wcs for drawImage()
