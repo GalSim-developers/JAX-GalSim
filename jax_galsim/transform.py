@@ -347,7 +347,6 @@ class Transformation(GSObject):
             if self._jac is None
             else jac.dot(self._jac)
         )
-
         image = self._original._drawKImage(image, jac1)
 
         _jac = jnp.eye(2) if jac is None else jac
