@@ -206,11 +206,6 @@ class Convolution(GSObject):
         s += ")"
         return s
 
-    # JEC not sure if it is used
-    # def _prepareDraw(self):
-    #    for obj in self.obj_list:
-    #        obj._prepareDraw()
-
     @property
     def _maxk(self):
         maxk_list = [obj.maxk for obj in self.obj_list]
