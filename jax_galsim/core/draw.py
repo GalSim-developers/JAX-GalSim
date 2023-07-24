@@ -39,7 +39,7 @@ def draw_by_kValue(gsobject, image, jacobian=jnp.eye(2)):
     # Create an array of coordinates
     coords = jnp.stack(image.get_pixel_centers(), axis=-1)
     coords = coords * image.scale  # Scale by the image pixel scale
-    coords = jnp.dot(coords, jacobian.T)
+    coords = jnp.dot(coords, jacobian)
 
     # Draw the object
     im = jax.vmap(lambda *args: gsobject._kValue(PositionD(*args)))(
@@ -55,7 +55,7 @@ def apply_kImage_phases(gsobject, image, jacobian=jnp.eye(2)):
     # Create an array of coordinates
     kcoords = jnp.stack(image.get_pixel_centers(), axis=-1)
     kcoords = kcoords * image.scale  # Scale by the image pixel scale
-    kcoords = jnp.dot(kcoords, jacobian.T)
+    kcoords = jnp.dot(kcoords, jacobian)
     cenx, ceny = gsobject._offset.x, gsobject._offset.y
 
     #
