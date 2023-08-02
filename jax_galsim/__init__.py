@@ -50,11 +50,13 @@ from .transform import Transform, Transformation
 from .convolve import Convolve, Convolution
 
 
-#Bessel
+# Bessel
 from .bessel import J0
-#Integration
+
+# Integration
 from .integrate import ClenshawCurtisQuad, quad_integral
-#Interpolation
+
+# Interpolation
 from .interpolate import InterpolatedUnivariateSpline
 
 
