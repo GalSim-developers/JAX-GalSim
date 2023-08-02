@@ -42,11 +42,21 @@ from .image import (
 # GSObject
 from .exponential import Exponential
 from .gaussian import Gaussian
+from .moffat import Moffat
 from .box import Pixel, Box
 from .gsobject import GSObject
 from .sum import Add, Sum
 from .transform import Transform, Transformation
 from .convolve import Convolve, Convolution
+
+
+#Bessel
+from .bessel import J0
+#Integration
+from .integrate import ClenshawCurtisQuad, quad_integral
+#Interpolation
+from .interpolate import InterpolatedUnivariateSpline
+
 
 # WCS
 from .wcs import (
