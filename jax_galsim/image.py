@@ -627,6 +627,7 @@ class Image(object):
 
         Equivalent to ``image.wrap(bounds, hermitian=='x', hermitian=='y')``.
         """
+        # NOTE: Wrapping not yet implemented.
         ret = self.subImage(bounds)
         # print(bounds, hermx, hermy)
         # _galsim.wrapImage(self._image, bounds._b, hermx, hermy)
