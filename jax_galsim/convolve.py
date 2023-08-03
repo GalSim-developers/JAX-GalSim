@@ -87,8 +87,9 @@ class Convolution(GSObject):
             if len(args) == 2:
                 galsim_warn(
                     "Doing convolution of 2 objects, both with hard edges. "
-                    "This might be more accurate"
-                )  ##### and/or faster using real_space=True")
+                    "This might be more accurate with `real_space=True`, "
+                    "but this functionality has not yet been implemented in JAX-Galsim."
+                )
             else:
                 galsim_warn(
                     "Doing convolution where all objects have hard edges. "
