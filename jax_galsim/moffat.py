@@ -13,7 +13,7 @@ import jax.scipy as jsc
 
 from jax_galsim.gsobject import GSObject
 from jax_galsim.gsparams import GSParams
-from jax_galsim.core.draw import draw_by_xValue  # , draw_by_kValue
+from jax_galsim.core.draw import draw_by_xValue, draw_by_kValue
 
 from jax_galsim.bessel import J0
 from jax_galsim.integrate import ClenshawCurtisQuad, quad_integral
@@ -488,17 +488,13 @@ class Moffat(GSObject):
     def _kValue(self, kpos):
         return self._kV(kpos)
 
-    #        return jax.lax.cond(self._trunc ==0.,
-    #                            self._kValue_untrunc,
-    #                            self._kvalue_trunc,operand=kpos)
-
     def _drawReal(self, image, jac=None, offset=(0.0, 0.0), flux_scaling=1.0):
         _jac = jnp.eye(2) if jac is None else jac
         return draw_by_xValue(self, image, _jac, jnp.asarray(offset), flux_scaling)
 
-    # def _drawKImage(self, image, jac=None):
-    #    _jac = jnp.eye(2) if jac is None else jac
-    #    return draw_by_kValue(self,image, _jac)
+    def _drawKImage(self, image, jac=None):
+        _jac = jnp.eye(2) if jac is None else jac
+        return draw_by_kValue(self, image, _jac)
 
     def withFlux(self, flux):
         return Moffat(
