@@ -6,9 +6,9 @@ from jax._src.numpy.util import _wraps
 from jax.tree_util import register_pytree_node_class
 
 from jax_galsim.bounds import BoundsD, BoundsI
-from jax_galsim.position import PositionD, PositionI
+from jax_galsim.position import PositionI
 from jax_galsim.utilities import parse_pos_args
-from jax_galsim.wcs import BaseWCS, JacobianWCS, PixelScale
+from jax_galsim.wcs import BaseWCS, PixelScale
 
 
 @_wraps(
