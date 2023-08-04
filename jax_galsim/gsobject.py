@@ -812,10 +812,6 @@ class GSObject:
         real_image_arr = jnp.fft.fftshift(
             jnp.fft.irfft2(kimg_shift, breal.numpyShape())
         )
-        kimg_shift = jnp.fft.ifftshift(kimage_wrap.array, axes=(-2,))
-        real_image_arr = jnp.fft.fftshift(
-            jnp.fft.irfft2(kimg_shift, breal.numpyShape())
-        )
         real_image = Image(
             bounds=breal, array=real_image_arr, dtype=image.dtype, wcs=image.wcs
         )
