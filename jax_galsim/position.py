@@ -1,4 +1,5 @@
 import galsim as _galsim
+import jax
 import jax.numpy as jnp
 from jax._src.numpy.util import _wraps
 from jax.tree_util import register_pytree_node_class
@@ -44,10 +45,6 @@ class Position(object):
                 )
             if kwargs:
                 raise TypeError("Got unexpected keyword arguments %s" % kwargs.keys())
-
-        # Make sure the inputs are indeed jax numpy values
-        self.x = jnp.asarray(self.x)
-        self.y = jnp.asarray(self.y)
 
     @property
     def array(self):
@@ -145,8 +142,6 @@ class Position(object):
 class PositionD(Position):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.x = self.x.astype("float")
-        self.y = self.y.astype("float")
 
 
 @_wraps(_galsim.PositionI)
@@ -154,5 +149,13 @@ class PositionD(Position):
 class PositionI(Position):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.x = self.x.astype("int")
-        self.y = self.y.astype("int")
+        # Force conversion to int type in this case
+        if isinstance(self.x, float):
+            self.x = int(self.x)
+        elif isinstance(self.x, jax.Array):
+            self.x = self.x.astype("int")
+
+        if isinstance(self.y, float):
+            self.y = int(self.y)
+        elif isinstance(self.y, jax.Array):
+            self.y = self.y.astype("int")

@@ -117,12 +117,15 @@ def test_bounds_vmapping():
     assert test_eq(objI_d, objI)
 
 
-def test_drawing_vmapping():
+def test_drawing_vmapping_and_jitting():
+    gsparams = galsim.GSParams(minimum_fft_size=512, maximum_fft_size=512)
+
+    @jax.jit
     @jax.vmap
     def drawGalaxy(flux):
         # Define a galsim galaxy as the sum of two objects
         obj1 = galsim.Gaussian(half_light_radius=1.0)
-        obj2 = galsim.Exponential(half_light_radius=0.5)
+        obj2 = galsim.Exponential(half_light_radius=0.8)
 
         # Rescale the flux of one object
         obj2 = obj2.withFlux(flux)
@@ -130,9 +133,15 @@ def test_drawing_vmapping():
         # Sum the two components of my galaxy
         gal = obj1 + obj2
 
+        # shear
         gal.shear(g1=0.02, g2=0.0)
 
-        return gal.drawImage(nx=128, ny=128, scale=0.2, method="no_pixel")
+        # psf is just Gaussian
+        psf = galsim.Gaussian(half_light_radius=0.7)
+
+        gal_conv = galsim.Convolution(gal, psf).withGSParams(gsparams)
+
+        return gal_conv.drawImage(nx=128, ny=128, scale=0.2)
 
     im = drawGalaxy(jnp.array([10, 20]))
     arr = im.array

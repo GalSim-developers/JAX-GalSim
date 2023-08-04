@@ -1,3 +1,4 @@
+import jax
 import jax.numpy as jnp
 import numpy as np
 
@@ -41,7 +42,17 @@ class Image(object):
         np.complex64: jnp.complex64,
         np.complex128: jnp.complex128,
     }
-    valid_dtypes = _alias_dtypes.keys()
+    _valid_dtypes = [
+        jnp.int32,
+        jnp.float64,
+        jnp.uint16,
+        jnp.uint32,
+        jnp.int16,
+        jnp.float32,
+        jnp.complex64,
+        jnp.complex128,
+    ]
+    valid_dtypes = set(_valid_dtypes)
 
     def __init__(self, *args, **kwargs):
         # Parse the args, kwargs
@@ -116,20 +127,20 @@ class Image(object):
             )
 
         # Figure out what dtype we want:
-        dtype = Image._alias_dtypes.get(dtype, dtype)
-        if dtype is not None and dtype not in Image.valid_dtypes:
-            raise _galsim.GalSimValueError("Invlid dtype.", dtype, Image.valid_dtypes)
+        dtype = self._alias_dtypes.get(dtype, dtype)
+        if dtype is not None and dtype not in self._valid_dtypes:
+            raise _galsim.GalSimValueError("Invlid dtype.", dtype, self._valid_dtypes)
         if array is not None:
             if dtype is None:
                 dtype = array.dtype.type
-                if dtype in Image._alias_dtypes:
-                    dtype = Image._alias_dtypes[dtype]
+                if dtype in self._alias_dtypes:
+                    dtype = self._alias_dtypes[dtype]
                     array = array.astype(dtype)
-                elif dtype not in Image.valid_dtypes:
+                elif dtype not in self._valid_dtypes:
                     raise _galsim.GalSimValueError(
                         "Invalid dtype of provided array.",
                         array.dtype,
-                        Image.valid_dtypes,
+                        self._valid_dtypes,
                     )
             else:
                 array = array.astype(dtype)
@@ -322,6 +333,15 @@ class Image(object):
         """Whether the `Image` values are integral."""
         return self._array.dtype.kind in ("i", "u")
 
+    @property
+    def iscontiguous(self):
+        """Indicates whether each row of the image is contiguous in memory.
+
+        Note: it is ok for the end of one row to not be contiguous with the start of the
+        next row.  This just checks that each individual row has a stride of 1.
+        """
+        return True  # In JAX all arrays are contiguous (almost)
+
     # Allow scale to work as a PixelScale wcs.
     @property
     def scale(self):
@@ -476,6 +496,7 @@ class Image(object):
         i2 = bounds.ymax - self.ymin + 1
         j1 = bounds.xmin - self.xmin
         j2 = bounds.xmax - self.xmin + 1
+
         subarray = self.array[i1:i2, j1:j2]
         # NB. The wcs is still accurate, since the sub-image uses the same (x,y) values
         # as the original image did for those pixels.  It's only once you recenter or
@@ -560,6 +581,57 @@ class Image(object):
             return self.setValue(*args)
         else:
             raise TypeError("image[..] requires either 1 or 2 args")
+
+    def wrap(self, bounds, hermitian=False):
+        if not isinstance(bounds, BoundsI):
+            raise TypeError("bounds must be a galsim.BoundsI instance")
+        # Get this at the start to check for invalid bounds and raise the exception before
+        # possibly writing data past the edge of the image.
+        if not hermitian:
+            return self._wrap(bounds, False, False)
+        elif hermitian == "x":
+            if self.bounds.xmin != 0:
+                raise _galsim.GalSimIncompatibleValuesError(
+                    "hermitian == 'x' requires self.bounds.xmin == 0",
+                    hermitian=hermitian,
+                    bounds=self.bounds,
+                )
+            if bounds.xmin != 0:
+                raise _galsim.GalSimIncompatibleValuesError(
+                    "hermitian == 'x' requires bounds.xmin == 0",
+                    hermitian=hermitian,
+                    bounds=bounds,
+                )
+            return self._wrap(bounds, True, False)
+        elif hermitian == "y":
+            if self.bounds.ymin != 0:
+                raise _galsim.GalSimIncompatibleValuesError(
+                    "hermitian == 'y' requires self.bounds.ymin == 0",
+                    hermitian=hermitian,
+                    bounds=self.bounds,
+                )
+            if bounds.ymin != 0:
+                raise _galsim.GalSimIncompatibleValuesError(
+                    "hermitian == 'y' requires bounds.ymin == 0",
+                    hermitian=hermitian,
+                    bounds=bounds,
+                )
+            return self._wrap(bounds, False, True)
+        else:
+            raise _galsim.GalSimValueError(
+                "Invalid value for hermitian", hermitian, (False, "x", "y")
+            )
+
+    def _wrap(self, bounds, hermx, hermy):
+        """A version of `wrap` without the sanity checks.
+
+        Equivalent to ``image.wrap(bounds, hermitian=='x', hermitian=='y')``.
+        """
+        # NOTE: Wrapping not yet implemented.
+        ret = self.subImage(bounds)
+        # print(bounds, hermx, hermy)
+        # _galsim.wrapImage(self._image, bounds._b, hermx, hermy)
+        return ret
 
     @_wraps(_galsim.Image.calculate_fft)
     def calculate_fft(self):
@@ -662,16 +734,16 @@ class Image(object):
         # Reference from GalSim C++
         # https://github.com/GalSim-developers/GalSim/blob/ece3bd32c1ae6ed771f2b489c5ab1b25729e0ea4/src/Image.cpp#L1009
         input_size = int(input_size)
-        if input <= 2:
+        if input_size <= 2:
             return 2
         # Reduce slightly to eliminate potential rounding errors:
-        insize = (1.0 - 1.0e-5) * input
-        log2n = np.log(2.0) * np.ceil(np.log(insize) / np.log(2.0))
-        log2n3 = np.log(3.0) + np.log(2.0) * np.ceil(
-            (np.log(insize) - np.log(3.0)) / np.log(2.0)
+        insize = (1.0 - 1.0e-5) * input_size
+        log2n = jnp.log(2.0) * jnp.ceil(jnp.log(insize) / jnp.log(2.0))
+        log2n3 = jnp.log(3.0) + jnp.log(2.0) * jnp.ceil(
+            (jnp.log(insize) - jnp.log(3.0)) / jnp.log(2.0)
         )
-        log2n3 = np.max(log2n3, np.log(6.0))  # must be even number
-        Nk = int(np.ceil(np.exp(np.min(log2n, log2n3)) - 1.0e-5))
+        log2n3 = max(log2n3, jnp.log(6.0))  # must be even number
+        Nk = int(jnp.ceil(jnp.exp(min(log2n, log2n3)) - 1.0e-5))
         return Nk
 
     def copyFrom(self, rhs):
@@ -755,12 +827,9 @@ class Image(object):
         Parameters:
             delta:  The amount to shift as a `PositionI`.
         """
-        # The parse_pos_args function is a bit slow, so go directly to this point when we
-        # call shift from setCenter or setOrigin.
-        if delta.x != 0 or delta.y != 0:
-            self._bounds = self._bounds.shift(delta)
-            if self.wcs is not None:
-                self.wcs = self.wcs.shiftOrigin(delta)
+        self._bounds = self._bounds.shift(delta)
+        if self.wcs is not None:
+            self.wcs = self.wcs.shiftOrigin(delta)
 
     @_wraps(_galsim.Image.setCenter)
     def setCenter(self, *args, **kwargs):
@@ -915,7 +984,7 @@ class Image(object):
         Parameters:
             replace_value:  The value with which to replace any negative pixels. [default: 0]
         """
-        self.array.at[self.array < 0].set(replace_value)
+        self._array = self.array.at[self.array < 0].set(replace_value)
 
     def __eq__(self, other):
         # Note that numpy.array_equal can return True if the dtypes of the two arrays involved are
@@ -942,8 +1011,8 @@ class Image(object):
     def tree_flatten(self):
         """Flatten the image into a list of values."""
         # Define the children nodes of the PyTree that need tracing
-        children = (self.array, self.wcs, self.bounds)
-        aux_data = {"dtype": self.dtype}
+        children = (self.array, self.wcs)
+        aux_data = {"dtype": self.dtype, "bounds": self.bounds}
         return (children, aux_data)
 
     @classmethod
@@ -952,7 +1021,7 @@ class Image(object):
         obj = object.__new__(cls)
         obj._array = children[0]
         obj.wcs = children[1]
-        obj._bounds = children[2]
+        obj._bounds = aux_data["bounds"]
         obj._dtype = aux_data["dtype"]
         return obj
 

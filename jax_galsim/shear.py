@@ -271,6 +271,15 @@ class Shear(object):
         theta = jnp.arctan2(R[1, 0], R[0, 0])
         return theta * radians
 
+    def __repr__(self):
+        return "galsim.Shear(%r)" % (self.shear)
+
+    def __str__(self):
+        return "galsim.Shear(g1=%s,g2=%s)" % (self.g1, self.g2)
+
+    def __hash__(self):
+        return hash(self._g)
+
     def tree_flatten(self):
         children = (self._g,)
         return (children, None)

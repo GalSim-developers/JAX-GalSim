@@ -1,5 +1,7 @@
 import galsim as _galsim
+import jax
 import jax.numpy as jnp
+import numpy as np
 from jax._src.numpy.util import _wraps
 
 from jax_galsim.gsparams import GSParams
@@ -189,30 +191,31 @@ class GSObject:
         return self.tree_unflatten(aux_data, children)
 
     def withScaledFlux(self, flux_ratio):
-        from jax_galsim.transform import _Transform
+        from jax_galsim.transform import Transform
 
-        return _Transform(self, flux_ratio=flux_ratio)
+        return Transform(self, flux_ratio=flux_ratio)
 
+    @_wraps(_galsim.GSObject.expand)
+    def expand(self, scale):
+        from jax_galsim.transform import Transform
+
+        return Transform(self, jac=[scale, 0.0, 0.0, scale])
+
+    @_wraps(_galsim.GSObject.dilate)
+    def dilate(self, scale):
+        from jax_galsim.transform import Transform
+
+        # equivalent to self.expand(scale) * (1./scale**2)
+        return Transform(self, jac=[scale, 0.0, 0.0, scale], flux_ratio=scale**-2)
+
+    @_wraps(_galsim.GSObject.magnify)
+    def magnify(self, mu):
+        return self.expand(jnp.sqrt(mu))
+
+    @_wraps(_galsim.GSObject.shear)
     def shear(self, *args, **kwargs):
-        """Create a version of the current object with an area-preserving shear applied to it.
-
-        The arguments may be either a `Shear` instance or arguments to be used to initialize one.
-
-        For more details about the allowed keyword arguments, see the `Shear` docstring.
-
-        The shear() method precisely preserves the area.  To include a lensing distortion with
-        the appropriate change in area, either use shear() with magnify(), or use lens(), which
-        combines both operations.
-
-        Parameters:
-            shear:      The `Shear` to be applied. Or, as described above, you may instead supply
-                        parameters do construct a shear directly.  eg. ``obj.shear(g1=g1,g2=g2)``.
-
-        Returns:
-            the sheared object.
-        """
-        from .shear import Shear
-        from .transform import Transform
+        from jax_galsim.shear import Shear
+        from jax_galsim.transform import Transform
 
         if len(args) == 1:
             shear = args[0]
@@ -246,9 +249,107 @@ class GSObject:
         Returns:
             the sheared object.
         """
-        from .transform import _Transform
+        from jax_galsim.transform import Transform
 
-        return _Transform(self, shear.getMatrix())
+        return Transform(self, shear.getMatrix())
+
+    def lens(self, g1, g2, mu):
+        """Create a version of the current object with both a lensing shear and magnification
+        applied to it.
+
+        This `GSObject` method applies a lensing (reduced) shear and magnification.  The shear must
+        be specified using the g1, g2 definition of shear (see `Shear` for more details).
+        This is the same definition as the outputs of the PowerSpectrum and NFWHalo classes, which
+        compute shears according to some lensing power spectrum or lensing by an NFW dark matter
+        halo.  The magnification determines the rescaling factor for the object area and flux,
+        preserving surface brightness.
+
+        Parameters:
+            g1:         First component of lensing (reduced) shear to apply to the object.
+            g2:         Second component of lensing (reduced) shear to apply to the object.
+            mu:         Lensing magnification to apply to the object.  This is the factor by which
+                        the solid angle subtended by the object is magnified, preserving surface
+                        brightness.
+
+        Returns:
+            the lensed object.
+        """
+        from jax_galsim.transform import Transform
+        from jax_galsim.shear import Shear
+
+        shear = Shear(g1=g1, g2=g2)
+        return Transform(self, shear.getMatrix() * jnp.sqrt(mu))
+
+    def _lens(self, g1, g2, mu):
+        """Equivalent to `GSObject.lens`, but without the overhead of some of the sanity checks.
+
+        Also, it won't propagate any noise attribute.
+
+        Parameters:
+            g1:         First component of lensing (reduced) shear to apply to the object.
+            g2:         Second component of lensing (reduced) shear to apply to the object.
+            mu:         Lensing magnification to apply to the object.  This is the factor by which
+                        the solid angle subtended by the object is magnified, preserving surface
+                        brightness.
+
+        Returns:
+            the lensed object.
+        """
+        from .shear import _Shear
+        from .transform import Transform
+
+        shear = _Shear(g1 + 1j * g2)
+        return Transform(self, shear.getMatrix() * jnp.sqrt(mu))
+
+    def rotate(self, theta):
+        """Rotate this object by an `Angle` ``theta``.
+
+        Parameters:
+            theta:      Rotation angle (`Angle` object, positive means anticlockwise).
+
+        Returns:
+            the rotated object.
+
+        Note: Not differentiable with respect to theta (yet).
+        """
+        from coord.angle import Angle
+        from jax_galsim.transform import Transform
+
+        if not isinstance(theta, Angle):
+            raise TypeError("Input theta should be an Angle")
+        s, c = theta.sincos()
+        return Transform(self, jac=[c, -s, s, c])
+
+    @_wraps(_galsim.GSObject.transform)
+    def transform(self, dudx, dudy, dvdx, dvdy):
+        from jax_galsim.transform import Transform
+
+        return Transform(self, jac=[dudx, dudy, dvdx, dvdy])
+
+    @_wraps(_galsim.GSObject.shift)
+    def shift(self, *args, **kwargs):
+        from jax_galsim.transform import Transform
+
+        offset = parse_pos_args(args, kwargs, "dx", "dy")
+        return Transform(self, offset=offset)
+
+    def _shift(self, dx, dy):
+        """Equivalent to `shift`, but without the overhead of sanity checks or option
+        to give the shift as a PositionD.
+
+        Also, it won't propagate any noise attribute.
+
+        Parameters:
+            dx:         The x-component of the shift to apply
+            dy:         The y-component of the shift to apply
+
+        Returns:
+            the shifted object.
+        """
+        from jax_galsim.transform import Transform
+
+        new_obj = Transform(self, offset=(dx, dy))
+        return new_obj
 
     # Make sure the image is defined with the right size and wcs for drawImage()
     def _setup_image(
@@ -495,6 +596,8 @@ class GSObject:
         setup_only=False,
         surface_ops=None,
     ):
+        from jax_galsim.box import Pixel
+        from jax_galsim.convolve import Convolve
         from jax_galsim.wcs import PixelScale
 
         # Figure out what wcs we are going to use.
@@ -531,22 +634,57 @@ class GSObject:
 
         local_wcs = local_wcs.shiftOrigin(offset)
 
+        # If necessary, convolve by the pixel
+        if method in ("auto", "fft", "real_space"):
+            if method == "auto":
+                real_space = None
+            elif method == "fft":
+                real_space = False
+            else:
+                real_space = True
+            prof = Convolve(
+                prof,
+                Pixel(scale=1.0, gsparams=self.gsparams),
+                real_space=real_space,
+                gsparams=self.gsparams,
+            )
+
         # Make sure image is setup correctly
         image = prof._setup_image(image, nx, ny, bounds, add_to_image, dtype, center)
+        image_in = (
+            image  # For compatibility with normal galsim, we update image_in below.
+        )
         image.wcs = wcs
 
         if setup_only:
             image.added_flux = 0.0
             return image
 
+        if method == "phot":
+            raise NotImplementedError("Phot shooting not yet implemented in drawImage")
+        if sensor is not None:
+            raise NotImplementedError("Sensor not yet implemented in drawImage")
+
         # Making a view of the image lets us change the center without messing up the original.
         original_center = image.center
         wcs = image.wcs
         image.setCenter(0, 0)
         image.wcs = PixelScale(1.0)
-        image = prof.drawReal(image, add_to_image)
+
+        if prof.is_analytic_x:
+            added_photons, image = prof.drawReal(image, add_to_image)
+        else:
+            added_photons, image = prof.drawFFT(image, add_to_image)
+
+        image.added_flux = added_photons / flux_scale
+        # Restore the original center and wcs
         image.shift(original_center)
         image.wcs = wcs
+
+        # Update image_in to satisfy GalSim API
+        image_in._array = image._array
+        image_in.added_flux = image.added_flux
+        image_in._bounds = image.bounds
         return image
 
     @_wraps(_galsim.GSObject.drawReal)
@@ -557,9 +695,9 @@ class GSObject:
             )
         im1 = self._drawReal(image)
         if add_to_image:
-            return image + im1
+            return im1.array.sum(dtype=float), image + im1
         else:
-            return im1
+            return im1.array.sum(dtype=float), im1
 
     def _drawReal(self, image, jac=None, offset=(0.0, 0.0), flux_scaling=1.0):
         """A version of `drawReal` without the sanity checks or some options.
@@ -572,22 +710,8 @@ class GSObject:
             "%s does not implement drawReal" % self.__class__.__name__
         )
 
+    @_wraps(_galsim.GSObject.getGoodImageSize)
     def getGoodImageSize(self, pixel_scale):
-        """Return a good size to use for drawing this profile.
-
-        The size will be large enough to cover most of the flux of the object.  Specifically,
-        at least (1-gsparams.folding_threshold) (i.e. 99.5% by default) of the flux should fall
-        in the image.
-
-        Also, the returned size is always an even number, which is usually desired in practice.
-        Of course, if you prefer an odd-sized image, you can add 1 to the result.
-
-        Parameters:
-            pixel_scale:    The desired pixel scale of the image to be built.
-
-        Returns:
-            N, a good (linear) size of an image on which to draw this object.
-        """
         # Start with a good size from stepk and the pixel scale
         Nd = 2.0 * jnp.pi / (pixel_scale * self.stepk)
 
@@ -598,6 +722,249 @@ class GSObject:
         # Round up to an even value
         N = 2 * ((N + 1) // 2)
         return N
+
+    @_wraps(_galsim.GSObject.drawFFT_makeKImage)
+    def drawFFT_makeKImage(self, image):
+        from jax_galsim.bounds import BoundsI
+        from jax_galsim.image import ImageCD, ImageCF
+
+        # Before any computations, let's check if we actually have a choice based on the gsparams.
+        if self.gsparams.maximum_fft_size == self.gsparams.minimum_fft_size:
+            with jax.ensure_compile_time_eval():
+                Nk = self.gsparams.maximum_fft_size
+                N = Nk
+                dk = 2.0 * np.pi / (N * image.scale)
+        else:
+            # Start with what this profile thinks a good size would be given the image's pixel scale.
+            N = self.getGoodImageSize(image.scale)
+
+            # We must make something big enough to cover the target image size:
+            image_N = jnp.max(
+                jnp.array(
+                    [
+                        jnp.max(jnp.abs(jnp.array(image.bounds._getinitargs()))) * 2,
+                        jnp.max(jnp.array(image.bounds.numpyShape())),
+                    ]
+                )
+            )
+            N = jnp.max(jnp.array([N, image_N]))
+
+            # Round up to a good size for making FFTs:
+            N = image.good_fft_size(N)
+
+            # Make sure we hit the minimum size specified in the gsparams.
+            N = max(N, self.gsparams.minimum_fft_size)
+
+            dk = 2.0 * jnp.pi / (N * image.scale)
+
+            maxk = self.maxk
+            if N * dk / 2 > maxk:
+                Nk = N
+            else:
+                # There will be aliasing.  Make a larger image and then wrap it.
+                Nk = int(jnp.ceil(maxk / dk)) * 2
+
+            if Nk > self.gsparams.maximum_fft_size:
+                raise _galsim.GalSimFFTSizeError(
+                    "drawFFT requires an FFT that is too large.", Nk
+                )
+
+        bounds = BoundsI(0, Nk // 2, -Nk // 2, Nk // 2)
+        if image.dtype in (np.complex128, np.float64, np.int32, np.uint32):
+            kimage = ImageCD(bounds=bounds, scale=dk)
+        else:
+            kimage = ImageCF(bounds=bounds, scale=dk)
+        return kimage, N
+
+    def drawFFT_finish(self, image, kimage, wrap_size, add_to_image):
+        """
+        This is a helper routine for drawFFT that finishes the calculation, based on the
+        drawn k-space image.
+
+        It applies the Fourier transform to ``kimage`` and adds the result to ``image``.
+
+        Parameters:
+            image:          The `Image` onto which to place the flux.
+            kimage:         The k-space `Image` where the object was drawn.
+            wrap_size:      The size of the region to wrap kimage, which must be either the same
+                            size as kimage or smaller.
+            add_to_image:   Whether to add flux to the existing image rather than clear out
+                            anything in the image before drawing.
+
+        Returns:
+            The total flux drawn inside the image bounds.
+        """
+        from jax_galsim.bounds import BoundsI
+        from jax_galsim.image import Image
+
+        # Wrap the full image to the size we want for the FT.
+        # Even if N == Nk, this is useful to make this portion properly Hermitian in the
+        # N/2 column and N/2 row.
+        bwrap = BoundsI(0, wrap_size // 2, -wrap_size // 2, wrap_size // 2 - 1)
+        kimage_wrap = kimage._wrap(bwrap, True, False)
+
+        # Perform the fourier transform.
+        breal = BoundsI(
+            -wrap_size // 2, wrap_size // 2 - 1, -wrap_size // 2, wrap_size // 2 - 1
+        )
+        kimg_shift = jnp.fft.ifftshift(kimage_wrap.array, axes=(-2,))
+        real_image_arr = jnp.fft.fftshift(
+            jnp.fft.irfft2(kimg_shift, breal.numpyShape())
+        )
+        real_image = Image(
+            bounds=breal, array=real_image_arr, dtype=image.dtype, wcs=image.wcs
+        )
+        # Add (a portion of) this to the original image.
+        temp = real_image.subImage(image.bounds)
+        if add_to_image:
+            image = image + temp
+        else:
+            image = temp
+        added_photons = temp.array.sum(dtype=float)
+        return added_photons, image
+
+    def drawFFT(self, image, add_to_image=False):
+        """
+        Draw this profile into an `Image` by computing the k-space image and performing an FFT.
+
+        This is usually called from the `drawImage` function, rather than called directly by the
+        user.  In particular, the input image must be already set up with defined bounds.  The
+        profile will be drawn centered on whatever pixel corresponds to (0,0) with the given
+        bounds, not the image center (unlike `drawImage`).  The image also must have a `PixelScale`
+        wcs.  The profile being drawn should have already been converted to image coordinates via::
+
+            >>> image_profile = original_wcs.toImage(original_profile)
+
+        Note that the `Image` produced by drawFFT represents the profile sampled at the center
+        of each pixel and then multiplied by the pixel area.  That is, the profile is NOT
+        integrated over the area of the pixel.  This is equivalent to method='no_pixel' in
+        `drawImage`.  If you want to render a profile integrated over the pixel, you can convolve
+        with a `Pixel` first and draw that.
+
+        Parameters:
+            image:          The `Image` onto which to place the flux. [required]
+            add_to_image:   Whether to add flux to the existing image rather than clear out
+                            anything in the image before drawing. [default: False]
+
+        Returns:
+            The total flux drawn inside the image bounds.
+        """
+        if image.wcs is None or not image.wcs.isPixelScale:
+            raise _galsim.GalSimValueError(
+                "drawFFT requires an image with a PixelScale wcs", image
+            )
+
+        kimage, wrap_size = self.drawFFT_makeKImage(image)
+        kimage = self._drawKImage(kimage)
+        return self.drawFFT_finish(image, kimage, wrap_size, add_to_image)
+
+    @_wraps(_galsim.GSObject.drawKImage)
+    def drawKImage(
+        self,
+        image=None,
+        nx=None,
+        ny=None,
+        bounds=None,
+        scale=None,
+        add_to_image=False,
+        recenter=True,
+        bandpass=None,
+        setup_only=False,
+    ):
+        from jax_galsim.image import Image
+        from jax_galsim.wcs import PixelScale
+
+        # Make sure provided image is complex
+        if image is not None:
+            if not isinstance(image, Image):
+                raise TypeError("Provided image must be galsim.Image", image)
+
+            if not image.iscomplex:
+                raise _galsim.GalSimValueError("Provided image must be complex", image)
+
+        # Possibly get the scale from image.
+        if image is not None and scale is None:
+            # Grab the scale to use from the image.
+            # This will raise a TypeError if image.wcs is not a PixelScale
+            scale = image.scale
+
+        # The input scale (via scale or image.scale) is really a dk value, so call it that for
+        # clarity here, since we also need the real-space pixel scale, which we will call dx.
+        if scale is None or scale <= 0:
+            dk = self.stepk
+        else:
+            dk = scale
+        if image is not None and image.bounds.isDefined():
+            dx = np.pi / (max(image.array.shape) // 2 * dk)
+        elif scale is None or scale <= 0:
+            dx = self.nyquist_scale
+        else:
+            # Then dk = scale, which implies that we need to have dx smaller than nyquist_scale
+            # by a factor of (dk/stepk)
+            dx = self.nyquist_scale * dk / self.stepk
+
+        # If the profile needs to be constructed from scratch, the _setup_image function will
+        # do that, but only if the profile is in image coordinates for the real space image.
+        # So make that profile.
+        if image is None or not image.bounds.isDefined():
+            real_prof = PixelScale(dx).profileToImage(self)
+            dtype = np.complex128 if image is None else image.dtype
+            image = real_prof._setup_image(
+                image, nx, ny, bounds, add_to_image, dtype, center=None, odd=True
+            )
+        else:
+            # Do some checks that setup_image would have done for us
+            if bounds is not None:
+                raise _galsim.GalSimIncompatibleValuesError(
+                    "Cannot provide bounds if image is provided",
+                    bounds=bounds,
+                    image=image,
+                )
+            if nx is not None or ny is not None:
+                raise _galsim.GalSimIncompatibleValuesError(
+                    "Cannot provide nx,ny if image is provided",
+                    nx=nx,
+                    ny=ny,
+                    image=image,
+                )
+
+        # Can't both recenter a provided image and add to it.
+        if recenter and image.center != PositionI(0, 0) and add_to_image:
+            raise _galsim.GalSimIncompatibleValuesError(
+                "Cannot use add_to_image=True unless image is centered at (0,0) or recenter=False",
+                recenter=recenter,
+                image=image,
+                add_to_image=add_to_image,
+            )
+
+        # Set the center to 0,0 if appropriate
+        if recenter:
+            image._shift(-image.center)
+
+        # Set the wcs of the images to use the dk scale size
+        image.scale = dk
+
+        if setup_only:
+            return image
+        # For GalSim compatibility, we will attempt to update the input image
+        image_in = image
+        if not add_to_image and image.iscontiguous:
+            image = self._drawKImage(image)
+        else:
+            im2 = Image(bounds=image.bounds, dtype=image.dtype, scale=image.scale)
+            im2 = self._drawKImage(im2)
+            image += im2
+        image_in._array = image._array
+        image_in._bounds = image.bounds
+        return image
+
+    @_wraps(_galsim.GSObject._drawKImage)
+    def _drawKImage(
+        self, image, jac=None
+    ):  # pragma: no cover  (all our classes override this)
+        raise NotImplementedError(
+            "%s does not implement drawKImage" % self.__class__.__name__
+        )
 
     def tree_flatten(self):
         """This function flattens the GSObject into a list of children

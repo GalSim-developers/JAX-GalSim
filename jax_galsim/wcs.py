@@ -6,6 +6,7 @@ from jax.tree_util import register_pytree_node_class
 from jax_galsim.gsobject import GSObject
 from jax_galsim.position import Position, PositionD
 from jax_galsim.transform import _Transform
+from jax_galsim.shear import Shear
 
 
 # We inherit from the reference BaseWCS and only redefine the methods that
@@ -813,6 +814,48 @@ class JacobianWCS(LocalWCS):
                           [ dvdx, dvdy ]] )
         """
         return jnp.array([[self.dudx, self.dudy], [self.dvdx, self.dvdy]], dtype=float)
+
+    @_wraps(_galsim.JacobianWCS.getDecomposition)
+    def getDecomposition(self):
+        from coord.angle import radians
+
+        # First we need to see whether or not the transformation includes a flip.  The evidence
+        # for a flip is that the determinant is negative.
+        # if self._det == 0.:
+        #     raise GalSimError("Transformation is singular")
+
+        dudx, dudy, dvdx, dvdy = jnp.where(
+            self._det < 0.0,
+            jnp.array([self.dudy, self.dudx, self.dvdy, self.dvdx]),
+            jnp.array([self.dudx, self.dudy, self.dvdx, self.dvdy]),
+        )
+
+        flip = self._det < 0.0
+        scale = jnp.sqrt(jnp.abs(self._det))
+
+        # A small bit of algebraic manipulations yield the following two equations that let us
+        # determine theta:
+        #
+        # (dudx + dvdy) = 2 scale/sqrt(1-g^2) cos(t)
+        # (dvdx - dudy) = 2 scale/sqrt(1-g^2) sin(t)
+
+        C = dudx + dvdy
+        S = dvdx - dudy
+        theta = jnp.arctan2(S, C) * radians
+
+        # The next step uses the following equations that you can get from a bit more algebra:
+        #
+        # cost (dudx - dvdy) - sint (dudy + dvdx) = 2 scale/sqrt(1-g^2) g1
+        # sint (dudx - dvdy) + cost (dudy + dvdx) = 2 scale/sqrt(1-g^2) g2
+
+        factor = C * C + S * S  # factor = (2 scale/sqrt(1-g^2))^2
+        C /= factor  # C is now cost / (2 scale/sqrt(1-g^2))
+        S /= factor  # S is now sint / (2 scale/sqrt(1-g^2))
+
+        g1 = C * (dudx - dvdy) - S * (dudy + dvdx)
+        g2 = S * (dudx - dvdy) + C * (dudy + dvdx)
+
+        return scale, Shear(g1=g1, g2=g2), theta, flip
 
     def _minScale(self):
         # min scale is scale * (1-|g|) / sqrt(1-|g|^2)
