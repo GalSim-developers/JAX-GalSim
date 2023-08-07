@@ -44,7 +44,6 @@ incremented by one.
 """
 
 from __future__ import print_function
-
 import os
 import sys
 from unicodedata import decimal
@@ -52,10 +51,11 @@ from unicodedata import decimal
 sys.path.insert(
     1, os.path.abspath(os.path.join(os.path.dirname(__file__), "../GalSim/tests"))
 )
-import galsim
 import numpy as np
-from galsim._pyfits import pyfits
+
+import galsim
 from galsim_test_helpers import *
+from galsim._pyfits import pyfits
 
 # Setup info for tests, not likely to change
 ntypes = 8  # Note: Most tests below only run through the first 8 types.
