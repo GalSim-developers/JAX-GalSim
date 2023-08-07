@@ -351,6 +351,7 @@ class Transformation(GSObject):
 
         _jac = jnp.eye(2) if jac is None else jac
         image = apply_kImage_phases(self, image, _jac)
+
         image = image * self._flux_scaling
         return image
 
