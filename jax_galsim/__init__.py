@@ -26,13 +26,11 @@ from .bessel import J0
 
 # Basic building blocks
 from .bounds import Bounds, BoundsD, BoundsI
-from .box import Box, Pixel
-from .convolve import Convolution, Convolve
 
 # GSObject
 from .exponential import Exponential
 from .gaussian import Gaussian
-from .box import Pixel, Box
+from .box import Box, Pixel
 from .gsobject import GSObject
 from .gsparams import GSParams
 
@@ -57,8 +55,6 @@ from .interpolate import InterpolatedUnivariateSpline
 from .moffat import Moffat
 from .position import Position, PositionD, PositionI
 
-# Shear
-from .shear import Shear, _Shear
 from .sum import Add, Sum
 from .transform import Transform, Transformation
 from .convolve import Convolve, Convolution
@@ -72,3 +68,6 @@ from .wcs import (
     PixelScale,
     ShearWCS,
 )
+
+# Shear
+from .shear import Shear, _Shear
