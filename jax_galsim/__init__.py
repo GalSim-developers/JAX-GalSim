@@ -26,6 +26,8 @@ from .bessel import J0
 
 # Basic building blocks
 from .bounds import Bounds, BoundsD, BoundsI
+from .gsparams import GSParams
+from .position import Position, PositionD, PositionI
 
 # Image
 from .image import (
@@ -45,8 +47,7 @@ from .exponential import Exponential
 from .gaussian import Gaussian
 from .box import Box, Pixel
 from .gsobject import GSObject
-from .gsparams import GSParams
-from .position import Position, PositionD, PositionI
+
 
 # Integration
 from .integrate import ClenshawCurtisQuad, quad_integral
