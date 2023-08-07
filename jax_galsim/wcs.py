@@ -5,8 +5,8 @@ from jax.tree_util import register_pytree_node_class
 
 from jax_galsim.gsobject import GSObject
 from jax_galsim.position import Position, PositionD
-from jax_galsim.shear import Shear
 from jax_galsim.transform import _Transform
+from jax_galsim.shear import Shear
 
 
 # We inherit from the reference BaseWCS and only redefine the methods that
@@ -622,6 +622,8 @@ class PixelScale(LocalWCS):
 @_wraps(_galsim.ShearWCS)
 @register_pytree_node_class
 class ShearWCS(LocalWCS):
+    from jax_galsim.shear import Shear
+
     _req_params = {"scale": float, "shear": Shear}
 
     def __init__(self, scale, shear):
