@@ -3,7 +3,6 @@ from functools import partial
 import jax
 import jax.numpy as jnp
 
-###from jaxopt import Bisection  ###### for MoffatCalculateSRFromHLR
 import jax.scipy as jsc
 
 
@@ -131,11 +130,8 @@ class Moffat(GSObject):
         if trunc < 0.0:
             raise _galsim.GalSimRangeError("Moffat trunc must be >= 0", trunc, 0.0)
 
-        print("half_light_radius: ", half_light_radius)
         # Parse the radius options
         if half_light_radius is not None:
-            print("half_light_radius not None")
-
             if scale_radius is not None or fwhm is not None:
                 raise _galsim.GalSimIncompatibleValuesError(
                     "Only one of scale_radius, half_light_radius, or fwhm may be specified",
@@ -159,7 +155,6 @@ class Moffat(GSObject):
                     jnp.power(0.5, 1.0 / (1.0 - beta)) - 1.0
                 )
             else:
-                print("Use MoffatCalculateSRFromHLR")
                 self._r0 = MoffatCalculateSRFromHLR(self._hlr, trunc, beta)
 
             self._fwhm = self._r0 * (2.0 * jnp.sqrt(2.0 ** (1.0 / beta) - 1.0))
@@ -236,8 +231,8 @@ class Moffat(GSObject):
 
         # determination of maxK
         if trunc == 0:
-            ## JEC 8/7/23: new code w/o while_loop. Notice that some test using GalSim code itself leads to NaN for beta>=5.5 
-            ## (this should be investigated with GalSim Tests)    
+            ## JEC 8/7/23: new code w/o while_loop. Notice that some test using GalSim code itself leads to NaN for beta>=5.5
+            ## (this should be investigated with GalSim Tests)
 
             ## JEC 21/1/23: see issue #1208 in GalSim github as it seems there is an error
             ## in the expression used.
@@ -260,7 +255,7 @@ class Moffat(GSObject):
                 kcur, alpha = val
                 knew = (self._beta - 0.5) * jnp.log(kcur) + alpha  ## GalSim code
                 ## knew = (self._beta -1.5)* jnp.log(kcur/2) + alpha # My code
-                return knew, alpha 
+                return knew, alpha
 
             ## alpha = -jnp.log(self.gsparams.maxk_threshold * jnp.exp(jsc.special.gammaln(self._beta-1))/jnp.sqrt(jnp.pi) ) # My code
 
@@ -275,9 +270,8 @@ class Moffat(GSObject):
                 alpha,
                 alpha,
             )
-            val = jax.lax.fori_loop(0,5,body,val_init)
+            val = jax.lax.fori_loop(0, 5, body, val_init)
             maxk, alpha = val
-
 
             self._kV = self._kValue_untrunc
         else:
@@ -294,7 +288,6 @@ class Moffat(GSObject):
             ki = jnp.arange(
                 0.0, 50.0, dk
             )  # 50 is a max (GalSim) but it may be lowered if necessara
-            # print("JEC DBG trunc: dk=",dk," Nk= ",len(ki))
             _hankel1 = partial(
                 _xMoffatIntegrant,
                 beta=self._beta,
