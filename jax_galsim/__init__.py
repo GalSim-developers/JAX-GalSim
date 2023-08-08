@@ -22,7 +22,7 @@ from galsim.errors import (
 )
 
 # Bessel
-from .bessel import J0
+from .core.bessel import j0
 
 # Basic building blocks
 from .bounds import Bounds, BoundsD, BoundsI
@@ -50,10 +50,9 @@ from .gsobject import GSObject
 
 
 # Integration
-from .integrate import ClenshawCurtisQuad, quad_integral
+from .core.integrate import ClenshawCurtisQuad, quad_integral
 
 # Interpolation
-from .interpolate import InterpolatedUnivariateSpline
 from .moffat import Moffat
 
 from .sum import Add, Sum

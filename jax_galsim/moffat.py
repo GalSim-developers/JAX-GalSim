@@ -1,10 +1,6 @@
 from functools import partial
 
 import jax
-from jax.config import config
-
-config.update("jax_enable_x64", True)
-
 import jax.numpy as jnp
 
 ###from jaxopt import Bisection  ###### for MoffatCalculateSRFromHLR
@@ -15,9 +11,8 @@ from jax_galsim.gsobject import GSObject
 from jax_galsim.gsparams import GSParams
 from jax_galsim.core.draw import draw_by_xValue, draw_by_kValue
 
-from jax_galsim.bessel import J0
-from jax_galsim.integrate import ClenshawCurtisQuad, quad_integral
-from jax_galsim.interpolate import InterpolatedUnivariateSpline
+from jax_galsim.core.bessel import j0
+from jax_galsim.core.integrate import ClenshawCurtisQuad, quad_integral
 
 import galsim as _galsim
 from jax._src.numpy.util import _wraps
@@ -48,14 +43,14 @@ def _Knu(nu, x):
 
 # For truncated Hankel used in truncated Moffat
 def MoffatIntegrant(x, k, beta):
-    return x * jnp.power(1 + x**2, -beta) * J0(k * x)
+    return x * jnp.power(1 + x**2, -beta) * j0(k * x)
 
 
 def _xMoffatIntegrant(k, beta, rmax, quad):
     return quad_integral(partial(MoffatIntegrant, k=k, beta=beta), 0.0, rmax, quad)
 
 
-def MoffatCalculateSRFromHLR(re, rm, beta):
+def MoffatCalculateSRFromHLR(re, rm, beta, Nloop=1000):
     """
     The basic equation that is relevant here is the flux of a Moffat profile
     out to some radius.
@@ -78,60 +73,17 @@ def MoffatCalculateSRFromHLR(re, rm, beta):
         rm > jnp.sqrt(2.0) * re
     ), f"MoffatCalculateSRFromHLR: Cannot find a scaled radius: rm={rm}, sqrt(2)*re={jnp.sqrt(2.) * re}"
 
-    ## JEC : one way to solve close to the original GalSim but needs jaxopt.Bisection
-    ##     #find rd intervalle search [rmin, rmax]
-    ##     #rd min value: use untruncated rd value
-    ##     rmin = re / jnp.sqrt( jnp.power(0.5, 1./(1.-beta)) - 1.)
-    ##     #search rd max value gess 2*rmin and mult. by 2 while F(rmin)*F(rmax)>0
-    ##     def F(x,b,re,rm):
-    ##         return 2 * jnp.power(1 + (re/x)**2), 1 - b) - 1 - jnp.power(1 + (rm/x)**2, 1 - b)
-    ##     def body(val):
-    ##         Frmin, Frmax, rmax_cur,  Fparams= val
-    ##         b,re,rm = Fparams
-    ##         rmax_new =  rmax_cur*2
-    ##         Frmax = F(rmax_new,b=b,re=re,rm=rm)
-    ##         return Frmin, Frmax, rmax_new, Fparams
-    ##     def cond(val):
-    ##         Frmin, Frmax, rmax_cur,  Fparams= val
-    ##         return Frmax*Frmin>0
-
-    ##     Frmin = F(rmin,b=beta,re=re,rm=rm)
-    ##     rmax_cur = 2*rmin
-    ##     Frmax = F(rmax_cur,b=beta,re=re,rm=rm)
-    ##     Fparams = (psf_beta, psf_re, rm)
-    ##     val_init = (Frmin, Frmax, rmax_cur,  Fparams)
-    ##     val = jax.lax.while_loop(cond, body, val_init)
-    ##     Frmin, Frmax, rmax,  Fparams= val
-
-    ##     # find rd by Bisection
-    ##     bisec=Bisection(optimality_fun=F,lower=rmin,upper=rmax,check_bracket=False)
-    ##     rd = bisec.run(b=beta,re=re,rm=rm).params
-
-    ## JEC an iterative search which is faster for the same accuracy w/o the need to jaxopt
-    def body(val):
-        # decode val
-        xcur, dx, eps, re, rm, beta = val
+    ## JEC a fix loop iteration is faster and reach eps=1e-6 (single precision)
+    def body(i, xcur):
         xnew = re / jnp.sqrt(
             jnp.power(
                 (1 + jnp.power(1 + (rm / xcur) ** 2, 1 - beta)) / 2, 1 / (1 - beta)
             )
             - 1
         )
-        dx = jnp.abs(xnew - xcur)
-        return xnew, dx, eps, re, rm, beta
+        return xnew
 
-    def cond(val):
-        # decode val
-        xcur, dx, eps, re, rm, beta = val
-        return dx > eps
-
-    # init with goal accuracy of 1e-6 and rd = re
-    eps = 1e-6
-    val_init = (re, jnp.inf, eps, re, rm, beta)
-    val = jax.lax.while_loop(cond, body, val_init)
-
-    # extract the result, xcur=rd and notice that dx is the final accuracy <= init goal
-    rd, dx, eps, re, rm, beta = val
+    rd = jax.lax.fori_loop(0, Nloop, body, re)
 
     return rd
 
@@ -179,8 +131,11 @@ class Moffat(GSObject):
         if trunc < 0.0:
             raise _galsim.GalSimRangeError("Moffat trunc must be >= 0", trunc, 0.0)
 
+        print("half_light_radius: ", half_light_radius)
         # Parse the radius options
         if half_light_radius is not None:
+            print("half_light_radius not None")
+
             if scale_radius is not None or fwhm is not None:
                 raise _galsim.GalSimIncompatibleValuesError(
                     "Only one of scale_radius, half_light_radius, or fwhm may be specified",
@@ -204,6 +159,7 @@ class Moffat(GSObject):
                     jnp.power(0.5, 1.0 / (1.0 - beta)) - 1.0
                 )
             else:
+                print("Use MoffatCalculateSRFromHLR")
                 self._r0 = MoffatCalculateSRFromHLR(self._hlr, trunc, beta)
 
             self._fwhm = self._r0 * (2.0 * jnp.sqrt(2.0 ** (1.0 / beta) - 1.0))
@@ -280,9 +236,8 @@ class Moffat(GSObject):
 
         # determination of maxK
         if trunc == 0:
-            ## JEC 8/2/23: this code would have to be replaced by a direct use of K-fucntion
-            ##             by passing the approximation. This is the outcome of the issue
-            ##
+            ## JEC 8/7/23: new code w/o while_loop. Notice that some test using GalSim code itself leads to NaN for beta>=5.5 
+            ## (this should be investigated with GalSim Tests)    
 
             ## JEC 21/1/23: see issue #1208 in GalSim github as it seems there is an error
             ## in the expression used.
@@ -302,19 +257,12 @@ class Moffat(GSObject):
             ##
             def body(val):
                 # decode val
-                kcur, dk, eps, beta, alpha, i = val
-                knew = (beta - 0.5) * jnp.log(kcur) + alpha  ## GalSim code
-                ## knew = (beta -1.5)* jnp.log(kcur/2) + alpha # My
-                dk = jnp.abs(knew - kcur)
-                return knew, dk, eps, beta, alpha, i + 1
+                kcur, alpha = val
+                knew = (self._beta - 0.5) * jnp.log(kcur) + alpha  ## GalSim code
+                ## knew = (self._beta -1.5)* jnp.log(kcur/2) + alpha # My code
+                return knew, alpha 
 
-            def cond(val):
-                # decode val
-                kcur, dk, eps, beta, alpha, i = val
-                return i < 5  # Galsim code
-                ## return dk>eps # My (with the GalSim code using this leads 0.4% diff. with the loop i<5 cut
-
-            ## alpha = -jnp.log(self.gsparams.maxk_threshold * jnp.exp(jsc.special.gammaln(self._beta-1))/jnp.sqrt(jnp.pi) ) # My
+            ## alpha = -jnp.log(self.gsparams.maxk_threshold * jnp.exp(jsc.special.gammaln(self._beta-1))/jnp.sqrt(jnp.pi) ) # My code
 
             alpha = -jnp.log(
                 self.gsparams.maxk_threshold
@@ -322,17 +270,14 @@ class Moffat(GSObject):
                 * jnp.exp(jsc.special.gammaln(self._beta - 1))
                 / (2 * jnp.sqrt(jnp.pi))
             )  ## Galsim code
-            eps = 1e-6
+
             val_init = (
                 alpha,
-                jnp.inf,
-                eps,
-                self._beta,
                 alpha,
-                0,
-            )  # note the last item is only here to use GalSim code
-            val = jax.lax.while_loop(cond, body, val_init)
-            maxk, dk, eps, beta, alpha, i = val
+            )
+            val = jax.lax.fori_loop(0,5,body,val_init)
+            maxk, alpha = val
+
 
             self._kV = self._kValue_untrunc
         else:
