@@ -3,11 +3,14 @@ import jax.numpy as jnp
 
 
 @jax.jit
-def R(z, num,denom):
-  return jnp.polyval(num,z)/jnp.polyval(denom,z)
+def R(z, num, denom):
+    return jnp.polyval(num, z) / jnp.polyval(denom, z)
+
+
 @jax.jit
 def _evaluate_rational(z, num, denom):
-  return R(z,num[::-1],denom[::-1])
+    return R(z, num[::-1], denom[::-1])
+
 
 # jitted & vectorized version
 v_rational = jax.jit(jax.vmap(_evaluate_rational, in_axes=(0, None, None)))
