@@ -2,76 +2,12 @@ import jax
 import jax.numpy as jnp
 
 
+@jax.jit
+def R(z, num,denom):
+  return jnp.polyval(num,z)/jnp.polyval(denom,z)
+@jax.jit
 def _evaluate_rational(z, num, denom):
-    """Evaluate polynomial ratio P(z)/Q(z)
-
-
-    Inputs:
-        z: the argument (real scalar)
-        num: array of coefficients of P(z) = sum_i^N num[i] z^i
-        denom : array of coefficients of Q(z) = sum_i^N denom[i] z^i
-
-    Returns:
-        the  estimate of P(z)/Q(z)
-
-    Esamples::
-        >>> num = jnp.array([1.,2.,4.,-5.])
-        >>> denom = jnp.array([-0.5,2,-3,-10])
-        >>> _evaluate_rational(1.,num,denom) # DeviceArray(-0.17391304, dtype=float64)
-        >>> v_ratio = jax.vmap(_evaluate_rational, in_axes=(0,None, None))
-        >>> x=jnp.linspace(0,100,10000)
-        >>> plt.plot(x,v_ratio(x, num,denom))
-        >>> plt.xscale("log");
-        >>> vgrad_ratio = jax.vmap(jax.jacfwd(_evaluate_rational), in_axes=(0,None, None))
-        >>> plt.plot(x,vgrad_ratio(x, num,denom))
-
-    Requirements: len(num) = len(denom) = N
-    """
-    assert len(num) == len(
-        denom
-    ), "Num and Denom polynomial arrays must have same length"
-    count = len(num)
-
-    def true_fn_update(z):
-        def body_true(val1):
-            # decode val1
-            s1, s2, i = val1
-            s1 *= z
-            s2 *= z
-            s1 += num[i]
-            s2 += denom[i]
-            return s1, s2, i - 1
-
-        def cond_true(val1):
-            s1, s2, i = val1
-            return i >= 0
-
-        val1_init = (num[-1], denom[-1], count - 2)
-        s1, s2, _ = jax.lax.while_loop(cond_true, body_true, val1_init)
-
-        return s1 / s2
-
-    def false_fn_update(z):
-        def body_false(val1):
-            # decode val1
-            s1, s2, i = val1
-            s1 *= z
-            s2 *= z
-            s1 += num[i]
-            s2 += denom[i]
-            return s1, s2, i + 1
-
-        def cond_false(val1):
-            s1, s2, i = val1
-            return i < count
-
-        val1_init = (num[0], denom[0], 1)
-        s1, s2, _ = jax.lax.while_loop(cond_false, body_false, val1_init)
-
-        return s1 / s2
-
-    return jnp.where(z <= 1, true_fn_update(z), false_fn_update(1 / z))
-
+  return R(z,num[::-1],denom[::-1])
 
 # jitted & vectorized version
 v_rational = jax.jit(jax.vmap(_evaluate_rational, in_axes=(0, None, None)))
