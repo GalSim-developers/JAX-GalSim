@@ -52,6 +52,31 @@ def test_exponential_vmapping():
     )
 
 
+def test_moffat_vmapping():
+    # Test Moffat objects
+    fwhm_backwards_compatible = 1.3178976627539716
+    objects = [
+        galsim.Moffat(beta=5.0, flux=0.2, half_light_radius=1.0),
+        galsim.Moffat(
+            beta=2.0,
+            half_light_radius=1.0,
+            trunc=5 * fwhm_backwards_compatible,
+            flux=1.0,
+        ),
+    ]
+
+    # Test equality function from original galsim exponential.py
+    def test_eq(self, other):
+        return (
+            self.scale_radius == jnp.array([other.scale_radius, other.scale_radius])
+        ).all() and (self.flux == jnp.array([other.flux, other.flux])).all()
+
+    # Check that after vmapping the oject is still the same
+    assert all(
+        [test_eq(jax.vmap(galsim.Moffat)(**duplicate(o.params)), o) for o in objects]
+    )
+
+
 def eq_pos(pos, other):
     return (pos.x == jnp.array([other.x, other.x])).all() and (
         pos.y == jnp.array([other.y, other.y])

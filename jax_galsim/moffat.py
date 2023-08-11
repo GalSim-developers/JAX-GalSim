@@ -229,7 +229,7 @@ class Moffat(GSObject):
             ## k = (\beta -3/2)\log(k/2) + alpha
             ## starting with k = alpha
             ##
-            def body(val):
+            def body(i,val):
                 # decode val
                 kcur, alpha = val
                 knew = (self._beta - 0.5) * jnp.log(kcur) + alpha  ## GalSim code
