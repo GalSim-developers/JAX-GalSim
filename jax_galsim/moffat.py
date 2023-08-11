@@ -20,28 +20,14 @@ from jax.tree_util import register_pytree_node_class
 import tensorflow_probability as tfp
 
 
-##JEC 2/8/23
-##first import in the context of new JAX-Galsim repo
-
-
-##JEC 7/2/23
-## Truncated Moffat (start)
-
-
-##JEC 20/1/23
-## Moffat profile implementation
-## Nb: The maxK in case of trunc =0 differs from the GalSim implementation
-##     see https://github.com/GalSim-developers/GalSim/issues/1208
-##     To allow a comparison of GalSim/Jax-GalSim I code also the original GalSim expression
-
-
-# Modified Bessel 2nd kind for Untruncated Moffat
 def _Knu(nu, x):
+    """Modified Bessel 2nd kind for Untruncated Moffat"""
     return tfp.substrates.jax.math.bessel_kve(nu, x) / jnp.exp(jnp.abs(x))
 
 
-# For truncated Hankel used in truncated Moffat
+#
 def MoffatIntegrant(x, k, beta):
+    """For truncated Hankel used in truncated Moffat"""
     return x * jnp.power(1 + x**2, -beta) * j0(k * x)
 
 
@@ -67,12 +53,11 @@ def MoffatCalculateSRFromHLR(re, rm, beta, Nloop=1000):
     """
     assert rm != 0.0, f"MoffatCalculateSRFromHLR: rm=={rm} should be done elsewhere"
 
-    # Sould be verified before calling the function
     assert (
         rm > jnp.sqrt(2.0) * re
     ), f"MoffatCalculateSRFromHLR: Cannot find a scaled radius: rm={rm}, sqrt(2)*re={jnp.sqrt(2.) * re}"
 
-    ## JEC a fix loop iteration is faster and reach eps=1e-6 (single precision)
+    ## fix loop iteration is faster and reach eps=1e-6 (single precision)
     def body(i, xcur):
         xnew = re / jnp.sqrt(
             jnp.power(
@@ -104,17 +89,11 @@ class Moffat(GSObject):
         flux=1.0,
         gsparams=None,
     ):
-        # JEC notice that trunc==0. means no truncated Moffat. Care in the algo
-
-        # if trunc != 0.:
-        #    raise NotImplementedError("truncated Moffat Not yet fully implemented")
+        # notice that trunc==0. means no truncated Moffat.
 
         self._beta = beta
         self._trunc = trunc
 
-        # See GSObject         self._flux = flux
-
-        # Checking gsparams
         gsparams = GSParams.check(gsparams)
 
         # JEC in the following code that rd=r0=scale_radius
@@ -281,13 +260,12 @@ class Moffat(GSObject):
             maxk_val = (
                 gsparams.maxk_threshold
             )  # a for gaussian profile... this is f(k_max)/Flux = maxk_threshold
-            # we prepare a Spline interpolator for kValue computations
             dk = gsparams.table_spacing * jnp.sqrt(
                 jnp.sqrt(gsparams.kvalue_accuracy / 10.0)
             )
             ki = jnp.arange(
                 0.0, 50.0, dk
-            )  # 50 is a max (GalSim) but it may be lowered if necessara
+            )  # 50 is a max (GalSim) but it may be lowered if necessary
             _hankel1 = partial(
                 _xMoffatIntegrant,
                 beta=self._beta,
@@ -298,7 +276,6 @@ class Moffat(GSObject):
             self._v_hankel = jax.jit(jax.vmap(self._hankel))
             fki = self._v_hankel(ki)
             maxk = ki[jnp.abs(fki) > maxk_val][-1]
-            ##            self._spline = InterpolatedUnivariateSpline(ki**2,fki) # we use [k**2, f(k)]_i table
             self._kV = self._kvalue_trunc
 
         self._r0_sq = self._r0 * self._r0
@@ -416,10 +393,6 @@ class Moffat(GSObject):
     def _kvalue_trunc(self, kpos):
         """truncated version of _kValue"""
         ksq = (kpos.x**2 + kpos.y**2) * self._r0_sq
-
-        #        return jax.lax.select(ksq>2500., #50.**2
-        #                              0.,
-        #                              self._knorm * self._spline(ksq))
         k = jnp.sqrt(ksq)
         return jax.lax.select(k > 50.0, 0.0, self._knorm * self._hankel(k))
 
