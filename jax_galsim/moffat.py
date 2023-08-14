@@ -394,7 +394,7 @@ class Moffat(GSObject):
 
     @property
     def _has_hard_edges(self):
-        return self._trunc != 0.0
+        return self.trunc != 0.0
 
     @property
     def _max_sb(self):
