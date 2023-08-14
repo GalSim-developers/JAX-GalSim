@@ -348,7 +348,7 @@ class Moffat(GSObject):
     def _hankel(self, k):
         return self._hankel1(k) * self._prefactor
 
-    def v_hankel(self, k):
+    def _v_hankel(self, k):
         return jax.jit(jax.vmap(self._hankel))
 
     @property
