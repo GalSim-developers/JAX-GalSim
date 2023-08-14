@@ -198,15 +198,18 @@ class Moffat(GSObject):
     @property
     def _maxRrD(self):
         """maxR/rd ; fluxFactor Integral of total flux in terms of 'rD' units."""
-        if self.trunc > 0.0:
-            return self.trunc * self._inv_r0
-        else:
-            ## Set maxRrD to the radius where missing fractional flux is xvalue_accuracy
-            ## (1+(R/rd)^2)^(1-beta) = xvalue_accuracy
-            ## JEC: notice this is w/o the Moffat normalisation
-            return jnp.sqrt(
+        return jax.lax.select(
+            self.trunc > 0.0,
+            self.trunc * self._inv_r0,
+            jnp.sqrt(
                 jnp.power(self.gsparams.xvalue_accuracy, 1.0 / (1.0 - self.beta)) - 1.0
-            )
+            ),
+        )
+
+    @property
+    def _maxR(self):
+        """maximum r"""
+        return self._maxRrD * self._r0
 
     @property
     def _maxRrD_sq(self):
