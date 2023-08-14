@@ -52,11 +52,11 @@ def MoffatCalculateSRFromHLR(re, rm, beta, Nloop=1000):
          BUT the case rm==0 is already done, so HERE rm != 0
     """
     # JEC Where to do these checking?
-    #assert rm != 0.0, f"MoffatCalculateSRFromHLR: rm=={rm} should be done elsewhere"
+    # assert rm != 0.0, f"MoffatCalculateSRFromHLR: rm=={rm} should be done elsewhere"
     #
-    #assert (
+    # assert (
     #    rm > jnp.sqrt(2.0) * re
-    #), f"MoffatCalculateSRFromHLR: Cannot find a scaled radius: rm={rm}, sqrt(2)*re={jnp.sqrt(2.) * re}"
+    # ), f"MoffatCalculateSRFromHLR: Cannot find a scaled radius: rm={rm}, sqrt(2)*re={jnp.sqrt(2.) * re}"
 
     ## fix loop iteration is faster and reach eps=1e-6 (single precision)
     def body(i, xcur):
@@ -98,15 +98,14 @@ class Moffat(GSObject):
         self._beta_thr = 1.1
 
         # JEC Where to do these checking?
-        #if trunc == 0.0 and beta <= _beta_thr:
+        # if trunc == 0.0 and beta <= _beta_thr:
         #    raise _galsim.GalSimRangeError(
         #        f"Moffat profiles with beta <= {_beta_thr} must be truncated",
         #        beta,
         #        _beta_thr,
         #    )
-        #if trunc < 0.0:
+        # if trunc < 0.0:
         #    raise _galsim.GalSimRangeError("Moffat trunc must be >= 0", trunc, 0.0)
-
 
         # Parse the radius options
         if half_light_radius is not None:
@@ -118,8 +117,13 @@ class Moffat(GSObject):
                     fwhm=fwhm,
                 )
             else:
-                super().__init__(beta=beta, half_light_radius=half_light_radius, trunc=trunc,
-                                 flux=flux, gsparams=gsparams)
+                super().__init__(
+                    beta=beta,
+                    half_light_radius=half_light_radius,
+                    trunc=trunc,
+                    flux=flux,
+                    gsparams=gsparams,
+                )
         elif fwhm is not None:
             if scale_radius is not None:
                 raise _galsim.GalSimIncompatibleValuesError(
@@ -129,8 +133,9 @@ class Moffat(GSObject):
                     fwhm=fwhm,
                 )
             else:
-                super().__init__(beta=beta, fwhm=fwhm, trunc=trunc,
-                                 flux=flux, gsparams=gsparams)
+                super().__init__(
+                    beta=beta, fwhm=fwhm, trunc=trunc, flux=flux, gsparams=gsparams
+                )
         elif scale_radius is None:
             raise _galsim.GalSimIncompatibleValuesError(
                 "One of scale_radius, half_light_radius, or fwhm must be specified",
@@ -139,8 +144,13 @@ class Moffat(GSObject):
                 fwhm=fwhm,
             )
         else:
-            super().__init__(beta=beta, scale_radius=scale_radius, trunc=trunc,
-                            flux=flux, gsparams=gsparams)
+            super().__init__(
+                beta=beta,
+                scale_radius=scale_radius,
+                trunc=trunc,
+                flux=flux,
+                gsparams=gsparams,
+            )
 
     @property
     def beta(self):
@@ -157,33 +167,37 @@ class Moffat(GSObject):
         """The scale radius of this `Moffat` profile."""
         if "half_light_radius" in self.params:
             hlr = self.params["half_light_radius"]
-            return jax.lax.select(self.trunc >0,   
-                                  MoffatCalculateSRFromHLR(hlr, self.trunc, self.beta),
-                                  hlr / jnp.sqrt(jnp.power(0.5, 1.0 / (1.0 - self.beta)) - 1.0)
+            return jax.lax.select(
+                self.trunc > 0,
+                MoffatCalculateSRFromHLR(hlr, self.trunc, self.beta),
+                hlr / jnp.sqrt(jnp.power(0.5, 1.0 / (1.0 - self.beta)) - 1.0),
             )
         elif "fwhm" in self.params:
-            return self.params["fwhm"]/(2.0 * jnp.sqrt(2.0 ** (1.0 / self.beta) - 1.0))
+            return self.params["fwhm"] / (
+                2.0 * jnp.sqrt(2.0 ** (1.0 / self.beta) - 1.0)
+            )
         else:
             return self.params["scale_radius"]
-
 
     @property
     def _r0(self):
         return self.scale_radius
+
     @property
     def _inv_r0(self):
         return 1.0 / self._r0
+
     @property
     def _r0_sq(self):
-        return  self._r0 * self._r0
+        return self._r0 * self._r0
+
     @property
     def _inv_r0_sq(self):
-        return  self._inv_r0 * self._inv_r0
+        return self._inv_r0 * self._inv_r0
 
     @property
     def _maxRrD(self):
-        """ maxR/rd ; fluxFactor Integral of total flux in terms of 'rD' units.
-        """
+        """maxR/rd ; fluxFactor Integral of total flux in terms of 'rD' units."""
         if self.trunc > 0.0:
             return self.trunc * self._inv_r0
         else:
@@ -193,15 +207,17 @@ class Moffat(GSObject):
             return jnp.sqrt(
                 jnp.power(self.gsparams.xvalue_accuracy, 1.0 / (1.0 - self.beta)) - 1.0
             )
+
     @property
     def _maxRrD_sq(self):
         return self._maxRrD * self._maxRrD
 
     @property
     def _fluxFactor(self):
-        return jax.lax.select(self.trunc > 0.0, 
-                              1.0 - jnp.power(1 + self._maxRrD * self._maxRrD, (1.0 - self.beta))
-                              ,1.0
+        return jax.lax.select(
+            self.trunc > 0.0,
+            1.0 - jnp.power(1 + self._maxRrD * self._maxRrD, (1.0 - self.beta)),
+            1.0,
         )
 
     @property
@@ -220,29 +236,26 @@ class Moffat(GSObject):
         if "fwhm" in self.params:
             return self.params["fwhm"]
         else:
-            return  self._r0 * (2.0 * jnp.sqrt(2.0 ** (1.0 / self.beta) - 1.0))
-        
+            return self._r0 * (2.0 * jnp.sqrt(2.0 ** (1.0 / self.beta) - 1.0))
+
     @property
     def _norm(self):
-        """ Normalisation f(x) (trunc=0)
-        """
+        """Normalisation f(x) (trunc=0)"""
         return self.flux * (self.beta - 1) / (jnp.pi * self._fluxFactor * self._r0**2)
 
     @property
     def _knorm(self):
-        """ Normalisation f(k) (trunc = 0, k=0)
-        """
+        """Normalisation f(k) (trunc = 0, k=0)"""
         return self.flux
 
     @property
     def _knorm_bis(self):
-        """ Normalisation f(k) (trunc = 0; k=/= 0)
-        """
+        """Normalisation f(k) (trunc = 0; k=/= 0)"""
         return (
             self.flux
             * 4.0
             / (jnp.power(2.0, self.beta) * jnp.exp(jax.lax.lgamma(self.beta - 1.0)))
-        ) 
+        )
 
     def __hash__(self):
         return hash(
@@ -273,7 +286,7 @@ class Moffat(GSObject):
 
     @property
     def _maxk_untrunc(self):
-        """untruncated Moffat maxK """
+        """untruncated Moffat maxK"""
         ## JEC 8/7/23: new code w/o while_loop. Notice that some test using GalSim code itself leads to NaN for beta>=5.5
         ## (this should be investigated with GalSim Tests)
 
@@ -293,7 +306,7 @@ class Moffat(GSObject):
         ## k = (\beta -3/2)\log(k/2) + alpha
         ## starting with k = alpha
         ##
-        def body(i,val):
+        def body(i, val):
             # decode val
             kcur, alpha = val
             knew = (self.beta - 0.5) * jnp.log(kcur) + alpha  ## GalSim code
@@ -304,10 +317,10 @@ class Moffat(GSObject):
 
         alpha = -jnp.log(
             self.gsparams.maxk_threshold
-                * jnp.power(2.0, self.beta - 0.5)
-                * jnp.exp(jsc.special.gammaln(self.beta - 1))
-                / (2 * jnp.sqrt(jnp.pi))
-            )  ## Galsim code
+            * jnp.power(2.0, self.beta - 0.5)
+            * jnp.exp(jsc.special.gammaln(self.beta - 1))
+            / (2 * jnp.sqrt(jnp.pi))
+        )  ## Galsim code
 
         val_init = (
             alpha,
@@ -315,11 +328,11 @@ class Moffat(GSObject):
         )
         val = jax.lax.fori_loop(0, 5, body, val_init)
         maxk, alpha = val
-        return maxk/self._r0
+        return maxk / self._r0
 
     @property
     def _maxk_trunc(self):
-        """ truncated Moffat maxK """
+        """truncated Moffat maxK"""
 
         prefactor = 2.0 * (self.beta - 1.0) / (self._fluxFactor)
         maxk_val = (
@@ -341,23 +354,26 @@ class Moffat(GSObject):
         self._v_hankel = jax.jit(jax.vmap(self._hankel))
         fki = self._v_hankel(ki)
         maxk = ki[jnp.abs(fki) > maxk_val][-1]
-        return maxk/self._r0
+        return maxk / self._r0
 
     @property
     def _maxk(self):
-        return jax.lax.select(self.trunc>0, self._maxk_trunc, self._maxk_untrunc )
-    
+        return jax.lax.select(self.trunc > 0, self._maxk_trunc, self._maxk_untrunc)
+
     @property
     def _stepk_lowbeta(self):
         # implicit trunc>0 => _maxR= trunc
-        #    then flux never converges (or nearly so), 
+        #    then flux never converges (or nearly so),
         #   => so just use truncation radius
         return jnp.pi / self._maxR
-    
+
     @property
     def _stepk_highbeta(self):
         # ignore the 1 in (1+R^2), so approximately
-        R = jnp.power(self.gsparams.folding_threshold, 0.5 / (1.0 - self.beta)) * self._r0
+        R = (
+            jnp.power(self.gsparams.folding_threshold, 0.5 / (1.0 - self.beta))
+            * self._r0
+        )
         if R > self._maxR:
             R = self._maxR
         # at least R should be 5 HLR
@@ -366,14 +382,15 @@ class Moffat(GSObject):
             R = R5hlr
         return jnp.pi / R
 
-
     @property
     def _stepk(self):
-        """ The fractional flux out to radius R is (if not truncated)
-            1 - (1+(R/rd)^2)^(1-beta)
-            So solve (1+(R/rd)^2)^(1-beta) = folding_threshold
+        """The fractional flux out to radius R is (if not truncated)
+        1 - (1+(R/rd)^2)^(1-beta)
+        So solve (1+(R/rd)^2)^(1-beta) = folding_threshold
         """
-        return jax.lax.select(self.beta <= self._beta_thr, self._stepk_lowbeta, self._stepk_highbeta)
+        return jax.lax.select(
+            self.beta <= self._beta_thr, self._stepk_lowbeta, self._stepk_highbeta
+        )
 
     @property
     def _has_hard_edges(self):
@@ -407,8 +424,9 @@ class Moffat(GSObject):
         return jax.lax.select(k > 50.0, 0.0, self._knorm * self._hankel(k))
 
     def _kValue(self, kpos):
-        return jax.lax.select(self.trunc>0,  self._kvalue_trunc(kpos), self._kValue_untrunc(kpos))
-            
+        return jax.lax.select(
+            self.trunc > 0, self._kvalue_trunc(kpos), self._kValue_untrunc(kpos)
+        )
 
     def _drawReal(self, image, jac=None, offset=(0.0, 0.0), flux_scaling=1.0):
         _jac = jnp.eye(2) if jac is None else jac
@@ -426,12 +444,9 @@ class Moffat(GSObject):
             flux=flux,
             gsparams=self.gsparams,
         )
-    
-    #@classmethod
-    #def tree_unflatten(cls, aux_data, children):
+
+    # @classmethod
+    # def tree_unflatten(cls, aux_data, children):
     #    """Recreates an instance of the class from flatten representation"""
     #    obj = object.__new__(cls)
     #    return obj
-
-
-
