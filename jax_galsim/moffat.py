@@ -333,11 +333,25 @@ class Moffat(GSObject):
         maxk, alpha = val
         return maxk / self._r0
 
+    def _hankel1(self,k):
+        return partial(
+            _xMoffatIntegrant,
+            beta=self.beta,
+            rmax=self._maxRrD,
+            quad=ClenshawCurtisQuad.init(150),
+        )
+    @property
+    def _prefactor(self):
+        return  2.0 * (self.beta - 1.0) / (self._fluxFactor)
+    
+    def _hankel(self,k):
+        return self._hankel1(k) * self._prefactor
+    def v_hankel(self,k):
+        return jax.jit(jax.vmap(self._hankel))
+
     @property
     def _maxk_trunc(self):
         """truncated Moffat maxK"""
-
-        prefactor = 2.0 * (self.beta - 1.0) / (self._fluxFactor)
         maxk_val = (
             self.gsparams.maxk_threshold
         )  # a for gaussian profile... this is f(k_max)/Flux = maxk_threshold
@@ -347,14 +361,6 @@ class Moffat(GSObject):
         ki = jnp.arange(
             0.0, 50.0, dk
         )  # 50 is a max (GalSim) but it may be lowered if necessary
-        _hankel1 = partial(
-            _xMoffatIntegrant,
-            beta=self.beta,
-            rmax=self._maxRrD,
-            quad=ClenshawCurtisQuad.init(150),
-        )
-        self._hankel = lambda k: _hankel1(k) * prefactor
-        self._v_hankel = jax.jit(jax.vmap(self._hankel))
         fki = self._v_hankel(ki)
         maxk = ki[jnp.abs(fki) > maxk_val][-1]
         return maxk / self._r0
