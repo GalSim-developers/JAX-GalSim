@@ -47,13 +47,20 @@ def test_exponential_jitting():
     assert all([test_eq(identity(o), o) for o in objects])
 
 
-def test_moffat_jiiting():
+def test_moffat_jitting():
     # Test Moffat objects
     fwhm_backwards_compatible = 1.3178976627539716
     objects = [
-        galsim.Moffat(beta=5.0, flux=0.2, half_light_radius=1.0, gsparams=gsparams),
-        galsim.Moffat(beta=2.0, half_light_radius=1.0, trunc=5*fwhm_backwards_compatible, flux=1.0, gsparams=gsparams)
+        galsim.Moffat(beta=5.0, flux=0.2, scale_radius=1.0, gsparams=gsparams),
+        galsim.Moffat(
+            beta=2.0,
+            half_light_radius=1.0,
+            trunc=5 * fwhm_backwards_compatible,
+            flux=1.0,
+            gsparams=gsparams,
+        ),
     ]
+
     # Test equality function from original galsim moffat.py
     def test_eq(self, other):
         return (
@@ -64,7 +71,6 @@ def test_moffat_jiiting():
 
     # Check that after jitting the oject is still the same
     assert all([test_eq(identity(o), o) for o in objects])
-
 
 
 def test_pixel_jitting():
