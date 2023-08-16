@@ -418,22 +418,36 @@ class Moffat(GSObject):
     def _kValue_untrunc(self, kpos):
         """Non truncated version of _kValue"""
         k = jnp.sqrt((kpos.x**2 + kpos.y**2) * self._r0_sq)
-
-        return jax.lax.select(
-            k == 0,
-            self._knorm,
-            self._knorm_bis * jnp.power(k, self.beta - 1.0) * _Knu(self.beta - 1, k),
+        # return jax.lax.select(
+        #    k == 0,
+        #    self._knorm,
+        #    self._knorm_bis * jnp.power(k, self.beta - 1.0) * _Knu(self.beta - 1, k),
+        # )
+        return jnp.select(
+            [k > 0],
+            [self._knorm_bis * jnp.power(k, self.beta - 1.0) * _Knu(self.beta - 1, k)],
+            default=self._knorm,
         )
 
     def _kvalue_trunc(self, kpos):
         """truncated version of _kValue"""
         ksq = (kpos.x**2 + kpos.y**2) * self._r0_sq
         k = jnp.sqrt(ksq)
-        return jax.lax.select(k > 50.0, 0.0, self._knorm * self._hankel(k))
+        # return jax.lax.select(k > 50.0, 0.0, self._knorm * self._hankel(k))
+        _hankel = lambda x: partial(
+            _xMoffatIntegrant,
+            beta=self.beta,
+            rmax=self._maxRrD,
+            quad=ClenshawCurtisQuad.init(150),
+        )(x)
+        return jnp.select([k <= 50.0], [self._knorm * _hankel(k)], default=0.0)
 
     def _kValue(self, kpos):
-        return jax.lax.select(
-            self.trunc > 0, self._kvalue_trunc(kpos), self._kValue_untrunc(kpos)
+        return jax.lax.cond(
+            self.trunc > 0,
+            lambda x: self._kvalue_trunc(x),
+            lambda x: self._kValue_untrunc(x),
+            kpos,
         )
 
     def _drawReal(self, image, jac=None, offset=(0.0, 0.0), flux_scaling=1.0):
