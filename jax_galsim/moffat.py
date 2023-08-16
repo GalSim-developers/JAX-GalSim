@@ -333,23 +333,9 @@ class Moffat(GSObject):
         maxk, alpha = val
         return maxk / self._r0
 
-    def _hankel1(self, k):
-        return partial(
-            _xMoffatIntegrant,
-            beta=self.beta,
-            rmax=self._maxRrD,
-            quad=ClenshawCurtisQuad.init(150),
-        )
-
     @property
     def _prefactor(self):
         return 2.0 * (self.beta - 1.0) / (self._fluxFactor)
-
-    def _hankel(self, k):
-        return self._hankel1(k) * self._prefactor
-
-    def _v_hankel(self, k):
-        return jax.jit(jax.vmap(self._hankel))
 
     @property
     def _maxk_trunc(self):
@@ -363,8 +349,19 @@ class Moffat(GSObject):
         ki = jnp.arange(
             0.0, 50.0, dk
         )  # 50 is a max (GalSim) but it may be lowered if necessary
-        fki = self._v_hankel(ki)
-        maxk = ki[jnp.abs(fki) > maxk_val][-1]
+        fki_1 = jax.jit(
+            jax.vmap(
+                partial(
+                    _xMoffatIntegrant,
+                    beta=self.beta,
+                    rmax=self._maxRrD,
+                    quad=ClenshawCurtisQuad.init(150),
+                )
+            )
+        )(ki)
+        fki = fki_1 * self._prefactor
+        cond = jnp.abs(fki) > maxk_val
+        maxk = ki[cond][-1]
         return maxk / self._r0
 
     @property
