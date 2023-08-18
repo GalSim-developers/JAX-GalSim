@@ -440,7 +440,9 @@ class Moffat(GSObject):
             rmax=self._maxRrD,
             quad=ClenshawCurtisQuad.init(150),
         )(x)
-        return jnp.select([k <= 50.0], [self._knorm * _hankel(k)], default=0.0)
+        return jnp.select(
+            [k <= 50.0], [self._knorm * self._prefactor * _hankel(k)], default=0.0
+        )
 
     def _kValue(self, kpos):
         return jax.lax.cond(
