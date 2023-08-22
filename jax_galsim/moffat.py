@@ -25,7 +25,7 @@ def _Knu(nu, x):
     return tfp.substrates.jax.math.bessel_kve(nu, x) / jnp.exp(jnp.abs(x))
 
 
-#
+
 def MoffatIntegrant(x, k, beta):
     """For truncated Hankel used in truncated Moffat"""
     return x * jnp.power(1 + x**2, -beta) * j0(k * x)
@@ -33,6 +33,15 @@ def MoffatIntegrant(x, k, beta):
 
 def _xMoffatIntegrant(k, beta, rmax, quad):
     return quad_integral(partial(MoffatIntegrant, k=k, beta=beta), 0.0, rmax, quad)
+
+def _hankel(k, beta, rmax):
+    #k = jnp.atleast_1d(k)
+    return jax.vmap(partial(
+            _xMoffatIntegrant,
+            beta=beta,
+            rmax=rmax,
+            quad=ClenshawCurtisQuad.init(150)))(k)
+
 
 
 def MoffatCalculateSRFromHLR(re, rm, beta, Nloop=1000):
@@ -418,36 +427,43 @@ class Moffat(GSObject):
     def _kValue_untrunc(self, kpos):
         """Non truncated version of _kValue"""
         k = jnp.sqrt((kpos.x**2 + kpos.y**2) * self._r0_sq)
-        # return jax.lax.select(
+        k = jnp.atleast_1d(k)
+        #return jax.lax.select(
         #    k == 0,
         #    self._knorm,
         #    self._knorm_bis * jnp.power(k, self.beta - 1.0) * _Knu(self.beta - 1, k),
         # )
-        return jnp.select(
-            [k > 0],
-            [self._knorm_bis * jnp.power(k, self.beta - 1.0) * _Knu(self.beta - 1, k)],
-            default=self._knorm,
-        )
+        #return jnp.select(
+        #    [k > 0],
+        #    [self._knorm_bis * jnp.power(k, self.beta - 1.0) * _Knu(self.beta - 1, k)],
+        #    default=self._knorm,
+        #)
+        return jnp.where(k>0, 
+                         self._knorm_bis * jnp.power(k, self.beta - 1.0) * _Knu(self.beta - 1, k),
+                         self._knorm
+                         )
 
-    def _kvalue_trunc(self, kpos):
+    def _kValue_trunc(self, kpos):
         """truncated version of _kValue"""
-        ksq = (kpos.x**2 + kpos.y**2) * self._r0_sq
-        k = jnp.sqrt(ksq)
+        k = jnp.sqrt((kpos.x**2 + kpos.y**2) * self._r0_sq)
+        k = jnp.atleast_1d(k)
+        #_hankel = partial(
+        #    _xMoffatIntegrant,
+        #    beta=self.beta,
+        #    rmax=self._maxRrD,
+        #    quad=ClenshawCurtisQuad.init(150),
+        #)
         # return jax.lax.select(k > 50.0, 0.0, self._knorm * self._hankel(k))
-        _hankel = lambda x: partial(
-            _xMoffatIntegrant,
-            beta=self.beta,
-            rmax=self._maxRrD,
-            quad=ClenshawCurtisQuad.init(150),
-        )(x)
-        return jnp.select(
-            [k <= 50.0], [self._knorm * self._prefactor * _hankel(k)], default=0.0
-        )
-
+        #return jnp.select(
+        #    [k <= 50.0], [self._knorm * self._prefactor * _hankel(k)], default=0.0
+        #)
+        #return jnp.where(k <= 50.0, self._knorm * self._prefactor * _hankel(k), 0.0)
+        return jnp.where(k <= 50.0, self._knorm * self._prefactor * _hankel(k,self.beta, self._maxRrD), 0.0)
+    
     def _kValue(self, kpos):
         return jax.lax.cond(
             self.trunc > 0,
-            lambda x: self._kvalue_trunc(x),
+            lambda x: self._kValue_trunc(x),
             lambda x: self._kValue_untrunc(x),
             kpos,
         )
