@@ -35,7 +35,6 @@ def _xMoffatIntegrant(k, beta, rmax, quad):
     return quad_integral(partial(MoffatIntegrant, k=k, beta=beta), 0.0, rmax, quad)
 
 def _hankel(k, beta, rmax):
-    #k = jnp.atleast_1d(k)
     return jax.vmap(partial(
             _xMoffatIntegrant,
             beta=beta,
@@ -427,17 +426,6 @@ class Moffat(GSObject):
     def _kValue_untrunc(self, kpos):
         """Non truncated version of _kValue"""
         k = jnp.sqrt((kpos.x**2 + kpos.y**2) * self._r0_sq)
-        k = jnp.atleast_1d(k)
-        #return jax.lax.select(
-        #    k == 0,
-        #    self._knorm,
-        #    self._knorm_bis * jnp.power(k, self.beta - 1.0) * _Knu(self.beta - 1, k),
-        # )
-        #return jnp.select(
-        #    [k > 0],
-        #    [self._knorm_bis * jnp.power(k, self.beta - 1.0) * _Knu(self.beta - 1, k)],
-        #    default=self._knorm,
-        #)
         return jnp.where(k>0, 
                          self._knorm_bis * jnp.power(k, self.beta - 1.0) * _Knu(self.beta - 1, k),
                          self._knorm
@@ -446,18 +434,6 @@ class Moffat(GSObject):
     def _kValue_trunc(self, kpos):
         """truncated version of _kValue"""
         k = jnp.sqrt((kpos.x**2 + kpos.y**2) * self._r0_sq)
-        k = jnp.atleast_1d(k)
-        #_hankel = partial(
-        #    _xMoffatIntegrant,
-        #    beta=self.beta,
-        #    rmax=self._maxRrD,
-        #    quad=ClenshawCurtisQuad.init(150),
-        #)
-        # return jax.lax.select(k > 50.0, 0.0, self._knorm * self._hankel(k))
-        #return jnp.select(
-        #    [k <= 50.0], [self._knorm * self._prefactor * _hankel(k)], default=0.0
-        #)
-        #return jnp.where(k <= 50.0, self._knorm * self._prefactor * _hankel(k), 0.0)
         return jnp.where(k <= 50.0, self._knorm * self._prefactor * _hankel(k,self.beta, self._maxRrD), 0.0)
     
     def _kValue(self, kpos):
@@ -484,9 +460,3 @@ class Moffat(GSObject):
             flux=flux,
             gsparams=self.gsparams,
         )
-
-    # @classmethod
-    # def tree_unflatten(cls, aux_data, children):
-    #    """Recreates an instance of the class from flatten representation"""
-    #    obj = object.__new__(cls)
-    #    return obj
