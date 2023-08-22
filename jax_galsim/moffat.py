@@ -25,7 +25,6 @@ def _Knu(nu, x):
     return tfp.substrates.jax.math.bessel_kve(nu, x) / jnp.exp(jnp.abs(x))
 
 
-
 def MoffatIntegrant(x, k, beta):
     """For truncated Hankel used in truncated Moffat"""
     return x * jnp.power(1 + x**2, -beta) * j0(k * x)
@@ -34,13 +33,13 @@ def MoffatIntegrant(x, k, beta):
 def _xMoffatIntegrant(k, beta, rmax, quad):
     return quad_integral(partial(MoffatIntegrant, k=k, beta=beta), 0.0, rmax, quad)
 
-def _hankel(k, beta, rmax):
-    return jax.vmap(partial(
-            _xMoffatIntegrant,
-            beta=beta,
-            rmax=rmax,
-            quad=ClenshawCurtisQuad.init(150)))(k)
 
+def _hankel(k, beta, rmax):
+    return jax.vmap(
+        partial(
+            _xMoffatIntegrant, beta=beta, rmax=rmax, quad=ClenshawCurtisQuad.init(150)
+        )
+    )(k)
 
 
 def MoffatCalculateSRFromHLR(re, rm, beta, Nloop=1000):
@@ -68,13 +67,10 @@ def MoffatCalculateSRFromHLR(re, rm, beta, Nloop=1000):
 
     ## fix loop iteration is faster and reach eps=1e-6 (single precision)
     def body(i, xcur):
-        xnew = re / jnp.sqrt(
-            jnp.power(
-                (1 + jnp.power(1 + (rm / xcur) ** 2, 1 - beta)) / 2, 1 / (1 - beta)
-            )
-            - 1
-        )
-        return xnew
+        x = (1 + jnp.power(1 + (rm / xcur) ** 2, 1 - beta)) / 2
+        x = jnp.power(x, 1 / (1 - beta))
+        x = jnp.sqrt(x - 1)
+        return re / x
 
     rd = jax.lax.fori_loop(0, Nloop, body, re)
 
@@ -262,11 +258,10 @@ class Moffat(GSObject):
     @property
     def _knorm_bis(self):
         """Normalisation f(k) (trunc = 0; k=/= 0)"""
-        return (
-            self.flux
-            * 4.0
-            / (jnp.power(2.0, self.beta) * jnp.exp(jax.lax.lgamma(self.beta - 1.0)))
-        )
+        x1 = self.flux * 4
+        x2 = jnp.power(2.0, self.beta)
+        x3 = jnp.exp(jax.lax.lgamma(self.beta - 1.0))
+        return x1 / (x2 * x3)
 
     def __hash__(self):
         return hash(
@@ -297,41 +292,38 @@ class Moffat(GSObject):
 
     @property
     def _maxk_untrunc(self):
-        """untruncated Moffat maxK"""
-        ## JEC 8/7/23: new code w/o while_loop. Notice that some test using GalSim code itself leads to NaN for beta>=5.5
-        ## (this should be investigated with GalSim Tests)
+        """untruncated Moffat maxK
 
-        ## JEC 21/1/23: see issue #1208 in GalSim github as it seems there is an error
-        ## in the expression used.
+            The 2D Fourier Transform of f(r)=C (1+(r/rd)^2)^(-beta) leads
+             C rd^2 = Flux (beta-1)/pi (no truc)
+             and
+             f(k) = C rd^2 int_0^infty (1+x^2)^(-beta) J_0(krd x) x dx
+                  = 2 F (k rd /2)^(\beta-1) K[beta-1, k rd]/Gamma[beta-1]
+            with k->\infty asymptotic behavior
+                 f(k)/F \approx sqrt(pi)/Gamma(beta-1) e^(-k') (k'/2)^(beta -3/2) with k' = k rd
+            So we solve f(maxk)/F = thr  (aka maxk_threshold  in  gsparams.py)
+                leading to the iterative search of
+                let alpha = -log(thr Gamma(beta-1)/sqrt(pi))
+                k = (\beta -3/2)\log(k/2) + alpha
+                starting with k = alpha
 
-        ##The 2D Fourier Transform of f(r)=C (1+(r/rd)^2)^(-beta) leads
-        ## C rd^2 = Flux (beta-1)/pi (no truc)
-        ## and
-        ## f(k) = C rd^2 int_0^infty (1+x^2)^(-beta) J_0(krd x) x dx
-        ##      = 2 F (k rd /2)^(\beta-1) K[beta-1, k rd]/Gamma[beta-1]
-        ## with k->\infty asymptotic behavior
-        ## f(k)/F \approx sqrt(pi)/Gamma(beta-1) e^(-k') (k'/2)^(beta -3/2) with k' = k rd
-        ## So we solve f(maxk)/F = thr  (aka maxk_threshold  in  gsparams.py)
-        ## leading to the iterative search of
-        ## let alpha = -log(thr Gamma(beta-1)/sqrt(pi))
-        ## k = (\beta -3/2)\log(k/2) + alpha
-        ## starting with k = alpha
-        ##
+        note : in the code "alternative code" is related to issue #1208 in GalSim github
+        """
+
         def body(i, val):
-            # decode val
             kcur, alpha = val
-            knew = (self.beta - 0.5) * jnp.log(kcur) + alpha  ## GalSim code
-            ## knew = (self.beta -1.5)* jnp.log(kcur/2) + alpha # My code
+            knew = (self.beta - 0.5) * jnp.log(kcur) + alpha
+            ## knew = (self.beta -1.5)* jnp.log(kcur/2) + alpha # alternative code
             return knew, alpha
 
-        ## alpha = -jnp.log(self.gsparams.maxk_threshold * jnp.exp(jsc.special.gammaln(self._beta-1))/jnp.sqrt(jnp.pi) ) # My code
+        ## alpha = -jnp.log(self.gsparams.maxk_threshold * jnp.exp(jsc.special.gammaln(self._beta-1))/jnp.sqrt(jnp.pi) ) # alternative code
 
         alpha = -jnp.log(
             self.gsparams.maxk_threshold
             * jnp.power(2.0, self.beta - 0.5)
             * jnp.exp(jsc.special.gammaln(self.beta - 1))
             / (2 * jnp.sqrt(jnp.pi))
-        )  ## Galsim code
+        )
 
         val_init = (
             alpha,
@@ -426,16 +418,21 @@ class Moffat(GSObject):
     def _kValue_untrunc(self, kpos):
         """Non truncated version of _kValue"""
         k = jnp.sqrt((kpos.x**2 + kpos.y**2) * self._r0_sq)
-        return jnp.where(k>0, 
-                         self._knorm_bis * jnp.power(k, self.beta - 1.0) * _Knu(self.beta - 1, k),
-                         self._knorm
-                         )
+        return jnp.where(
+            k > 0,
+            self._knorm_bis * jnp.power(k, self.beta - 1.0) * _Knu(self.beta - 1, k),
+            self._knorm,
+        )
 
     def _kValue_trunc(self, kpos):
         """truncated version of _kValue"""
         k = jnp.sqrt((kpos.x**2 + kpos.y**2) * self._r0_sq)
-        return jnp.where(k <= 50.0, self._knorm * self._prefactor * _hankel(k,self.beta, self._maxRrD), 0.0)
-    
+        return jnp.where(
+            k <= 50.0,
+            self._knorm * self._prefactor * _hankel(k, self.beta, self._maxRrD),
+            0.0,
+        )
+
     def _kValue(self, kpos):
         return jax.lax.cond(
             self.trunc > 0,
