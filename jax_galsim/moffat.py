@@ -415,18 +415,16 @@ class Moffat(GSObject):
             rsq > self._maxRrD_sq, 0.0, self._norm * jnp.power(1.0 + rsq, -self.beta)
         )
 
-    def _kValue_untrunc(self, kpos):
+    def _kValue_untrunc(self, k):
         """Non truncated version of _kValue"""
-        k = jnp.sqrt((kpos.x**2 + kpos.y**2) * self._r0_sq)
         return jnp.where(
             k > 0,
             self._knorm_bis * jnp.power(k, self.beta - 1.0) * _Knu(self.beta - 1, k),
             self._knorm,
         )
 
-    def _kValue_trunc(self, kpos):
-        """truncated version of _kValue"""
-        k = jnp.sqrt((kpos.x**2 + kpos.y**2) * self._r0_sq)
+    def _kValue_trunc(self, k):
+        """Truncated version of _kValue"""
         return jnp.where(
             k <= 50.0,
             self._knorm * self._prefactor * _hankel(k, self.beta, self._maxRrD),
@@ -434,12 +432,22 @@ class Moffat(GSObject):
         )
 
     def _kValue(self, kpos):
-        return jax.lax.cond(
+        """computation of the Moffat response in k-space with switch of truncated/untracated case 
+            kpos can be a scalar or a vector (typically, scalar for debug and 2D considering an image)
+        """
+        k = jnp.sqrt((kpos.x**2 + kpos.y**2) * self._r0_sq)
+        nd = jnp.ndim(k)
+        k = jnp.atleast_1d(k)
+        res = jax.lax.cond(
             self.trunc > 0,
             lambda x: self._kValue_trunc(x),
             lambda x: self._kValue_untrunc(x),
-            kpos,
+            k,
         )
+        if nd==0:
+            return res[0]
+        else:
+            return res
 
     def _drawReal(self, image, jac=None, offset=(0.0, 0.0), flux_scaling=1.0):
         _jac = jnp.eye(2) if jac is None else jac
