@@ -19,12 +19,12 @@ from jax.tree_util import register_pytree_node_class
 
 import tensorflow_probability as tfp
 
-
+@jax.jit
 def _Knu(nu, x):
     """Modified Bessel 2nd kind for Untruncated Moffat"""
-    return tfp.substrates.jax.math.bessel_kve(nu, x) / jnp.exp(jnp.abs(x))
+    return tfp.substrates.jax.math.bessel_kve(nu*1.0, x) / jnp.exp(jnp.abs(x))
 
-
+@jax.jit
 def MoffatIntegrant(x, k, beta):
     """For truncated Hankel used in truncated Moffat"""
     return x * jnp.power(1 + x**2, -beta) * j0(k * x)
@@ -419,7 +419,7 @@ class Moffat(GSObject):
         """Non truncated version of _kValue"""
         return jnp.where(
             k > 0,
-            self._knorm_bis * jnp.power(k, self.beta - 1.0) * _Knu(self.beta - 1, k),
+            self._knorm_bis * jnp.power(k, self.beta - 1.0) * _Knu(self.beta - 1.0, k),
             self._knorm,
         )
 
