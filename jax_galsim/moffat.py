@@ -19,10 +19,12 @@ from jax.tree_util import register_pytree_node_class
 
 import tensorflow_probability as tfp
 
+
 @jax.jit
 def _Knu(nu, x):
     """Modified Bessel 2nd kind for Untruncated Moffat"""
-    return tfp.substrates.jax.math.bessel_kve(nu*1.0, x) / jnp.exp(jnp.abs(x))
+    return tfp.substrates.jax.math.bessel_kve(nu * 1.0, x) / jnp.exp(jnp.abs(x))
+
 
 @jax.jit
 def MoffatIntegrant(x, k, beta):
@@ -34,6 +36,7 @@ def _xMoffatIntegrant(k, beta, rmax, quad):
     return quad_integral(partial(MoffatIntegrant, k=k, beta=beta), 0.0, rmax, quad)
 
 
+@jax.jit
 def _hankel(k, beta, rmax):
     return jax.vmap(
         partial(
@@ -432,8 +435,8 @@ class Moffat(GSObject):
         )
 
     def _kValue(self, kpos):
-        """computation of the Moffat response in k-space with switch of truncated/untracated case 
-            kpos can be a scalar or a vector (typically, scalar for debug and 2D considering an image)
+        """computation of the Moffat response in k-space with switch of truncated/untracated case
+        kpos can be a scalar or a vector (typically, scalar for debug and 2D considering an image)
         """
         k = jnp.sqrt((kpos.x**2 + kpos.y**2) * self._r0_sq)
         nd = jnp.ndim(k)
@@ -444,7 +447,7 @@ class Moffat(GSObject):
             lambda x: self._kValue_untrunc(x),
             k,
         )
-        if nd==0:
+        if nd == 0:
             return res[0]
         else:
             return res
