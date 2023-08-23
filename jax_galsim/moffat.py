@@ -439,7 +439,7 @@ class Moffat(GSObject):
         kpos can be a scalar or a vector (typically, scalar for debug and 2D considering an image)
         """
         k = jnp.sqrt((kpos.x**2 + kpos.y**2) * self._r0_sq)
-        nd = jnp.ndim(k)
+        out_shape = jnp.shape(k)
         k = jnp.atleast_1d(k)
         res = jax.lax.cond(
             self.trunc > 0,
@@ -447,10 +447,7 @@ class Moffat(GSObject):
             lambda x: self._kValue_untrunc(x),
             k,
         )
-        if nd == 0:
-            return res[0]
-        else:
-            return res
+        return res.reshape(out_shape)
 
     def _drawReal(self, image, jac=None, offset=(0.0, 0.0), flux_scaling=1.0):
         _jac = jnp.eye(2) if jac is None else jac
