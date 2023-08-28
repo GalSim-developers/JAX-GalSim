@@ -177,7 +177,6 @@ def test_drawing_vmapping_and_jitting_gaussian_psf():
     assert arr[0].sum() < arr[1].sum()
 
 
-
 def test_drawing_vmapping_and_jitting_moffat_psf():
     gsparams = galsim.GSParams(minimum_fft_size=512, maximum_fft_size=512)
 
