@@ -197,7 +197,7 @@ def test_drawing_vmapping_and_jitting_moffat_psf():
         gal = gal.shear(g1=0.02, g2=0.0)
 
         # psf is just Gaussian
-        psf = galsim.Moffat(half_light_radius=0.7)
+        psf = galsim.Moffat(beta=2.0, half_light_radius=0.7)
 
         gal_conv = galsim.Convolution(gal, psf).withGSParams(gsparams)
 
