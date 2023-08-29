@@ -61,7 +61,6 @@ def j0(x):
             0.0,
         ]
     )
-    ##    assert len(P1) == len(Q1)
 
     P2 = jnp.array(
         [
@@ -87,7 +86,6 @@ def j0(x):
             1.0,
         ]
     )
-    ##      assert len(P2) == len(Q2)
 
     PC = jnp.array(
         [
@@ -110,8 +108,6 @@ def j0(x):
         ]
     )
 
-    ##      assert len(PC) == len(QC)
-
     PS = jnp.array(
         [
             -8.9226600200800094098e01,
@@ -132,7 +128,6 @@ def j0(x):
             1.0,
         ]
     )
-    ##    assert len(PS) == len(QS)
 
     x1 = 2.4048255576957727686e00
     x2 = 5.5200781102863106496e00

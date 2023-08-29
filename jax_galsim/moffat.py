@@ -38,11 +38,9 @@ def _xMoffatIntegrant(k, beta, rmax, quad):
 
 @jax.jit
 def _hankel(k, beta, rmax):
-    return jax.vmap(
-        partial(
-            _xMoffatIntegrant, beta=beta, rmax=rmax, quad=ClenshawCurtisQuad.init(150)
-        )
-    )(k)
+    quad = ClenshawCurtisQuad.init(150)
+    g = partial(_xMoffatIntegrant, beta=beta, rmax=rmax, quad=quad)
+    return jax.vmap(g)(k)
 
 
 def MoffatCalculateSRFromHLR(re, rm, beta, Nloop=1000):
@@ -61,12 +59,6 @@ def MoffatCalculateSRFromHLR(re, rm, beta, Nloop=1000):
     nb2. In GalSim definition rm = 0 (ex. no truncated Moffat) means in reality rm=+Inf.
          BUT the case rm==0 is already done, so HERE rm != 0
     """
-    # JEC Where to do these checking?
-    # assert rm != 0.0, f"MoffatCalculateSRFromHLR: rm=={rm} should be done elsewhere"
-    #
-    # assert (
-    #    rm > jnp.sqrt(2.0) * re
-    # ), f"MoffatCalculateSRFromHLR: Cannot find a scaled radius: rm={rm}, sqrt(2)*re={jnp.sqrt(2.) * re}"
 
     ## fix loop iteration is faster and reach eps=1e-6 (single precision)
     def body(i, xcur):
@@ -103,16 +95,6 @@ class Moffat(GSObject):
 
         # let define beta_thr a threshold to trigger the truncature
         self._beta_thr = 1.1
-
-        # JEC Where to do these checking?
-        # if trunc == 0.0 and beta <= _beta_thr:
-        #    raise _galsim.GalSimRangeError(
-        #        f"Moffat profiles with beta <= {_beta_thr} must be truncated",
-        #        beta,
-        #        _beta_thr,
-        #    )
-        # if trunc < 0.0:
-        #    raise _galsim.GalSimRangeError("Moffat trunc must be >= 0", trunc, 0.0)
 
         # Parse the radius options
         if half_light_radius is not None:
@@ -343,25 +325,16 @@ class Moffat(GSObject):
     @property
     def _maxk_trunc(self):
         """truncated Moffat maxK"""
-        maxk_val = (
-            self.gsparams.maxk_threshold
-        )  # a for gaussian profile... this is f(k_max)/Flux = maxk_threshold
+        # a for gaussian profile... this is f(k_max)/Flux = maxk_threshold
+        maxk_val = self.gsparams.maxk_threshold
         dk = self.gsparams.table_spacing * jnp.sqrt(
             jnp.sqrt(self.gsparams.kvalue_accuracy / 10.0)
         )
-        ki = jnp.arange(
-            0.0, 50.0, dk
-        )  # 50 is a max (GalSim) but it may be lowered if necessary
-        fki_1 = jax.jit(
-            jax.vmap(
-                partial(
-                    _xMoffatIntegrant,
-                    beta=self.beta,
-                    rmax=self._maxRrD,
-                    quad=ClenshawCurtisQuad.init(150),
-                )
-            )
-        )(ki)
+        # 50 is a max (GalSim) but it may be lowered if necessary
+        ki = jnp.arange(0.0, 50.0, dk)
+        quad = ClenshawCurtisQuad.init(150)
+        g = partial(_xMoffatIntegrant, beta=self.beta, rmax=self._maxRrD, quad=quad)
+        fki_1 = jax.jit(jax.vmap(g))(ki)
         fki = fki_1 * self._prefactor
         cond = jnp.abs(fki) > maxk_val
         maxk = ki[cond][-1]
