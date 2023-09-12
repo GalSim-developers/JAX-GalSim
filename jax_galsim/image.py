@@ -1,4 +1,3 @@
-import jax
 import jax.numpy as jnp
 import numpy as np
 
@@ -6,9 +5,9 @@ import galsim as _galsim
 from jax._src.numpy.util import _wraps
 from jax.tree_util import register_pytree_node_class
 
-from jax_galsim.position import PositionI, PositionD
+from jax_galsim.position import PositionI
 from jax_galsim.bounds import BoundsI, BoundsD
-from jax_galsim.wcs import BaseWCS, PixelScale, JacobianWCS
+from jax_galsim.wcs import BaseWCS, PixelScale
 from jax_galsim.utilities import parse_pos_args
 
 
@@ -16,8 +15,8 @@ from jax_galsim.utilities import parse_pos_args
     _galsim.Image,
     lax_description="""
 Contrary to GalSim native Image, this implementation does not support
-sharing of the underlying numpy array between different Images or Views. 
-This is due to the fact that in JAX numpy arrays are immutable, so any 
+sharing of the underlying numpy array between different Images or Views.
+This is due to the fact that in JAX numpy arrays are immutable, so any
 operation applied to this Image will create a new jnp.ndarray.
 
     In particular the followong methods will create a copy of the Image:
