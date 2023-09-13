@@ -4,6 +4,7 @@ interpolant classes. The code here assumes that all properties of the
 interpolants themselves (e.g., the coefficients that define the kernel
 shapes, the integrals of the kernels, etc.) are constants.
 """
+from functools import partial
 import galsim as _galsim
 from galsim.errors import GalSimValueError
 
@@ -58,20 +59,22 @@ class Interpolant:
         gsparams = GSParams.check(gsparams)
 
         # Do these in rough order of likelihood (most to least)
-        # FIXME commented for testing
         if name.lower() == "quintic":
             return Quintic(gsparams=gsparams)
-        # elif name.lower().startswith('lanczos'):
-        #     conserve_dc = True
-        #     if name[-1].upper() in ('T', 'F'):
-        #         conserve_dc = (name[-1].upper() == 'T')
-        #         name = name[:-1]
-        #     try:
-        #         n = int(name[7:])
-        #     except Exception:
-        #         raise GalSimValueError("Invalid Lanczos specification. Should look like "
-        #                                "lanczosN, where N is an integer", name) from None
-        #     return Lanczos(n, conserve_dc, gsparams=gsparams)
+        elif name.lower().startswith("lanczos"):
+            conserve_dc = True
+            if name[-1].upper() in ("T", "F"):
+                conserve_dc = name[-1].upper() == "T"
+                name = name[:-1]
+            try:
+                n = int(name[7:])
+            except Exception:
+                raise GalSimValueError(
+                    "Invalid Lanczos specification. Should look like "
+                    "lanczosN, where N is an integer",
+                    name,
+                ) from None
+            return Lanczos(n, conserve_dc, gsparams=gsparams)
         elif name.lower() == "linear":
             return Linear(gsparams=gsparams)
         elif name.lower() == "cubic":
@@ -644,3 +647,163 @@ class Quintic(Interpolant):
     def ixrange(self):
         """The total integral range of the interpolant.  Typically 2 * xrange."""
         return 6
+
+
+@_wraps(_galsim.interpolant.Lanczos)
+@register_pytree_node_class
+class Lanczos(Interpolant):
+    # these constants are from galsim itself via
+
+    # at include/Interpolant.h
+    _positive_flux = 1.1293413499280066555
+    _negative_flux = 0.1293413499280066555
+    # from galsim itself via the source at galsim.interpolant.Cubic
+    _unit_integrals = jnp.array([161.0 / 192, 3.0 / 32, -5.0 / 384], dtype=float)
+
+    def __init__(self, n, conserve_dc=True, tol=None, gsparams=None):
+        if tol is not None:
+            from galsim.deprecated import depr
+
+            depr("tol", 2.2, "gsparams=GSParams(kvalue_accuracy=tol)")
+            gsparams = GSParams(kvalue_accuracy=tol)
+        self._n = int(n)
+        self._conserve_dc = bool(conserve_dc)
+        self._gsparams = GSParams.check(gsparams)
+
+    def tree_flatten(self):
+        """This function flattens the Interpolant into a list of children
+        nodes that will be traced by JAX and auxiliary static data."""
+        # Define the children nodes of the PyTree that need tracing
+        children = tuple()
+        # Define auxiliary static data that doesn’t need to be traced
+        aux_data = {
+            "gsparams": self._gsparams,
+            "n": self._n,
+            "conserve_dc": self._conserve_dc,
+        }
+        return (children, aux_data)
+
+    @classmethod
+    def tree_unflatten(cls, aux_data, children):
+        """Recreates an instance of the class from flattened representation"""
+        n = aux_data.pop("n")
+        return cls(n, **aux_data)
+
+    def __repr__(self):
+        return "jax_galsim.Lanczos(%r, %r, gsparams=%r)" % (
+            self._n,
+            self._conserve_dc,
+            self._gsparams,
+        )
+
+    def __str__(self):
+        return "jax_galsim.Lanczos(%s)" % (self._n)
+
+    def xval(self, x):
+        """Calculate the value of the interpolant kernel at one or more x values
+
+        Parameters:
+            x:      The value (as a float) or values (as a np.array) at which to compute the
+                    amplitude of the Interpolant kernel.
+
+        Returns:
+            xval:   The value(s) at the x location(s).  If x was an array, then this is also
+                    an array.
+        """
+        if jnp.ndim(x) > 1:
+            raise GalSimValueError("kval only takes scalar or 1D array values", x)
+
+        # we use functions attached directly to the class rather than static methods
+        # this enables jax.jit which didn't react nicely with the @staticmethod decorator
+        # when I tried it - MRB
+        return self.__class__._xval(x, self._n)
+
+    def kval(self, k):
+        """Calculate the value of the interpolant kernel in Fourier space at one or more k values.
+
+        Parameters:
+            k:      The value (as a float) or values (as a np.array) at which to compute the
+                    amplitude of the Interpolant kernel in Fourier space.
+
+        Returns:
+            kval:   The k-value(s) at the k location(s).  If k was an array, then this is also
+                    an array.
+        """
+        if jnp.ndim(k) > 1:
+            raise GalSimValueError("kval only takes scalar or 1D array values", k)
+
+        # we use functions attached directly to the class rather than static methods
+        # this enables jax.jit which didn't react nicely with the @staticmethod decorator
+        # when I tried it - MRB
+        # Note: self._uval uses u = k/2pi rather than k.
+        return self.__class__._uval(k / 2.0 / jnp.pi, self._n)
+
+    # we use functions attached directly to the class rather than static methods
+    # this enables jax.jit which didn't react nicely with the @staticmethod decorator
+    # when I tried it - MRB
+    @partial(jax.jit, static_argnums=(1,))
+    def _xval(x, n):
+        @partial(jax.jit, static_argnums=(1,))
+        def _low(x, n):
+            # from galsim
+            # // res = n/(pi x)^2 * sin(pi x) * sin(pi x / n)
+            # //     ~= (1 - 1/6 pix^2) * (1 - 1/6 pix^2 / n^2)
+            # //     = 1 - 1/6 pix^2 ( 1 + 1/n^2 )
+            # // For x < 1.e-4, the errors in this approximation are less than 1.e-16.
+            pix = jnp.pi * x
+            temp = (1.0 / 6.0) * pix * pix
+            return 1.0 - temp * (1.0 + 1.0 / (n * n))
+
+        @partial(jax.jit, static_argnums=(1,))
+        def _high(x, n):
+            s = jnp.sin(jnp.pi * x)
+            sn = jnp.sin(jnp.pi * x / n)
+            return n / (jnp.pi * jnp.pi) * s * sn / (x * x)
+
+        return jnp.piecewise(
+            x,
+            [x < 1e-4],
+            [_low, _high],
+        )
+
+    # we use functions attached directly to the class rather than static methods
+    # this enables jax.jit which didn't react nicely with the @staticmethod decorator
+    # when I tried it - MRB
+    @partial(jax.jit, static_argnums=(1,))
+    def _uval(u, n):
+        # from galsim
+        # // F(u) = ( (vp+1) Si((vp+1)pi) - (vp-1) Si((vp-1)pi) +
+        # //          (vm-1) Si((vm-1)pi) - (vm+1) Si((vm+1)pi) ) / 2pi
+        vp = n * (2.0 * u + 1.0)
+        vm = n * (2.0 * u - 1.0)
+        retval = (
+            (vm - 1.0) * si(jnp.pi * (vm - 1.0))
+            - (vm + 1.0) * si(jnp.pi * (vm + 1.0))
+            - (vp - 1.0) * si(jnp.pi * (vp - 1.0))
+            + (vp + 1.0) * si(jnp.pi * (vp + 1.0))
+        )
+        return retval / (2.0 * jnp.pi)
+
+    def urange(self):
+        """The maximum extent of the interpolant in Fourier space (in 2pi/pixels)."""
+        assert False
+
+    @property
+    def n(self):
+        """The order of the Lanczos function."""
+        return self._n
+
+    @property
+    def conserve_dc(self):
+        """Whether this interpolant is modified to improve flux conservation."""
+        return self._conserve_dc
+
+    @property
+    def xrange(self):
+        """The maximum extent of the interpolant from the origin (in pixels)."""
+        return self._n
+
+    @property
+    def ixrange(self):
+        """The total integral range of the interpolant.  Typically 2 * xrange."""
+        return 2 * self._n

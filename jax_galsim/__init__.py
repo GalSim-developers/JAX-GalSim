@@ -70,6 +70,7 @@ from .interpolant import (
     Linear,
     Cubic,
     Quintic,
+    Lanczos,
 )
 
 # packages kept separate

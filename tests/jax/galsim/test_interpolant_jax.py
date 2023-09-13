@@ -204,26 +204,29 @@ def test_interpolant_smoke():
     print("Quintic sum = ", np.sum(q.xval(x)))
     assert np.isclose(np.sum(q.xval(x)), 7.0)
 
-    #     # Lanczos
-    #     l3 = galsim.Lanczos(3)
-    #     assert l3.gsparams == galsim.GSParams()
-    #     assert l3.conserve_dc == True
-    #     assert l3.n == 3
-    #     assert l3.xrange == l3.n
-    #     assert l3.ixrange == 2*l3.n
-    #     assert np.isclose(l3.krange, 2.*np.pi * l3._i.urange())  # No analytic version for this one.
-    #     print(l3.positive_flux, l3.negative_flux)
-    #     assert np.isclose(l3.positive_flux, 1.1793639)  # Empirical -- this is a regression test
-    #     assert np.isclose(l3.negative_flux, l3.positive_flux-1., rtol=1.e-4)
-    #     do_pickle(l3, test_func)
-    #     do_pickle(galsim.Lanczos(n=7, conserve_dc=False))
-    #     do_pickle(galsim.Lanczos(3))
-    #     do_pickle(galsim.Interpolant.from_name('lanczos7'))
-    #     do_pickle(galsim.Interpolant.from_name('lanczos9F'))
-    #     do_pickle(galsim.Interpolant.from_name('lanczos8T'))
-    #     assert_raises(ValueError, galsim.Interpolant.from_name, 'lanczos3A')
-    #     assert_raises(ValueError, galsim.Interpolant.from_name, 'lanczosF')
-    #     assert_raises(ValueError, galsim.Interpolant.from_name, 'lanzos')
+    # Lanczos
+    l3 = galsim.Lanczos(3)
+    assert l3.gsparams == galsim.GSParams()
+    assert l3.conserve_dc is True
+    assert l3.n == 3
+    assert l3.xrange == l3.n
+    assert l3.ixrange == 2 * l3.n
+    assert np.isclose(
+        l3.krange, 2.0 * np.pi * l3._i.urange()
+    )  # No analytic version for this one.
+    print(l3.positive_flux, l3.negative_flux)
+    assert np.isclose(
+        l3.positive_flux, 1.1793639
+    )  # Empirical -- this is a regression test
+    assert np.isclose(l3.negative_flux, l3.positive_flux - 1.0, rtol=1.0e-4)
+    do_pickle(galsim.Lanczos(n=7, conserve_dc=False))
+    do_pickle(galsim.Lanczos(3))
+    do_pickle(galsim.Interpolant.from_name("lanczos7"))
+    do_pickle(galsim.Interpolant.from_name("lanczos9F"))
+    do_pickle(galsim.Interpolant.from_name("lanczos8T"))
+    assert_raises(ValueError, galsim.Interpolant.from_name, "lanczos3A")
+    assert_raises(ValueError, galsim.Interpolant.from_name, "lanczosF")
+    assert_raises(ValueError, galsim.Interpolant.from_name, "lanzos")
 
     #     # Note: 1-7 all have special case code, so check them. 8 uses the generic code.
     #     for n in [1, 2, 3, 4, 5, 6, 7, 8]:
