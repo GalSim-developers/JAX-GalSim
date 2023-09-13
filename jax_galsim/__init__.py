@@ -60,3 +60,16 @@ from .wcs import (
 
 # Shear
 from .shear import Shear, _Shear
+
+# Interpolations
+from .interpolant import (
+    Interpolant,
+    Delta,
+    Nearest,
+    SincInterpolant,
+    Linear,
+    Cubic,
+)
+
+# packages kept separate
+from . import bessel

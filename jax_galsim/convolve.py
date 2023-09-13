@@ -180,7 +180,7 @@ class Convolution(GSObject):
     def __hash__(self):
         return hash(
             (
-                "galsim.Convolution",
+                "jax_galsim.Convolution",
                 tuple(self.obj_list),
                 self.real_space,
                 self.gsparams,
@@ -190,7 +190,7 @@ class Convolution(GSObject):
 
     def __repr__(self):
         return (
-            "galsim.Convolution(%r, real_space=%r, gsparams=%r, propagate_gsparams=%r)"
+            "jax_galsim.Convolution(%r, real_space=%r, gsparams=%r, propagate_gsparams=%r)"
             % (
                 self.obj_list,
                 self.real_space,
@@ -201,7 +201,7 @@ class Convolution(GSObject):
 
     def __str__(self):
         str_list = [str(obj) for obj in self.obj_list]
-        s = "galsim.Convolve(%s" % (", ".join(str_list))
+        s = "jax_galsim.Convolve(%s" % (", ".join(str_list))
         if self.real_space:
             s += ", real_space=True"
         s += ")"

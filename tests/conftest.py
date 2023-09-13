@@ -42,6 +42,11 @@ def pytest_pycollect_makemodule(module_path, path, parent):
     module = pytest.Module.from_parent(parent, path=module_path)
     # Overwrites the galsim module
     module.obj.galsim = __import__("jax_galsim")
+
+    # make sure tests of pickling work by having the jax_galsim module available
+    # in the galsim test helper functions
+    if hasattr(module.obj, "do_pickle"):
+        module.obj.do_pickle.__globals__["jax_galsim"] = __import__("jax_galsim")
     return module
 
 
@@ -50,8 +55,6 @@ def pytest_report_teststatus(report, config):
     fail for a reason authorized in the config file.
     """
     if report.when == "call" and report.outcome == "allowed failure":
-        # It's an allowed failure, so let's mark it as such
-        report.outcome = "allowed failure"
         return report.outcome, "-", "ALLOWED FAILURE"
 
 
@@ -64,7 +67,7 @@ def pytest_runtest_logreport(report):
         # Ok, so we have a failure, let's see if it a failure we expect
         message = report.longrepr.reprcrash.message
         if any([t in message for t in test_config["allowed_failures"]]):
-            report.wasxfail = True
+            report.wasxfail = "allowed failure - %s" % message
             report.outcome = "allowed failure"
 
     yield report

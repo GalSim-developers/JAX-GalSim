@@ -79,17 +79,19 @@ class Exponential(GSObject):
             return self.params["scale_radius"] * Exponential._hlr_factor
 
     def __hash__(self):
-        return hash(("galsim.Exponential", self.scale_radius, self.flux, self.gsparams))
+        return hash(
+            ("jax_galsim.Exponential", self.scale_radius, self.flux, self.gsparams)
+        )
 
     def __repr__(self):
-        return "galsim.Exponential(scale_radius=%r, flux=%r, gsparams=%r)" % (
+        return "jax_galsim.Exponential(scale_radius=%r, flux=%r, gsparams=%r)" % (
             self.scale_radius,
             self.flux,
             self.gsparams,
         )
 
     def __str__(self):
-        s = "galsim.Exponential(scale_radius=%s" % self.scale_radius
+        s = "jax_galsim.Exponential(scale_radius=%s" % self.scale_radius
         s += ", flux=%s" % self.flux
         s += ")"
         return s

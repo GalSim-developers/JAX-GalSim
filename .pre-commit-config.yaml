@@ -5,3 +5,10 @@ repos:
     - id: black
       language: python
       exclude: tests/GalSim/
+  - repo: https://github.com/pycqa/flake8
+    rev: 3.9.2
+    hooks:
+    - id: flake8
+      entry: pflake8
+      additional_dependencies: [pyproject-flake8]
+      exclude: tests/

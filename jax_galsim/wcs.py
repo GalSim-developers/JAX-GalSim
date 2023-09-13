@@ -613,7 +613,7 @@ class PixelScale(LocalWCS):
         )
 
     def __repr__(self):
-        return "galsim.PixelScale(%r)" % self.scale
+        return "jax_galsim.PixelScale(%r)" % self.scale
 
     def __hash__(self):
         return hash(repr(self))
@@ -719,7 +719,7 @@ class ShearWCS(LocalWCS):
         )
 
     def __repr__(self):
-        return "galsim.ShearWCS(%r, %r)" % (self.scale, self.shear)
+        return "jax_galsim.ShearWCS(%r, %r)" % (self.scale, self.shear)
 
     def __hash__(self):
         return hash(repr(self))
@@ -913,7 +913,7 @@ class JacobianWCS(LocalWCS):
         )
 
     def __repr__(self):
-        return "galsim.JacobianWCS(%r, %r, %r, %r)" % (
+        return "jax_galsim.JacobianWCS(%r, %r, %r, %r)" % (
             self.dudx,
             self.dudy,
             self.dvdx,
@@ -1006,7 +1006,7 @@ class OffsetWCS(UniformWCS):
         return OffsetWCS(self._scale, self.origin, self.world_origin)
 
     def __repr__(self):
-        return "galsim.OffsetWCS(%r, %r, %r)" % (
+        return "jax_galsim.OffsetWCS(%r, %r, %r)" % (
             self.scale,
             self.origin,
             self.world_origin,
@@ -1059,7 +1059,7 @@ class OffsetShearWCS(UniformWCS):
         return OffsetShearWCS(self.scale, self.shear, self.origin, self.world_origin)
 
     def __repr__(self):
-        return "galsim.OffsetShearWCS(%r, %r, %r, %r)" % (
+        return "jax_galsim.OffsetShearWCS(%r, %r, %r, %r)" % (
             self.scale,
             self.shear,
             self.origin,
@@ -1178,7 +1178,7 @@ class AffineTransform(UniformWCS):
 
     def __repr__(self):
         return (
-            "galsim.AffineTransform(%r, %r, %r, %r, origin=%r, world_origin=%r)"
+            "jax_galsim.AffineTransform(%r, %r, %r, %r, origin=%r, world_origin=%r)"
         ) % (
             self.dudx,
             self.dudy,
