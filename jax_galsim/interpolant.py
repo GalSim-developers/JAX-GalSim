@@ -72,15 +72,15 @@ class Interpolant:
         #         raise GalSimValueError("Invalid Lanczos specification. Should look like "
         #                                "lanczosN, where N is an integer", name) from None
         #     return Lanczos(n, conserve_dc, gsparams=gsparams)
-        if name.lower() == 'linear':
+        if name.lower() == "linear":
             return Linear(gsparams=gsparams)
-        elif name.lower() == 'cubic' :
+        elif name.lower() == "cubic":
             return Cubic(gsparams=gsparams)
         elif name.lower() == "nearest":
             return Nearest(gsparams=gsparams)
         elif name.lower() == "delta":
             return Delta(gsparams=gsparams)
-        elif name.lower() == 'sinc':
+        elif name.lower() == "sinc":
             return SincInterpolant(gsparams=gsparams)
         else:
             raise GalSimValueError(
@@ -225,7 +225,8 @@ class Interpolant:
     def xrange(self):
         """The maximum extent of the interpolant from the origin (in pixels)."""
         raise NotImplementedError(
-            "xrange is not implemented for interpolant type %s." % self.__class__.__name__
+            "xrange is not implemented for interpolant type %s."
+            % self.__class__.__name__
         )
 
     @property
@@ -241,7 +242,8 @@ class Interpolant:
     def urange(self):
         """The maximum extent of the interpolant in Fourier space (in 2pi/pixels)."""
         raise NotImplementedError(
-            "urange() is not implemented for interpolant type %s." % self.__class__.__name__
+            "urange() is not implemented for interpolant type %s."
+            % self.__class__.__name__
         )
 
     # subclasses should implement __init__, _xval, _uval,
@@ -422,9 +424,9 @@ class SincInterpolant(Interpolant):
         if not hasattr(self, "_unit_integrals") or n > len(self._unit_integrals):
             narr = jnp.arange(n)
             # these are constants so we do not propagate gradients
-            self._unit_integrals = jax.lax.stop_gradient((
-                si(jnp.pi * (narr + 0.5)) - si(jnp.pi * (narr - 0.5))
-            ) / jnp.pi)
+            self._unit_integrals = jax.lax.stop_gradient(
+                (si(jnp.pi * (narr + 0.5)) - si(jnp.pi * (narr - 0.5))) / jnp.pi
+            )
         return self._unit_integrals[:n]
 
 
@@ -435,7 +437,7 @@ class Linear(Interpolant):
     _negative_flux = 0.0
     # from galsim itself via
     # >>> galsim.Linear().unit_integrals()
-    _unit_integrals = jnp.array([0.75 , 0.125], dtype=float)
+    _unit_integrals = jnp.array([0.75, 0.125], dtype=float)
 
     def __init__(self, tol=None, gsparams=None):
         if tol is not None:
@@ -485,10 +487,10 @@ class Linear(Interpolant):
 class Cubic(Interpolant):
     # these constants are from galsim itself in the cpp layer
     # at include/Interpolant.h
-    _positive_flux = 13. / 12.
-    _negative_flux = 1. / 12.
+    _positive_flux = 13.0 / 12.0
+    _negative_flux = 1.0 / 12.0
     # from galsim itself via the source at galsim.interpolant.Cubic
-    _unit_integrals = jnp.array([161. / 192, 3. / 32, -5. / 384], dtype=float)
+    _unit_integrals = jnp.array([161.0 / 192, 3.0 / 32, -5.0 / 384], dtype=float)
 
     def __init__(self, tol=None, gsparams=None):
         if tol is not None:
@@ -506,13 +508,13 @@ class Cubic(Interpolant):
         x = jnp.abs(x)
 
         def _one(x):
-            return 1. + x * x * (1.5 * x - 2.5)
+            return 1.0 + x * x * (1.5 * x - 2.5)
 
         def _two(x):
-            return -0.5 * (x - 1.) * (x - 2.) * (x - 2.)
+            return -0.5 * (x - 1.0) * (x - 2.0) * (x - 2.0)
 
-        msk1 = x < 1.
-        msk2 = x < 2.
+        msk1 = x < 1.0
+        msk2 = x < 2.0
 
         return jnp.piecewise(
             x,
@@ -528,13 +530,15 @@ class Cubic(Interpolant):
         u = jnp.abs(u)
         s = jnp.sinc(u)
         c = jnp.cos(jnp.pi * u)
-        return s * s * s * (3. * s - 2. * c)
+        return s * s * s * (3.0 * s - 2.0 * c)
 
     def urange(self):
         """The maximum extent of the interpolant in Fourier space (in 2pi/pixels)."""
         # magic formula from galsim CPP layer in src/Interpolant.cpp
         return (
-            jnp.power((3. * jnp.sqrt(3.) / 8.) / self._gsparams.kvalue_accuracy, 1. / 3.)
+            jnp.power(
+                (3.0 * jnp.sqrt(3.0) / 8.0) / self._gsparams.kvalue_accuracy, 1.0 / 3.0
+            )
             / jnp.pi
         )
 
