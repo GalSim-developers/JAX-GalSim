@@ -59,8 +59,8 @@ class Interpolant:
 
         # Do these in rough order of likelihood (most to least)
         # FIXME commented for testing
-        # if name.lower() == 'quintic':
-        #     return Quintic(gsparams=gsparams)
+        if name.lower() == "quintic":
+            return Quintic(gsparams=gsparams)
         # elif name.lower().startswith('lanczos'):
         #     conserve_dc = True
         #     if name[-1].upper() in ('T', 'F'):
@@ -72,7 +72,7 @@ class Interpolant:
         #         raise GalSimValueError("Invalid Lanczos specification. Should look like "
         #                                "lanczosN, where N is an integer", name) from None
         #     return Lanczos(n, conserve_dc, gsparams=gsparams)
-        if name.lower() == "linear":
+        elif name.lower() == "linear":
             return Linear(gsparams=gsparams)
         elif name.lower() == "cubic":
             return Cubic(gsparams=gsparams)
@@ -551,3 +551,96 @@ class Cubic(Interpolant):
     def ixrange(self):
         """The total integral range of the interpolant.  Typically 2 * xrange."""
         return 4
+
+
+@_wraps(_galsim.interpolant.Quintic)
+@register_pytree_node_class
+class Quintic(Interpolant):
+    # these constants are from galsim itself in the cpp layer
+    # at include/Interpolant.h
+    _positive_flux = 1.1293413499280066555
+    _negative_flux = 0.1293413499280066555
+    # from galsim itself via the source at galsim.interpolant.Cubic
+    _unit_integrals = jnp.array([161.0 / 192, 3.0 / 32, -5.0 / 384], dtype=float)
+
+    def __init__(self, tol=None, gsparams=None):
+        if tol is not None:
+            from galsim.deprecated import depr
+
+            depr("tol", 2.2, "gsparams=GSParams(kvalue_accuracy=tol)")
+            gsparams = GSParams(kvalue_accuracy=tol)
+        self._gsparams = GSParams.check(gsparams)
+
+    # we use functions attached directly to the class rather than static methods
+    # this enables jax.jit which didn't react nicely with the @staticmethod decorator
+    # when I tried it - MRB
+    @jax.jit
+    def _xval(x):
+        x = jnp.abs(x)
+
+        def _one(x):
+            return 1.0 + x * x * x * (
+                -95.0 / 12.0 + x * (23.0 / 2.0 + x * (-55.0 / 12.0))
+            )
+
+        def _two(x):
+            return (
+                (x - 1.0)
+                * (x - 2.0)
+                * (
+                    -23.0 / 4.0
+                    + x * (29.0 / 2.0 + x * (-83.0 / 8.0 + x * (55.0 / 24.0)))
+                )
+            )
+
+        def _three(x):
+            return (
+                (x - 2.0)
+                * (x - 3.0)
+                * (x - 3.0)
+                * (-9.0 / 4.0 + x * (25.0 / 12.0 + x * (-11.0 / 24.0)))
+            )
+
+        msk1 = x <= 1.0
+        msk2 = x <= 2.0
+        msk3 = x <= 3.0
+
+        return jnp.piecewise(
+            x,
+            [msk1, (~msk1) & msk2, (~msk2) & msk3],
+            [_one, _two, _three, lambda x: jnp.array(0.0)],
+        )
+
+    # we use functions attached directly to the class rather than static methods
+    # this enables jax.jit which didn't react nicely with the @staticmethod decorator
+    # when I tried it - MRB
+    @jax.jit
+    def _uval(u):
+        u = jnp.abs(u)
+        s = jnp.sinc(u)
+        piu = jnp.pi * u
+        c = jnp.cos(piu)
+        ssq = s * s
+        piusq = piu * piu
+        return s * ssq * ssq * (s * (55.0 - 19.0 * piusq) + 2.0 * c * (piusq - 27.0))
+
+    def urange(self):
+        """The maximum extent of the interpolant in Fourier space (in 2pi/pixels)."""
+        # magic formula from galsim CPP layer in src/Interpolant.cpp
+        return (
+            jnp.power(
+                (25.0 * jnp.sqrt(5.0) / 108.0) / self._gsparams.kvalue_accuracy,
+                1.0 / 3.0,
+            )
+            / jnp.pi
+        )
+
+    @property
+    def xrange(self):
+        """The maximum extent of the interpolant from the origin (in pixels)."""
+        return 3.0
+
+    @property
+    def ixrange(self):
+        """The total integral range of the interpolant.  Typically 2 * xrange."""
+        return 6

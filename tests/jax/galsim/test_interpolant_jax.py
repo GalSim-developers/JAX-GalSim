@@ -151,39 +151,58 @@ def test_interpolant_smoke():
     print("Cubic sum = ", np.sum(c.xval(x)))
     assert np.isclose(np.sum(c.xval(x)), 7.0)
 
-    #     # Quintic
-    #     q = galsim.Quintic()
-    #     assert q.gsparams == galsim.GSParams()
-    #     assert q.xrange == 3.
-    #     assert q.ixrange == 6
-    #     assert np.isclose(q.krange, 2. * (5**2.5 / 108 / q.gsparams.kvalue_accuracy)**(1./3.))
-    #     assert np.isclose(q.krange, 2.*np.pi * q._i.urange())
-    #     assert np.isclose(q.positive_flux, (13018561. / 11595672.) + (17267. / 14494590.) * 31**0.5)
-    #     assert np.isclose(q.negative_flux, q.positive_flux-1.)
-    #     do_pickle(q, test_func)
-    #     do_pickle(galsim.Quintic())
-    #     do_pickle(galsim.Interpolant.from_name('quintic'))
+    # Quintic
+    q = galsim.Quintic()
+    assert q.gsparams == galsim.GSParams()
+    assert q.xrange == 3.0
+    assert q.ixrange == 6
+    assert np.isclose(
+        q.krange, 2.0 * (5**2.5 / 108 / q.gsparams.kvalue_accuracy) ** (1.0 / 3.0)
+    )
+    assert np.isclose(q.krange, 2.0 * np.pi * q._i.urange())
+    assert np.isclose(
+        q.positive_flux, (13018561.0 / 11595672.0) + (17267.0 / 14494590.0) * 31**0.5
+    )
+    assert np.isclose(q.negative_flux, q.positive_flux - 1.0)
+    do_pickle(galsim.Quintic())
+    do_pickle(galsim.Interpolant.from_name("quintic"))
 
-    #     true_xval = np.zeros_like(x)
-    #     ax = np.abs(x)
-    #     m = ax < 1.
-    #     true_xval[m] = 1. + ax[m]**3 * (-95./12. + 23./2.*ax[m] - 55./12.*ax[m]**2)
-    #     m = (1 <= ax) & (ax < 2)
-    #     true_xval[m] = (ax[m]-1) * (2.-ax[m]) * (23./4. - 29./2.*ax[m] + 83./8.*ax[m]**2
-    #                                              - 55./24.*ax[m]**3)
-    #     m = (2 <= ax) & (ax < 3)
-    #     true_xval[m] = (ax[m]-2) * (3.-ax[m])**2 * (-9./4. + 25./12.*ax[m] - 11./24.*ax[m]**2)
-    #     np.testing.assert_allclose(q.xval(x), true_xval)
-    #     sx = np.sinc(x/2/np.pi)
-    #     cx = np.cos(x/2)
-    #     true_kval = sx**5 * (sx*(55.-19./4. * x**2) + cx*(x**2/2. - 54.))
-    #     np.testing.assert_allclose(q.kval(x), true_kval)
-    #     assert np.isclose(q.xval(x[12]), true_xval[12])
-    #     assert np.isclose(q.kval(x[12]), true_kval[12])
+    true_xval = np.zeros_like(x)
+    ax = np.abs(x)
+    m = ax < 1.0
+    true_xval[m] = 1.0 + ax[m] ** 3 * (
+        -95.0 / 12.0 + 23.0 / 2.0 * ax[m] - 55.0 / 12.0 * ax[m] ** 2
+    )
+    m = (1 <= ax) & (ax < 2)
+    true_xval[m] = (
+        (ax[m] - 1)
+        * (2.0 - ax[m])
+        * (
+            23.0 / 4.0
+            - 29.0 / 2.0 * ax[m]
+            + 83.0 / 8.0 * ax[m] ** 2
+            - 55.0 / 24.0 * ax[m] ** 3
+        )
+    )
+    m = (2 <= ax) & (ax < 3)
+    true_xval[m] = (
+        (ax[m] - 2)
+        * (3.0 - ax[m]) ** 2
+        * (-9.0 / 4.0 + 25.0 / 12.0 * ax[m] - 11.0 / 24.0 * ax[m] ** 2)
+    )
+    np.testing.assert_allclose(q.xval(x), true_xval)
+    sx = np.sinc(x / 2 / np.pi)
+    cx = np.cos(x / 2)
+    true_kval = sx**5 * (
+        sx * (55.0 - 19.0 / 4.0 * x**2) + cx * (x**2 / 2.0 - 54.0)
+    )
+    np.testing.assert_allclose(q.kval(x), true_kval)
+    assert np.isclose(q.xval(x[12]), true_xval[12])
+    assert np.isclose(q.kval(x[12]), true_kval[12])
 
-    #     # Conserves dc flux:
-    #     print('Quintic sum = ',np.sum(q.xval(x)))
-    #     assert np.isclose(np.sum(q.xval(x)), 7.0)
+    # Conserves dc flux:
+    print("Quintic sum = ", np.sum(q.xval(x)))
+    assert np.isclose(np.sum(q.xval(x)), 7.0)
 
     #     # Lanczos
     #     l3 = galsim.Lanczos(3)

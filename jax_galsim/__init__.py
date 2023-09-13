@@ -69,6 +69,7 @@ from .interpolant import (
     SincInterpolant,
     Linear,
     Cubic,
+    Quintic,
 )
 
 # packages kept separate
