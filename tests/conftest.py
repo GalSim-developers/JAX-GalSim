@@ -50,8 +50,6 @@ def pytest_report_teststatus(report, config):
     fail for a reason authorized in the config file.
     """
     if report.when == "call" and report.outcome == "allowed failure":
-        # It's an allowed failure, so let's mark it as such
-        report.outcome = "allowed failure"
         return report.outcome, "-", "ALLOWED FAILURE"
 
 
@@ -64,7 +62,7 @@ def pytest_runtest_logreport(report):
         # Ok, so we have a failure, let's see if it a failure we expect
         message = report.longrepr.reprcrash.message
         if any([t in message for t in test_config["allowed_failures"]]):
-            report.wasxfail = True
+            report.wasxfail = "allowed failure - %s" % message
             report.outcome = "allowed failure"
 
     yield report
