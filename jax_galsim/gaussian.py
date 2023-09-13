@@ -38,7 +38,9 @@ class Gaussian(GSObject):
                     half_light_radius=half_light_radius,
                 )
             else:
-                super().__init__(fwhm=fwhm, flux=flux, gsparams=gsparams)
+                super().__init__(
+                    sigma=fwhm / Gaussian._fwhm_factor, flux=flux, gsparams=gsparams
+                )
         elif half_light_radius is not None:
             if sigma is not None:
                 raise _galsim.GalSimIncompatibleValuesError(
@@ -49,7 +51,9 @@ class Gaussian(GSObject):
                 )
             else:
                 super().__init__(
-                    half_light_radius=half_light_radius, flux=flux, gsparams=gsparams
+                    sigma=half_light_radius / Gaussian._hlr_factor,
+                    flux=flux,
+                    gsparams=gsparams,
                 )
         elif sigma is None:
             raise _galsim.GalSimIncompatibleValuesError(
@@ -64,12 +68,7 @@ class Gaussian(GSObject):
     @property
     def sigma(self):
         """The sigma of this Gaussian profile"""
-        if "fwhm" in self.params:
-            return self.params["fwhm"] / Gaussian._fwhm_factor
-        elif "half_light_radius" in self.params:
-            return self.params["half_light_radius"] / Gaussian._hlr_factor
-        else:
-            return self.params["sigma"]
+        return self.params["sigma"]
 
     @property
     def half_light_radius(self):
@@ -94,17 +93,17 @@ class Gaussian(GSObject):
         return self.flux * self._inv_sigsq * Gaussian._inv_twopi
 
     def __hash__(self):
-        return hash(("galsim.Gaussian", self.sigma, self.flux, self.gsparams))
+        return hash(("jax_galsim.Gaussian", self.sigma, self.flux, self.gsparams))
 
     def __repr__(self):
-        return "galsim.Gaussian(sigma=%r, flux=%r, gsparams=%r)" % (
+        return "jax_galsim.Gaussian(sigma=%r, flux=%r, gsparams=%r)" % (
             self.sigma,
             self.flux,
             self.gsparams,
         )
 
     def __str__(self):
-        s = "galsim.Gaussian(sigma=%s" % self.sigma
+        s = "jax_galsim.Gaussian(sigma=%s" % self.sigma
         s += ", flux=%s" % self.flux
         s += ")"
         return s

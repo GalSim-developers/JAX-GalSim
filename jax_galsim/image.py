@@ -278,7 +278,7 @@ class Image(object):
         return array, xmin, ymin
 
     def __repr__(self):
-        s = "galsim.Image(bounds=%r" % self.bounds
+        s = "jax_galsim.Image(bounds=%r" % self.bounds
         if self.bounds.isDefined():
             s += ", array=\n%r" % np.array(self.array)
         s += ", wcs=%r" % self.wcs
@@ -289,13 +289,13 @@ class Image(object):
         # Get the type name without the <type '...'> part.
         t = str(self.dtype).split("'")[1]
         if self.wcs is not None and self.wcs._isPixelScale:
-            return "galsim.Image(bounds=%s, scale=%s, dtype=%s)" % (
+            return "jax_galsim.Image(bounds=%s, scale=%s, dtype=%s)" % (
                 self.bounds,
                 self.scale,
                 t,
             )
         else:
-            return "galsim.Image(bounds=%s, wcs=%s, dtype=%s)" % (
+            return "jax_galsim.Image(bounds=%s, wcs=%s, dtype=%s)" % (
                 self.bounds,
                 self.wcs,
                 t,

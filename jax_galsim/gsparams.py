@@ -10,7 +10,7 @@ class GSParams:
     minimum_fft_size: int = 128
     maximum_fft_size: int = 8192
     folding_threshold: float = 5.0e-3
-    stepk_minimum_hlr: float = 5
+    stepk_minimum_hlr: float = 5.0
     maxk_threshold: float = 1.0e-3
     kvalue_accuracy: float = 1.0e-5
     xvalue_accuracy: float = 1.0e-5
@@ -108,7 +108,7 @@ class GSParams:
 
     def __repr__(self):
         return (
-            "galsim.GSParams(%d,%d,%r,%r,%r,%r,%r,%d,%r,%r,%r,%r,%r)"
+            "jax_galsim.GSParams(%d,%d,%r,%r,%r,%r,%r,%d,%r,%r,%r,%r,%r)"
             % self._getinitargs()
         )
 

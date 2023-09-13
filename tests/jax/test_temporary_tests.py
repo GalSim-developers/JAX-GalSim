@@ -1,8 +1,10 @@
-import jax
 import numpy as np
-import jax.numpy as jnp
 import galsim as ref_galsim
 import jax_galsim
+
+from galsim_test_helpers import do_pickle
+
+import pytest
 
 
 def test_convolve_temp():
@@ -74,3 +76,21 @@ def test_shearconvolve_temp():
         5,
         err_msg="Using GSObject Convolve([psf,pixel]) disagrees with expected result",
     )
+
+
+@pytest.mark.parametrize(
+    "obj",
+    [
+        jax_galsim.Gaussian(fwhm=1.0),
+        jax_galsim.Pixel(scale=1.0),
+        jax_galsim.Exponential(scale_radius=1.0),
+        jax_galsim.Shear(g1=0.1, g2=0.2),
+        jax_galsim.PositionD(x=0.1, y=0.2),
+        jax_galsim.BoundsI(xmin=0, xmax=1, ymin=0, ymax=1),
+        jax_galsim.BoundsD(xmin=0, xmax=1, ymin=0, ymax=1),
+        jax_galsim.ShearWCS(0.2, jax_galsim.Shear(g1=0.1, g2=0.2)),
+    ],
+)
+def test_pickling_eval_repr(obj):
+    """This test is here until we run all of the galsim tests which cover this one."""
+    do_pickle(obj)

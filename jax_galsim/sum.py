@@ -95,7 +95,7 @@ class Sum(GSObject):
     def __hash__(self):
         return hash(
             (
-                "galsim.Sum",
+                "jax_galsim.Sum",
                 tuple(self.obj_list),
                 self.gsparams,
                 self._propagate_gsparams,
@@ -103,7 +103,7 @@ class Sum(GSObject):
         )
 
     def __repr__(self):
-        return "galsim.Sum(%r, gsparams=%r, propagate_gsparams=%r)" % (
+        return "jax_galsim.Sum(%r, gsparams=%r, propagate_gsparams=%r)" % (
             self.obj_list,
             self.gsparams,
             self._propagate_gsparams,

@@ -46,10 +46,12 @@ class Box(GSObject):
         return self.params["height"]
 
     def __hash__(self):
-        return hash(("galsim.Box", self.width, self.height, self.flux, self.gsparams))
+        return hash(
+            ("jax_galsim.Box", self.width, self.height, self.flux, self.gsparams)
+        )
 
     def __repr__(self):
-        return "galsim.Box(width=%r, height=%r, flux=%r, gsparams=%r)" % (
+        return "jax_galsim.Box(width=%r, height=%r, flux=%r, gsparams=%r)" % (
             self.width,
             self.height,
             self.flux,
@@ -57,7 +59,7 @@ class Box(GSObject):
         )
 
     def __str__(self):
-        s = "galsim.Box(width=%s, height=%s" % (self.width, self.height)
+        s = "jax_galsim.Box(width=%s, height=%s" % (self.width, self.height)
         if self.flux != 1.0:
             s += ", flux=%s" % self.flux
         s += ")"
@@ -115,14 +117,14 @@ class Pixel(Box):
         return self.width
 
     def __repr__(self):
-        return "galsim.Pixel(scale=%r, flux=%r, gsparams=%r)" % (
+        return "jax_galsim.Pixel(scale=%r, flux=%r, gsparams=%r)" % (
             self.flux,
             self.scale,
             self.gsparams,
         )
 
     def __str__(self):
-        s = "galsim.Pixel(scale=%s" % self.scale
+        s = "jax_galsim.Pixel(scale=%s" % self.scale
         if self.flux != 1.0:
             s += ", flux=%s" % self.flux
         s += ")"
