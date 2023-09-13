@@ -1,4 +1,3 @@
-import copy
 from dataclasses import dataclass
 
 import galsim as _galsim
