@@ -97,7 +97,7 @@ def test_pickling_eval_repr(obj1):
     import copy
 
     # In case the repr uses these:
-    from numpy import (    # noqa: F401
+    from numpy import (  # noqa: F401
         array,
         uint16,
         uint32,
