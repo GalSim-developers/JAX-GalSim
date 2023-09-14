@@ -1,8 +1,7 @@
 import galsim as _galsim
 import jax.numpy as jnp
-import numpy as np
 from galsim.angle import Angle, _Angle, radians
-from galsim.errors import GalSimIncompatibleValuesError, GalSimRangeError
+from galsim.errors import GalSimIncompatibleValuesError
 from jax._src.numpy.util import _wraps
 from jax.tree_util import register_pytree_node_class
 

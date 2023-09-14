@@ -692,8 +692,6 @@ class ShearWCS(LocalWCS):
 
     def _maxScale(self):
         # max stretch is (1+|g|) / sqrt(1-|g|^2)
-        import math
-
         return self._scale * (1.0 + jnp.sqrt(self._gsq)) * self._gfactor
 
     def _inverse(self):
