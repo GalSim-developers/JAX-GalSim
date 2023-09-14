@@ -7,6 +7,7 @@ import galsim as ref_galsim
 import numpy as np
 import jax_galsim as galsim
 from galsim_test_helpers import do_pickle, assert_raises, timer
+from scipy.special import sici
 
 
 @timer
@@ -228,35 +229,39 @@ def test_interpolant_smoke():
     assert_raises(ValueError, galsim.Interpolant.from_name, "lanczosF")
     assert_raises(ValueError, galsim.Interpolant.from_name, "lanzos")
 
-    #     # Note: 1-7 all have special case code, so check them. 8 uses the generic code.
-    #     for n in [1, 2, 3, 4, 5, 6, 7, 8]:
-    #         ln = galsim.Lanczos(n, conserve_dc=False)
-    #         assert ln.conserve_dc == False
-    #         assert ln.n == n
-    #         true_xval = np.zeros_like(x)
-    #         true_xval[np.abs(x) < n] = np.sinc(x[np.abs(x)<n]) * np.sinc(x[np.abs(x)<n]/n)
-    #         np.testing.assert_allclose(ln.xval(x), true_xval, rtol=1.e-5, atol=1.e-10)
-    #         assert np.isclose(ln.xval(x[12]), true_xval[12])
+    # Note: 1-7 all have special case code, so check them. 8 uses the generic code.
+    for n in [1, 2, 3, 4, 5, 6, 7, 8]:
+        ln = galsim.Lanczos(n, conserve_dc=False)
+        assert ln.conserve_dc is False
+        assert ln.n == n
+        true_xval = np.zeros_like(x)
+        true_xval[np.abs(x) < n] = np.sinc(x[np.abs(x) < n]) * np.sinc(
+            x[np.abs(x) < n] / n
+        )
+        np.testing.assert_allclose(ln.xval(x), true_xval, rtol=1.0e-5, atol=1.0e-10)
+        assert np.isclose(ln.xval(x[12]), true_xval[12])
 
-    #         # Lanczos notably does not conserve dc flux
-    #         print('Lanczos(%s,conserve_dc=False) sum = '%n,np.sum(ln.xval(x)))
+        # Lanczos notably does not conserve dc flux
+        print("Lanczos(%s,conserve_dc=False) sum = " % n, np.sum(ln.xval(x)))
 
-    #         # With conserve_dc=True, it does a bit better, but still only to 1.e-4 accuracy.
-    #         lndc = galsim.Lanczos(n, conserve_dc=True)
-    #         np.testing.assert_allclose(lndc.xval(x), true_xval, rtol=0.3, atol=1.e-10)
-    #         print('Lanczos(%s,conserve_dc=True) sum = '%n,np.sum(lndc.xval(x)))
-    #         assert np.isclose(np.sum(lndc.xval(x)), 7.0, rtol=1.e-4)
+        # With conserve_dc=True, it does a bit better, but still only to 1.e-4 accuracy.
+        lndc = galsim.Lanczos(n, conserve_dc=True)
+        np.testing.assert_allclose(lndc.xval(x), true_xval, rtol=0.3, atol=1.0e-10)
+        print("Lanczos(%s,conserve_dc=True) sum = " % n, np.sum(lndc.xval(x)))
+        assert np.isclose(np.sum(lndc.xval(x)), 7.0, rtol=1.0e-4)
 
-    #         # The math for kval (at least when conserve_dc=False) is complicated, but tractable.
-    #         # It ends up using the Si function, which is in scipy as scipy.special.sici
-    #         vp = n * (x/np.pi + 1)
-    #         vm = n * (x/np.pi - 1)
-    #         true_kval = ( (vm-1) * sici(np.pi*(vm-1))[0]
-    #                      -(vm+1) * sici(np.pi*(vm+1))[0]
-    #                      -(vp-1) * sici(np.pi*(vp-1))[0]
-    #                      +(vp+1) * sici(np.pi*(vp+1))[0] ) / (2*np.pi)
-    #         np.testing.assert_allclose(ln.kval(x), true_kval, rtol=1.e-4, atol=1.e-8)
-    #         assert np.isclose(ln.kval(x[12]), true_kval[12])
+        # The math for kval (at least when conserve_dc=False) is complicated, but tractable.
+        # It ends up using the Si function, which is in scipy as scipy.special.sici
+        vp = n * (x / np.pi + 1)
+        vm = n * (x / np.pi - 1)
+        true_kval = (
+            (vm - 1) * sici(np.pi * (vm - 1))[0]
+            - (vm + 1) * sici(np.pi * (vm + 1))[0]
+            - (vp - 1) * sici(np.pi * (vp - 1))[0]
+            + (vp + 1) * sici(np.pi * (vp + 1))[0]
+        ) / (2 * np.pi)
+        np.testing.assert_allclose(ln.kval(x), true_kval, rtol=1.0e-4, atol=1.0e-8)
+        assert np.isclose(ln.kval(x[12]), true_kval[12])
 
     # Base class is invalid.
     assert_raises(NotImplementedError, galsim.Interpolant)
@@ -273,17 +278,18 @@ def test_interpolant_smoke():
 def test_interpolant_unit_integrals():
     # Test Interpolant.unit_integrals
 
-    interps = [
-        galsim.Delta(),
-        galsim.Nearest(),
-        galsim.SincInterpolant(),
-        galsim.Linear(),
-        galsim.Cubic(),
-        #    galsim.Quintic(),
-        #    galsim.Lanczos(3),
-        #    galsim.Lanczos(3, conserve_dc=False),
-        #    galsim.Lanczos(17),
-    ]
+    interps = (
+        [
+            galsim.Delta(),
+            galsim.Nearest(),
+            galsim.SincInterpolant(),
+            galsim.Linear(),
+            galsim.Cubic(),
+            galsim.Quintic(),
+        ]
+        + [galsim.Lanczos(i, conserve_dc=False) for i in range(1, 31)]
+        + [galsim.Lanczos(i, conserve_dc=True) for i in range(1, 31)]
+    )
     for interp in interps:
         print(str(interp))
         # Compute directly with int1d
@@ -312,14 +318,14 @@ def test_interpolant_unit_integrals():
             assert len(integrals2) == 10
             np.testing.assert_allclose(integrals2, integrals[:10], atol=0, rtol=0)
 
-    # # Test making shorter versions before longer ones
-    # interp = galsim.Lanczos(11)
-    # short = interp.unit_integrals(max_len=5)
-    # long = interp.unit_integrals(max_len=10)
-    # med = interp.unit_integrals(max_len=8)
-    # full = interp.unit_integrals()
+    # Test making shorter versions before longer ones
+    interp = galsim.Lanczos(11)
+    short = interp.unit_integrals(max_len=5)
+    long = interp.unit_integrals(max_len=10)
+    med = interp.unit_integrals(max_len=8)
+    full = interp.unit_integrals()
 
-    # assert len(full) > 10
-    # np.testing.assert_equal(short, full[:5])
-    # np.testing.assert_equal(med, full[:8])
-    # np.testing.assert_equal(long, full[:10])
+    assert len(full) > 10
+    np.testing.assert_array_equal(short, full[:5])
+    np.testing.assert_array_equal(med, full[:8])
+    np.testing.assert_array_equal(long, full[:10])
