@@ -123,10 +123,10 @@ class Interpolant:
         return ret
 
     def __repr__(self):
-        return "jax_galsim.%s(gsparams=%r)" % (self.__class__.__name__, self._gsparams)
+        return "galsim.%s(gsparams=%r)" % (self.__class__.__name__, self._gsparams)
 
     def __str__(self):
-        return "jax_galsim.%s()" % self.__class__.__name__
+        return "galsim.%s()" % self.__class__.__name__
 
     # hack for galsim which sometimes uses this private attribute in
     # its code
@@ -1408,14 +1408,14 @@ class Lanczos(Interpolant):
         return cls(n, **aux_data)
 
     def __repr__(self):
-        return "jax_galsim.Lanczos(%r, %r, gsparams=%r)" % (
+        return "galsim.Lanczos(%r, %r, gsparams=%r)" % (
             self._n,
             self._conserve_dc,
             self._gsparams,
         )
 
     def __str__(self):
-        return "jax_galsim.Lanczos(%s)" % (self._n)
+        return "galsim.Lanczos(%s)" % (self._n)
 
     def xval(self, x):
         """Calculate the value of the interpolant kernel at one or more x values

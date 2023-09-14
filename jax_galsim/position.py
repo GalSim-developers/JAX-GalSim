@@ -87,10 +87,10 @@ class Position(object):
             return PositionD(self.x - other.x, self.y - other.y)
 
     def __repr__(self):
-        return "jax_galsim.%s(x=%r, y=%r)" % (self.__class__.__name__, self.x, self.y)
+        return "galsim.%s(x=%r, y=%r)" % (self.__class__.__name__, self.x, self.y)
 
     def __str__(self):
-        return "jax_galsim.%s(%s,%s)" % (self.__class__.__name__, self.x, self.y)
+        return "galsim.%s(%s,%s)" % (self.__class__.__name__, self.x, self.y)
 
     def __eq__(self, other):
         return self is other or (

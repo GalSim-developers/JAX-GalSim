@@ -108,7 +108,7 @@ class GSParams:
 
     def __repr__(self):
         return (
-            "jax_galsim.GSParams(%d,%d,%r,%r,%r,%r,%r,%d,%r,%r,%r,%r,%r)"
+            "galsim.GSParams(%d,%d,%r,%r,%r,%r,%r,%d,%r,%r,%r,%r,%r)"
             % self._getinitargs()
         )
 

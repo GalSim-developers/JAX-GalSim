@@ -94,17 +94,17 @@ class Gaussian(GSObject):
         return self.flux * self._inv_sigsq * Gaussian._inv_twopi
 
     def __hash__(self):
-        return hash(("jax_galsim.Gaussian", self.sigma, self.flux, self.gsparams))
+        return hash(("galsim.Gaussian", self.sigma, self.flux, self.gsparams))
 
     def __repr__(self):
-        return "jax_galsim.Gaussian(sigma=%r, flux=%r, gsparams=%r)" % (
+        return "galsim.Gaussian(sigma=%r, flux=%r, gsparams=%r)" % (
             self.sigma,
             self.flux,
             self.gsparams,
         )
 
     def __str__(self):
-        s = "jax_galsim.Gaussian(sigma=%s" % self.sigma
+        s = "galsim.Gaussian(sigma=%s" % self.sigma
         s += ", flux=%s" % self.flux
         s += ")"
         return s

@@ -131,7 +131,7 @@ class Transformation(GSObject):
     def __hash__(self):
         return hash(
             (
-                "jax_galsim.Transformation",
+                "galsim.Transformation",
                 self.original,
                 tuple(self._jac.ravel()),
                 self.offset.x,
@@ -144,7 +144,7 @@ class Transformation(GSObject):
 
     def __repr__(self):
         return (
-            "jax_galsim.Transformation(%r, jac=%r, offset=%r, flux_ratio=%r, gsparams=%r, "
+            "galsim.Transformation(%r, jac=%r, offset=%r, flux_ratio=%r, gsparams=%r, "
             "propagate_gsparams=%r)"
         ) % (
             self.original,

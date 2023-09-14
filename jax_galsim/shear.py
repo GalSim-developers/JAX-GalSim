@@ -271,10 +271,10 @@ class Shear(object):
         return theta * radians
 
     def __repr__(self):
-        return "jax_galsim.Shear(%r)" % (self.shear)
+        return "galsim.Shear(%r)" % (self.shear)
 
     def __str__(self):
-        return "jax_galsim.Shear(g1=%s,g2=%s)" % (self.g1, self.g2)
+        return "galsim.Shear(g1=%s,g2=%s)" % (self.g1, self.g2)
 
     def __hash__(self):
         return hash(self._g)
