@@ -191,30 +191,6 @@ class Bounds(_galsim.Bounds):
         """Recreates an instance of the class from flatten representation"""
         return cls(*children)
 
-    def __repr__(self):
-        if self.isDefined():
-            return "galsim.%s(xmin=%r, xmax=%r, ymin=%r, ymax=%r)" % (
-                self.__class__.__name__,
-                self.xmin,
-                self.xmax,
-                self.ymin,
-                self.ymax,
-            )
-        else:
-            return "galsim.%s()" % (self.__class__.__name__)
-
-    def __str__(self):
-        if self.isDefined():
-            return "galsim.%s(%s,%s,%s,%s)" % (
-                self.__class__.__name__,
-                self.xmin,
-                self.xmax,
-                self.ymin,
-                self.ymax,
-            )
-        else:
-            return "galsim.%s()" % (self.__class__.__name__)
-
 
 @register_pytree_node_class
 class BoundsD(Bounds):
