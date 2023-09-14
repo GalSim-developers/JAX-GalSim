@@ -193,7 +193,7 @@ class Bounds(_galsim.Bounds):
 
     def __repr__(self):
         if self.isDefined():
-            return "jax_galsim.%s(xmin=%r, xmax=%r, ymin=%r, ymax=%r)" % (
+            return "galsim.%s(xmin=%r, xmax=%r, ymin=%r, ymax=%r)" % (
                 self.__class__.__name__,
                 self.xmin,
                 self.xmax,
@@ -205,7 +205,7 @@ class Bounds(_galsim.Bounds):
 
     def __str__(self):
         if self.isDefined():
-            return "jax_galsim.%s(%s,%s,%s,%s)" % (
+            return "galsim.%s(%s,%s,%s,%s)" % (
                 self.__class__.__name__,
                 self.xmin,
                 self.xmax,

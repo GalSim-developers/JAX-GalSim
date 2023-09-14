@@ -43,10 +43,10 @@ def pytest_pycollect_makemodule(module_path, path, parent):
     # Overwrites the galsim module
     module.obj.galsim = __import__("jax_galsim")
 
-    # make sure tests of pickling work by having the jax_galsim module available
-    # in the galsim test helper functions
-    if hasattr(module.obj, "do_pickle"):
-        module.obj.do_pickle.__globals__["jax_galsim"] = __import__("jax_galsim")
+    # # make sure tests of pickling work by having the jax_galsim module available
+    # # in the galsim test helper functions
+    # if hasattr(module.obj, "do_pickle"):
+    #     module.obj.do_pickle.__globals__["galsim"] = __import__("jax_galsim")
 
     return module
 
