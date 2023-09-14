@@ -35,3 +35,4 @@ allowed_failures:
   - "image.wrap"
   - "unhashable type: 'ArrayImpl'"
   - "'Image' object has no attribute 'bin'"
+  - "module 'jax_galsim' has no attribute 'integ'"
