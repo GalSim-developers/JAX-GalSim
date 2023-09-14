@@ -1,4 +1,6 @@
 import os
+from functools import lru_cache
+import inspect
 
 import pytest
 import yaml
@@ -15,6 +17,17 @@ test_directory = os.path.dirname(os.path.abspath(__file__))
 # Loading which tests to run
 with open(os.path.join(test_directory, "galsim_tests_config.yaml"), "r") as f:
     test_config = yaml.safe_load(f)
+
+
+def pytest_ignore_collect(collection_path, path, config):
+    """This hook will skip collecting tests that are not
+    enabled in the enabled_tests.yaml file.
+
+    These somtimes fail to import and cause pytest to fail.
+    """
+    if "tests/GalSim/tests" in str(collection_path):
+        if not any([t in str(collection_path) for t in test_config["enabled_tests"]]):
+            return True
 
 
 def pytest_collection_modifyitems(config, items):
@@ -34,6 +47,16 @@ def pytest_collection_modifyitems(config, items):
             item.add_marker(skip)
 
 
+@lru_cache(maxsize=128)
+def _infile(val, fname):
+    with open(fname, "r") as f:
+        for line in f:
+            if val in line:
+                return True
+
+    return False
+
+
 def pytest_pycollect_makemodule(module_path, path, parent):
     """This hook is tasked with overriding the galsim import
     at the top of each test file. Replaces it by jax-galsim.
@@ -43,10 +66,16 @@ def pytest_pycollect_makemodule(module_path, path, parent):
     # Overwrites the galsim module
     module.obj.galsim = __import__("jax_galsim")
 
-    # # make sure tests of pickling work by having the jax_galsim module available
-    # # in the galsim test helper functions
-    # if hasattr(module.obj, "do_pickle"):
-    #     module.obj.do_pickle.__globals__["galsim"] = __import__("jax_galsim")
+    # make sure test helpers work
+    for k, v in module.obj.__dict__.items():
+        if (
+            callable(v)
+            and hasattr(v, "__globals__")
+            and inspect.getsourcefile(v).endswith("galsim_test_helpers.py")
+            and _infile("def " + k, inspect.getsourcefile(v))
+            and "galsim" in v.__globals__
+        ):
+            v.__globals__["galsim"] = __import__("jax_galsim")
 
     return module
 

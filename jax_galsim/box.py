@@ -46,9 +46,7 @@ class Box(GSObject):
         return self.params["height"]
 
     def __hash__(self):
-        return hash(
-            ("galsim.Box", self.width, self.height, self.flux, self.gsparams)
-        )
+        return hash(("galsim.Box", self.width, self.height, self.flux, self.gsparams))
 
     def __repr__(self):
         return "galsim.Box(width=%r, height=%r, flux=%r, gsparams=%r)" % (

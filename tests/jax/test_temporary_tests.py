@@ -2,8 +2,6 @@ import numpy as np
 import galsim as ref_galsim
 import jax_galsim
 
-from galsim_test_helpers import do_pickle
-
 import pytest
 
 
@@ -79,7 +77,7 @@ def test_shearconvolve_temp():
 
 
 @pytest.mark.parametrize(
-    "obj",
+    "obj1",
     [
         jax_galsim.Gaussian(fwhm=1.0),
         jax_galsim.Pixel(scale=1.0),
@@ -91,6 +89,89 @@ def test_shearconvolve_temp():
         jax_galsim.ShearWCS(0.2, jax_galsim.Shear(g1=0.1, g2=0.2)),
     ],
 )
-def test_pickling_eval_repr(obj):
+def test_pickling_eval_repr(obj1):
     """This test is here until we run all of the galsim tests which cover this one."""
-    do_pickle(obj)
+    # test copied from galsim
+    from numbers import Integral, Real, Complex  # noqa: F401
+    import pickle
+    import copy
+
+    # In case the repr uses these:
+    from numpy import (    # noqa: F401
+        array,
+        uint16,
+        uint32,
+        int16,
+        int32,
+        float32,
+        float64,
+        complex64,
+        complex128,
+        ndarray,
+    )
+    from collections.abc import Hashable
+
+    def func(x):
+        return x
+
+    print("Try pickling ", str(obj1))
+
+    # print('pickled obj1 = ',pickle.dumps(obj1))
+    obj2 = pickle.loads(pickle.dumps(obj1))
+    assert obj2 is not obj1
+    # print('obj1 = ',repr(obj1))
+    # print('obj2 = ',repr(obj2))
+    f1 = func(obj1)
+    f2 = func(obj2)
+    # print('func(obj1) = ',repr(f1))
+    # print('func(obj2) = ',repr(f2))
+    assert f1 == f2
+
+    # Check that == works properly if the other thing isn't the same type.
+    assert f1 != object()
+    assert object() != f1
+
+    # Test the hash values are equal for two equivalent objects.
+    if isinstance(obj1, Hashable):
+        # print('hash = ',hash(obj1),hash(obj2))
+        assert hash(obj1) == hash(obj2)
+
+    obj3 = copy.copy(obj1)
+    assert obj3 is not obj1
+    random = hasattr(obj1, "rng") or "rng" in repr(obj1)
+    if not random:  # Things with an rng attribute won't be identical on copy.
+        f3 = func(obj3)
+        assert f3 == f1
+
+    obj4 = copy.deepcopy(obj1)
+    assert obj4 is not obj1
+    f4 = func(obj4)
+    if random:
+        f1 = func(obj1)
+    # print('func(obj1) = ',repr(f1))
+    # print('func(obj4) = ',repr(f4))
+    assert f4 == f1  # But everything should be identical with deepcopy.
+
+    # Also test that the repr is an accurate representation of the object.
+    # The gold standard is that eval(repr(obj)) == obj.  So check that here as well.
+    # A few objects we don't expect to work this way in GalSim; when testing these, we set the
+    # `irreprable` kwarg to true.  Also, we skip anything with random deviates since these don't
+    # respect the eval/repr roundtrip.
+
+    if not random:
+        # A further complication is that the default numpy print options do not lead to sufficient
+        # precision for the eval string to exactly reproduce the original object, and start
+        # truncating the output for relatively small size arrays.  So we temporarily bump up the
+        # precision and truncation threshold for testing.
+        # print(repr(obj1))
+        with ref_galsim.utilities.printoptions(precision=20, threshold=np.inf):
+            obj5 = eval(repr(obj1))
+        # print('obj1 = ',repr(obj1))
+        # print('obj5 = ',repr(obj5))
+        f5 = func(obj5)
+        # print('f1 = ',f1)
+        # print('f5 = ',f5)
+        assert f5 == f1, "func(obj1) = %r\nfunc(obj5) = %r" % (f1, f5)
+    else:
+        # Even if we're not actually doing the test, still make the repr to check for syntax errors.
+        repr(obj1)
