@@ -11,6 +11,15 @@ from scipy.special import sici
 
 
 @timer
+def test_si_pade():
+    x = np.linspace(-10, 10, 141)
+    np.testing.assert_allclose(
+        [float(galsim.bessel.si(_x)) for _x in x],
+        [sici(_x)[0] for _x in x],
+    )
+
+
+@timer
 def test_interpolant_smoke():
     """Test the interpolants directly."""
     x = np.linspace(-10, 10, 141)
