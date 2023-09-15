@@ -159,14 +159,10 @@ class Interpolant:
             xval:   The value(s) at the x location(s).  If x was an array, then this is also
                     an array.
         """
-        ndim = jnp.ndim(x)
         if jnp.ndim(x) > 1:
             raise GalSimValueError("kval only takes scalar or 1D array values", x)
 
-        if ndim == 0:
-            return self._xval(x).item()
-        else:
-            return self._xval(x)
+        return self._xval(x)
 
     @jax.jit
     def _kval(self, k):
@@ -184,14 +180,10 @@ class Interpolant:
             kval:   The k-value(s) at the k location(s).  If k was an array, then this is also
                     an array.
         """
-        ndim = jnp.ndim(k)
-        if ndim > 1:
+        if jnp.ndim(k) > 1:
             raise GalSimValueError("kval only takes scalar or 1D array values", k)
 
-        if ndim == 0:
-            return self._kval(k).item()
-        else:
-            return self._kval(k)
+        return self._kval(k)
 
     def unit_integrals(self, max_len=None):
         """Compute the unit integrals of the real-space kernel.
