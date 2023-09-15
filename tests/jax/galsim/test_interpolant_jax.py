@@ -15,7 +15,35 @@ def do_pickle(obj1):
     return pickle.loads(pickle.dumps(obj1))
 
 
-def test_sinc_integrals():
+def test_interpolant_jax_pos_neg_flux():
+    interps = (
+        [
+            galsim.Delta(),
+            galsim.Nearest(),
+            galsim.SincInterpolant(),
+            galsim.Linear(),
+            galsim.Cubic(),
+            galsim.Quintic(),
+        ]
+        + [galsim.Lanczos(i, conserve_dc=False) for i in range(1, 31)]
+        + [galsim.Lanczos(i, conserve_dc=True) for i in range(1, 31)]
+    )
+    for interp in interps:
+        gs = getattr(ref_galsim, interp.__class__.__name__)
+        if isinstance(interp, galsim.Lanczos):
+            gs = gs(interp.n, conserve_dc=interp.conserve_dc)
+        else:
+            gs = gs()
+        jgs = interp
+        np.testing.assert_allclose(
+            gs.positive_flux, jgs.positive_flux, atol=1e-5, rtol=1e-5
+        )
+        np.testing.assert_allclose(
+            gs.negative_flux, jgs.negative_flux, atol=1e-5, rtol=1e-5
+        )
+
+
+def test_interpolant_jax_sinc_integrals():
     tol = 1e-5
     gs = ref_galsim.SincInterpolant(gsparams=ref_galsim.GSParams(kvalue_accuracy=tol))
     jgs = galsim.SincInterpolant(gsparams=galsim.GSParams(kvalue_accuracy=tol))
@@ -32,7 +60,7 @@ def test_sinc_integrals():
 
 
 @timer
-def test_si_pade():
+def test_interpolant_jax_si_pade():
     x = np.linspace(-10, 10, 141)
     np.testing.assert_allclose(
         [float(galsim.bessel.si(_x)) for _x in x],
@@ -41,7 +69,7 @@ def test_si_pade():
 
 
 @timer
-def test_interpolant_smoke():
+def test_interpolant_jax_smoke():
     """Test the interpolants directly."""
     x = np.linspace(-10, 10, 141)
 
@@ -302,9 +330,7 @@ def test_interpolant_smoke():
 
 
 @timer
-def test_interpolant_unit_integrals():
-    # Test Interpolant.unit_integrals
-
+def test_interpolant_jax_unit_integrals():
     interps = (
         [
             galsim.Delta(),
