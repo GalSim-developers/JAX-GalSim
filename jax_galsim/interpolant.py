@@ -18,6 +18,7 @@ from jax_galsim.bessel import si
 
 
 @_wraps(_galsim.interpolant.Interpolant)
+@register_pytree_node_class
 class Interpolant:
     def __init__(self):
         raise NotImplementedError(
@@ -146,6 +147,7 @@ class Interpolant:
     def __hash__(self):
         return hash(repr(self))
 
+    @jax.jit
     def xval(self, x):
         """Calculate the value of the interpolant kernel at one or more x values
 
@@ -160,11 +162,9 @@ class Interpolant:
         if jnp.ndim(x) > 1:
             raise GalSimValueError("kval only takes scalar or 1D array values", x)
 
-        # we use functions attached directly to the class rather than static methods
-        # this enables jax.jit which didn't react nicely with the @staticmethod decorator
-        # when I tried it - MRB
-        return self.__class__._xval(x)
+        return self._xval(x)
 
+    @jax.jit
     def kval(self, k):
         """Calculate the value of the interpolant kernel in Fourier space at one or more k values.
 
@@ -179,11 +179,7 @@ class Interpolant:
         if jnp.ndim(k) > 1:
             raise GalSimValueError("kval only takes scalar or 1D array values", k)
 
-        # we use functions attached directly to the class rather than static methods
-        # this enables jax.jit which didn't react nicely with the @staticmethod decorator
-        # when I tried it - MRB
-        # Note: self._uval uses u = k/2pi rather than k.
-        return self.__class__._uval(k / 2.0 / jnp.pi)
+        return self._uval(k / 2.0 / jnp.pi)
 
     def unit_integrals(self, max_len=None):
         """Compute the unit integrals of the real-space kernel.
@@ -269,37 +265,19 @@ class Delta(Interpolant):
             gsparams = GSParams(kvalue_accuracy=tol)
         self._gsparams = GSParams.check(gsparams)
 
-    # we use functions attached directly to the class rather than static methods
-    # this enables jax.jit which didn't react nicely with the @staticmethod decorator
-    # when I tried it - MRB
     @jax.jit
-    def _xval(x, kvalue_accuracy):
+    def _xval(self, x):
+        if jnp.ndim(x) > 1:
+            raise GalSimValueError("kval only takes scalar or 1D array values", x)
+
         return jnp.where(
-            jnp.abs(x) > 0.5 * kvalue_accuracy,
+            jnp.abs(x) > 0.5 * self._gsparams.kvalue_accuracy,
             0.0,
-            1.0 / kvalue_accuracy,
+            1.0 / self._gsparams.kvalue_accuracy,
         )
 
-    def xval(self, x):
-        """Calculate the value of the interpolant kernel at one or more x values
-
-        Parameters:
-            x:      The value (as a float) or values (as a np.array) at which to compute the
-                    amplitude of the Interpolant kernel.
-
-        Returns:
-            xval:   The value(s) at the x location(s).  If x was an array, then this is also
-                    an array.
-        """
-        # we need an override here since we use a parameter from self but the _xval method is
-        # a pure function
-        return self.__class__._xval(x, self._gsparams.kvalue_accuracy)
-
-    # we use functions attached directly to the class rather than static methods
-    # this enables jax.jit which didn't react nicely with the @staticmethod decorator
-    # when I tried it - MRB
     @jax.jit
-    def _uval(u):
+    def _uval(self, u):
         return jnp.ones_like(u)
 
     def urange(self):
@@ -332,18 +310,12 @@ class Nearest(Interpolant):
             gsparams = GSParams(kvalue_accuracy=tol)
         self._gsparams = GSParams.check(gsparams)
 
-    # we use functions attached directly to the class rather than static methods
-    # this enables jax.jit which didn't react nicely with the @staticmethod decorator
-    # when I tried it - MRB
     @jax.jit
-    def _xval(x):
+    def _xval(self, x):
         return jnp.where(jnp.abs(x) > 0.5, 0.0, 1.0)
 
-    # we use functions attached directly to the class rather than static methods
-    # this enables jax.jit which didn't react nicely with the @staticmethod decorator
-    # when I tried it - MRB
     @jax.jit
-    def _uval(u):
+    def _uval(self, u):
         return jnp.sinc(u)
 
     def urange(self):
@@ -382,18 +354,12 @@ class SincInterpolant(Interpolant):
             gsparams = GSParams(kvalue_accuracy=tol)
         self._gsparams = GSParams.check(gsparams)
 
-    # we use functions attached directly to the class rather than static methods
-    # this enables jax.jit which didn't react nicely with the @staticmethod decorator
-    # when I tried it - MRB
     @jax.jit
-    def _xval(x):
+    def _xval(self, x):
         return jnp.sinc(x)
 
-    # we use functions attached directly to the class rather than static methods
-    # this enables jax.jit which didn't react nicely with the @staticmethod decorator
-    # when I tried it - MRB
     @jax.jit
-    def _uval(u):
+    def _uval(self, u):
         absu = jnp.abs(u)
         return jnp.where(
             absu > 0.5,
@@ -450,11 +416,8 @@ class Linear(Interpolant):
             gsparams = GSParams(kvalue_accuracy=tol)
         self._gsparams = GSParams.check(gsparams)
 
-    # we use functions attached directly to the class rather than static methods
-    # this enables jax.jit which didn't react nicely with the @staticmethod decorator
-    # when I tried it - MRB
     @jax.jit
-    def _xval(x):
+    def _xval(self, x):
         absx = jnp.abs(x)
         return jnp.where(
             absx > 1,
@@ -462,11 +425,8 @@ class Linear(Interpolant):
             1.0 - absx,
         )
 
-    # we use functions attached directly to the class rather than static methods
-    # this enables jax.jit which didn't react nicely with the @staticmethod decorator
-    # when I tried it - MRB
     @jax.jit
-    def _uval(u):
+    def _uval(self, u):
         s = jnp.sinc(u)
         return s * s
 
@@ -503,11 +463,8 @@ class Cubic(Interpolant):
             gsparams = GSParams(kvalue_accuracy=tol)
         self._gsparams = GSParams.check(gsparams)
 
-    # we use functions attached directly to the class rather than static methods
-    # this enables jax.jit which didn't react nicely with the @staticmethod decorator
-    # when I tried it - MRB
     @jax.jit
-    def _xval(x):
+    def _xval(self, x):
         x = jnp.abs(x)
 
         def _one(x):
@@ -525,11 +482,8 @@ class Cubic(Interpolant):
             [_one, _two, lambda x: jnp.array(0.0)],
         )
 
-    # we use functions attached directly to the class rather than static methods
-    # this enables jax.jit which didn't react nicely with the @staticmethod decorator
-    # when I tried it - MRB
     @jax.jit
-    def _uval(u):
+    def _uval(self, u):
         u = jnp.abs(u)
         s = jnp.sinc(u)
         c = jnp.cos(jnp.pi * u)
@@ -581,11 +535,8 @@ class Quintic(Interpolant):
             gsparams = GSParams(kvalue_accuracy=tol)
         self._gsparams = GSParams.check(gsparams)
 
-    # we use functions attached directly to the class rather than static methods
-    # this enables jax.jit which didn't react nicely with the @staticmethod decorator
-    # when I tried it - MRB
     @jax.jit
-    def _xval(x):
+    def _xval(self, x):
         x = jnp.abs(x)
 
         def _one(x):
@@ -621,11 +572,8 @@ class Quintic(Interpolant):
             [_one, _two, _three, lambda x: jnp.array(0.0)],
         )
 
-    # we use functions attached directly to the class rather than static methods
-    # this enables jax.jit which didn't react nicely with the @staticmethod decorator
-    # when I tried it - MRB
     @jax.jit
-    def _uval(u):
+    def _uval(self, u):
         u = jnp.abs(u)
         s = jnp.sinc(u)
         piu = jnp.pi * u
@@ -1364,7 +1312,7 @@ class Lanczos(Interpolant):
     }
     # fmt: on
 
-    def __init__(self, n, conserve_dc=True, tol=None, gsparams=None):
+    def __init__(self, n, conserve_dc=True, tol=None, gsparams=None, _K=None, _C=None):
         if tol is not None:
             from galsim.deprecated import depr
 
@@ -1373,20 +1321,26 @@ class Lanczos(Interpolant):
         self._n = int(n)
         self._conserve_dc = bool(conserve_dc)
         self._gsparams = GSParams.check(gsparams)
-        _K = [None] + [
-            float(self.__class__._raw_uval(i + 1.0, self._n)) for i in range(5)
-        ]
-        _C = [0.0] * 6
-        _C[0] = 1.0 + 2.0 * (
-            _K[1] * (1.0 + 3.0 * _K[1] + _K[2] + _K[3]) + _K[2] + _K[3] + _K[4] + _K[5]
-        )
-        _C[1] = -_K[1] * (1.0 + 4.0 * _K[1] + _K[2] + 2.0 * _K[3])
-        _C[2] = _K[1] * (_K[1] - 2.0 * _K[2] + _K[3]) - _K[2]
-        _C[3] = _K[1] * (_K[1] - 2.0 * _K[3]) - _K[3]
-        _C[4] = _K[1] * _K[3] - _K[4]
-        _C[5] = -_K[5]
-        self._K = tuple(_K)
-        self._C = tuple(_C)
+        if _C is None or _K is None:
+            _K = [None] + [Lanczos._raw_uval(i + 1.0, n).item() for i in range(5)]
+            _C = [0.0] * 6
+            _C[0] = 1.0 + 2.0 * (
+                _K[1] * (1.0 + 3.0 * _K[1] + _K[2] + _K[3])
+                + _K[2]
+                + _K[3]
+                + _K[4]
+                + _K[5]
+            )
+            _C[1] = -_K[1] * (1.0 + 4.0 * _K[1] + _K[2] + 2.0 * _K[3])
+            _C[2] = _K[1] * (_K[1] - 2.0 * _K[2] + _K[3]) - _K[2]
+            _C[3] = _K[1] * (_K[1] - 2.0 * _K[3]) - _K[3]
+            _C[4] = _K[1] * _K[3] - _K[4]
+            _C[5] = -_K[5]
+            self._K = tuple(_K)
+            self._C = tuple(_C)
+        else:
+            self._K = _K
+            self._C = _C
 
     def tree_flatten(self):
         """This function flattens the Interpolant into a list of children
@@ -1399,6 +1353,9 @@ class Lanczos(Interpolant):
             "n": self._n,
             "conserve_dc": self._conserve_dc,
         }
+        if hasattr(self, "_K"):
+            aux_data["_K"] = self._K
+            aux_data["_C"] = self._C
         return (children, aux_data)
 
     @classmethod
@@ -1417,52 +1374,11 @@ class Lanczos(Interpolant):
     def __str__(self):
         return "galsim.Lanczos(%s)" % (self._n)
 
-    def xval(self, x):
-        """Calculate the value of the interpolant kernel at one or more x values
-
-        Parameters:
-            x:      The value (as a float) or values (as a np.array) at which to compute the
-                    amplitude of the Interpolant kernel.
-
-        Returns:
-            xval:   The value(s) at the x location(s).  If x was an array, then this is also
-                    an array.
-        """
+    @jax.jit
+    def _xval(self, x):
         if jnp.ndim(x) > 1:
             raise GalSimValueError("kval only takes scalar or 1D array values", x)
 
-        # we use functions attached directly to the class rather than static methods
-        # this enables jax.jit which didn't react nicely with the @staticmethod decorator
-        # when I tried it - MRB
-        return self.__class__._xval(x, self._n, self._conserve_dc, self._K)
-
-    def kval(self, k):
-        """Calculate the value of the interpolant kernel in Fourier space at one or more k values.
-
-        Parameters:
-            k:      The value (as a float) or values (as a np.array) at which to compute the
-                    amplitude of the Interpolant kernel in Fourier space.
-
-        Returns:
-            kval:   The k-value(s) at the k location(s).  If k was an array, then this is also
-                    an array.
-        """
-        if jnp.ndim(k) > 1:
-            raise GalSimValueError("kval only takes scalar or 1D array values", k)
-
-        # we use functions attached directly to the class rather than static methods
-        # this enables jax.jit which didn't react nicely with the @staticmethod decorator
-        # when I tried it - MRB
-        # Note: self._uval uses u = k/2pi rather than k.
-        return self.__class__._uval(
-            k / 2.0 / jnp.pi, self._n, self._conserve_dc, self._C
-        )
-
-    # we use functions attached directly to the class rather than static methods
-    # this enables jax.jit which didn't react nicely with the @staticmethod decorator
-    # when I tried it - MRB
-    @partial(jax.jit, static_argnums=(1, 2, 3))
-    def _xval(x, n, conserve_dc, _K):
         x = jnp.abs(x)
 
         @partial(jax.jit, static_argnums=(1,))
@@ -1484,12 +1400,12 @@ class Lanczos(Interpolant):
             return n * s * sn / (pix * pix)
 
         msk_s = x <= 1e-4
-        msk_l = x <= n
+        msk_l = x <= self._n
         val = jnp.piecewise(
             x,
             [msk_s, (~msk_s) & msk_l],
             [_low, _high, lambda x, n: jnp.array(0)],
-            n,
+            self._n,
         )
 
         @partial(jax.jit, static_argnums=(1,))
@@ -1502,12 +1418,13 @@ class Lanczos(Interpolant):
         def _high_s(x, n):
             return jnp.sin(jnp.pi * x)
 
-        if conserve_dc:
+        if self._conserve_dc:
+            _K = self._K
             s = jnp.piecewise(
                 x,
                 [msk_s],
                 [_low_s, _high_s],
-                n,
+                self._n,
             )
             ssq = s * s
             factor = (
@@ -1525,11 +1442,10 @@ class Lanczos(Interpolant):
 
         return val
 
-    # we use functions attached directly to the class rather than static methods
-    # this enables jax.jit which didn't react nicely with the @staticmethod decorator
-    # when I tried it - MRB
     @partial(jax.jit, static_argnums=(1,))
     def _raw_uval(u, n):
+        # this function is used in the init and so was causing a recursion depth error
+        # when jitted, so I made it a pure function - MRB
         # from galsim
         # // F(u) = ( (vp+1) Si((vp+1)pi) - (vp-1) Si((vp-1)pi) +
         # //          (vm-1) Si((vm-1)pi) - (vm+1) Si((vm+1)pi) ) / 2pi
@@ -1543,11 +1459,12 @@ class Lanczos(Interpolant):
         )
         return retval / (2.0 * jnp.pi)
 
-    @partial(jax.jit, static_argnums=(1, 2, 3))
-    def _uval(u, n, conserve_dc, _C):
+    def _uval(self, u):
+        n = self._n
         retval = Lanczos._raw_uval(u, n)
 
-        if conserve_dc:
+        if self._conserve_dc:
+            _C = self._C
             retval *= _C[0]
             retval += _C[1] * (
                 Lanczos._raw_uval(u + 1.0, n) + Lanczos._raw_uval(u - 1.0, n)

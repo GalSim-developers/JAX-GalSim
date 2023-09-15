@@ -6,8 +6,13 @@ Much of the code is copied out of the galsim test suite.
 import galsim as ref_galsim
 import numpy as np
 import jax_galsim as galsim
-from galsim_test_helpers import do_pickle, assert_raises, timer
+from galsim_test_helpers import timer, assert_raises
 from scipy.special import sici
+import pickle
+
+
+def do_pickle(obj1):
+    return pickle.loads(pickle.dumps(obj1))
 
 
 @timer
@@ -23,9 +28,6 @@ def test_si_pade():
 def test_interpolant_smoke():
     """Test the interpolants directly."""
     x = np.linspace(-10, 10, 141)
-
-    g = galsim.Gaussian(sigma=1.0)
-    do_pickle(g)
 
     # Delta
     d = galsim.Delta()

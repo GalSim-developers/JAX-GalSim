@@ -87,6 +87,14 @@ def test_shearconvolve_temp():
         jax_galsim.BoundsI(xmin=0, xmax=1, ymin=0, ymax=1),
         jax_galsim.BoundsD(xmin=0, xmax=1, ymin=0, ymax=1),
         jax_galsim.ShearWCS(0.2, jax_galsim.Shear(g1=0.1, g2=0.2)),
+        jax_galsim.Delta(),
+        jax_galsim.Nearest(),
+        jax_galsim.Lanczos(3),
+        jax_galsim.Lanczos(3, conserve_dc=False),
+        jax_galsim.Quintic(),
+        jax_galsim.Linear(),
+        jax_galsim.Cubic(),
+        jax_galsim.SincInterpolant(),
     ],
 )
 def test_pickling_eval_repr(obj1):
