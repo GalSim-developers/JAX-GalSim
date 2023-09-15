@@ -265,7 +265,6 @@ class Interpolant:
 
     # subclasses should implement __init__, _xval, _uval,
     # _unit_integrals, _positive_flux, _negative_flux, urange, and xrange
-    # _xval and _uval should be static methods without the @staticmethod decorator
 
 
 @_wraps(_galsim.interpolant.Delta)
