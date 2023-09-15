@@ -15,6 +15,22 @@ def do_pickle(obj1):
     return pickle.loads(pickle.dumps(obj1))
 
 
+def test_sinc_integrals():
+    tol = 1e-5
+    gs = ref_galsim.SincInterpolant(gsparams=ref_galsim.GSParams(kvalue_accuracy=tol))
+    jgs = galsim.SincInterpolant(gsparams=galsim.GSParams(kvalue_accuracy=tol))
+    np.testing.assert_allclose(gs.unit_integrals(), jgs.unit_integrals())
+    np.testing.assert_allclose(gs.xrange, jgs.xrange)
+    np.testing.assert_allclose(gs.ixrange, jgs.ixrange)
+    np.testing.assert_allclose(jgs.negative_flux, jgs.positive_flux - 1.0)
+    np.testing.assert_allclose(
+        gs.positive_flux, jgs.positive_flux, atol=1e-5, rtol=1e-5
+    )
+    np.testing.assert_allclose(
+        gs.negative_flux, jgs.negative_flux, atol=1e-5, rtol=1e-5
+    )
+
+
 @timer
 def test_si_pade():
     x = np.linspace(-10, 10, 141)

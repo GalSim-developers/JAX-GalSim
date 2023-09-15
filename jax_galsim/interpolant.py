@@ -159,10 +159,18 @@ class Interpolant:
             xval:   The value(s) at the x location(s).  If x was an array, then this is also
                     an array.
         """
+        ndim = jnp.ndim(x)
         if jnp.ndim(x) > 1:
             raise GalSimValueError("kval only takes scalar or 1D array values", x)
 
-        return self._xval(x)
+        if ndim == 0:
+            return self._xval(x).item()
+        else:
+            return self._xval(x)
+
+    @jax.jit
+    def _kval(self, k):
+        return self._uval(k / 2.0 / jnp.pi)
 
     @jax.jit
     def kval(self, k):
@@ -176,10 +184,14 @@ class Interpolant:
             kval:   The k-value(s) at the k location(s).  If k was an array, then this is also
                     an array.
         """
-        if jnp.ndim(k) > 1:
+        ndim = jnp.ndim(k)
+        if ndim > 1:
             raise GalSimValueError("kval only takes scalar or 1D array values", k)
 
-        return self._uval(k / 2.0 / jnp.pi)
+        if ndim == 0:
+            return self._kval(k).item()
+        else:
+            return self._kval(k)
 
     def unit_integrals(self, max_len=None):
         """Compute the unit integrals of the real-space kernel.
@@ -213,11 +225,17 @@ class Interpolant:
     @property
     def positive_flux(self):
         """The positive-flux fraction of the interpolation kernel."""
+        if not hasattr(self, "_positive_flux"):
+            # subclasses can define this method if _positive_flux is not set
+            self._comp_fluxes()
         return self._positive_flux
 
     @property
     def negative_flux(self):
         """The negative-flux fraction of the interpolation kernel."""
+        if not hasattr(self, "_negative_flux"):
+            # subclasses can define this method if _negative_flux is not set
+            self._comp_fluxes()
         return self._negative_flux
 
     @property
@@ -336,16 +354,6 @@ class Nearest(Interpolant):
 @_wraps(_galsim.interpolant.SincInterpolant)
 @register_pytree_node_class
 class SincInterpolant(Interpolant):
-    # these magic numbers are from galsim itself via
-    # In [1]: import galsim
-    # In [2]: s = galsim.SincInterpolant()
-    # In [3]: s.positive_flux
-    # Out[3]: 3.18724409580418
-    # In [4]: s.negative_flux
-    # Out[4]: 2.18724409580418
-    _positive_flux = 3.18724409580418
-    _negative_flux = 2.18724409580418
-
     def __init__(self, tol=None, gsparams=None):
         if tol is not None:
             from galsim.deprecated import depr
@@ -397,6 +405,16 @@ class SincInterpolant(Interpolant):
                 (si(jnp.pi * (narr + 0.5)) - si(jnp.pi * (narr - 0.5))) / jnp.pi
             )
         return self._unit_integrals[:n]
+
+    def _comp_fluxes(self):
+        n = self.ixrange // 2 + 1
+        if n % 2 != 0:
+            n += 1
+        narr = jnp.arange(n)
+
+        val = (si(jnp.pi * (narr + 1)) - si(jnp.pi * (narr))) / jnp.pi
+        self._positive_flux = jax.lax.stop_gradient(jnp.sum(val[val > 0])).item() * 2.0
+        self._negative_flux = self._positive_flux - 1.0
 
 
 @_wraps(_galsim.interpolant.Linear)
@@ -1459,6 +1477,7 @@ class Lanczos(Interpolant):
         )
         return retval / (2.0 * jnp.pi)
 
+    @jax.jit
     def _uval(self, u):
         n = self._n
         retval = Lanczos._raw_uval(u, n)
