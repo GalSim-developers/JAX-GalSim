@@ -14,7 +14,6 @@ from jax.tree_util import register_pytree_node_class
 
 from jax_galsim.gsparams import GSParams
 from jax_galsim.bessel import si
-from jax_galsim.core.utils import tree_data_is_equal
 
 
 @_wraps(_galsim.interpolant.Interpolant)
@@ -138,7 +137,7 @@ class Interpolant:
     def __eq__(self, other):
         return (self is other) or (
             type(other) is self.__class__
-            and tree_data_is_equal(self.tree_flatten(), other.tree_flatten())
+            and self.tree_flatten() == other.tree_flatten()
         )
 
     def __ne__(self, other):
@@ -1314,9 +1313,6 @@ class Lanczos(Interpolant):
         gsparams=None,
         _K=None,
         _C=None,
-        _tab_u=None,
-        _tab_uval=None,
-        _use_interp=False,
         _umax=None,
         _du=None,
     ):
@@ -1328,7 +1324,6 @@ class Lanczos(Interpolant):
         self._n = int(n)
         self._conserve_dc = bool(conserve_dc)
         self._gsparams = GSParams.check(gsparams)
-        self._use_interp = bool(_use_interp)
 
         if _C is None or _K is None:
             _K = [0.0] + [Lanczos._raw_uval(i + 1.0, n).item() for i in range(5)]
@@ -1345,20 +1340,23 @@ class Lanczos(Interpolant):
             _C[3] = _K[1] * (_K[1] - 2.0 * _K[3]) - _K[3]
             _C[4] = _K[1] * _K[3] - _K[4]
             _C[5] = -_K[5]
-            _K = jnp.array(_K, dtype=float)
-            _C = jnp.array(_C, dtype=float)
+            _K = tuple(_K)
+            _C = tuple(_C)
             self._K = _K
             self._C = _C
         else:
             self._K = _K
             self._C = _C
 
+        self._K_arr = jnp.array(self._K, dtype=float)
+        self._C_arr = jnp.array(self._C, dtype=float)
+
         if _du is None:
             _du = (
                 self._gsparams.table_spacing
                 * jnp.power(self._gsparams.kvalue_accuracy / 200.0, 0.25)
                 / self._n
-            )
+            ).item()
             self._du = _du
         else:
             self._du = _du
@@ -1370,23 +1368,9 @@ class Lanczos(Interpolant):
                 self._conserve_dc,
                 self._C,
                 self._gsparams.kvalue_accuracy,
-            )
+            ).item()
         else:
             self._umax = _umax
-
-        if _use_interp:
-            if _tab_u is None or _tab_uval is None:
-                # this spacing is from galsim's c++ code
-                # the galsim spacing is too coarse for our linear interpolant
-                du = self._du / 25.0
-                nu = int(jnp.ceil(self.urange() / du).item())
-                _tab_u = jnp.linspace(0.0, self.urange(), nu)
-                _tab_uval = Lanczos._true_uval(_tab_u, self._n, self._conserve_dc, _C)
-                self._tab_u = _tab_u
-                self._tab_uval = _tab_uval
-            else:
-                self._tab_u = _tab_u
-                self._tab_uval = _tab_uval
 
     def tree_flatten(self):
         """This function flattens the Interpolant into a list of children
@@ -1398,7 +1382,6 @@ class Lanczos(Interpolant):
             "gsparams": self._gsparams,
             "n": self._n,
             "conserve_dc": self._conserve_dc,
-            "_use_interp": self._use_interp,
         }
         if hasattr(self, "_du"):
             aux_data["_du"] = self._du
@@ -1407,9 +1390,6 @@ class Lanczos(Interpolant):
         if hasattr(self, "_K"):
             aux_data["_K"] = self._K
             aux_data["_C"] = self._C
-        if hasattr(self, "_tab_u"):
-            aux_data["_tab_u"] = self._tab_u
-            aux_data["_tab_uval"] = self._tab_uval
         return (children, aux_data)
 
     @classmethod
@@ -1504,7 +1484,7 @@ class Lanczos(Interpolant):
         )
 
     def _xval(self, x):
-        return Lanczos._true_xval(x, self._n, self._conserve_dc, self._K)
+        return Lanczos._true_xval(x, self._n, self._conserve_dc, self._K_arr)
 
     def _raw_uval(u, n):
         # this function is used in the init and so was causing a recursion depth error
@@ -1561,10 +1541,7 @@ class Lanczos(Interpolant):
         )
 
     def _uval(self, u):
-        if self._use_interp:
-            return jnp.interp(jnp.abs(u), self._tab_u, self._tab_uval, right=0.0)
-        else:
-            return Lanczos._true_uval(u, self._n, self._conserve_dc, self._C)
+        return Lanczos._true_uval(u, self._n, self._conserve_dc, self._C_arr)
 
     def urange(self):
         """The maximum extent of the interpolant in Fourier space (in 2pi/pixels)."""
