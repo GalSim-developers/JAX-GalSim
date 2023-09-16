@@ -20,8 +20,20 @@ def do_pickle(obj1):
 
 @pytest.mark.parametrize("cdc", [True, False])
 def test_interpolant_jax_lanczos_perf(cdc):
+    t0 = time.time()
     jgs = galsim.Lanczos(5, conserve_dc=cdc)
+    t0 = time.time() - t0
+    print("\njax_galsim init: %0.4e" % t0, flush=True)
+
+    t0 = time.time()
+    jgs = galsim.Lanczos(5, conserve_dc=cdc)
+    t0 = time.time() - t0
+    print("\njax_galsim init: %0.4e" % t0, flush=True)
+
+    t0 = time.time()
     gs = ref_galsim.Lanczos(5, conserve_dc=cdc)
+    t0 = time.time() - t0
+    print("galsim init    : %0.4e" % t0, flush=True)
 
     def _timeit(lz, ntest=100, jit=False):
         k = np.array([0.3, 0.4, 0.5])
@@ -75,6 +87,7 @@ def test_interpolant_jax_same_as_galsim():
         if not isinstance(jgs, galsim.Lanczos):
             np.testing.assert_allclose(gs.krange, jgs.krange)
         np.testing.assert_allclose(gs.xrange, jgs.xrange)
+        np.testing.assert_allclose(gs._i.urange(), jgs.urange())
         np.testing.assert_allclose(gs.ixrange, jgs.ixrange)
         np.testing.assert_allclose(gs.xval(x), jgs.xval(x), rtol=0, atol=1e-10)
         np.testing.assert_allclose(gs.kval(k), jgs.kval(k), rtol=0, atol=5e-5)

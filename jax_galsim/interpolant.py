@@ -1317,6 +1317,8 @@ class Lanczos(Interpolant):
         _tab_u=None,
         _tab_uval=None,
         _use_interp=False,
+        _umax=None,
+        _du=None,
     ):
         if tol is not None:
             from galsim.deprecated import depr
@@ -1343,27 +1345,45 @@ class Lanczos(Interpolant):
             _C[3] = _K[1] * (_K[1] - 2.0 * _K[3]) - _K[3]
             _C[4] = _K[1] * _K[3] - _K[4]
             _C[5] = -_K[5]
-            self._K = tuple(_K)
-            self._C = tuple(_C)
+            _K = jnp.array(_K, dtype=float)
+            _C = jnp.array(_C, dtype=float)
+            self._K = _K
+            self._C = _C
         else:
             self._K = _K
             self._C = _C
 
+        if _du is None:
+            _du = (
+                self._gsparams.table_spacing
+                * jnp.power(self._gsparams.kvalue_accuracy / 200.0, 0.25)
+                / self._n
+            )
+            self._du = _du
+        else:
+            self._du = _du
+
+        if _umax is None:
+            self._umax = _find_umax_lanczos(
+                self._du,
+                self._n,
+                self._conserve_dc,
+                self._C,
+                self._gsparams.kvalue_accuracy,
+            )
+        else:
+            self._umax = _umax
+
         if _use_interp:
             if _tab_u is None or _tab_uval is None:
                 # this spacing is from galsim's c++ code
-                du = (
-                    self._gsparams.table_spacing
-                    * jnp.power(self._gsparams.kvalue_accuracy / 200.0, 0.25)
-                    / self._n
-                )
                 # the galsim spacing is too coarse for our linear interpolant
-                du /= 25.0
+                du = self._du / 25.0
                 nu = int(jnp.ceil(self.urange() / du).item())
                 _tab_u = jnp.linspace(0.0, self.urange(), nu)
-                _tab_uval = self._true_uval(_tab_u)
-                self._tab_u = jax.lax.stop_gradient(_tab_u)
-                self._tab_uval = jax.lax.stop_gradient(_tab_uval)
+                _tab_uval = Lanczos._true_uval(_tab_u, self._n, self._conserve_dc, _C)
+                self._tab_u = _tab_u
+                self._tab_uval = _tab_uval
             else:
                 self._tab_u = _tab_u
                 self._tab_uval = _tab_uval
@@ -1380,6 +1400,10 @@ class Lanczos(Interpolant):
             "conserve_dc": self._conserve_dc,
             "_use_interp": self._use_interp,
         }
+        if hasattr(self, "_du"):
+            aux_data["_du"] = self._du
+        if hasattr(self, "_umax"):
+            aux_data["_umax"] = self._umax
         if hasattr(self, "_K"):
             aux_data["_K"] = self._K
             aux_data["_C"] = self._C
@@ -1471,7 +1495,6 @@ class Lanczos(Interpolant):
 
         return val
 
-    @partial(jax.jit, static_argnums=(1,))
     def _raw_uval(u, n):
         # this function is used in the init and so was causing a recursion depth error
         # when jitted, so I made it a pure function - MRB
@@ -1488,12 +1511,11 @@ class Lanczos(Interpolant):
         )
         return retval / (2.0 * jnp.pi)
 
-    def _true_uval(self, u):
-        n = self._n
+    @partial(jax.jit, static_argnums=(2,))
+    def _true_uval(u, n, conserve_dc, _C):
         retval = Lanczos._raw_uval(u, n)
 
-        if self._conserve_dc:
-            _C = self._C
+        if conserve_dc:
             retval *= _C[0]
             retval += _C[1] * (
                 Lanczos._raw_uval(u + 1.0, n) + Lanczos._raw_uval(u - 1.0, n)
@@ -1517,30 +1539,11 @@ class Lanczos(Interpolant):
         if self._use_interp:
             return jnp.interp(jnp.abs(u), self._tab_u, self._tab_uval, right=0.0)
         else:
-            return self._true_uval(u)
+            return Lanczos._true_uval(u, self._n, self._conserve_dc, self._C)
 
     def urange(self):
         """The maximum extent of the interpolant in Fourier space (in 2pi/pixels)."""
-
-        # this is a hand-built fitting function that is conservative for typical use cases
-        # like tol < 1e-3 and order >= 3
-        # see the dev notebook dev/lanczos_interpolant_urange.ipynb for details
-        def _s(x, c, m):
-            return 1.0 / (1.0 + jnp.exp(-(x - m) / c))
-
-        tol = self._gsparams.kvalue_accuracy
-        order = self._n
-
-        plaw = jnp.exp(
-            4.8
-            + 9.2e-4 * jnp.log(tol / 1e-8) ** 2
-            - 0.33 * jnp.log(tol / 1e-8)
-            - 0.66 * jnp.log(order)
-        )
-        sval = _s(jnp.log(order), jnp.log(15), 0.1) * (
-            1.0 - _s(jnp.log(tol), jnp.log(1e-2), 0.1)
-        )
-        return jnp.maximum(sval * 1.5 + (1.0 - sval) * plaw, 0.55)
+        return self._umax
 
     @property
     def n(self):
@@ -1597,3 +1600,28 @@ class Lanczos(Interpolant):
             return self._unit_integrals_conserve_dc[self._n][:n]
         else:
             return self._unit_integrals_no_conserve_dc[self._n][:n]
+
+
+@partial(jax.jit, static_argnums=(2,))
+def _find_umax_lanczos(_du, n, conserve_dc, _C, kva):
+    def _cond(vals):
+        umax, u = vals
+        return (u - umax < 1.0 / n) | (u < 1.1)
+
+    def _body(vals):
+        umax, u = vals
+        uval = Lanczos._true_uval(u, n, conserve_dc, _C)
+        umax = jax.lax.cond(
+            jnp.abs(uval) > kva,
+            lambda umax, u: u,
+            lambda umax, u: umax,
+            umax,
+            u,
+        )
+        return [umax, u + _du]
+
+    return jax.lax.while_loop(
+        _cond,
+        _body,
+        [0.0, 0.0],
+    )[0]
