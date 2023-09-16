@@ -3,19 +3,49 @@ InterpolatedImage is not yet implemented.
 
 Much of the code is copied out of the galsim test suite.
 """
+import jax
+import time
 import galsim as ref_galsim
 import numpy as np
 import jax_galsim as galsim
 from galsim_test_helpers import timer, assert_raises
 from scipy.special import sici
 import pickle
+import pytest
 
 
 def do_pickle(obj1):
     return pickle.loads(pickle.dumps(obj1))
 
 
-def test_interpolant_jax_pos_neg_flux():
+@pytest.mark.parametrize("cdc", [True, False])
+def test_interpolant_jax_lanczos_perf(cdc):
+    jgs = galsim.Lanczos(5, conserve_dc=cdc)
+    gs = ref_galsim.Lanczos(5, conserve_dc=cdc)
+
+    def _timeit(lz, ntest=100, jit=False):
+        k = np.array([0.3, 0.4, 0.5])
+        if isinstance(lz, galsim.Lanczos) and jit:
+            f = jax.jit(lz.kval)
+        else:
+            f = lz.kval
+        f(k)
+        t0 = time.time()
+        for i in range(ntest):
+            f(k + i / ntest)
+        return (time.time() - t0) / ntest / 1e-6
+
+    print("\njax_galsim:        %0.4e [ns]" % _timeit(jgs), flush=True)
+    print("jax_galsim w/ JIT: %0.4e [ns]" % _timeit(jgs, jit=True), flush=True)
+    print("galsim:            %0.4e [ns]" % _timeit(gs), flush=True)
+
+
+@timer
+def test_interpolant_jax_same_as_galsim():
+    x = np.linspace(-10, 10, 141)
+    k = np.linspace(0.0, 0.2, 5)
+    if np.any(~np.isfinite(k)):
+        k = k[np.isfinite(k)]
     interps = (
         [
             galsim.Delta(),
@@ -29,6 +59,7 @@ def test_interpolant_jax_pos_neg_flux():
         + [galsim.Lanczos(i, conserve_dc=True) for i in range(1, 31)]
     )
     for interp in interps:
+        print(str(interp))
         gs = getattr(ref_galsim, interp.__class__.__name__)
         if isinstance(interp, galsim.Lanczos):
             gs = gs(interp.n, conserve_dc=interp.conserve_dc)
@@ -41,6 +72,12 @@ def test_interpolant_jax_pos_neg_flux():
         np.testing.assert_allclose(
             gs.negative_flux, jgs.negative_flux, atol=1e-5, rtol=1e-5
         )
+        if not isinstance(jgs, galsim.Lanczos):
+            np.testing.assert_allclose(gs.krange, jgs.krange)
+        np.testing.assert_allclose(gs.xrange, jgs.xrange)
+        np.testing.assert_allclose(gs.ixrange, jgs.ixrange)
+        np.testing.assert_allclose(gs.xval(x), jgs.xval(x), rtol=0, atol=1e-10)
+        np.testing.assert_allclose(gs.kval(k), jgs.kval(k), rtol=0, atol=5e-5)
 
 
 def test_interpolant_jax_sinc_integrals():
@@ -352,10 +389,9 @@ def test_interpolant_jax_unit_integrals():
             # int1d doesn't handle this well.
             direct_integrals[0] = 1
         else:
+            f = jax.jit(interp.xval)
             for k in range(n):
-                direct_integrals[k] = ref_galsim.integ.int1d(
-                    interp.xval, k - 0.5, k + 0.5
-                )
+                direct_integrals[k] = ref_galsim.integ.int1d(f, k - 0.5, k + 0.5)
         print("direct: ", direct_integrals)
 
         # Get from unit_integrals method (sometimes using analytic formulas)

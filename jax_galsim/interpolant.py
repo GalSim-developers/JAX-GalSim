@@ -147,7 +147,6 @@ class Interpolant:
     def __hash__(self):
         return hash(repr(self))
 
-    @jax.jit
     def xval(self, x):
         """Calculate the value of the interpolant kernel at one or more x values
 
@@ -164,11 +163,9 @@ class Interpolant:
 
         return self._xval(x)
 
-    @jax.jit
     def _kval(self, k):
         return self._uval(k / 2.0 / jnp.pi)
 
-    @jax.jit
     def kval(self, k):
         """Calculate the value of the interpolant kernel in Fourier space at one or more k values.
 
@@ -274,7 +271,6 @@ class Delta(Interpolant):
             gsparams = GSParams(kvalue_accuracy=tol)
         self._gsparams = GSParams.check(gsparams)
 
-    @jax.jit
     def _xval(self, x):
         if jnp.ndim(x) > 1:
             raise GalSimValueError("kval only takes scalar or 1D array values", x)
@@ -285,7 +281,6 @@ class Delta(Interpolant):
             1.0 / self._gsparams.kvalue_accuracy,
         )
 
-    @jax.jit
     def _uval(self, u):
         return jnp.ones_like(u)
 
@@ -319,11 +314,9 @@ class Nearest(Interpolant):
             gsparams = GSParams(kvalue_accuracy=tol)
         self._gsparams = GSParams.check(gsparams)
 
-    @jax.jit
     def _xval(self, x):
         return jnp.where(jnp.abs(x) > 0.5, 0.0, 1.0)
 
-    @jax.jit
     def _uval(self, u):
         return jnp.sinc(u)
 
@@ -353,11 +346,9 @@ class SincInterpolant(Interpolant):
             gsparams = GSParams(kvalue_accuracy=tol)
         self._gsparams = GSParams.check(gsparams)
 
-    @jax.jit
     def _xval(self, x):
         return jnp.sinc(x)
 
-    @jax.jit
     def _uval(self, u):
         absu = jnp.abs(u)
         return jnp.where(
@@ -425,7 +416,6 @@ class Linear(Interpolant):
             gsparams = GSParams(kvalue_accuracy=tol)
         self._gsparams = GSParams.check(gsparams)
 
-    @jax.jit
     def _xval(self, x):
         absx = jnp.abs(x)
         return jnp.where(
@@ -434,7 +424,6 @@ class Linear(Interpolant):
             1.0 - absx,
         )
 
-    @jax.jit
     def _uval(self, u):
         s = jnp.sinc(u)
         return s * s
@@ -472,7 +461,6 @@ class Cubic(Interpolant):
             gsparams = GSParams(kvalue_accuracy=tol)
         self._gsparams = GSParams.check(gsparams)
 
-    @jax.jit
     def _xval(self, x):
         x = jnp.abs(x)
 
@@ -491,7 +479,6 @@ class Cubic(Interpolant):
             [_one, _two, lambda x: jnp.array(0.0)],
         )
 
-    @jax.jit
     def _uval(self, u):
         u = jnp.abs(u)
         s = jnp.sinc(u)
@@ -544,7 +531,6 @@ class Quintic(Interpolant):
             gsparams = GSParams(kvalue_accuracy=tol)
         self._gsparams = GSParams.check(gsparams)
 
-    @jax.jit
     def _xval(self, x):
         x = jnp.abs(x)
 
@@ -581,7 +567,6 @@ class Quintic(Interpolant):
             [_one, _two, _three, lambda x: jnp.array(0.0)],
         )
 
-    @jax.jit
     def _uval(self, u):
         u = jnp.abs(u)
         s = jnp.sinc(u)
@@ -1321,7 +1306,18 @@ class Lanczos(Interpolant):
     }
     # fmt: on
 
-    def __init__(self, n, conserve_dc=True, tol=None, gsparams=None, _K=None, _C=None):
+    def __init__(
+        self,
+        n,
+        conserve_dc=True,
+        tol=None,
+        gsparams=None,
+        _K=None,
+        _C=None,
+        _tab_u=None,
+        _tab_uval=None,
+        _use_interp=False,
+    ):
         if tol is not None:
             from galsim.deprecated import depr
 
@@ -1330,6 +1326,8 @@ class Lanczos(Interpolant):
         self._n = int(n)
         self._conserve_dc = bool(conserve_dc)
         self._gsparams = GSParams.check(gsparams)
+        self._use_interp = bool(_use_interp)
+
         if _C is None or _K is None:
             _K = [None] + [Lanczos._raw_uval(i + 1.0, n).item() for i in range(5)]
             _C = [0.0] * 6
@@ -1351,6 +1349,25 @@ class Lanczos(Interpolant):
             self._K = _K
             self._C = _C
 
+        if _use_interp:
+            if _tab_u is None or _tab_uval is None:
+                # this spacing is from galsim's c++ code
+                du = (
+                    self._gsparams.table_spacing
+                    * jnp.power(self._gsparams.kvalue_accuracy / 200.0, 0.25)
+                    / self._n
+                )
+                # the galsim spacing is too coarse for our linear interpolant
+                du /= 25.0
+                nu = int(jnp.ceil(self.urange() / du).item())
+                _tab_u = jnp.linspace(0.0, self.urange(), nu)
+                _tab_uval = self._true_uval(_tab_u)
+                self._tab_u = jax.lax.stop_gradient(_tab_u)
+                self._tab_uval = jax.lax.stop_gradient(_tab_uval)
+            else:
+                self._tab_u = _tab_u
+                self._tab_uval = _tab_uval
+
     def tree_flatten(self):
         """This function flattens the Interpolant into a list of children
         nodes that will be traced by JAX and auxiliary static data."""
@@ -1361,10 +1378,14 @@ class Lanczos(Interpolant):
             "gsparams": self._gsparams,
             "n": self._n,
             "conserve_dc": self._conserve_dc,
+            "_use_interp": self._use_interp,
         }
         if hasattr(self, "_K"):
             aux_data["_K"] = self._K
             aux_data["_C"] = self._C
+        if hasattr(self, "_tab_u"):
+            aux_data["_tab_u"] = self._tab_u
+            aux_data["_tab_uval"] = self._tab_uval
         return (children, aux_data)
 
     @classmethod
@@ -1383,7 +1404,6 @@ class Lanczos(Interpolant):
     def __str__(self):
         return "galsim.Lanczos(%s)" % (self._n)
 
-    @jax.jit
     def _xval(self, x):
         if jnp.ndim(x) > 1:
             raise GalSimValueError("kval only takes scalar or 1D array values", x)
@@ -1468,8 +1488,7 @@ class Lanczos(Interpolant):
         )
         return retval / (2.0 * jnp.pi)
 
-    @jax.jit
-    def _uval(self, u):
+    def _true_uval(self, u):
         n = self._n
         retval = Lanczos._raw_uval(u, n)
 
@@ -1493,6 +1512,12 @@ class Lanczos(Interpolant):
             )
 
         return retval
+
+    def _uval(self, u):
+        if self._use_interp:
+            return jnp.interp(jnp.abs(u), self._tab_u, self._tab_uval, right=0.0)
+        else:
+            return self._true_uval(u)
 
     def urange(self):
         """The maximum extent of the interpolant in Fourier space (in 2pi/pixels)."""
