@@ -272,9 +272,6 @@ class Delta(Interpolant):
         self._gsparams = GSParams.check(gsparams)
 
     def _xval(self, x):
-        if jnp.ndim(x) > 1:
-            raise GalSimValueError("kval only takes scalar or 1D array values", x)
-
         return jnp.where(
             jnp.abs(x) > 0.5 * self._gsparams.kvalue_accuracy,
             0.0,
