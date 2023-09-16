@@ -18,6 +18,64 @@ def do_pickle(obj1):
     return pickle.loads(pickle.dumps(obj1))
 
 
+def test_interpolant_jax_eq():
+    interps1 = (
+        [
+            galsim.Delta(),
+            galsim.Nearest(),
+            galsim.SincInterpolant(),
+            galsim.Linear(),
+            galsim.Cubic(),
+            galsim.Quintic(),
+        ]
+        + [galsim.Lanczos(i, conserve_dc=False) for i in range(1, 31)]
+        + [galsim.Lanczos(i, conserve_dc=True) for i in range(1, 31)]
+    )
+    interps2 = (
+        [
+            galsim.Delta(),
+            galsim.Nearest(),
+            galsim.SincInterpolant(),
+            galsim.Linear(),
+            galsim.Cubic(),
+            galsim.Quintic(),
+        ]
+        + [galsim.Lanczos(i, conserve_dc=False) for i in range(1, 31)]
+        + [galsim.Lanczos(i, conserve_dc=True) for i in range(1, 31)]
+    )
+
+    def _compare():
+        for i, intrp1 in enumerate(interps1):
+            for j, intrp2 in enumerate(interps1):
+                if i == j:
+                    assert intrp1 == intrp2
+                    assert not (intrp1 != intrp2)
+                    assert intrp1 is intrp2
+                else:
+                    assert intrp1 != intrp2
+                    assert not (intrp1 == intrp2)
+                    assert intrp1 is not intrp2
+
+            for j, intrp2 in enumerate(interps2):
+                if i == j:
+                    assert intrp1 == intrp2
+                    assert not (intrp1 != intrp2)
+                else:
+                    assert intrp1 != intrp2
+                    assert not (intrp1 == intrp2)
+                assert intrp1 is not intrp2
+
+    _compare()
+    # make sure that any flattening and unflatting doesn't change anything
+    for interp in interps1:
+        f = jax.jit(interp.xval)
+        f(0.1)
+    for interp in interps2:
+        f = jax.jit(interp.xval)
+        f(0.1)
+    _compare()
+
+
 @pytest.mark.parametrize("cdc", [True, False])
 def test_interpolant_jax_lanczos_perf(cdc):
     t0 = time.time()
@@ -28,28 +86,42 @@ def test_interpolant_jax_lanczos_perf(cdc):
     t0 = time.time()
     jgs = galsim.Lanczos(5, conserve_dc=cdc)
     t0 = time.time() - t0
-    print("\njax_galsim init: %0.4e" % t0, flush=True)
+    print("jax_galsim init: %0.4e" % t0, flush=True)
 
     t0 = time.time()
     gs = ref_galsim.Lanczos(5, conserve_dc=cdc)
     t0 = time.time() - t0
     print("galsim init    : %0.4e" % t0, flush=True)
 
-    def _timeit(lz, ntest=100, jit=False):
+    def _timeit(lz, ntest=10, jit=False, dox=False):
         k = np.array([0.3, 0.4, 0.5])
-        if isinstance(lz, galsim.Lanczos) and jit:
-            f = jax.jit(lz.kval)
+        if dox:
+            if isinstance(lz, galsim.Lanczos) and jit:
+                f = jax.jit(lz.xval)
+            else:
+                f = lz.xval
         else:
-            f = lz.kval
+            if isinstance(lz, galsim.Lanczos) and jit:
+                f = jax.jit(lz.kval)
+            else:
+                f = lz.kval
         f(k)
         t0 = time.time()
         for i in range(ntest):
             f(k + i / ntest)
         return (time.time() - t0) / ntest / 1e-6
 
-    print("\njax_galsim:        %0.4e [ns]" % _timeit(jgs), flush=True)
+    print("\nkval timing:", flush=True)
+    print("jax_galsim:        %0.4e [ns]" % _timeit(jgs), flush=True)
     print("jax_galsim w/ JIT: %0.4e [ns]" % _timeit(jgs, jit=True), flush=True)
     print("galsim:            %0.4e [ns]" % _timeit(gs), flush=True)
+
+    print("\nxval timing:", flush=True)
+    print("jax_galsim:        %0.4e [ns]" % _timeit(jgs, dox=True), flush=True)
+    print(
+        "jax_galsim w/ JIT: %0.4e [ns]" % _timeit(jgs, jit=True, dox=True), flush=True
+    )
+    print("galsim:            %0.4e [ns]" % _timeit(gs, dox=True), flush=True)
 
 
 @timer

@@ -4,7 +4,6 @@ interpolant classes. The code here assumes that all properties of the
 interpolants themselves (e.g., the coefficients that define the kernel
 shapes, the integrals of the kernels, etc.) are constants.
 """
-from functools import partial
 import galsim as _galsim
 from galsim.errors import GalSimValueError
 
@@ -15,6 +14,7 @@ from jax.tree_util import register_pytree_node_class
 
 from jax_galsim.gsparams import GSParams
 from jax_galsim.bessel import si
+from jax_galsim.core.utils import tree_data_is_equal
 
 
 @_wraps(_galsim.interpolant.Interpolant)
@@ -138,7 +138,7 @@ class Interpolant:
     def __eq__(self, other):
         return (self is other) or (
             type(other) is self.__class__
-            and self.tree_flatten() == other.tree_flatten()
+            and tree_data_is_equal(self.tree_flatten(), other.tree_flatten())
         )
 
     def __ne__(self, other):
@@ -476,7 +476,7 @@ class Cubic(Interpolant):
         return jnp.piecewise(
             x,
             [msk1, (~msk1) & msk2],
-            [_one, _two, lambda x: jnp.array(0.0)],
+            [_one, _two, lambda x: jnp.array(0, dtype=float)],
         )
 
     def _uval(self, u):
@@ -564,7 +564,7 @@ class Quintic(Interpolant):
         return jnp.piecewise(
             x,
             [msk1, (~msk1) & msk2, (~msk2) & msk3],
-            [_one, _two, _three, lambda x: jnp.array(0.0)],
+            [_one, _two, _three, lambda x: jnp.array(0, dtype=float)],
         )
 
     def _uval(self, u):
@@ -1331,7 +1331,7 @@ class Lanczos(Interpolant):
         self._use_interp = bool(_use_interp)
 
         if _C is None or _K is None:
-            _K = [None] + [Lanczos._raw_uval(i + 1.0, n).item() for i in range(5)]
+            _K = [0.0] + [Lanczos._raw_uval(i + 1.0, n).item() for i in range(5)]
             _C = [0.0] * 6
             _C[0] = 1.0 + 2.0 * (
                 _K[1] * (1.0 + 3.0 * _K[1] + _K[2] + _K[3])
@@ -1428,13 +1428,12 @@ class Lanczos(Interpolant):
     def __str__(self):
         return "galsim.Lanczos(%s)" % (self._n)
 
-    def _xval(self, x):
-        if jnp.ndim(x) > 1:
-            raise GalSimValueError("kval only takes scalar or 1D array values", x)
-
+    # this is a pure function and we apply JIT ahead of time since this
+    # one is pretty slow
+    @jax.jit
+    def _true_xval(x, n, conserve_dc, _K):
         x = jnp.abs(x)
 
-        @partial(jax.jit, static_argnums=(1,))
         def _low(x, n):
             # from galsim
             # // res = n/(pi x)^2 * sin(pi x) * sin(pi x / n)
@@ -1445,7 +1444,6 @@ class Lanczos(Interpolant):
             temp = (1.0 / 6.0) * pix * pix
             return 1.0 - temp * (1.0 + 1.0 / (n * n))
 
-        @partial(jax.jit, static_argnums=(1,))
         def _high(x, n):
             pix = jnp.pi * x
             s = jnp.sin(pix)
@@ -1453,31 +1451,28 @@ class Lanczos(Interpolant):
             return n * s * sn / (pix * pix)
 
         msk_s = x <= 1e-4
-        msk_l = x <= self._n
+        msk_l = x <= n
         val = jnp.piecewise(
             x,
             [msk_s, (~msk_s) & msk_l],
-            [_low, _high, lambda x, n: jnp.array(0)],
-            self._n,
+            [_low, _high, lambda x, n: jnp.array(0, dtype=float)],
+            n,
         )
 
-        @partial(jax.jit, static_argnums=(1,))
         def _low_s(x, n):
             pix = jnp.pi * x
             temp = (1.0 / 6.0) * pix * pix
             return pix * (1.0 - temp)
 
-        @partial(jax.jit, static_argnums=(1,))
         def _high_s(x, n):
             return jnp.sin(jnp.pi * x)
 
-        if self._conserve_dc:
-            _K = self._K
+        def _dcval(val, x, n, _K):
             s = jnp.piecewise(
                 x,
                 [msk_s],
                 [_low_s, _high_s],
-                self._n,
+                n,
             )
             ssq = s * s
             factor = (
@@ -1493,7 +1488,23 @@ class Lanczos(Interpolant):
             )
             val = val / factor
 
-        return val
+            return val
+
+        def _no_dcval(val, x, n, _K):
+            return val
+
+        return jax.lax.cond(
+            conserve_dc,
+            _dcval,
+            _no_dcval,
+            val,
+            x,
+            n,
+            _K,
+        )
+
+    def _xval(self, x):
+        return Lanczos._true_xval(x, self._n, self._conserve_dc, self._K)
 
     def _raw_uval(u, n):
         # this function is used in the init and so was causing a recursion depth error
@@ -1511,11 +1522,13 @@ class Lanczos(Interpolant):
         )
         return retval / (2.0 * jnp.pi)
 
-    @partial(jax.jit, static_argnums=(2,))
+    # this is a pure function and we apply JIT ahead of time since this
+    # one is pretty slow
+    @jax.jit
     def _true_uval(u, n, conserve_dc, _C):
         retval = Lanczos._raw_uval(u, n)
 
-        if conserve_dc:
+        def _dcval(retval, u, n, _C):
             retval *= _C[0]
             retval += _C[1] * (
                 Lanczos._raw_uval(u + 1.0, n) + Lanczos._raw_uval(u - 1.0, n)
@@ -1532,8 +1545,20 @@ class Lanczos(Interpolant):
             retval += _C[5] * (
                 Lanczos._raw_uval(u + 5.0, n) + Lanczos._raw_uval(u - 5.0, n)
             )
+            return retval
 
-        return retval
+        def _no_dcval(retval, u, n, _C):
+            return retval
+
+        return jax.lax.cond(
+            conserve_dc,
+            _dcval,
+            _no_dcval,
+            retval,
+            u,
+            n,
+            _C,
+        )
 
     def _uval(self, u):
         if self._use_interp:
@@ -1602,7 +1627,8 @@ class Lanczos(Interpolant):
             return self._unit_integrals_no_conserve_dc[self._n][:n]
 
 
-@partial(jax.jit, static_argnums=(2,))
+# we apply JIT here to esnure the class init is fast
+@jax.jit
 def _find_umax_lanczos(_du, n, conserve_dc, _C, kva):
     def _cond(vals):
         umax, u = vals
