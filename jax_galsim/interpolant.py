@@ -116,11 +116,12 @@ class Interpolant:
         """Create a version of the current interpolant with the given gsparams"""
         if gsparams == self.gsparams:
             return self
-        from copy import copy
-
-        ret = copy(self)
-        ret._gsparams = GSParams.check(gsparams, self.gsparams, **kwargs)
-        return ret
+        # Checking gsparams
+        gsparams = GSParams.check(gsparams, self.gsparams, **kwargs)
+        # Flattening the representation to instantiate a clean new object
+        children, aux_data = self.tree_flatten()
+        aux_data["gsparams"] = gsparams
+        return self.tree_unflatten(aux_data, children)
 
     def __repr__(self):
         return "galsim.%s(gsparams=%r)" % (self.__class__.__name__, self._gsparams)
