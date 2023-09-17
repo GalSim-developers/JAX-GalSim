@@ -160,10 +160,7 @@ class Interpolant:
         if jnp.ndim(x) > 1:
             raise GalSimValueError("kval only takes scalar or 1D array values", x)
 
-        return self._xval(x)
-
-    def _kval(self, k):
-        return self._uval(k / 2.0 / jnp.pi)
+        return self.__class__._xval(x)
 
     def kval(self, k):
         """Calculate the value of the interpolant kernel in Fourier space at one or more k values.
@@ -179,7 +176,7 @@ class Interpolant:
         if jnp.ndim(k) > 1:
             raise GalSimValueError("kval only takes scalar or 1D array values", k)
 
-        return self._kval(k)
+        return self.__class__._uval(k / 2.0 / jnp.pi)
 
     def unit_integrals(self, max_len=None):
         """Compute the unit integrals of the real-space kernel.
@@ -270,14 +267,32 @@ class Delta(Interpolant):
             gsparams = GSParams(kvalue_accuracy=tol)
         self._gsparams = GSParams.check(gsparams)
 
-    def _xval(self, x):
+    def xval(self, x):
+        """Calculate the value of the interpolant kernel at one or more x values
+
+        Parameters:
+            x:      The value (as a float) or values (as a np.array) at which to compute the
+                    amplitude of the Interpolant kernel.
+
+        Returns:
+            xval:   The value(s) at the x location(s).  If x was an array, then this is also
+                    an array.
+        """
+        if jnp.ndim(x) > 1:
+            raise GalSimValueError("kval only takes scalar or 1D array values", x)
+
+        return Delta._xval(x, self._gsparams.kvalue_accuracy)
+
+    @jax.jit
+    def _xval(x, kva):
         return jnp.where(
-            jnp.abs(x) > 0.5 * self._gsparams.kvalue_accuracy,
+            jnp.abs(x) > 0.5 * kva,
             0.0,
-            1.0 / self._gsparams.kvalue_accuracy,
+            1.0 / kva,
         )
 
-    def _uval(self, u):
+    @jax.jit
+    def _uval(u):
         return jnp.ones_like(u)
 
     def urange(self):
@@ -310,10 +325,12 @@ class Nearest(Interpolant):
             gsparams = GSParams(kvalue_accuracy=tol)
         self._gsparams = GSParams.check(gsparams)
 
-    def _xval(self, x):
+    @jax.jit
+    def _xval(x):
         return jnp.where(jnp.abs(x) > 0.5, 0.0, 1.0)
 
-    def _uval(self, u):
+    @jax.jit
+    def _uval(u):
         return jnp.sinc(u)
 
     def urange(self):
@@ -342,10 +359,12 @@ class SincInterpolant(Interpolant):
             gsparams = GSParams(kvalue_accuracy=tol)
         self._gsparams = GSParams.check(gsparams)
 
-    def _xval(self, x):
+    @jax.jit
+    def _xval(x):
         return jnp.sinc(x)
 
-    def _uval(self, u):
+    @jax.jit
+    def _uval(u):
         absu = jnp.abs(u)
         return jnp.where(
             absu > 0.5,
@@ -412,7 +431,8 @@ class Linear(Interpolant):
             gsparams = GSParams(kvalue_accuracy=tol)
         self._gsparams = GSParams.check(gsparams)
 
-    def _xval(self, x):
+    @jax.jit
+    def _xval(x):
         absx = jnp.abs(x)
         return jnp.where(
             absx > 1,
@@ -420,7 +440,8 @@ class Linear(Interpolant):
             1.0 - absx,
         )
 
-    def _uval(self, u):
+    @jax.jit
+    def _uval(u):
         s = jnp.sinc(u)
         return s * s
 
@@ -457,7 +478,8 @@ class Cubic(Interpolant):
             gsparams = GSParams(kvalue_accuracy=tol)
         self._gsparams = GSParams.check(gsparams)
 
-    def _xval(self, x):
+    @jax.jit
+    def _xval(x):
         x = jnp.abs(x)
 
         def _one(x):
@@ -475,7 +497,8 @@ class Cubic(Interpolant):
             [_one, _two, lambda x: jnp.array(0, dtype=float)],
         )
 
-    def _uval(self, u):
+    @jax.jit
+    def _uval(u):
         u = jnp.abs(u)
         s = jnp.sinc(u)
         c = jnp.cos(jnp.pi * u)
@@ -527,7 +550,8 @@ class Quintic(Interpolant):
             gsparams = GSParams(kvalue_accuracy=tol)
         self._gsparams = GSParams.check(gsparams)
 
-    def _xval(self, x):
+    @jax.jit
+    def _xval(x):
         x = jnp.abs(x)
 
         def _one(x):
@@ -563,7 +587,8 @@ class Quintic(Interpolant):
             [_one, _two, _three, lambda x: jnp.array(0, dtype=float)],
         )
 
-    def _uval(self, u):
+    @jax.jit
+    def _uval(u):
         u = jnp.abs(u)
         s = jnp.sinc(u)
         piu = jnp.pi * u
@@ -1408,7 +1433,7 @@ class Lanczos(Interpolant):
     # this is a pure function and we apply JIT ahead of time since this
     # one is pretty slow
     @jax.jit
-    def _true_xval(x, n, conserve_dc, _K):
+    def _xval(x, n, conserve_dc, _K):
         x = jnp.abs(x)
 
         def _low(x, n):
@@ -1480,8 +1505,21 @@ class Lanczos(Interpolant):
             _K,
         )
 
-    def _xval(self, x):
-        return Lanczos._true_xval(x, self._n, self._conserve_dc, self._K_arr)
+    def xval(self, x):
+        """Calculate the value of the interpolant kernel at one or more x values
+
+        Parameters:
+            x:      The value (as a float) or values (as a np.array) at which to compute the
+                    amplitude of the Interpolant kernel.
+
+        Returns:
+            xval:   The value(s) at the x location(s).  If x was an array, then this is also
+                    an array.
+        """
+        if jnp.ndim(x) > 1:
+            raise GalSimValueError("kval only takes scalar or 1D array values", x)
+
+        return Lanczos._xval(x, self._n, self._conserve_dc, self._K_arr)
 
     def _raw_uval(u, n):
         # this function is used in the init and so was causing a recursion depth error
@@ -1502,7 +1540,7 @@ class Lanczos(Interpolant):
     # this is a pure function and we apply JIT ahead of time since this
     # one is pretty slow
     @jax.jit
-    def _true_uval(u, n, conserve_dc, _C):
+    def _uval(u, n, conserve_dc, _C):
         retval = Lanczos._raw_uval(u, n)
 
         def _dcval(retval, u, n, _C):
@@ -1537,8 +1575,21 @@ class Lanczos(Interpolant):
             _C,
         )
 
-    def _uval(self, u):
-        return Lanczos._true_uval(u, self._n, self._conserve_dc, self._C_arr)
+    def kval(self, k):
+        """Calculate the value of the interpolant kernel in Fourier space at one or more k values.
+
+        Parameters:
+            k:      The value (as a float) or values (as a np.array) at which to compute the
+                    amplitude of the Interpolant kernel in Fourier space.
+
+        Returns:
+            kval:   The k-value(s) at the k location(s).  If k was an array, then this is also
+                    an array.
+        """
+        if jnp.ndim(k) > 1:
+            raise GalSimValueError("kval only takes scalar or 1D array values", k)
+
+        return Lanczos._uval(k / 2.0 / jnp.pi, self._n, self._conserve_dc, self._C_arr)
 
     def urange(self):
         """The maximum extent of the interpolant in Fourier space (in 2pi/pixels)."""
@@ -1610,7 +1661,7 @@ def _find_umax_lanczos(_du, n, conserve_dc, _C, kva):
 
     def _body(vals):
         umax, u = vals
-        uval = Lanczos._true_uval(u, n, conserve_dc, _C)
+        uval = Lanczos._uval(u, n, conserve_dc, _C)
         umax = jax.lax.cond(
             jnp.abs(uval) > kva,
             lambda umax, u: u,

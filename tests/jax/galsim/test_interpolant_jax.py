@@ -127,7 +127,7 @@ def test_interpolant_jax_lanczos_perf(cdc):
 @timer
 def test_interpolant_jax_same_as_galsim():
     x = np.linspace(-10, 10, 141)
-    k = np.linspace(0.0, 0.2, 5)
+    k = np.linspace(-0.2, 0.2, 5)
     if np.any(~np.isfinite(k)):
         k = k[np.isfinite(k)]
     interps = (
@@ -474,9 +474,10 @@ def test_interpolant_jax_unit_integrals():
             # int1d doesn't handle this well.
             direct_integrals[0] = 1
         else:
-            f = jax.jit(interp.xval)
             for k in range(n):
-                direct_integrals[k] = ref_galsim.integ.int1d(f, k - 0.5, k + 0.5)
+                direct_integrals[k] = ref_galsim.integ.int1d(
+                    interp.xval, k - 0.5, k + 0.5
+                )
         print("direct: ", direct_integrals)
 
         # Get from unit_integrals method (sometimes using analytic formulas)
