@@ -88,3 +88,13 @@ def g1g2_to_e1e2(g1, g2):
         e1 = g1 * (e / g)
         e2 = g2 * (e / g)
         return e1, e2
+
+
+@_wraps(_galsim.utilities.convert_interpolant)
+def convert_interpolant(interpolant):
+    from jax_galsim.interpolant import Interpolant
+    if isinstance(interpolant, Interpolant):
+        return interpolant
+    else:
+        # Will raise an appropriate exception if this is invalid.
+        return Interpolant.from_name(interpolant)
