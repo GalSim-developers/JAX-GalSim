@@ -52,12 +52,6 @@ class GSParams:
         In the former case, it returns gsparams, in the latter it returns default
         (GSParams.default if no other default specified).
         """
-        # we allow conversion from the original GalSim GSParams object
-        if isinstance(gsparams, _galsim.GSParams):
-            gsparams = GSParams.from_galsim(gsparams)
-        if default is not None and isinstance(default, _galsim.GSParams):
-            default = GSParams.from_galsim(default)
-
         if gsparams is None:
             if default is not None:
                 if isinstance(default, GSParams):

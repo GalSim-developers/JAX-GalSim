@@ -592,9 +592,6 @@ class PixelScale(LocalWCS):
         """The pixel scale"""
         return self._scale
 
-    def isPixelScale(self):
-        return True
-
     def _u(self, x, y, color=None):
         return x * self._scale
 
@@ -1026,9 +1023,6 @@ class OffsetWCS(UniformWCS):
     def world_origin(self):
         """The world coordinate position to use as the origin."""
         return self._world_origin
-
-    def isPixelScale(self):
-        return True
 
     def _writeHeader(self, header, bounds):
         header["GS_WCS"] = ("OffsetWCS", "GalSim WCS name")

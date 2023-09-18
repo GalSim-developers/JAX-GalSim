@@ -78,6 +78,9 @@ def pytest_pycollect_makemodule(module_path, path, parent):
         ):
             v.__globals__["galsim"] = __import__("jax_galsim")
 
+        if k == "default_params" and isinstance(v, __import__("galsim").GSParams):
+            module.obj.default_params = __import__("jax_galsim").GSParams.from_galsim(v)
+
     return module
 
 
