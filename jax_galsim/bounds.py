@@ -1,9 +1,11 @@
 import galsim as _galsim
 import jax.numpy as jnp
+import jax
 from jax._src.numpy.util import _wraps
 from jax.tree_util import register_pytree_node_class
 
 from jax_galsim.position import Position, PositionD, PositionI
+from jax_galsim.core.utils import cast_scalar_to_float, cast_scalar_to_int
 
 
 # The reason for avoid these tests is that they are not easy to do for jitted code.
@@ -126,10 +128,12 @@ class Bounds(_galsim.Bounds):
         else:
             raise TypeError("include takes at most 2 arguments (%d given)" % len(args))
 
-    def expand(self, factor):
+    def expand(self, factor, yfactor=None):
         "Grow the `Bounds` by the supplied factor about the center."
+        if yfactor is None:
+            yfactor = factor
         dx = (self.xmax - self.xmin) * 0.5 * (factor - 1.0)
-        dy = (self.ymax - self.ymin) * 0.5 * (factor - 1.0)
+        dy = (self.ymax - self.ymin) * 0.5 * (yfactor - 1.0)
         if isinstance(self, BoundsI):
             dx = jnp.ceil(dx)
             dy = jnp.ceil(dy)
@@ -191,6 +195,25 @@ class Bounds(_galsim.Bounds):
         """Recreates an instance of the class from flatten representation"""
         return cls(*children)
 
+    @classmethod
+    def from_galsim(cls, galsim_bounds):
+        """Create a jax_galsim `BoundsD/I` from a `galsim.BoundsD/I` object."""
+        if isinstance(galsim_bounds, _galsim.BoundsD):
+            _cls = BoundsD
+        elif isinstance(galsim_bounds, _galsim.BoundsI):
+            _cls = BoundsI
+        else:
+            raise TypeError(
+                "galsim_bounds must be either a %s or a %s"
+                % (_galsim.BoundsD.__name__, _galsim.BoundsI.__name__)
+            )
+        return _cls(
+            galsim_bounds.xmin,
+            galsim_bounds.xmax,
+            galsim_bounds.ymin,
+            galsim_bounds.ymax,
+        )
+
 
 @register_pytree_node_class
 class BoundsD(Bounds):
@@ -203,10 +226,20 @@ class BoundsD(Bounds):
 
     def __init__(self, *args, **kwargs):
         self._parse_args(*args, **kwargs)
+        self.xmin = cast_scalar_to_float(self.xmin)
+        self.xmax = cast_scalar_to_float(self.xmax)
+        self.ymin = cast_scalar_to_float(self.ymin)
+        self.ymax = cast_scalar_to_float(self.ymax)
 
     def _check_scalar(self, x, name):
         try:
-            if x == jnp.asarray(x).astype("float"):
+            if (
+                isinstance(x, jax.Array)
+                and x.shape == ()
+                and x.dtype.name in ["float32", "float64", "float"]
+            ):
+                return
+            elif x == float(x):
                 return
         except (TypeError, ValueError):
             pass
@@ -233,10 +266,20 @@ class BoundsI(Bounds):
 
     def __init__(self, *args, **kwargs):
         self._parse_args(*args, **kwargs)
+        self.xmin = cast_scalar_to_int(self.xmin)
+        self.xmax = cast_scalar_to_int(self.xmax)
+        self.ymin = cast_scalar_to_int(self.ymin)
+        self.ymax = cast_scalar_to_int(self.ymax)
 
     def _check_scalar(self, x, name):
         try:
-            if x == jnp.asarray(x).astype("int"):
+            if (
+                isinstance(x, jax.Array)
+                and x.shape == ()
+                and x.dtype.name in ["int32", "int64", "int"]
+            ):
+                return
+            elif x == int(x):
                 return
         except (TypeError, ValueError):
             pass

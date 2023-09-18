@@ -1,3 +1,4 @@
 [submodule "tests/GalSim"]
 	path = tests/GalSim
 	url = https://github.com/GalSim-developers/GalSim
+	branch = fix_tests

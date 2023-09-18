@@ -1,4 +1,6 @@
 import os
+from functools import lru_cache
+import inspect
 
 import pytest
 import yaml
@@ -34,14 +36,37 @@ def pytest_collection_modifyitems(config, items):
             item.add_marker(skip)
 
 
+@lru_cache(maxsize=128)
+def _infile(val, fname):
+    with open(fname, "r") as f:
+        for line in f:
+            if val in line:
+                return True
+
+    return False
+
+
 def pytest_pycollect_makemodule(module_path, path, parent):
     """This hook is tasked with overriding the galsim import
     at the top of each test file. Replaces it by jax-galsim.
     """
     # Load the module
     module = pytest.Module.from_parent(parent, path=module_path)
+
     # Overwrites the galsim module
     module.obj.galsim = __import__("jax_galsim")
+
+    # Overwrites galsim in the galsim_test_helpers module
+    for k, v in module.obj.__dict__.items():
+        if (
+            callable(v)
+            and hasattr(v, "__globals__")
+            and inspect.getsourcefile(v).endswith("galsim_test_helpers.py")
+            and _infile("def " + k, inspect.getsourcefile(v))
+            and "galsim" in v.__globals__
+        ):
+            v.__globals__["galsim"] = __import__("jax_galsim")
+
     return module
 
 

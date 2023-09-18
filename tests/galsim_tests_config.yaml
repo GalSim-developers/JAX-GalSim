@@ -5,6 +5,8 @@ enabled_tests:
   - test_sum.py
   - test_transforms.py
   - test_convolve.py
+  - test_fitsheader.py
+  - test_utilities.py
 
 # This documents which error messages will be allowed
 # without being reported as an error. These typically
@@ -12,7 +14,6 @@ enabled_tests:
 # in jax_galsim
 allowed_failures:
   - "NotImplementedError"
-  - "module 'jax_galsim' has no attribute 'fits'"
   - "module 'jax_galsim' has no attribute 'BaseDeviate"
   - "module 'jax_galsim' has no attribute 'Airy'"
   - "module 'jax_galsim' has no attribute 'Kolmogorov'"
@@ -32,6 +33,16 @@ allowed_failures:
   - "module 'jax_galsim' has no attribute 'WcsToolsWCS'"
   - "module 'jax_galsim' has no attribute 'AutoCorrelate'"
   - "module 'jax_galsim' has no attribute 'AutoConvolve'"
+  - "module 'jax_galsim' has no attribute 'integ'"
+  - "module 'jax_galsim.utilities' has no attribute 'roll2d'"
+  - "module 'jax_galsim.utilities' has no attribute 'kxky'"
+  - "module 'jax_galsim.utilities' has no attribute 'deInterleaveImage'"
+  - "module 'jax_galsim.utilities' has no attribute 'interleaveImages'"
+  - "module 'jax_galsim.utilities' has no attribute 'LRU_Cache'"
+  - "module 'jax_galsim.utilities' has no attribute 'rand_with_replacement'"
+  - "module 'jax_galsim.utilities' has no attribute 'dol_to_lod'"
+  - "module 'jax_galsim.utilities' has no attribute 'nCr'"
   - "image.wrap"
   - "unhashable type: 'ArrayImpl'"
   - "'Image' object has no attribute 'bin'"
+  - "has no attribute 'shoot'"

@@ -21,6 +21,30 @@ class GSParams:
     integration_abserr: float = 1.0e-8
     shoot_accuracy: float = 1.0e-5
 
+    @classmethod
+    def from_galsim(cls, gsparams):
+        """Create a jax_galsim `GSParams` from a `galsim.GSParams` object."""
+        if not isinstance(gsparams, _galsim.GSParams):
+            raise TypeError(
+                "gsparams must be a %s instance, got %s"
+                % (_galsim.GSParams.__name__, gsparams)
+            )
+        return cls(
+            gsparams._minimum_fft_size,
+            gsparams.maximum_fft_size,
+            gsparams.folding_threshold,
+            gsparams.stepk_minimum_hlr,
+            gsparams.maxk_threshold,
+            gsparams.kvalue_accuracy,
+            gsparams.xvalue_accuracy,
+            gsparams.table_spacing,
+            gsparams.realspace_relerr,
+            gsparams.realspace_abserr,
+            gsparams.integration_relerr,
+            gsparams.integration_abserr,
+            gsparams.shoot_accuracy,
+        )
+
     @staticmethod
     def check(gsparams, default=None, **kwargs):
         """Checks that gsparams is either a valid GSParams instance or None.
@@ -28,6 +52,12 @@ class GSParams:
         In the former case, it returns gsparams, in the latter it returns default
         (GSParams.default if no other default specified).
         """
+        # we allow conversion from the original GalSim GSParams object
+        if isinstance(gsparams, _galsim.GSParams):
+            gsparams = GSParams.from_galsim(gsparams)
+        if default is not None and isinstance(default, _galsim.GSParams):
+            default = GSParams.from_galsim(default)
+
         if gsparams is None:
             if default is not None:
                 if isinstance(default, GSParams):
