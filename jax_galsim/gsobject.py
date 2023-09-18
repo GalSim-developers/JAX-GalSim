@@ -176,10 +176,10 @@ class GSObject:
         return -1.0 * self
 
     def __eq__(self, other):
-        is_same = self is other
-        is_same_class = type(other) is self.__class__
-        has_same_trees = self.tree_flatten() == other.tree_flatten()
-        return is_same or (is_same_class and has_same_trees)
+        return (self is other) or (
+            (type(other) is self.__class__)
+            and (self.tree_flatten() == other.tree_flatten())
+        )
 
     @_wraps(_galsim.GSObject.xValue)
     def xValue(self, *args, **kwargs):

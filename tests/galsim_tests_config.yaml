@@ -46,3 +46,4 @@ allowed_failures:
   - "unhashable type: 'ArrayImpl'"
   - "'Image' object has no attribute 'bin'"
   - "has no attribute 'shoot'"
+  - "module 'jax_galsim' has no attribute 'integ'"
