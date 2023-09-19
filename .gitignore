@@ -133,3 +133,5 @@ dmypy.json
 
 tests/output
 .vscode/settings.json
+
+output/

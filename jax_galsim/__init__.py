@@ -57,6 +57,7 @@ from .wcs import (
     ShearWCS,
     OffsetShearWCS,
 )
+from .fits import FitsHeader
 
 # Shear
 from .shear import Shear, _Shear
@@ -75,3 +76,4 @@ from .interpolant import (
 
 # packages kept separate
 from . import bessel
+from . import fits

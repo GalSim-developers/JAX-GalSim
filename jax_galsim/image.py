@@ -6,7 +6,7 @@ from jax._src.numpy.util import _wraps
 from jax.tree_util import register_pytree_node_class
 
 from jax_galsim.position import PositionI
-from jax_galsim.bounds import BoundsI, BoundsD
+from jax_galsim.bounds import BoundsI, BoundsD, Bounds
 from jax_galsim.wcs import BaseWCS, PixelScale
 from jax_galsim.utilities import parse_pos_args
 
@@ -1023,6 +1023,18 @@ class Image(object):
         obj._bounds = aux_data["bounds"]
         obj._dtype = aux_data["dtype"]
         return obj
+
+    @classmethod
+    def from_galsim(cls, galsim_image):
+        """Create a `Image` from a `galsim.Image` instance."""
+        im = cls(
+            array=galsim_image.array,
+            wcs=BaseWCS.from_galsim(galsim_image.wcs),
+            bounds=Bounds.from_galsim(galsim_image.bounds),
+        )
+        if hasattr(galsim_image, "header"):
+            im.header = galsim_image.header
+        return im
 
 
 # These are essentially aliases for the regular Image with the correct dtype

@@ -3,11 +3,17 @@ import jax
 import jax.numpy as jnp
 from jax._src.numpy.util import _wraps
 from jax.tree_util import register_pytree_node_class
+from jax_galsim.core.utils import cast_scalar_to_float, cast_scalar_to_int
 
 
 @_wraps(_galsim.Position)
 class Position(object):
-    def __init__(self, *args, **kwargs):
+    def __init__(self):
+        raise NotImplementedError(
+            "Cannot instantiate the base class.  " "Use either PositionD or PositionI."
+        )
+
+    def _parse_args(self, *args, **kwargs):
         if len(kwargs) == 0:
             if len(args) == 2:
                 self.x, self.y = args
@@ -52,12 +58,14 @@ class Position(object):
         return jnp.array([self.x, self.y])
 
     def __mul__(self, other):
+        self._check_scalar(other, "multiply")
         return self.__class__(self.x * other, self.y * other)
 
     def __rmul__(self, other):
         return self.__mul__(other)
 
     def __div__(self, other):
+        self._check_scalar(other, "divide")
         return self.__class__(self.x / other, self.y / other)
 
     __truediv__ = __div__
@@ -66,9 +74,10 @@ class Position(object):
         return self.__class__(-self.x, -self.y)
 
     def __add__(self, other):
-        # from .bounds import Bounds
-        # if isinstance(other,Bounds):
-        #     return other + self
+        from jax_galsim.bounds import Bounds
+
+        if isinstance(other, Bounds):
+            return other + self
         if not isinstance(other, Position):
             raise TypeError("Can only add a Position to a %s" % self.__class__.__name__)
         elif isinstance(other, self.__class__):
@@ -120,6 +129,10 @@ class Position(object):
         shear_pos = jnp.dot(shear_mat, self.array)
         return PositionD(shear_pos[0], shear_pos[1])
 
+    def round(self):
+        """Return the rounded-off PositionI version of this position."""
+        return PositionI(jnp.round(self.x), jnp.round(self.y))
+
     def tree_flatten(self):
         """This function flattens the GSObject into a list of children
         nodes that will be traced by JAX and auxiliary static data."""
@@ -136,26 +149,66 @@ class Position(object):
         obj.y = children[1]
         return obj
 
+    @classmethod
+    def from_galsim(cls, galsim_position):
+        """Create a jax_galsim `PositionD/I` from a `galsim.PositionD/I` object."""
+        if isinstance(galsim_position, _galsim.PositionD):
+            _cls = PositionD
+        elif isinstance(galsim_position, _galsim.PositionI):
+            _cls = PositionI
+        else:
+            raise TypeError(
+                "galsim_position must be either a %s or a %s"
+                % (_galsim.PositionD.__name__, _galsim.PositionI.__name__)
+            )
+        return _cls(galsim_position.x, galsim_position.y)
+
 
 @_wraps(_galsim.PositionD)
 @register_pytree_node_class
 class PositionD(Position):
     def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+        self._parse_args(*args, **kwargs)
+
+        # Force conversion to float type in this case
+        self.x = cast_scalar_to_float(self.x)
+        self.y = cast_scalar_to_float(self.y)
+
+    def _check_scalar(self, other, op):
+        try:
+            if (
+                isinstance(other, jax.Array)
+                and other.shape == ()
+                and other.dtype.name in ["float32", "float64", "float"]
+            ):
+                return
+            elif other == float(other):
+                return
+        except (TypeError, ValueError):
+            pass
+        raise TypeError("Can only %s a PositionD by float values" % op)
 
 
 @_wraps(_galsim.PositionI)
 @register_pytree_node_class
 class PositionI(Position):
     def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        # Force conversion to int type in this case
-        if isinstance(self.x, float):
-            self.x = int(self.x)
-        elif isinstance(self.x, jax.Array):
-            self.x = self.x.astype("int")
+        self._parse_args(*args, **kwargs)
 
-        if isinstance(self.y, float):
-            self.y = int(self.y)
-        elif isinstance(self.y, jax.Array):
-            self.y = self.y.astype("int")
+        # inputs must be ints
+        self.x = cast_scalar_to_int(self.x)
+        self.y = cast_scalar_to_int(self.y)
+
+    def _check_scalar(self, other, op):
+        try:
+            if (
+                isinstance(other, jax.Array)
+                and other.shape == ()
+                and other.dtype.name in ["int32", "int64", "int"]
+            ):
+                return
+            elif other == int(other):
+                return
+        except (TypeError, ValueError):
+            pass
+        raise TypeError("Can only %s a PositionI by int values" % op)
