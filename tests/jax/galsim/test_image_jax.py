@@ -918,7 +918,9 @@ def test_Image_FITS_IO():
         assert_raises(OSError, galsim.fits.read, test_file, compression="none")
 
     # Check a file with no WCS information
-    nowcs_file = "fits_files/blankimg.fits"
+    nowcs_file = os.path.join(
+        os.path.dirname(__file__), "../../GalSim/tests", "fits_files", "blankimg.fits"
+    )
     im = galsim.fits.read(nowcs_file)
     assert im.wcs == galsim.PixelScale(1.0)
 
@@ -1408,7 +1410,9 @@ def test_Image_MultiFITS_IO():
         )
 
     # Check a file with no WCS information
-    nowcs_file = "fits_files/blankimg.fits"
+    nowcs_file = os.path.join(
+        os.path.dirname(__file__), "../../GalSim/tests", "fits_files", "blankimg.fits"
+    )
     ims = galsim.fits.readMulti(nowcs_file)
     assert ims[0].wcs == galsim.PixelScale(1.0)
 
@@ -1862,7 +1866,9 @@ def test_Image_CubeFITS_IO():
         assert_raises(OSError, galsim.fits.readCube, test_cube_file, compression="none")
 
     # Check a file with no WCS information
-    nowcs_file = "fits_files/blankimg.fits"
+    nowcs_file = os.path.join(
+        os.path.dirname(__file__), "../../GalSim/tests", "fits_files", "blankimg.fits"
+    )
     ims = galsim.fits.readCube(nowcs_file)
     assert ims[0].wcs == galsim.PixelScale(1.0)
 
@@ -2920,7 +2926,9 @@ def test_subImage_persistence():
     """Test that a subimage is properly accessible even if the original image has gone out
     of scope.
     """
-    file_name = os.path.join("fits_files", "tpv.fits")
+    file_name = os.path.join(
+        os.path.dirname(__file__), "../../GalSim/tests", "fits_files", "tpv.fits"
+    )
     bounds = galsim.BoundsI(123, 133, 45, 55)  # Something random
 
     # In this case, the original image has gone out of scope.  At least on some systems,

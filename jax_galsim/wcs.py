@@ -4,7 +4,7 @@ from jax._src.numpy.util import _wraps
 from jax.tree_util import register_pytree_node_class
 
 from jax_galsim.gsobject import GSObject
-from jax_galsim.position import Position, PositionD
+from jax_galsim.position import Position, PositionD, PositionI
 from jax_galsim.transform import _Transform
 from jax_galsim.shear import Shear
 
@@ -164,6 +164,51 @@ class BaseWCS(_galsim.BaseWCS):
     def tree_unflatten(cls, aux_data, children):
         """Recreates an instance of the class from flatten representation"""
         return cls(**(children[0]))
+
+    @classmethod
+    def from_galsim(cls, galsim_wcs):
+        """Create a jax_galsim WCS object from a galsim WCS object."""
+        if not isinstance(galsim_wcs, _galsim.BaseWCS):
+            raise TypeError(
+                "galsim_wcs must be a galsim BaseWCS object or subclass thereof."
+            )
+
+        if galsim_wcs.__class__.__name__ not in globals():
+            raise NotImplementedError(
+                "jax_galsim does not support the galsim WCS class %s"
+                % galsim_wcs.__class__.__name__
+            )
+
+        if isinstance(galsim_wcs, _galsim.PixelScale):
+            return PixelScale(galsim_wcs.scale)
+        elif isinstance(galsim_wcs, _galsim.ShearWCS):
+            return ShearWCS(galsim_wcs.scale, Shear.from_galsim(galsim_wcs.shear))
+        elif isinstance(galsim_wcs, _galsim.JacobianWCS):
+            return JacobianWCS(
+                galsim_wcs.dudx, galsim_wcs.dudy, galsim_wcs.dvdx, galsim_wcs.dvdy
+            )
+        elif isinstance(galsim_wcs, _galsim.OffsetWCS):
+            return OffsetWCS(
+                galsim_wcs.scale,
+                origin=Position.from_galsim(galsim_wcs.origin),
+                world_origin=Position.from_galsim(galsim_wcs.world_origin),
+            )
+        elif isinstance(galsim_wcs, _galsim.OffsetShearWCS):
+            return OffsetShearWCS(
+                galsim_wcs.scale,
+                Shear.from_galsim(galsim_wcs.shear),
+                origin=Position.from_galsim(galsim_wcs.origin),
+                world_origin=Position.from_galsim(galsim_wcs.world_origin),
+            )
+        elif isinstance(galsim_wcs, _galsim.AffineTransform):
+            return AffineTransform(
+                galsim_wcs.dudx,
+                galsim_wcs.dudy,
+                galsim_wcs.dvdx,
+                galsim_wcs.dvdy,
+                origin=Position.from_galsim(galsim_wcs.origin),
+                world_origin=Position.from_galsim(galsim_wcs.world_origin),
+            )
 
 
 #########################################################################################
@@ -531,6 +576,8 @@ class LocalWCS(UniformWCS):
 @_wraps(_galsim.PixelScale)
 @register_pytree_node_class
 class PixelScale(LocalWCS):
+    _isPixelScale = True
+
     def __init__(self, scale):
         self._params = {"scale": scale}
         self._color = None
@@ -544,9 +591,6 @@ class PixelScale(LocalWCS):
     def scale(self):
         """The pixel scale"""
         return self._scale
-
-    def isPixelScale(self):
-        return True
 
     def _u(self, x, y, color=None):
         return x * self._scale
@@ -952,6 +996,8 @@ class JacobianWCS(LocalWCS):
 @_wraps(_galsim.OffsetWCS)
 @register_pytree_node_class
 class OffsetWCS(UniformWCS):
+    _isPixelScale = True
+
     def __init__(self, scale, origin=None, world_origin=None):
         self._color = None
         self._set_origin(origin, world_origin)
@@ -977,9 +1023,6 @@ class OffsetWCS(UniformWCS):
     def world_origin(self):
         """The world coordinate position to use as the origin."""
         return self._world_origin
-
-    def isPixelScale(self):
-        return True
 
     def _writeHeader(self, header, bounds):
         header["GS_WCS"] = ("OffsetWCS", "GalSim WCS name")
@@ -1202,3 +1245,79 @@ def compatible(wcs1, wcs2):
         return wcs1.jacobian() == wcs2.jacobian()
     else:
         return wcs1 == wcs2.shiftOrigin(wcs1.origin, wcs1.world_origin)
+
+
+def readFromFitsHeader(header, suppress_warning=True):
+    """Read a WCS function from a FITS header.
+
+    This is normally called automatically from within the `galsim.fits.read` function, but
+    you can also call it directly as::
+
+        wcs, origin = galsim.wcs.readFromFitsHeader(header)
+
+    If the file was originally written by GalSim using one of the galsim.fits.write() functions,
+    then this should always succeed in reading back in the original WCS.  It may not end up
+    as exactly the same class as the original, but the underlying world coordinate system
+    transformation should be preserved.
+
+    .. note::
+        For `UVFunction` and `RaDecFunction`, if the functions that were written to the FITS
+        header were real python functions (rather than a string that is converted to a function),
+        then the mechanism we use to write to the header and read it back in has some limitations:
+
+        1. It apparently only works for cpython implementations.
+        2. It probably won't work to write from one version of python and read from another.
+           (At least for major version differences.)
+        3. If the function uses globals, you'll need to make sure the globals are present
+           when you read it back in as well, or it probably won't work.
+        4. It looks really ugly in the header.
+        5. We haven't thought much about the security implications of this, so beware using
+           GalSim to open FITS files from untrusted sources.
+
+    If the file was not written by GalSim, then this code will do its best to read the
+    WCS information in the FITS header.  Depending on what kind of WCS is encoded in the
+    header, this may or may not be successful.
+
+    If there is no WCS information in the header, then this will default to a pixel scale
+    of 1.
+
+    In addition to the wcs, this function will also return the image origin that the WCS
+    is assuming for the image.  If the file was originally written by GalSim, this should
+    correspond to the original image origin.  If not, it will default to (1,1).
+
+    Parameters:
+        header:             The fits header with the WCS information.
+        suppress_warning:   Whether to suppress a warning that the WCS could not be read from the
+                            FITS header, so the WCS defaulted to either a `PixelScale` or
+                            `AffineTransform`. [default: True]
+
+    Returns:
+        a tuple (wcs, origin) of the wcs from the header and the image origin.
+    """
+    from . import fits
+
+    # FIXME: Enable FitsWCS
+    # from .fitswcs import FitsWCS
+    if not isinstance(header, fits.FitsHeader):
+        header = fits.FitsHeader(header)
+    xmin = header.get("GS_XMIN", 1)
+    ymin = header.get("GS_YMIN", 1)
+    origin = PositionI(xmin, ymin)
+    wcs_name = header.get("GS_WCS", None)
+    if wcs_name is not None:
+        gdict = globals().copy()
+        exec("import jax_galsim", gdict)
+        wcs_type = eval("jax_galsim." + wcs_name, gdict)
+        wcs = wcs_type._readHeader(header)
+    else:
+        raise NotImplementedError("FitsWCS is not implemented for jax_galsim.")
+        # If we aren't told which type to use, this should find something appropriate
+        # wcs = FitsWCS(header=header, suppress_warning=suppress_warning)
+
+    if xmin != 1 or ymin != 1:
+        # ds9 always assumes the image has an origin at (1,1), so convert back to actual
+        # xmin, ymin if necessary.
+        delta = PositionI(xmin - 1, ymin - 1)
+        wcs = wcs.shiftOrigin(delta)
+
+    return wcs, origin

@@ -63,10 +63,11 @@ def pytest_pycollect_makemodule(module_path, path, parent):
     """
     # Load the module
     module = pytest.Module.from_parent(parent, path=module_path)
+
     # Overwrites the galsim module
     module.obj.galsim = __import__("jax_galsim")
 
-    # make sure test helpers work
+    # Overwrites galsim in the galsim_test_helpers module
     for k, v in module.obj.__dict__.items():
         if (
             callable(v)
@@ -76,6 +77,9 @@ def pytest_pycollect_makemodule(module_path, path, parent):
             and "galsim" in v.__globals__
         ):
             v.__globals__["galsim"] = __import__("jax_galsim")
+
+        if k == "default_params" and isinstance(v, __import__("galsim").GSParams):
+            module.obj.default_params = __import__("jax_galsim").GSParams.from_galsim(v)
 
     return module
 

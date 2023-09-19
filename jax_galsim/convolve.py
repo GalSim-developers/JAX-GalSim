@@ -227,7 +227,7 @@ class Convolution(GSObject):
     @property
     def _is_axisymmetric(self):
         axi_list = [obj.is_axisymmetric for obj in self.obj_list]
-        return jnp.alltrue(jnp.array(axi_list)).item()
+        return jnp.all(jnp.array(axi_list)).item()
 
     @property
     def _is_analytic_x(self):
@@ -235,14 +235,14 @@ class Convolution(GSObject):
             return self.obj_list[0].is_analytic_x
         elif self.real_space and len(self.obj_list) == 2:
             ax_list = [obj.is_analytic_x for obj in self.obj_list]
-            return jnp.alltrue(jnp.arry(ax_list)).item()  # return a bool
+            return jnp.all(jnp.arry(ax_list)).item()  # return a bool
         else:
             return False
 
     @property
     def _is_analytic_k(self):
         ak_list = [obj.is_analytic_k for obj in self.obj_list]
-        return jnp.alltrue(jnp.array(ak_list)).item()  # return a bool
+        return jnp.all(jnp.array(ak_list)).item()  # return a bool
 
     @property
     def _centroid(self):
@@ -254,19 +254,28 @@ class Convolution(GSObject):
     @property
     def _flux(self):
         flux_list = [obj.flux for obj in self.obj_list]
-        return jnp.prod(jnp.array(flux_list)).item()  # return a float
+        return jnp.prod(jnp.array(flux_list))
+
+    def _calc_pn(self):
+        pos_list = [obj.positive_flux for obj in self.obj_list]
+        neg_list = [obj.negative_flux for obj in self.obj_list]
+        p_net = pos_list[0]
+        n_net = neg_list[0]
+        for p, n in zip(pos_list[1:], neg_list[1:]):
+            p_net, n_net = p_net * p + n_net * n, p_net * n + n_net * p
+        return p_net, n_net
 
     @property
     def _positive_flux(self):
-        raise NotImplementedError("Not implemented")
+        return self._calc_pn()[0]
 
     @property
     def _negative_flux(self):
-        raise NotImplementedError("Not implemented")
+        return self._calc_pn()[1]
 
     @property
     def _flux_per_photon(self):
-        raise NotImplementedError("Not implemented")
+        return self._calculate_flux_per_photon()
 
     @property
     def _max_sb(self):
