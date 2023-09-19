@@ -57,6 +57,8 @@ from .wcs import (
     ShearWCS,
     OffsetShearWCS,
 )
+from .fits import FitsHeader
 
 # Shear
 from .shear import Shear, _Shear
+from . import fits

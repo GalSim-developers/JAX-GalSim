@@ -88,3 +88,36 @@ def g1g2_to_e1e2(g1, g2):
         e1 = g1 * (e / g)
         e2 = g2 * (e / g)
         return e1, e2
+
+
+@_wraps(_galsim.utilities.unweighted_moments)
+def unweighted_moments(image, origin=None):
+    from jax_galsim.position import PositionD
+
+    if origin is None:
+        origin = PositionD(0, 0)
+    a = image.array.astype(float)
+    offset = image.origin - origin
+    xgrid, ygrid = jnp.meshgrid(
+        jnp.arange(image.array.shape[1]) + offset.x,
+        jnp.arange(image.array.shape[0]) + offset.y,
+    )
+    M0 = jnp.sum(a)
+    Mx = jnp.sum(xgrid * a) / M0
+    My = jnp.sum(ygrid * a) / M0
+    Mxx = jnp.sum(((xgrid - Mx) ** 2) * a) / M0
+    Myy = jnp.sum(((ygrid - My) ** 2) * a) / M0
+    Mxy = jnp.sum((xgrid - Mx) * (ygrid - My) * a) / M0
+    return dict(M0=M0, Mx=Mx, My=My, Mxx=Mxx, Myy=Myy, Mxy=Mxy)
+
+
+@_wraps(_galsim.utilities.unweighted_shape)
+def unweighted_shape(arg):
+    from jax_galsim.image import Image
+
+    if isinstance(arg, Image):
+        arg = unweighted_moments(arg)
+    rsqr = arg["Mxx"] + arg["Myy"]
+    return dict(
+        rsqr=rsqr, e1=(arg["Mxx"] - arg["Myy"]) / rsqr, e2=2 * arg["Mxy"] / rsqr
+    )

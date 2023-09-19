@@ -87,6 +87,37 @@ class GSObject:
         return PositionD(0, 0)
 
     @property
+    @_wraps(_galsim.GSObject.positive_flux)
+    def positive_flux(self):
+        return self._positive_flux
+
+    @property
+    @_wraps(_galsim.GSObject.negative_flux)
+    def negative_flux(self):
+        return self._negative_flux
+
+    @property
+    def _positive_flux(self):
+        return self.flux + self._negative_flux
+
+    @property
+    def _negative_flux(self):
+        return 0.0
+
+    @property
+    def _flux_per_photon(self):
+        # The usual case.
+        return 1.0
+
+    def _calculate_flux_per_photon(self):
+        # If negative_flux is overriden, then _flux_per_photon should be overridden as well
+        # to return this calculation.
+        posflux = self.positive_flux
+        negflux = self.negative_flux
+        eta = negflux / (posflux + negflux)
+        return 1.0 - 2.0 * eta
+
+    @property
     @_wraps(_galsim.GSObject.max_sb)
     def max_sb(self):
         return self._max_sb
@@ -189,6 +220,9 @@ class GSObject:
         children, aux_data = self.tree_flatten()
         aux_data["gsparams"] = gsparams
         return self.tree_unflatten(aux_data, children)
+
+    def withFlux(self, flux):
+        return self.withScaledFlux(flux / self.flux)
 
     def withScaledFlux(self, flux_ratio):
         from jax_galsim.transform import Transform
