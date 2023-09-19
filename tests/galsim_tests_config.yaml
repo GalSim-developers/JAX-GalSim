@@ -7,6 +7,8 @@ enabled_tests:
   - test_convolve.py
   - test_fitsheader.py
   - test_utilities.py
+  - test_shear.py
+  - test_shear_position.py
 
 # This documents which error messages will be allowed
 # without being reported as an error. These typically
