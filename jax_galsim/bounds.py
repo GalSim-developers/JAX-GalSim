@@ -128,12 +128,12 @@ class Bounds(_galsim.Bounds):
         else:
             raise TypeError("include takes at most 2 arguments (%d given)" % len(args))
 
-    def expand(self, factor, yfactor=None):
+    def expand(self, factor_x, factor_y=None):
         "Grow the `Bounds` by the supplied factor about the center."
-        if yfactor is None:
-            yfactor = factor
-        dx = (self.xmax - self.xmin) * 0.5 * (factor - 1.0)
-        dy = (self.ymax - self.ymin) * 0.5 * (yfactor - 1.0)
+        if factor_y is None:
+            factor_y = factor_x
+        dx = (self.xmax - self.xmin) * 0.5 * (factor_x - 1.0)
+        dy = (self.ymax - self.ymin) * 0.5 * (factor_y - 1.0)
         if isinstance(self, BoundsI):
             dx = jnp.ceil(dx)
             dy = jnp.ceil(dy)
