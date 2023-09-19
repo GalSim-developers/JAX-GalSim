@@ -1,4 +1,4 @@
-from setuptools import setup, find_packages
+from setuptools import find_packages, setup
 
 setup(
     name="JAX-GalSim",
@@ -14,6 +14,7 @@ setup(
         "jax",
         "jaxlib",
         "astropy >= 2.0",
+        "tensorflow-probability>=0.21.0",
     ],
     tests_require=["pytest"],
 )
