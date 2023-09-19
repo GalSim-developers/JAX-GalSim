@@ -291,6 +291,10 @@ class Shear(object):
         obj._g = children[0]
         return obj
 
+    @classmethod
+    def from_galsim(cls, galsim_shear):
+        return cls(g1=galsim_shear.g1, g2=galsim_shear.g2)
+
 
 @_wraps(_galsim._Shear)
 def _Shear(shear):

@@ -6,6 +6,7 @@ from jax.tree_util import register_pytree_node_class
 
 from jax_galsim.gsobject import GSObject
 from jax_galsim.gsparams import GSParams
+from jax_galsim.position import PositionD
 
 
 @_wraps(
@@ -87,7 +88,7 @@ class Sum(GSObject):
             return self
         ret = self.__class__(
             self.params["obj_list"],
-            gsparams=gsparams,
+            gsparams=GSParams.check(gsparams, self.gsparams, **kwargs),
             propagate_gsparams=self._propagate_gsparams,
         )
         return ret
@@ -145,8 +146,9 @@ class Sum(GSObject):
 
     @property
     def _centroid(self):
-        cen_list = jnp.array([obj.centroid * obj.flux for obj in self.obj_list])
-        return jnp.sum(cen_list) / self.flux
+        cen_x_arr = jnp.array([obj.centroid.x * obj.flux for obj in self.obj_list])
+        cen_y_arr = jnp.array([obj.centroid.y * obj.flux for obj in self.obj_list])
+        return PositionD(jnp.sum(cen_x_arr) / self.flux, jnp.sum(cen_y_arr) / self.flux)
 
     @property
     def _max_sb(self):

@@ -20,6 +20,8 @@
   * Added implementation of simple WCS:
     * `PixelScale`, `OffsetWCS`, `JacobianWCS`, `AffineTransform`, `ShearWCS`, `OffsetShearWCS`
   * Added automated suite of tests against reference GalSim
+  * Added support for the `galsim.fits` module
+  * Added a `from_galsim` method to convert from GalSim objects to JAX-GalSim objects
 
 * Caveats
   * Currently the FFT convolution does not perform kwrapping,

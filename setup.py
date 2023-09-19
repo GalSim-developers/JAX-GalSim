@@ -8,6 +8,12 @@ setup(
     description="The modular galaxy image simulation toolkit, but in JAX",
     packages=find_packages(),
     license="BSD License",
-    install_requires=["numpy >= 1.18.0", "galsim >= 2.3.0", "jax", "jaxlib", "tensorflow_probability"],
+    install_requires=[
+        "numpy >= 1.18.0",
+        "galsim >= 2.3.0",
+        "jax",
+        "jaxlib",
+        "astropy >= 2.0",
+    ],
     tests_require=["pytest"],
 )
