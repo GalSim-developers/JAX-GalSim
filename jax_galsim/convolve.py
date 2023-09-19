@@ -227,7 +227,7 @@ class Convolution(GSObject):
     @property
     def _is_axisymmetric(self):
         axi_list = [obj.is_axisymmetric for obj in self.obj_list]
-        return jnp.alltrue(jnp.array(axi_list)).item()
+        return jnp.all(jnp.array(axi_list)).item()
 
     @property
     def _is_analytic_x(self):
@@ -235,14 +235,14 @@ class Convolution(GSObject):
             return self.obj_list[0].is_analytic_x
         elif self.real_space and len(self.obj_list) == 2:
             ax_list = [obj.is_analytic_x for obj in self.obj_list]
-            return jnp.alltrue(jnp.arry(ax_list)).item()  # return a bool
+            return jnp.all(jnp.arry(ax_list)).item()  # return a bool
         else:
             return False
 
     @property
     def _is_analytic_k(self):
         ak_list = [obj.is_analytic_k for obj in self.obj_list]
-        return jnp.alltrue(jnp.array(ak_list)).item()  # return a bool
+        return jnp.all(jnp.array(ak_list)).item()  # return a bool
 
     @property
     def _centroid(self):
