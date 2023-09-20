@@ -626,11 +626,21 @@ class Image(object):
 
         Equivalent to ``image.wrap(bounds, hermitian=='x', hermitian=='y')``.
         """
-        # NOTE: Wrapping not yet implemented.
-        ret = self.subImage(bounds)
-        # print(bounds, hermx, hermy)
-        # _galsim.wrapImage(self._image, bounds._b, hermx, hermy)
-        return ret
+        if not hermx and not hermy:
+            from jax_galsim.core.wrap_image import wrap_nonhermition
+
+            self._array = wrap_nonhermition(
+                self._array,
+                # zero indexed location of subimage
+                bounds.xmin - self.xmin,
+                bounds.ymin - self.ymin,
+                # we include pixels on the edges so +1 here
+                bounds.xmax - bounds.xmin + 1,
+                bounds.ymax - bounds.ymin + 1,
+            )
+
+        # FIXME: Wrapping not yet implemented for hermitian images
+        return self.subImage(bounds)
 
     @_wraps(_galsim.Image.calculate_fft)
     def calculate_fft(self):
@@ -1124,10 +1134,10 @@ def Image_iadd(self, other):
         a = other
         dt = type(a)
     if dt == self.array.dtype:
-        array = self.array + a
+        self._array = self.array + a
     else:
-        array = (self.array + a).astype(self.array.dtype)
-    return Image(array, bounds=self.bounds, wcs=self.wcs)
+        self._array = (self.array + a).astype(self.array.dtype)
+    return self
 
 
 def Image_sub(self, other):
@@ -1152,10 +1162,10 @@ def Image_isub(self, other):
         a = other
         dt = type(a)
     if dt == self.array.dtype:
-        array = self.array - a
+        self._array = self.array - a
     else:
-        array = (self.array - a).astype(self.array.dtype)
-    return Image(array, bounds=self.bounds, wcs=self.wcs)
+        self._array = (self.array - a).astype(self.array.dtype)
+    return self
 
 
 def Image_mul(self, other):
@@ -1176,10 +1186,10 @@ def Image_imul(self, other):
         a = other
         dt = type(a)
     if dt == self.array.dtype:
-        array = self.array * a
+        self._array = self.array * a
     else:
-        array = (self.array * a).astype(self.array.dtype)
-    return Image(array, bounds=self.bounds, wcs=self.wcs)
+        self._array = (self.array * a).astype(self.array.dtype)
+    return self
 
 
 def Image_div(self, other):
@@ -1206,10 +1216,10 @@ def Image_idiv(self, other):
     if dt == self.array.dtype and not self.isinteger:
         # if dtype is an integer type, then numpy doesn't allow true division /= to assign
         # back to an integer array.  So for integers (or mixed types), don't use /=.
-        array = self.array / a
+        self._array = self.array / a
     else:
-        array = (self.array / a).astype(self.array.dtype)
-    return Image(array, bounds=self.bounds, wcs=self.wcs)
+        self._array = (self.array / a).astype(self.array.dtype)
+    return self
 
 
 def Image_floordiv(self, other):
@@ -1235,10 +1245,10 @@ def Image_ifloordiv(self, other):
         a = other
         dt = type(a)
     if dt == self.array.dtype:
-        array = self.array // a
+        self._array = self.array // a
     else:
-        array = (self.array // a).astype(self.array.dtype)
-    return Image(array, bounds=self.bounds, wcs=self.wcs)
+        self._array = (self.array // a).astype(self.array.dtype)
+    return self
 
 
 def Image_mod(self, other):
@@ -1264,10 +1274,10 @@ def Image_imod(self, other):
         a = other
         dt = type(a)
     if dt == self.array.dtype:
-        array = self.array % a
+        self._array = self.array % a
     else:
-        array = (self.array % a).astype(self.array.dtype)
-    return Image(array, bounds=self.bounds, wcs=self.wcs)
+        self._array = (self.array % a).astype(self.array.dtype)
+    return self
 
 
 def Image_pow(self, other):
@@ -1277,7 +1287,8 @@ def Image_pow(self, other):
 def Image_ipow(self, other):
     if not isinstance(other, int) and not isinstance(other, float):
         raise TypeError("Can only raise an image to a float or int power!")
-    return Image(self.array**other, bounds=self.bounds, wcs=self.wcs)
+    self._array = self.array**other
+    return self
 
 
 def Image_neg(self):
@@ -1296,6 +1307,16 @@ def Image_and(self, other):
     return Image(self.array & a, bounds=self.bounds, wcs=self.wcs)
 
 
+def Image_iand(self, other):
+    check_image_consistency(self, other, integer=True)
+    try:
+        a = other.array
+    except AttributeError:
+        a = other
+    self._array = self.array & a
+    return self
+
+
 def Image_xor(self, other):
     check_image_consistency(self, other, integer=True)
     try:
@@ -1305,6 +1326,16 @@ def Image_xor(self, other):
     return Image(self.array ^ a, bounds=self.bounds, wcs=self.wcs)
 
 
+def Image_ixor(self, other):
+    check_image_consistency(self, other, integer=True)
+    try:
+        a = other.array
+    except AttributeError:
+        a = other
+    self._array = self.array ^ a
+    return self
+
+
 def Image_or(self, other):
     check_image_consistency(self, other, integer=True)
     try:
@@ -1312,6 +1343,16 @@ def Image_or(self, other):
     except AttributeError:
         a = other
     return Image(self.array | a, bounds=self.bounds, wcs=self.wcs)
+
+
+def Image_ior(self, other):
+    check_image_consistency(self, other, integer=True)
+    try:
+        a = other.array
+    except AttributeError:
+        a = other
+    self._array = self.array | a
+    return self
 
 
 # inject the arithmetic operators as methods of the Image class:
@@ -1345,6 +1386,6 @@ Image.__or__ = Image_or
 Image.__rand__ = Image_and
 Image.__rxor__ = Image_xor
 Image.__ror__ = Image_or
-Image.__iand__ = Image_and
-Image.__ixor__ = Image_xor
-Image.__ior__ = Image_or
+Image.__iand__ = Image_iand
+Image.__ixor__ = Image_ixor
+Image.__ior__ = Image_ior

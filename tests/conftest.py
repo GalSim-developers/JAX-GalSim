@@ -101,7 +101,7 @@ def pytest_runtest_logreport(report):
         # Ok, so we have a failure, let's see if it a failure we expect
         message = report.longrepr.reprcrash.message
         if any([t in message for t in test_config["allowed_failures"]]):
-            report.wasxfail = "allowed failure - %s" % message
+            report.wasxfail = "allowed failure - %s" % (" ".join(message.splitlines()))
             report.outcome = "allowed failure"
 
     yield report

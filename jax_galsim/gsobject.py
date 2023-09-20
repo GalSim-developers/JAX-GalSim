@@ -719,6 +719,7 @@ class GSObject:
         image_in._array = image._array
         image_in.added_flux = image.added_flux
         image_in._bounds = image.bounds
+        image_in.wcs = image.wcs
         return image
 
     @_wraps(_galsim.GSObject.drawReal)
