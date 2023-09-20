@@ -388,9 +388,7 @@ class Moffat(GSObject):
         rsq = (pos.x**2 + pos.y**2) * self._inv_r0_sq
         # trunc if r>maxR with r0 scaled version
         return jnp.where(
-            rsq > self._maxRrD_sq, 
-            0.0, 
-            self._norm * jnp.power(1.0 + rsq, -self.beta)
+            rsq > self._maxRrD_sq, 0.0, self._norm * jnp.power(1.0 + rsq, -self.beta)
         )
 
     def _kValue_untrunc(self, k):
