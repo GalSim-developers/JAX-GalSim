@@ -626,11 +626,21 @@ class Image(object):
 
         Equivalent to ``image.wrap(bounds, hermitian=='x', hermitian=='y')``.
         """
-        # NOTE: Wrapping not yet implemented.
-        ret = self.subImage(bounds)
-        # print(bounds, hermx, hermy)
-        # _galsim.wrapImage(self._image, bounds._b, hermx, hermy)
-        return ret
+        if not hermx and not hermy:
+            from jax_galsim.core.wrap_image import wrap_nonhermition
+
+            self._array = wrap_nonhermition(
+                self._array,
+                # zero indexed location of subimage
+                bounds.xmin - self.xmin,
+                bounds.ymin - self.ymin,
+                # we include pixels on the edges so +1 here
+                bounds.xmax - bounds.xmin + 1,
+                bounds.ymax - bounds.ymin + 1,
+            )
+
+        # NOTE: Wrapping not yet implemented for hermitian images
+        return self.subImage(bounds)
 
     @_wraps(_galsim.Image.calculate_fft)
     def calculate_fft(self):
