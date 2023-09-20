@@ -387,8 +387,10 @@ class Moffat(GSObject):
     def _xValue(self, pos):
         rsq = (pos.x**2 + pos.y**2) * self._inv_r0_sq
         # trunc if r>maxR with r0 scaled version
-        return jax.lax.select(
-            rsq > self._maxRrD_sq, 0.0, self._norm * jnp.power(1.0 + rsq, -self.beta)
+        return jnp.where(
+            rsq > self._maxRrD_sq, 
+            0.0, 
+            self._norm * jnp.power(1.0 + rsq, -self.beta)
         )
 
     def _kValue_untrunc(self, k):
