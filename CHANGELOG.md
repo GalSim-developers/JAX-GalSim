@@ -26,6 +26,8 @@
 * Caveats
   * Currently the FFT convolution does not perform kwrapping of hermitian images,
   so it will lead to erroneous results on underesolved images that need k-space wrapping.
-  Wrapping for real images is implemented.
+  Wrapping for real images is implemented. K-space images arise from doing convolutions
+  via FFTs and so one would expect that underresolved images with convolutions may not be
+  rendered as accurately.
   * Real space convolution and photon shooting methods are not
   yet implemented in drawImage.
