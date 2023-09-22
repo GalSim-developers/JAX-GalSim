@@ -3,7 +3,9 @@ import numpy as np
 from galsim_test_helpers import timer
 
 from jax_galsim.core.wrap_image import (
-    expand_hermitian_x, expand_hermitian_y, contract_hermitian_x,
+    expand_hermitian_x,
+    expand_hermitian_y,
+    contract_hermitian_x,
     contract_hermitian_y,
 )
 
