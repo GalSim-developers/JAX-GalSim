@@ -9,7 +9,7 @@ from jax_galsim.core.wrap_image import (
 
 
 @timer
-def test_image_wrapping():
+def test_image_wrapping_expand_contract():
     # For complex images (in particular k-space images), we often want the image to be implicitly
     # Hermitian, so we only need to keep around half of it.
     M = 38
