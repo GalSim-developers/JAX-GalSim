@@ -131,9 +131,6 @@ def test_wrap_jax_complex():
     b = galsim.BoundsI(-K + 1, K, -L + 1, L)
     b2 = galsim.BoundsI(-K + 1, K, 0, L)
     b3 = galsim.BoundsI(0, K, -L + 1, L)
-    # print('b = ',b)
-    # print('b2 = ',b2)
-    # print('b3 = ',b3)
     im_test = galsim.ImageCD(b, init_value=0)
     for i in range(-M, M + 1):
         for j in range(-N, N + 1):
