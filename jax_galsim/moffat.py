@@ -60,7 +60,7 @@ def MoffatCalculateSRFromHLR(re, rm, beta, Nloop=1000):
          BUT the case rm==0 is already done, so HERE rm != 0
     """
 
-    ## fix loop iteration is faster and reach eps=1e-6 (single precision)
+    # fix loop iteration is faster and reach eps=1e-6 (single precision)
     def body(i, xcur):
         x = (1 + jnp.power(1 + (rm / xcur) ** 2, 1 - beta)) / 2
         x = jnp.power(x, 1 / (1 - beta))
@@ -284,12 +284,12 @@ class Moffat(GSObject):
              and
              f(k) = C rd^2 int_0^infty (1+x^2)^(-beta) J_0(krd x) x dx
                   = 2 F (k rd /2)^(\beta-1) K[beta-1, k rd]/Gamma[beta-1]
-            with k->\infty asymptotic behavior
+            with k->infty asymptotic behavior
                  f(k)/F \approx sqrt(pi)/Gamma(beta-1) e^(-k') (k'/2)^(beta -3/2) with k' = k rd
             So we solve f(maxk)/F = thr  (aka maxk_threshold  in  gsparams.py)
                 leading to the iterative search of
                 let alpha = -log(thr Gamma(beta-1)/sqrt(pi))
-                k = (\beta -3/2)\log(k/2) + alpha
+                k = (\beta -3/2)log(k/2) + alpha
                 starting with k = alpha
 
         note : in the code "alternative code" is related to issue #1208 in GalSim github
@@ -298,10 +298,11 @@ class Moffat(GSObject):
         def body(i, val):
             kcur, alpha = val
             knew = (self.beta - 0.5) * jnp.log(kcur) + alpha
-            ## knew = (self.beta -1.5)* jnp.log(kcur/2) + alpha # alternative code
+            # knew = (self.beta -1.5)* jnp.log(kcur/2) + alpha # alternative code
             return knew, alpha
 
-        ## alpha = -jnp.log(self.gsparams.maxk_threshold * jnp.exp(jsc.special.gammaln(self._beta-1))/jnp.sqrt(jnp.pi) ) # alternative code
+        # alpha = -jnp.log(self.gsparams.maxk_threshold
+        #  * jnp.exp(jsc.special.gammaln(self._beta-1))/jnp.sqrt(jnp.pi) ) # alternative code
 
         alpha = -jnp.log(
             self.gsparams.maxk_threshold
@@ -384,6 +385,7 @@ class Moffat(GSObject):
     def _max_sb(self):
         return self._norm
 
+    @jax.jit
     def _xValue(self, pos):
         rsq = (pos.x**2 + pos.y**2) * self._inv_r0_sq
         # trunc if r>maxR with r0 scaled version
@@ -407,6 +409,7 @@ class Moffat(GSObject):
             0.0,
         )
 
+    @jax.jit
     def _kValue(self, kpos):
         """computation of the Moffat response in k-space with switch of truncated/untracated case
         kpos can be a scalar or a vector (typically, scalar for debug and 2D considering an image)
