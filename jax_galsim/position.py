@@ -3,6 +3,7 @@ import jax
 import jax.numpy as jnp
 from jax._src.numpy.util import _wraps
 from jax.tree_util import register_pytree_node_class
+
 from jax_galsim.core.utils import cast_scalar_to_float, cast_scalar_to_int
 
 
