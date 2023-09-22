@@ -110,32 +110,6 @@ def test_wrap_jax_weird_real():
     )
 
 
-def test_wrap_jax_inds():
-    Nx = 2
-    Ny = 2
-    im = np.ones((2 * Ny + 1, Nx + 1), dtype=np.complex128)
-    ymin = -Ny
-    xmin = 0
-
-    Nxs = 1
-    Nys = 1
-    ymins = -Nys
-    xmins = -Nxs
-    py = 2 * Nys + 1
-    px = 2 * Nxs + 1
-
-    print(" ")
-    for i in range(im.shape[0]):
-        for j in range(im.shape[1]):
-            im_y = i + ymin
-            im_x = j + xmin
-
-            wrap_y = (im_y - ymins) % py + ymins
-            wrap_x = (im_x - xmins) % px + xmins
-
-            print("% d % d % d % d" % (im_x, im_y, wrap_x, wrap_y))
-
-
 @timer
 def test_wrap_jax_complex():
     # For complex images (in particular k-space images), we often want the image to be implicitly
