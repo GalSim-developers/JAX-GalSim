@@ -6,6 +6,7 @@
 # astropy.io.fits pyfits in the code, but we have removed the legacy compatibility hacks.
 
 import sys
+
 import astropy.io.fits as pyfits
 
 if "PyPy" in sys.version:  # pragma: no cover
