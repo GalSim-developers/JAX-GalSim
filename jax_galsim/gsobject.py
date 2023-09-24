@@ -308,8 +308,8 @@ class GSObject:
         Returns:
             the lensed object.
         """
-        from jax_galsim.transform import Transform
         from jax_galsim.shear import Shear
+        from jax_galsim.transform import Transform
 
         shear = Shear(g1=g1, g2=g2)
         return Transform(self, shear.getMatrix() * jnp.sqrt(mu))
@@ -347,6 +347,7 @@ class GSObject:
         Note: Not differentiable with respect to theta (yet).
         """
         from coord.angle import Angle
+
         from jax_galsim.transform import Transform
 
         if not isinstance(theta, Angle):
