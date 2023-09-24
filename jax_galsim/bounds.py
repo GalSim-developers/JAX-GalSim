@@ -1,11 +1,11 @@
 import galsim as _galsim
-import jax.numpy as jnp
 import jax
+import jax.numpy as jnp
 from jax._src.numpy.util import _wraps
 from jax.tree_util import register_pytree_node_class
 
-from jax_galsim.position import Position, PositionD, PositionI
 from jax_galsim.core.utils import cast_scalar_to_float, cast_scalar_to_int
+from jax_galsim.position import Position, PositionD, PositionI
 
 
 # The reason for avoid these tests is that they are not easy to do for jitted code.

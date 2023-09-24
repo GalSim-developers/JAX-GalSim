@@ -1,11 +1,8 @@
-import jax
-
-import jax.numpy as jnp
-
 from functools import partial
 from typing import NamedTuple, Tuple
 
-from jax import Array, jit, lax, vmap
+import jax.numpy as jnp
+from jax import Array, jit
 
 
 def abs_weights(n: int):
