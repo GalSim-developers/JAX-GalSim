@@ -1,23 +1,18 @@
 from functools import partial
 
+import galsim as _galsim
 import jax
 import jax.numpy as jnp
-
 import jax.scipy as jsc
-
-
-from jax_galsim.gsobject import GSObject
-from jax_galsim.gsparams import GSParams
-from jax_galsim.core.draw import draw_by_xValue, draw_by_kValue
-
-from jax_galsim.core.bessel import j0
-from jax_galsim.core.integrate import ClenshawCurtisQuad, quad_integral
-
-import galsim as _galsim
+import tensorflow_probability as tfp
 from jax._src.numpy.util import _wraps
 from jax.tree_util import register_pytree_node_class
 
-import tensorflow_probability as tfp
+from jax_galsim.core.bessel import j0
+from jax_galsim.core.draw import draw_by_kValue, draw_by_xValue
+from jax_galsim.core.integrate import ClenshawCurtisQuad, quad_integral
+from jax_galsim.gsobject import GSObject
+from jax_galsim.gsparams import GSParams
 
 
 @jax.jit
