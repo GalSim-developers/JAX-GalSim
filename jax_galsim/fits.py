@@ -1,15 +1,14 @@
-from contextlib import contextmanager, ExitStack
-import jax
-from jax._src.numpy.util import _wraps
-import jax.numpy as jnp
-import numpy as np
+from contextlib import ExitStack, contextmanager
 
 import galsim as _galsim
-from galsim.fits import writeFile, FitsHeader, closeHDUList, readFile  # noqa: F401
+import jax
+import jax.numpy as jnp
+import numpy as np
+from galsim.fits import FitsHeader, closeHDUList, readFile, writeFile  # noqa: F401
 from galsim.utilities import galsim_warn
+from jax._src.numpy.util import _wraps
 
 from jax_galsim.image import Image
-
 
 # We wrap the galsim FITS read functions to return jax_galsim Image objects.
 

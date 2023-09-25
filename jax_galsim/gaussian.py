@@ -3,7 +3,7 @@ import jax.numpy as jnp
 from jax._src.numpy.util import _wraps
 from jax.tree_util import register_pytree_node_class
 
-from jax_galsim.core.draw import draw_by_xValue, draw_by_kValue
+from jax_galsim.core.draw import draw_by_kValue, draw_by_xValue
 from jax_galsim.gsobject import GSObject
 from jax_galsim.gsparams import GSParams
 
