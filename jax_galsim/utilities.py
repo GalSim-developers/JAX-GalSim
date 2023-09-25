@@ -93,6 +93,7 @@ def g1g2_to_e1e2(g1, g2):
 @_wraps(_galsim.utilities.convert_interpolant)
 def convert_interpolant(interpolant):
     from jax_galsim.interpolant import Interpolant
+
     if isinstance(interpolant, Interpolant):
         return interpolant
     else:

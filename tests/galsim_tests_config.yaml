@@ -9,6 +9,7 @@ enabled_tests:
   - test_utilities.py
   - test_shear.py
   - test_shear_position.py
+  - test_interpolatedimage.py
 
 # This documents which error messages will be allowed
 # without being reported as an error. These typically
@@ -48,3 +49,9 @@ allowed_failures:
   - "'Image' object has no attribute 'bin'"
   - "has no attribute 'shoot'"
   - "module 'jax_galsim' has no attribute 'integ'"
+  - "module 'jax_galsim' has no attribute 'InterpolatedKImage'"
+  - "module 'jax_galsim' has no attribute 'GaussianDeviate'"
+  - "module 'jax_galsim' has no attribute 'CorrelatedNoise'"
+  - "'Image' object has no attribute 'FindAdaptiveMom'"
+  - " module 'jax_galsim' has no attribute '_InterpolatedImage'"
+  - "JAX arrays are immutable."

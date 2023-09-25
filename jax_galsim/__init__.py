@@ -73,6 +73,7 @@ from .interpolant import (
     Quintic,
     Lanczos,
 )
+from .interpolatedimage import InterpolatedImage
 
 # packages kept separate
 from . import bessel
