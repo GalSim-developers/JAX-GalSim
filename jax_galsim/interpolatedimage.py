@@ -1,26 +1,30 @@
-import textwrap
-import jax
-from functools import partial
-import jax.numpy as jnp
-from jax._src.numpy.util import _wraps
-from jax.tree_util import register_pytree_node_class
 import math
+import textwrap
+from functools import partial
 
 import galsim as _galsim
+import jax
+import jax.numpy as jnp
+from galsim.errors import (
+    GalSimIncompatibleValuesError,
+    GalSimRangeError,
+    GalSimUndefinedBoundsError,
+    GalSimValueError,
+)
 from galsim.utilities import doc_inherit
-from galsim.errors import GalSimRangeError, GalSimValueError, GalSimUndefinedBoundsError
-from galsim.errors import GalSimIncompatibleValuesError
+from jax._src.numpy.util import _wraps
+from jax.tree_util import register_pytree_node_class
 
+from jax_galsim import fits
+from jax_galsim.bounds import BoundsI
+from jax_galsim.core.draw import draw_by_xValue
 from jax_galsim.gsobject import GSObject
 from jax_galsim.gsparams import GSParams
 from jax_galsim.image import Image
-from jax_galsim.position import PositionD
 from jax_galsim.interpolant import Quintic
-from jax_galsim.utilities import convert_interpolant
-from jax_galsim.bounds import BoundsI
-from jax_galsim import fits
-from jax_galsim.core.draw import draw_by_xValue
+from jax_galsim.position import PositionD
 from jax_galsim.transform import Transformation
+from jax_galsim.utilities import convert_interpolant
 from jax_galsim.wcs import PixelScale
 
 
@@ -203,7 +207,6 @@ class InterpolatedImageImpl(GSObject):
 
         # FIXME: no BaseDeviate in jax_galsim
         # from .random import BaseDeviate
-
         # If the "image" is not actually an image, try to read the image as a file.
         if isinstance(image, str):
             image = fits.read(image, hdu=hdu)

@@ -5,15 +5,14 @@ interpolants themselves (e.g., the coefficients that define the kernel
 shapes, the integrals of the kernels, etc.) are constants.
 """
 import galsim as _galsim
-from galsim.errors import GalSimValueError
-
 import jax
 import jax.numpy as jnp
+from galsim.errors import GalSimValueError
 from jax._src.numpy.util import _wraps
 from jax.tree_util import register_pytree_node_class
 
-from jax_galsim.gsparams import GSParams
 from jax_galsim.bessel import si
+from jax_galsim.gsparams import GSParams
 
 
 @_wraps(_galsim.interpolant.Interpolant)

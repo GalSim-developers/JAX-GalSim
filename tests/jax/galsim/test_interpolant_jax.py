@@ -3,15 +3,17 @@ InterpolatedImage is not yet implemented.
 
 Much of the code is copied out of the galsim test suite.
 """
-import jax
-import time
-import galsim as ref_galsim
-import numpy as np
-import jax_galsim as galsim
-from galsim_test_helpers import timer, assert_raises
-from scipy.special import sici
 import pickle
+import time
+
+import galsim as ref_galsim
+import jax
+import numpy as np
 import pytest
+from galsim_test_helpers import assert_raises, timer
+from scipy.special import sici
+
+import jax_galsim as galsim
 
 
 def do_pickle(obj1):
