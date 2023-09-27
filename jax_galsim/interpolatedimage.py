@@ -17,7 +17,7 @@ from jax.tree_util import register_pytree_node_class
 
 from jax_galsim import fits
 from jax_galsim.bounds import BoundsI
-from jax_galsim.core.draw import draw_by_xValue
+from jax_galsim.core.draw import draw_by_kValue, draw_by_xValue
 from jax_galsim.gsobject import GSObject
 from jax_galsim.gsparams import GSParams
 from jax_galsim.image import Image
@@ -134,6 +134,15 @@ class InterpolatedImage(Transformation):
     def image(self):
         """The underlying `Image` being interpolated."""
         return self._original._image
+
+    def __hash__(self):
+        return hash(self._original)
+
+    def __repr__(self):
+        return repr(self._original)
+
+    def __str__(self):
+        return str(self._original)
 
 
 @register_pytree_node_class
@@ -578,7 +587,14 @@ class InterpolatedImageImpl(GSObject):
             self._hash = hash(
                 ("galsim.InterpolatedImage", self.x_interpolant, self.k_interpolant)
             )
-            self._hash ^= hash((self.flux, self._stepk, self._maxk, self._pad_factor))
+            self._hash ^= hash(
+                (
+                    self.flux.item(),
+                    self._stepk.item(),
+                    self._maxk.item(),
+                    self._pad_factor,
+                )
+            )
             self._hash ^= hash(
                 (self._xim.bounds, self._image.bounds, self._pad_image.bounds)
             )
@@ -592,7 +608,7 @@ class InterpolatedImageImpl(GSObject):
             self._hash ^= hash(self._wcs)
             # Just hash the diagonal.  Much faster, and usually is unique enough.
             # (Let python handle collisions as needed if multiple similar IIs are used as keys.)
-            self._hash ^= hash(tuple(jnp.diag(self._pad_image.array)))
+            self._hash ^= hash(tuple(jnp.diag(self._pad_image.array).tolist()))
         return self._hash
 
     def __repr__(self):
@@ -699,7 +715,34 @@ class InterpolatedImageImpl(GSObject):
         return vals[0]
 
     def _kValue(self, kpos):
-        raise NotImplementedError("WIP interp - kValue")
+        # phase factor due to offset
+        # not we shift by -offset which explains the signs
+        # in pkx, pky
+        pkx = kpos.x * 1j * self._offset.x
+        pky = kpos.y * 1j * self._offset.y
+        pkx += pky
+        pfac = jnp.exp(pkx)
+
+        kx = jnp.array([kpos.x / self._kim.scale], dtype=float)
+        ky = jnp.array([kpos.y / self._kim.scale], dtype=float)
+
+        _uscale = 1.0 / (2.0 * jnp.pi)
+        _maxk_xint = self._x_interpolant.urange() / _uscale / self._kim.scale
+
+        val = _draw_with_interpolant_kval(
+            kx,
+            ky,
+            self._kim.bounds.ymin,
+            self._kim.bounds.ymin,
+            self._kim.array,
+            self._k_interpolant,
+        )
+
+        msk = (jnp.abs(kx) <= _maxk_xint) & (jnp.abs(ky) <= _maxk_xint)
+        xint_val = self._x_interpolant._kval_noraise(
+            kx * self._kim.scale
+        ) * self._x_interpolant._kval_noraise(ky * self._kim.scale)
+        return jnp.where(msk, val * xint_val * pfac, 0.0)[0]
 
     def _shoot(self, photons, rng):
         raise NotImplementedError("Photon shooting not implemented.")
@@ -709,9 +752,8 @@ class InterpolatedImageImpl(GSObject):
         return draw_by_xValue(self, image, _jac, jnp.asarray(offset), flux_scaling)
 
     def _drawKImage(self, image, jac=None):
-        raise NotImplementedError("WIP interp - drawKImage")
-        _jac = 0 if jac is None else jac.__array_interface__["data"][0]
-        self._sbp.drawK(image._image, image.scale, _jac)
+        _jac = jnp.eye(2) if jac is None else jac
+        return draw_by_kValue(self, image, _jac)
 
 
 @partial(jax.jit, static_argnums=(5,))
@@ -733,7 +775,7 @@ def _draw_with_interpolant_xval(x, y, xmin, ymin, zp, interp):
         xind = xi + i
         mskx = (xind >= 0) & (xind < nx)
         _x = x - (xp + i)
-        wx = interp.xval(_x)
+        wx = interp._xval_noraise(_x)
 
         w = wx * wy
         msk = msky & mskx
@@ -746,7 +788,7 @@ def _draw_with_interpolant_xval(x, y, xmin, ymin, zp, interp):
         yind = yi + i
         msk = (yind >= 0) & (yind < ny)
         _y = y - (yp + i)
-        wy = interp.xval(_y)
+        wy = interp._xval_noraise(_y)
         z = jax.lax.fori_loop(
             -interp.xrange, interp.xrange + 1, _body_1d, [z, wy, msk, yind, xi, xp, zp]
         )[0]
@@ -757,6 +799,58 @@ def _draw_with_interpolant_xval(x, y, xmin, ymin, zp, interp):
         interp.xrange + 1,
         _body,
         [jnp.zeros(x.shape, dtype=zp.dtype), xi, yi, xp, yp, zp],
+    )[0]
+    return z.reshape(orig_shape)
+
+
+@partial(jax.jit, static_argnums=(5,))
+def _draw_with_interpolant_kval(kx, ky, kxmin, kymin, zp, interp):
+    orig_shape = kx.shape
+    kx = kx.ravel()
+    kxi = jnp.floor(kx - kxmin).astype(jnp.int32)
+    kxp = kxi + kxmin
+    nkx_2 = zp.shape[1] - 1
+    nkx = nkx_2 * 2 + 1
+
+    ky = ky.ravel()
+    kyi = jnp.floor(ky - kymin).astype(jnp.int32)
+    kyp = kyi + kymin
+    nky = zp.shape[0]
+
+    def _body_1d(i, args):
+        z, wky, kyind, kxi, nkx, nkx_2, kxp, zp = args
+
+        kxind = (kxi + i) % nkx
+        _kx = kx - (kxp + i)
+        wkx = interp._xval_noraise(_kx)
+
+        val = jnp.where(
+            kxind < nkx_2,
+            zp[nky - 1 - kyind, nkx - 1 - kxind + nkx_2].conjugate(),
+            zp[kyind, kxind - nkx_2],
+        )
+        z += val * wkx * wky
+
+        return [z, wky, kyind, kxi, nkx, nkx_2, kxp, zp]
+
+    def _body(i, args):
+        z, kxi, kyi, nky, nkx, nkx_2, kxp, kyp, zp = args
+        kyind = (kyi + i) % nky
+        _ky = ky - (kyp + i)
+        wky = interp._xval_noraise(_ky)
+        z = jax.lax.fori_loop(
+            -interp.xrange,
+            interp.xrange + 1,
+            _body_1d,
+            [z, wky, kyind, kxi, nkx, nkx_2, kxp, zp],
+        )[0]
+        return [z, kxi, kyi, nky, nkx, nkx_2, kxp, kyp, zp]
+
+    z = jax.lax.fori_loop(
+        -interp.xrange,
+        interp.xrange + 1,
+        _body,
+        [jnp.zeros(kx.shape, dtype=zp.dtype), kxi, kyi, nky, nkx, nkx_2, kxp, kyp, zp],
     )[0]
     return z.reshape(orig_shape)
 

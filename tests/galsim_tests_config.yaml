@@ -46,7 +46,6 @@ allowed_failures:
   - "module 'jax_galsim.utilities' has no attribute 'rand_with_replacement'"
   - "module 'jax_galsim.utilities' has no attribute 'dol_to_lod'"
   - "module 'jax_galsim.utilities' has no attribute 'nCr'"
-  - "unhashable type: 'ArrayImpl'"
   - "'Image' object has no attribute 'bin'"
   - "has no attribute 'shoot'"
   - "module 'jax_galsim' has no attribute 'integ'"

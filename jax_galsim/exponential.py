@@ -4,6 +4,7 @@ from jax._src.numpy.util import _wraps
 from jax.tree_util import register_pytree_node_class
 
 from jax_galsim.core.draw import draw_by_kValue, draw_by_xValue
+from jax_galsim.core.utils import ensure_hashable
 from jax_galsim.gsobject import GSObject
 from jax_galsim.gsparams import GSParams
 
@@ -38,7 +39,9 @@ class Exponential(GSObject):
                 )
             else:
                 super().__init__(
-                    half_light_radius=half_light_radius, flux=flux, gsparams=gsparams
+                    scale_radius=half_light_radius / Exponential._hlr_factor,
+                    flux=flux,
+                    gsparams=gsparams,
                 )
 
         elif scale_radius is None:
@@ -53,10 +56,7 @@ class Exponential(GSObject):
     @property
     def scale_radius(self):
         """The scale radius of the profile."""
-        if "half_light_radius" in self.params:
-            return self.params["half_light_radius"] / Exponential._hlr_factor
-        else:
-            return self.params["scale_radius"]
+        return self.params["scale_radius"]
 
     @property
     def _r0(self):
@@ -73,13 +73,17 @@ class Exponential(GSObject):
     @property
     def half_light_radius(self):
         """The half-light radius of the profile."""
-        if "half_light_radius" in self.params:
-            return self.params["half_light_radius"]
-        else:
-            return self.params["scale_radius"] * Exponential._hlr_factor
+        return self.params["scale_radius"] * Exponential._hlr_factor
 
     def __hash__(self):
-        return hash(("galsim.Exponential", self.scale_radius, self.flux, self.gsparams))
+        return hash(
+            (
+                "galsim.Exponential",
+                ensure_hashable(self.scale_radius),
+                ensure_hashable(self.flux),
+                self.gsparams,
+            )
+        )
 
     def __repr__(self):
         return "galsim.Exponential(scale_radius=%r, flux=%r, gsparams=%r)" % (

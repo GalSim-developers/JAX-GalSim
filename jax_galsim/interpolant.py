@@ -157,8 +157,11 @@ class Interpolant:
                     an array.
         """
         if jnp.ndim(x) > 1:
-            raise GalSimValueError("kval only takes scalar or 1D array values", x)
+            raise GalSimValueError("xval only takes scalar or 1D array values", x)
 
+        return self._xval_noraise(x)
+
+    def _xval_noraise(self, x):
         return self.__class__._xval(x)
 
     def kval(self, k):
@@ -175,6 +178,9 @@ class Interpolant:
         if jnp.ndim(k) > 1:
             raise GalSimValueError("kval only takes scalar or 1D array values", k)
 
+        return self._kval_noraise(k)
+
+    def _kval_noraise(self, k):
         return self.__class__._uval(k / 2.0 / jnp.pi)
 
     def unit_integrals(self, max_len=None):
@@ -266,20 +272,7 @@ class Delta(Interpolant):
             gsparams = GSParams(kvalue_accuracy=tol)
         self._gsparams = GSParams.check(gsparams)
 
-    def xval(self, x):
-        """Calculate the value of the interpolant kernel at one or more x values
-
-        Parameters:
-            x:      The value (as a float) or values (as a np.array) at which to compute the
-                    amplitude of the Interpolant kernel.
-
-        Returns:
-            xval:   The value(s) at the x location(s).  If x was an array, then this is also
-                    an array.
-        """
-        if jnp.ndim(x) > 1:
-            raise GalSimValueError("kval only takes scalar or 1D array values", x)
-
+    def _xval_noraise(self, x):
         return Delta._xval(x, self._gsparams.kvalue_accuracy)
 
     @jax.jit
@@ -1504,20 +1497,7 @@ class Lanczos(Interpolant):
             _K,
         )
 
-    def xval(self, x):
-        """Calculate the value of the interpolant kernel at one or more x values
-
-        Parameters:
-            x:      The value (as a float) or values (as a np.array) at which to compute the
-                    amplitude of the Interpolant kernel.
-
-        Returns:
-            xval:   The value(s) at the x location(s).  If x was an array, then this is also
-                    an array.
-        """
-        if jnp.ndim(x) > 1:
-            raise GalSimValueError("kval only takes scalar or 1D array values", x)
-
+    def _xval_noraise(self, x):
         return Lanczos._xval(x, self._n, self._conserve_dc, self._K_arr)
 
     def _raw_uval(u, n):
@@ -1574,20 +1554,7 @@ class Lanczos(Interpolant):
             _C,
         )
 
-    def kval(self, k):
-        """Calculate the value of the interpolant kernel in Fourier space at one or more k values.
-
-        Parameters:
-            k:      The value (as a float) or values (as a np.array) at which to compute the
-                    amplitude of the Interpolant kernel in Fourier space.
-
-        Returns:
-            kval:   The k-value(s) at the k location(s).  If k was an array, then this is also
-                    an array.
-        """
-        if jnp.ndim(k) > 1:
-            raise GalSimValueError("kval only takes scalar or 1D array values", k)
-
+    def _kval_noraise(self, k):
         return Lanczos._uval(k / 2.0 / jnp.pi, self._n, self._conserve_dc, self._C_arr)
 
     def urange(self):

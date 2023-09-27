@@ -133,7 +133,7 @@ class Transformation(GSObject):
             (
                 "galsim.Transformation",
                 self.original,
-                tuple(self._jac.ravel()),
+                tuple(self._jac.ravel().tolist()),
                 self.offset.x,
                 self.offset.y,
                 self.flux_ratio,

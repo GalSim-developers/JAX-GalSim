@@ -25,3 +25,14 @@ def cast_scalar_to_int(x):
             return int(x)
         except TypeError:
             return x
+
+
+def ensure_hashable(v):
+    """Ensure that the input is hashable. If it is a jax array, convert it to a tuple or float."""
+    if isinstance(v, jax.Array):
+        if len(v.shape) > 0:
+            return tuple(v.tolist())
+        else:
+            return v.item()
+    else:
+        return v
