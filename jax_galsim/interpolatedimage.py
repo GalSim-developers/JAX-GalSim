@@ -810,7 +810,7 @@ def _draw_with_interpolant_kval(kx, ky, kxmin, kymin, zp, interp):
     kxi = jnp.floor(kx - kxmin).astype(jnp.int32)
     kxp = kxi + kxmin
     nkx_2 = zp.shape[1] - 1
-    nkx = nkx_2 * 2 + 1
+    nkx = nkx_2 * 2
 
     ky = ky.ravel()
     kyi = jnp.floor(ky - kymin).astype(jnp.int32)
@@ -826,7 +826,7 @@ def _draw_with_interpolant_kval(kx, ky, kxmin, kymin, zp, interp):
 
         val = jnp.where(
             kxind < nkx_2,
-            zp[nky - 1 - kyind, nkx - 1 - kxind + nkx_2].conjugate(),
+            zp[(nky - kyind) % nky, nkx - kxind - nkx_2].conjugate(),
             zp[kyind, kxind - nkx_2],
         )
         z += val * wkx * wky

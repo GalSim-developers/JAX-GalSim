@@ -679,7 +679,9 @@ class Image(object):
         dk = jnp.pi / (No2 * dx)
 
         out = Image(BoundsI(0, No2, -No2, No2 - 1), dtype=np.complex128, scale=dk)
-        out._array = jnp.fft.fftshift(jnp.fft.rfft2(ximage.array), axes=0)
+        out._array = jnp.fft.fftshift(
+            jnp.fft.rfft2(jnp.fft.fftshift(ximage.array)), axes=0
+        )
 
         out *= dx * dx
         out.setOrigin(0, -No2)
@@ -731,7 +733,9 @@ class Image(object):
 
         # For the inverse, we need a bit of extra space for the fft.
         out_extra = Image(BoundsI(-No2, No2 + 1, -No2, No2 - 1), dtype=float, scale=dx)
-        out_extra._array = jnp.fft.irfft2(jnp.fft.ifftshift(kimage.array, axes=0))
+        out_extra._array = jnp.fft.fftshift(
+            jnp.fft.irfft2(jnp.fft.fftshift(kimage.array, axes=0))
+        )
         # Now cut off the bit we don't need.
         out = out_extra.subImage(BoundsI(-No2, No2 - 1, -No2, No2 - 1))
         out *= (dk * No2 / jnp.pi) ** 2
