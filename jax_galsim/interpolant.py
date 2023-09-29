@@ -12,6 +12,7 @@ from jax._src.numpy.util import _wraps
 from jax.tree_util import register_pytree_node_class
 
 from jax_galsim.bessel import si
+from jax_galsim.core.utils import is_equal_with_arrays
 from jax_galsim.gsparams import GSParams
 
 
@@ -136,7 +137,7 @@ class Interpolant:
     def __eq__(self, other):
         return (self is other) or (
             type(other) is self.__class__
-            and self.tree_flatten() == other.tree_flatten()
+            and is_equal_with_arrays(self.tree_flatten(), other.tree_flatten())
         )
 
     def __ne__(self, other):

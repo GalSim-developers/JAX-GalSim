@@ -4,6 +4,7 @@ import jax.numpy as jnp
 import numpy as np
 from jax._src.numpy.util import _wraps
 
+from jax_galsim.core.utils import is_equal_with_arrays
 from jax_galsim.gsparams import GSParams
 from jax_galsim.position import Position, PositionD, PositionI
 from jax_galsim.utilities import parse_pos_args
@@ -13,7 +14,7 @@ from jax_galsim.utilities import parse_pos_args
 class GSObject:
     def __init__(self, *, gsparams=None, **params):
         self._params = params  # Dictionary containing all traced parameters
-        self._gsparams = gsparams  # Non-traced static parameters
+        self._gsparams = GSParams.check(gsparams)  # Non-traced static parameters
 
     @property
     def flux(self):
@@ -178,7 +179,7 @@ class GSObject:
     def __eq__(self, other):
         return (self is other) or (
             (type(other) is self.__class__)
-            and (self.tree_flatten() == other.tree_flatten())
+            and is_equal_with_arrays(self.tree_flatten(), other.tree_flatten())
         )
 
     @_wraps(_galsim.GSObject.xValue)

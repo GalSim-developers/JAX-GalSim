@@ -1,4 +1,5 @@
 import jax
+import jax.numpy as jnp
 
 
 def cast_scalar_to_float(x):
@@ -36,3 +37,55 @@ def ensure_hashable(v):
             return v.item()
     else:
         return v
+
+
+def is_equal_with_arrays(x, y):
+    """Return True if the data is equal, False otherwise. Handles jax.Array types."""
+    if isinstance(x, list):
+        if isinstance(y, list) and len(x) == len(y):
+            for vx, vy in zip(x, y):
+                if not is_equal_with_arrays(vx, vy):
+                    print(vx, vy)
+                    return False
+            return True
+        else:
+            return False
+    elif isinstance(x, tuple):
+        if isinstance(y, tuple) and len(x) == len(y):
+            for vx, vy in zip(x, y):
+                if not is_equal_with_arrays(vx, vy):
+                    print(vx, vy)
+                    return False
+            return True
+        else:
+            return False
+    elif isinstance(x, set):
+        if isinstance(y, set) and len(x) == len(y):
+            for vx, vy in zip(x, y):
+                if not is_equal_with_arrays(vx, vy):
+                    print(vx, vy)
+                    return False
+            return True
+        else:
+            return False
+    elif isinstance(x, dict):
+        if isinstance(y, dict) and len(x) == len(y):
+            for kx, vx in x.items():
+                if kx not in y or (not is_equal_with_arrays(vx, y[kx])):
+                    print(kx, vx, y[kx])
+                    return False
+            return True
+        else:
+            return False
+    elif isinstance(x, jax.Array) and jnp.ndim(x) > 0:
+        if isinstance(y, jax.Array) and y.shape == x.shape:
+            return jnp.array_equal(x, y)
+        else:
+            print(x, y)
+            return False
+    elif (isinstance(x, jax.Array) and jnp.ndim(x) == 0) or (
+        isinstance(y, jax.Array) and jnp.ndim(y) == 0
+    ):
+        return jnp.array_equal(x, y)
+    else:
+        return x == y

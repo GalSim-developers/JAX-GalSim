@@ -1,3 +1,4 @@
+import copy
 import math
 import textwrap
 from functools import partial
@@ -87,8 +88,39 @@ class InterpolatedImage(Transformation):
         gsparams=None,
         _force_stepk=0.0,
         _force_maxk=0.0,
+        _recenter_image=True,
         hdu=None,
     ):
+        self._jax_children = (
+            image,
+            dict(
+                scale=scale,
+                wcs=wcs,
+                flux=flux,
+                pad_image=pad_image,
+                offset=offset,
+            ),
+        )
+        self._jax_aux_data = dict(
+            x_interpolant=x_interpolant,
+            k_interpolant=k_interpolant,
+            normalization=normalization,
+            pad_factor=pad_factor,
+            noise_pad_size=noise_pad_size,
+            noise_pad=noise_pad,
+            rng=rng,
+            calculate_stepk=calculate_stepk,
+            calculate_maxk=calculate_maxk,
+            use_cache=use_cache,
+            use_true_center=use_true_center,
+            depixelize=depixelize,
+            gsparams=GSParams.check(gsparams),
+            _force_stepk=_force_stepk,
+            _force_maxk=_force_maxk,
+            _recenter_image=_recenter_image,
+            hdu=hdu,
+        )
+
         obj = InterpolatedImageImpl(
             image,
             x_interpolant=x_interpolant,
@@ -108,17 +140,40 @@ class InterpolatedImage(Transformation):
             use_true_center=use_true_center,
             depixelize=depixelize,
             offset=offset,
-            gsparams=gsparams,
+            gsparams=GSParams.check(gsparams),
             _force_stepk=_force_stepk,
             _force_maxk=_force_maxk,
             hdu=hdu,
+            _recenter_image=_recenter_image,
         )
         super().__init__(
             obj,
             jac=obj._jac_arr,
             flux_ratio=obj._flux_ratio / obj._wcs.pixelArea(),
             offset=PositionD(0.0, 0.0),
+            gsparams=GSParams.check(gsparams),
+            propagate_gsparams=True,
         )
+
+    # the galsim tests use this internal attribute
+    # so we add it here
+    @property
+    def _xim(self):
+        return self._original._xim
+
+    @property
+    def _maxk(self):
+        if self._jax_aux_data["_force_maxk"] > 0:
+            return self._jax_aux_data["_force_maxk"]
+        else:
+            return super()._maxk
+
+    @property
+    def _stepk(self):
+        if self._jax_aux_data["_force_stepk"] > 0:
+            return self._jax_aux_data["_force_stepk"]
+        else:
+            return super()._stepk
 
     @property
     def x_interpolant(self):
@@ -143,6 +198,32 @@ class InterpolatedImage(Transformation):
 
     def __str__(self):
         return str(self._original)
+
+    def tree_flatten(self):
+        """This function flattens the InterpolatedImage into a list of children
+        nodes that will be traced by JAX and auxiliary static data."""
+        return (self._jax_children, copy.copy(self._jax_aux_data))
+
+    @classmethod
+    def tree_unflatten(cls, aux_data, children):
+        """Recreates an instance of the class from flatten representation"""
+        val = {}
+        val.update(aux_data)
+        val.update(children[1])
+        return cls(children[0], **val)
+
+    @doc_inherit
+    def withGSParams(self, gsparams=None, **kwargs):
+        if gsparams == self.gsparams:
+            return self
+        # Checking gsparams
+        gsparams = GSParams.check(gsparams, self.gsparams, **kwargs)
+        # Flattening the representation to instantiate a clean new object
+        children, aux_data = self.tree_flatten()
+        aux_data["gsparams"] = gsparams
+        ret = self.tree_unflatten(aux_data, children)
+
+        return ret
 
 
 @register_pytree_node_class
@@ -178,6 +259,7 @@ class InterpolatedImageImpl(GSObject):
         _force_stepk=0.0,
         _force_maxk=0.0,
         hdu=None,
+        _recenter_image=True,
     ):
         # this class does a ton of munging of the inputs that I don't want to reconstruct when
         # flattening and unflattening the class.
@@ -208,6 +290,7 @@ class InterpolatedImageImpl(GSObject):
             gsparams=gsparams,
             _force_stepk=_force_stepk,
             _force_maxk=_force_maxk,
+            _recenter_image=_recenter_image,
             hdu=hdu,
         )
         self._params = {}
@@ -263,7 +346,8 @@ class InterpolatedImageImpl(GSObject):
             )
         else:
             self._image = image.view(dtype=jnp.float64, contiguous=True)
-        self._image.setCenter(0, 0)
+        if _recenter_image:
+            self._image.setCenter(0, 0)
 
         # Set the wcs if necessary
         if scale is not None:
@@ -337,18 +421,12 @@ class InterpolatedImageImpl(GSObject):
         aux_data["gsparams"] = gsparams
         ret = self.tree_unflatten(aux_data, children)
 
-        ret._x_interpolant = self._x_interpolant.withGSParams(ret._gsparams, **kwargs)
-        ret._k_interpolant = self._k_interpolant.withGSParams(ret._gsparams, **kwargs)
-        if ret._gsparams.folding_threshold != self._gsparams.folding_threshold:
-            ret._stepk = ret._getStepK(self._calculate_stepk, 0.0)
-        if ret._gsparams.maxk_threshold != self._gsparams.maxk_threshold:
-            ret._maxk = ret._getMaxK(self._calculate_maxk, 0.0)
         return ret
 
     def tree_flatten(self):
         """This function flattens the InterpolatedImage into a list of children
         nodes that will be traced by JAX and auxiliary static data."""
-        return (self._jax_children, self._jax_aux_data)
+        return (self._jax_children, copy.copy(self._jax_aux_data))
 
     @classmethod
     def tree_unflatten(cls, aux_data, children):
@@ -472,6 +550,18 @@ class InterpolatedImageImpl(GSObject):
         # we always make this
         self._kim = self._xim.calculate_fft()
 
+        # record pos and neg fluxes now too
+        pflux = jnp.sum(jnp.where(self._pad_image.array > 0, self._pad_image.array, 0))
+        nflux = jnp.sum(jnp.where(self._pad_image.array < 0, self._pad_image.array, 0))
+        pint = self._x_interpolant.positive_flux
+        nint = self._x_interpolant.negative_flux
+        pint2d = pint * pint + nint * nint
+        nint2d = 2 * pint * nint
+        self._pos_neg_fluxes = [
+            pint2d * pflux + nint2d * nflux,
+            pint2d * nflux + nint2d * pflux,
+        ]
+
     # FIXME: no BaseDeviate in jax_galsim so no noise padding
     # def _buildNoisePadImage(self, noise_pad_size, noise_pad, rng, use_cache):
     #     """A helper function that builds the ``pad_image`` from the given ``noise_pad``
@@ -535,6 +625,7 @@ class InterpolatedImageImpl(GSObject):
         # images (see the ._adjust_offset step below) leads to automatic reduction of stepK slightly
         # below what is provided here, while maxK is preserved.
         if _force_stepk > 0.0:
+            print("Forcing stepk to be %f" % _force_stepk)
             return _force_stepk
         elif calculate_stepk:
             if calculate_stepk is True:
@@ -563,6 +654,7 @@ class InterpolatedImageImpl(GSObject):
     def _getMaxK(self, calculate_maxk, _force_maxk):
         max_scale = 1.0
         if _force_maxk > 0.0:
+            print("Forcing maxk to be %f" % _force_maxk)
             return _force_maxk
         elif calculate_maxk:
             _uscale = 1 / (2 * jnp.pi)
@@ -682,25 +774,26 @@ class InterpolatedImageImpl(GSObject):
 
     @property
     def _centroid(self):
-        raise NotImplementedError("WIP interp - centroid")
+        x, y = self._pad_image.get_pixel_centers()
+        tot = jnp.sum(self._pad_image.array)
+        xpos = jnp.sum(x * self._pad_image.array) / tot
+        ypos = jnp.sum(y * self._pad_image.array) / tot
+        return PositionD(xpos, ypos)
 
     @property
     def _positive_flux(self):
-        raise NotImplementedError("WIP interp - positive_flux")
+        return self._pos_neg_fluxes[0]
 
     @property
     def _negative_flux(self):
-        raise NotImplementedError("WIP interp - negative_flux")
+        return self._pos_neg_fluxes[1]
 
     @property
     def _max_sb(self):
         return jnp.max(jnp.abs(self._pad_image.array))
 
-    # @lazy_property
     def _flux_per_photon(self):
-        # FIXME: jax_galsim does not photon shoot
-        # return self._calculate_flux_per_photon()
-        raise NotImplementedError("Photon shooting not implemented.")
+        return self._calculate_flux_per_photon()
 
     def _xValue(self, pos):
         pos += self._offset
@@ -754,6 +847,34 @@ class InterpolatedImageImpl(GSObject):
     def _drawKImage(self, image, jac=None):
         _jac = jnp.eye(2) if jac is None else jac
         return draw_by_kValue(self, image, _jac)
+
+
+@_wraps(_galsim._InterpolatedImage)
+def _InterpolatedImage(
+    image,
+    x_interpolant=Quintic(),
+    k_interpolant=Quintic(),
+    use_true_center=True,
+    offset=None,
+    gsparams=None,
+    force_stepk=0.0,
+    force_maxk=0.0,
+):
+    return InterpolatedImage(
+        image,
+        x_interpolant=x_interpolant,
+        k_interpolant=k_interpolant,
+        use_true_center=use_true_center,
+        offset=offset,
+        gsparams=gsparams,
+        calculate_maxk=False,
+        calculate_stepk=False,
+        pad_factor=1.0,
+        flux=jnp.sum(image.array),
+        _force_stepk=force_stepk,
+        _force_maxk=force_maxk,
+        _recenter_image=False,
+    )
 
 
 @partial(jax.jit, static_argnums=(5,))
