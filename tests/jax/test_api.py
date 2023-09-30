@@ -1,12 +1,13 @@
 import inspect
+import pickle
+
+import galsim as _galsim
 import jax
 import jax.numpy as jnp
 import numpy as np
-import pickle
 import pytest
 
 import jax_galsim
-import galsim as _galsim
 
 
 def test_api_same():
@@ -16,8 +17,10 @@ def test_api_same():
     jax_galsim_api = set(dir(jax_galsim))
     # the jax_galsim.core module is specific to jax_galsim
     jax_galsim_api.remove("core")
-    assert jax_galsim_api.issubset(galsim_api), (
-        "jax_galsim API is not a subset of galsim API: %r" % (jax_galsim_api - galsim_api)
+    assert jax_galsim_api.issubset(
+        galsim_api
+    ), "jax_galsim API is not a subset of galsim API: %r" % (
+        jax_galsim_api - galsim_api
     )
 
 
@@ -90,21 +93,26 @@ def _run_object_checks(obj, cls, kind):
         # check derivs
         eps = 1e-6
         grad = _xgradfun(0.3, obj)
-        finite_diff = (obj.xValue(x=0.3 + eps, y=-0.3) - obj.xValue(x=0.3 - eps, y=-0.3)) / (
-            2 * eps
-        )
+        finite_diff = (
+            obj.xValue(x=0.3 + eps, y=-0.3) - obj.xValue(x=0.3 - eps, y=-0.3)
+        ) / (2 * eps)
         np.testing.assert_allclose(grad, finite_diff)
 
         grad = _kgradfun(0.3, obj)
-        finite_diff = (obj.kValue(kx=0.3 + eps, ky=-0.3).real - obj.kValue(kx=0.3 - eps, ky=-0.3).real) / (
-            2 * eps
-        )
+        finite_diff = (
+            obj.kValue(kx=0.3 + eps, ky=-0.3).real
+            - obj.kValue(kx=0.3 - eps, ky=-0.3).real
+        ) / (2 * eps)
         np.testing.assert_allclose(grad, finite_diff)
 
         # check vmap
         x = jnp.linspace(-1, 1, 10)
-        np.testing.assert_allclose(_xfun_vmap(x, obj), [obj.xValue(x=_x, y=-0.3) for _x in x])
-        np.testing.assert_allclose(_kfun_vmap(x, obj), [obj.kValue(kx=_x, ky=-0.3).real for _x in x])
+        np.testing.assert_allclose(
+            _xfun_vmap(x, obj), [obj.xValue(x=_x, y=-0.3) for _x in x]
+        )
+        np.testing.assert_allclose(
+            _kfun_vmap(x, obj), [obj.kValue(kx=_x, ky=-0.3).real for _x in x]
+        )
 
         # check vmap grad
         np.testing.assert_allclose(
@@ -120,7 +128,11 @@ def _run_object_checks(obj, cls, kind):
 
         # check docs
         gscls = getattr(_galsim, cls.__name__)
-        assert all(line.strip() in cls.__doc__ for line in gscls.__doc__.splitlines() if line.strip())
+        assert all(
+            line.strip() in cls.__doc__
+            for line in gscls.__doc__.splitlines()
+            if line.strip()
+        )
 
         # check methods except the special JAX ones which should be exclusive to JAX
         for method in dir(cls):
@@ -138,17 +150,23 @@ def _run_object_checks(obj, cls, kind):
                         for line in getattr(gscls, method).__doc__.splitlines():
                             # we skip the lazy_property decorator doc string since this is not always
                             # used in jax_galsim
-                            if line.strip() and line not in _galsim.utilities.lazy_property.__doc__:
+                            if (
+                                line.strip()
+                                and line not in _galsim.utilities.lazy_property.__doc__
+                            ):
                                 assert line.strip() in getattr(cls, method).__doc__
                 else:
                     assert method not in dir(gscls), cls.__name__ + "." + method
 
 
-@pytest.mark.parametrize("kind", [
-    "docs-methods",
-    "pickle-eval-repr",
-    "vmap-jit-grad",
-])
+@pytest.mark.parametrize(
+    "kind",
+    [
+        "docs-methods",
+        "pickle-eval-repr",
+        "vmap-jit-grad",
+    ],
+)
 def test_api_gsobject(kind):
     jax_galsim_api = set(dir(jax_galsim))
     classes = []
