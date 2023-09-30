@@ -3,6 +3,7 @@ import jax.numpy as jnp
 from jax._src.numpy.util import _wraps
 from jax.tree_util import register_pytree_node_class
 
+from jax_galsim.core.utils import ensure_hashable
 from jax_galsim.gsobject import GSObject
 from jax_galsim.gsparams import GSParams
 from jax_galsim.position import PositionD
@@ -133,10 +134,10 @@ class Transformation(GSObject):
             (
                 "galsim.Transformation",
                 self.original,
-                tuple(self._jac.ravel()),
-                self.offset.x,
-                self.offset.y,
-                self.flux_ratio,
+                ensure_hashable(self._jac.ravel()),
+                ensure_hashable(self.offset.x),
+                ensure_hashable(self.offset.y),
+                ensure_hashable(self.flux_ratio),
                 self.gsparams,
                 self._propagate_gsparams,
             )
@@ -148,9 +149,9 @@ class Transformation(GSObject):
             "propagate_gsparams=%r)"
         ) % (
             self.original,
-            self._jac.tolist(),
+            ensure_hashable(self._jac),
             self.offset,
-            self.flux_ratio,
+            ensure_hashable(self.flux_ratio),
             self.gsparams,
             self._propagate_gsparams,
         )
@@ -196,9 +197,12 @@ class Transformation(GSObject):
         s = str(self.original)
         s += self._str_from_jac(self._jac)
         if self.offset.x != 0 or self.offset.y != 0:
-            s += ".shift(%s,%s)" % (self.offset.x, self.offset.y)
+            s += ".shift(%s,%s)" % (
+                ensure_hashable(self.offset.x),
+                ensure_hashable(self.offset.y),
+            )
         if self.flux_ratio != 1.0:
-            s += " * %s" % self.flux_ratio
+            s += " * %s" % ensure_hashable(self.flux_ratio)
         return s
 
     @property

@@ -4,8 +4,8 @@ from jax._src.numpy.util import _wraps
 from jax.tree_util import register_pytree_node_class
 
 from jax_galsim.core.draw import draw_by_kValue, draw_by_xValue
+from jax_galsim.core.utils import ensure_hashable
 from jax_galsim.gsobject import GSObject
-from jax_galsim.gsparams import GSParams
 
 
 @_wraps(_galsim.Gaussian)
@@ -26,9 +26,6 @@ class Gaussian(GSObject):
     def __init__(
         self, half_light_radius=None, sigma=None, fwhm=None, flux=1.0, gsparams=None
     ):
-        # Checking gsparams
-        gsparams = GSParams.check(gsparams)
-
         if fwhm is not None:
             if sigma is not None or half_light_radius is not None:
                 raise _galsim.GalSimIncompatibleValuesError(
@@ -93,18 +90,25 @@ class Gaussian(GSObject):
         return self.flux * self._inv_sigsq * Gaussian._inv_twopi
 
     def __hash__(self):
-        return hash(("galsim.Gaussian", self.sigma, self.flux, self.gsparams))
+        return hash(
+            (
+                "galsim.Gaussian",
+                ensure_hashable(self.sigma),
+                ensure_hashable(self.flux),
+                self.gsparams,
+            )
+        )
 
     def __repr__(self):
         return "galsim.Gaussian(sigma=%r, flux=%r, gsparams=%r)" % (
-            self.sigma,
-            self.flux,
+            ensure_hashable(self.sigma),
+            ensure_hashable(self.flux),
             self.gsparams,
         )
 
     def __str__(self):
-        s = "galsim.Gaussian(sigma=%s" % self.sigma
-        s += ", flux=%s" % self.flux
+        s = "galsim.Gaussian(sigma=%s" % ensure_hashable(self.sigma)
+        s += ", flux=%s" % ensure_hashable(self.flux)
         s += ")"
         return s
 
@@ -139,5 +143,6 @@ class Gaussian(GSObject):
         _jac = jnp.eye(2) if jac is None else jac
         return draw_by_kValue(self, image, _jac)
 
+    @_wraps(_galsim.Gaussian.withFlux)
     def withFlux(self, flux):
         return Gaussian(sigma=self.sigma, flux=flux, gsparams=self.gsparams)

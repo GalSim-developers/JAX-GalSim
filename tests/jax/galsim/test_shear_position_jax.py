@@ -1,7 +1,6 @@
-import numpy as np
-
 import galsim
-from galsim_test_helpers import timer, assert_raises
+import numpy as np
+from galsim_test_helpers import assert_raises, timer
 
 
 @timer

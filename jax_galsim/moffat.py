@@ -11,8 +11,8 @@ from jax.tree_util import register_pytree_node_class
 from jax_galsim.core.bessel import j0
 from jax_galsim.core.draw import draw_by_kValue, draw_by_xValue
 from jax_galsim.core.integrate import ClenshawCurtisQuad, quad_integral
+from jax_galsim.core.utils import ensure_hashable
 from jax_galsim.gsobject import GSObject
-from jax_galsim.gsparams import GSParams
 
 
 @jax.jit
@@ -85,9 +85,6 @@ class Moffat(GSObject):
         gsparams=None,
     ):
         # notice that trunc==0. means no truncated Moffat.
-
-        gsparams = GSParams.check(gsparams)
-
         # let define beta_thr a threshold to trigger the truncature
         self._beta_thr = 1.1
 
@@ -103,7 +100,14 @@ class Moffat(GSObject):
             else:
                 super().__init__(
                     beta=beta,
-                    half_light_radius=half_light_radius,
+                    scale_radius=(
+                        jax.lax.select(
+                            trunc > 0,
+                            MoffatCalculateSRFromHLR(half_light_radius, trunc, beta),
+                            half_light_radius
+                            / jnp.sqrt(jnp.power(0.5, 1.0 / (1.0 - beta)) - 1.0),
+                        )
+                    ),
                     trunc=trunc,
                     flux=flux,
                     gsparams=gsparams,
@@ -118,7 +122,11 @@ class Moffat(GSObject):
                 )
             else:
                 super().__init__(
-                    beta=beta, fwhm=fwhm, trunc=trunc, flux=flux, gsparams=gsparams
+                    beta=beta,
+                    scale_radius=fwhm / (2.0 * jnp.sqrt(2.0 ** (1.0 / beta) - 1.0)),
+                    trunc=trunc,
+                    flux=flux,
+                    gsparams=gsparams,
                 )
         elif scale_radius is None:
             raise _galsim.GalSimIncompatibleValuesError(
@@ -149,19 +157,7 @@ class Moffat(GSObject):
     @property
     def scale_radius(self):
         """The scale radius of this `Moffat` profile."""
-        if "half_light_radius" in self.params:
-            hlr = self.params["half_light_radius"]
-            return jax.lax.select(
-                self.trunc > 0,
-                MoffatCalculateSRFromHLR(hlr, self.trunc, self.beta),
-                hlr / jnp.sqrt(jnp.power(0.5, 1.0 / (1.0 - self.beta)) - 1.0),
-            )
-        elif "fwhm" in self.params:
-            return self.params["fwhm"] / (
-                2.0 * jnp.sqrt(2.0 ** (1.0 / self.beta) - 1.0)
-            )
-        else:
-            return self.params["scale_radius"]
+        return self.params["scale_radius"]
 
     @property
     def _r0(self):
@@ -210,20 +206,14 @@ class Moffat(GSObject):
     @property
     def half_light_radius(self):
         """The half-light radius of this `Moffat` profile."""
-        if "half_light_radius" in self.params:
-            return self.params["half_light_radius"]
-        else:
-            return self._r0 * jnp.sqrt(
-                jnp.power(1.0 - 0.5 * self._fluxFactor, 1.0 / (1.0 - self.beta)) - 1.0
-            )
+        return self._r0 * jnp.sqrt(
+            jnp.power(1.0 - 0.5 * self._fluxFactor, 1.0 / (1.0 - self.beta)) - 1.0
+        )
 
     @property
     def fwhm(self):
         """The FWHM of this `Moffat` profle."""
-        if "fwhm" in self.params:
-            return self.params["fwhm"]
-        else:
-            return self._r0 * (2.0 * jnp.sqrt(2.0 ** (1.0 / self.beta) - 1.0))
+        return self._r0 * (2.0 * jnp.sqrt(2.0 ** (1.0 / self.beta) - 1.0))
 
     @property
     def _norm(self):
@@ -247,10 +237,10 @@ class Moffat(GSObject):
         return hash(
             (
                 "galsim.Moffat",
-                self.beta,
-                self.scale_radius,
-                self.trunc,
-                self.flux,
+                ensure_hashable(self.beta),
+                ensure_hashable(self.scale_radius),
+                ensure_hashable(self.trunc),
+                ensure_hashable(self.flux),
                 self.gsparams,
             )
         )
@@ -258,15 +248,24 @@ class Moffat(GSObject):
     def __repr__(self):
         return (
             "galsim.Moffat(beta=%r, scale_radius=%r, trunc=%r, flux=%r, gsparams=%r)"
-            % (self.beta, self.scale_radius, self.trunc, self.flux, self.gsparams)
+            % (
+                ensure_hashable(self.beta),
+                ensure_hashable(self.scale_radius),
+                ensure_hashable(self.trunc),
+                ensure_hashable(self.flux),
+                self.gsparams,
+            )
         )
 
     def __str__(self):
-        s = "galsim.Moffat(beta=%s, scale_radius=%s" % (self.beta, self.scale_radius)
+        s = "galsim.Moffat(beta=%s, scale_radius=%s" % (
+            ensure_hashable(self.beta),
+            ensure_hashable(self.scale_radius),
+        )
         if self.trunc != 0.0:
-            s += ", trunc=%s" % self.trunc
+            s += ", trunc=%s" % ensure_hashable(self.trunc)
         if self.flux != 1.0:
-            s += ", flux=%s" % self.flux
+            s += ", flux=%s" % ensure_hashable(self.flux)
         s += ")"
         return s
 
@@ -428,6 +427,7 @@ class Moffat(GSObject):
         _jac = jnp.eye(2) if jac is None else jac
         return draw_by_kValue(self, image, _jac)
 
+    @_wraps(_galsim.Moffat.withFlux)
     def withFlux(self, flux):
         return Moffat(
             beta=self.beta,
