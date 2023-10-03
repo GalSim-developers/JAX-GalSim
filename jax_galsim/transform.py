@@ -118,6 +118,17 @@ class Transformation(GSObject):
 
         return self.tree_unflatten(aux, chld)
 
+    def __eq__(self, other):
+        return (self is other) or (
+            (type(other) is self.__class__)
+            and self._original == other._original
+            and jnp.array_equal(self._jac, other._jac)
+            and self._offset == other._offset
+            and self._flux_ratio == other._flux_ratio
+            and self.gsparams == other.gsparams
+            and self._propagate_gsparams == other._propagate_gsparams
+        )
+
     def tree_flatten(self):
         """This function flattens the GSObject into a list of children
         nodes that will be traced by JAX and auxiliary static data."""
@@ -143,7 +154,7 @@ class Transformation(GSObject):
             (
                 "galsim.Transformation",
                 self.original,
-                ensure_hashable(self._jac.ravel()),
+                ensure_hashable(self._jac),
                 ensure_hashable(self.offset.x),
                 ensure_hashable(self.offset.y),
                 ensure_hashable(self.flux_ratio),

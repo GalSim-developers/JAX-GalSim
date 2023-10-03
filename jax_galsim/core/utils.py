@@ -34,7 +34,6 @@ def is_equal_with_arrays(x, y):
         if isinstance(y, list) and len(x) == len(y):
             for vx, vy in zip(x, y):
                 if not is_equal_with_arrays(vx, vy):
-                    print(vx, vy)
                     return False
             return True
         else:
@@ -43,7 +42,6 @@ def is_equal_with_arrays(x, y):
         if isinstance(y, tuple) and len(x) == len(y):
             for vx, vy in zip(x, y):
                 if not is_equal_with_arrays(vx, vy):
-                    print(vx, vy)
                     return False
             return True
         else:
@@ -52,7 +50,6 @@ def is_equal_with_arrays(x, y):
         if isinstance(y, set) and len(x) == len(y):
             for vx, vy in zip(x, y):
                 if not is_equal_with_arrays(vx, vy):
-                    print(vx, vy)
                     return False
             return True
         else:
@@ -61,7 +58,6 @@ def is_equal_with_arrays(x, y):
         if isinstance(y, dict) and len(x) == len(y):
             for kx, vx in x.items():
                 if kx not in y or (not is_equal_with_arrays(vx, y[kx])):
-                    print(kx, vx, y[kx])
                     return False
             return True
         else:
@@ -70,7 +66,6 @@ def is_equal_with_arrays(x, y):
         if isinstance(y, jax.Array) and y.shape == x.shape:
             return jnp.array_equal(x, y)
         else:
-            print(x, y)
             return False
     elif (isinstance(x, jax.Array) and jnp.ndim(x) == 0) or (
         isinstance(y, jax.Array) and jnp.ndim(y) == 0
