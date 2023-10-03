@@ -28,17 +28,6 @@ def cast_scalar_to_int(x):
             return x
 
 
-def ensure_hashable(v):
-    """Ensure that the input is hashable. If it is a jax array, convert it to a tuple or float."""
-    if isinstance(v, jax.Array):
-        if len(v.shape) > 0:
-            return tuple(v.tolist())
-        else:
-            return v.item()
-    else:
-        return v
-
-
 def is_equal_with_arrays(x, y):
     """Return True if the data is equal, False otherwise. Handles jax.Array types."""
     if isinstance(x, list):
@@ -89,3 +78,25 @@ def is_equal_with_arrays(x, y):
         return jnp.array_equal(x, y)
     else:
         return x == y
+
+
+def _recurse_list_to_tuple(x):
+    if isinstance(x, list):
+        return tuple(_recurse_list_to_tuple(v) for v in x)
+    else:
+        return x
+
+
+def ensure_hashable(v):
+    """Ensure that the input is hashable. If it is a jax array,
+    convert it to a possibly nested tuple or python scalar."""
+    if isinstance(v, jax.Array):
+        try:
+            if len(v.shape) > 0:
+                return _recurse_list_to_tuple(v.tolist())
+            else:
+                return v.item()
+        except Exception:
+            return v
+    else:
+        return v

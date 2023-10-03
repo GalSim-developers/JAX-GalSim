@@ -4,12 +4,12 @@ from jax._src.numpy.util import _wraps
 from jax.tree_util import register_pytree_node_class
 
 from jax_galsim.core.draw import draw_by_kValue, draw_by_xValue
+from jax_galsim.core.utils import ensure_hashable
 from jax_galsim.gsobject import GSObject
-from jax_galsim.gsparams import GSParams
 
 
-@register_pytree_node_class
 @_wraps(_galsim.Box)
+@register_pytree_node_class
 class Box(GSObject):
     _has_hard_edges = True
     _is_axisymmetric = False
@@ -17,23 +17,15 @@ class Box(GSObject):
     _is_analytic_k = True
 
     def __init__(self, width, height, flux=1.0, gsparams=None):
-        gsparams = GSParams.check(gsparams)
-
         super().__init__(width=width, height=height, flux=flux, gsparams=gsparams)
-
-        self._norm = flux / (width * height)
-        self._wo2 = 0.5 * width
-        self._ho2 = 0.5 * height
-        self._wo2pi = width / (2.0 * jnp.pi)
-        self._ho2pi = height / (2.0 * jnp.pi)
 
     @property
     def _minL(self):
-        return self.width if self.width <= self.height else self.height
+        return jnp.minimum(self.width, self.height)
 
     @property
     def _maxL(self):
-        return self.width if self.width > self.height else self.height
+        return jnp.maximum(self.width, self.height)
 
     @property
     def width(self):
@@ -46,20 +38,31 @@ class Box(GSObject):
         return self.params["height"]
 
     def __hash__(self):
-        return hash(("galsim.Box", self.width, self.height, self.flux, self.gsparams))
+        return hash(
+            (
+                "galsim.Box",
+                ensure_hashable(self.width),
+                ensure_hashable(self.height),
+                ensure_hashable(self.flux),
+                self.gsparams,
+            )
+        )
 
     def __repr__(self):
         return "galsim.Box(width=%r, height=%r, flux=%r, gsparams=%r)" % (
-            self.width,
-            self.height,
-            self.flux,
+            ensure_hashable(self.width),
+            ensure_hashable(self.height),
+            ensure_hashable(self.flux),
             self.gsparams,
         )
 
     def __str__(self):
-        s = "galsim.Box(width=%s, height=%s" % (self.width, self.height)
+        s = "galsim.Box(width=%s, height=%s" % (
+            ensure_hashable(self.width),
+            ensure_hashable(self.height),
+        )
         if self.flux != 1.0:
-            s += ", flux=%s" % self.flux
+            s += ", flux=%s" % ensure_hashable(self.flux)
         s += ")"
         return s
 
@@ -73,19 +76,20 @@ class Box(GSObject):
 
     @property
     def _max_sb(self):
-        return self._norm
+        return self.flux / (self.width * self.height)
 
     def _xValue(self, pos):
+        norm = self.flux / (self.width * self.height)
         return jnp.where(
             2.0 * jnp.abs(pos.x) < self.width,
-            jnp.where(2.0 * jnp.abs(pos.y) < self.height, self._norm, 0.0),
+            jnp.where(2.0 * jnp.abs(pos.y) < self.height, norm, 0.0),
             0.0,
         )
 
     def _kValue(self, kpos):
-        return (
-            self.flux * jnp.sinc(kpos.x * self._wo2pi) * jnp.sinc(kpos.y * self._ho2pi)
-        )
+        _wo2pi = self.width / (2.0 * jnp.pi)
+        _ho2pi = self.height / (2.0 * jnp.pi)
+        return self.flux * jnp.sinc(kpos.x * _wo2pi) * jnp.sinc(kpos.y * _ho2pi)
 
     def _drawReal(self, image, jac=None, offset=(0.0, 0.0), flux_scaling=1.0):
         _jac = jnp.eye(2) if jac is None else jac
@@ -95,9 +99,20 @@ class Box(GSObject):
         _jac = jnp.eye(2) if jac is None else jac
         return draw_by_kValue(self, image, _jac)
 
+    @_wraps(_galsim.Box.withFlux)
     def withFlux(self, flux):
         return Box(
             width=self.width, height=self.height, flux=flux, gsparams=self.gsparams
+        )
+
+    @classmethod
+    def tree_unflatten(cls, aux_data, children):
+        """Recreates an instance of the class from flatten representation"""
+        return cls(
+            children[0]["width"],
+            children[0]["height"],
+            flux=children[0]["flux"],
+            **aux_data
         )
 
 
@@ -116,18 +131,19 @@ class Pixel(Box):
 
     def __repr__(self):
         return "galsim.Pixel(scale=%r, flux=%r, gsparams=%r)" % (
-            self.flux,
-            self.scale,
+            ensure_hashable(self.scale),
+            ensure_hashable(self.flux),
             self.gsparams,
         )
 
     def __str__(self):
-        s = "galsim.Pixel(scale=%s" % self.scale
+        s = "galsim.Pixel(scale=%s" % ensure_hashable(self.scale)
         if self.flux != 1.0:
-            s += ", flux=%s" % self.flux
+            s += ", flux=%s" % ensure_hashable(self.flux)
         s += ")"
         return s
 
+    @_wraps(_galsim.Pixel.withFlux)
     def withFlux(self, flux):
         return Pixel(scale=self.scale, flux=flux, gsparams=self.gsparams)
 

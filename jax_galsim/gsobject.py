@@ -211,8 +211,8 @@ class GSObject:
             "%s does not implement kValue" % self.__class__.__name__
         )
 
+    @_wraps(_galsim.GSObject.withGSParams)
     def withGSParams(self, gsparams=None, **kwargs):
-        """Create a version of the current object with the given `GSParams`."""
         if gsparams == self.gsparams:
             return self
         # Checking gsparams
@@ -222,9 +222,11 @@ class GSObject:
         aux_data["gsparams"] = gsparams
         return self.tree_unflatten(aux_data, children)
 
+    @_wraps(_galsim.GSObject.withFlux)
     def withFlux(self, flux):
         return self.withScaledFlux(flux / self.flux)
 
+    @_wraps(_galsim.GSObject.withScaledFlux)
     def withScaledFlux(self, flux_ratio):
         from jax_galsim.transform import Transform
 

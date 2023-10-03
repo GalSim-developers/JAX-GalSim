@@ -4,7 +4,11 @@ import jax.numpy as jnp
 from jax._src.numpy.util import _wraps
 from jax.tree_util import register_pytree_node_class
 
-from jax_galsim.core.utils import cast_scalar_to_float, cast_scalar_to_int
+from jax_galsim.core.utils import (
+    cast_scalar_to_float,
+    cast_scalar_to_int,
+    ensure_hashable,
+)
 
 
 @_wraps(_galsim.Position)
@@ -54,8 +58,7 @@ class Position(object):
                 raise TypeError("Got unexpected keyword arguments %s" % kwargs.keys())
 
     @property
-    def array(self):
-        """Return the position as a 2-element numpy array."""
+    def _array(self):
         return jnp.array([self.x, self.y])
 
     def __mul__(self, other):
@@ -97,10 +100,18 @@ class Position(object):
             return PositionD(self.x - other.x, self.y - other.y)
 
     def __repr__(self):
-        return "galsim.%s(x=%r, y=%r)" % (self.__class__.__name__, self.x, self.y)
+        return "galsim.%s(x=%r, y=%r)" % (
+            self.__class__.__name__,
+            ensure_hashable(self.x),
+            ensure_hashable(self.y),
+        )
 
     def __str__(self):
-        return "galsim.%s(%s,%s)" % (self.__class__.__name__, self.x, self.y)
+        return "galsim.%s(%s,%s)" % (
+            self.__class__.__name__,
+            ensure_hashable(self.x),
+            ensure_hashable(self.y),
+        )
 
     def __eq__(self, other):
         return self is other or (
@@ -113,7 +124,9 @@ class Position(object):
         return not self.__eq__(other)
 
     def __hash__(self):
-        return hash((self.__class__.__name__, self.x, self.y))
+        return hash(
+            (self.__class__.__name__, ensure_hashable(self.x), ensure_hashable(self.y))
+        )
 
     def shear(self, shear):
         """Shear the position.
@@ -127,7 +140,7 @@ class Position(object):
             a `galsim.PositionD` instance.
         """
         shear_mat = shear.getMatrix()
-        shear_pos = jnp.dot(shear_mat, self.array)
+        shear_pos = jnp.dot(shear_mat, jnp.array([self.x, self.y]))
         return PositionD(shear_pos[0], shear_pos[1])
 
     def round(self):

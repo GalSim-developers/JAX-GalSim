@@ -6,7 +6,6 @@ from jax.tree_util import register_pytree_node_class
 from jax_galsim.core.draw import draw_by_kValue, draw_by_xValue
 from jax_galsim.core.utils import ensure_hashable
 from jax_galsim.gsobject import GSObject
-from jax_galsim.gsparams import GSParams
 
 
 @_wraps(_galsim.Exponential)
@@ -27,9 +26,6 @@ class Exponential(GSObject):
     def __init__(
         self, half_light_radius=None, scale_radius=None, flux=1.0, gsparams=None
     ):
-        # Checking gsparams
-        gsparams = GSParams.check(gsparams)
-
         if half_light_radius is not None:
             if scale_radius is not None:
                 raise _galsim.GalSimIncompatibleValuesError(
@@ -87,14 +83,14 @@ class Exponential(GSObject):
 
     def __repr__(self):
         return "galsim.Exponential(scale_radius=%r, flux=%r, gsparams=%r)" % (
-            self.scale_radius,
-            self.flux,
+            ensure_hashable(self.scale_radius),
+            ensure_hashable(self.flux),
             self.gsparams,
         )
 
     def __str__(self):
-        s = "galsim.Exponential(scale_radius=%s" % self.scale_radius
-        s += ", flux=%s" % self.flux
+        s = "galsim.Exponential(scale_radius=%s" % ensure_hashable(self.scale_radius)
+        s += ", flux=%s" % ensure_hashable(self.flux)
         s += ")"
         return s
 
@@ -144,6 +140,7 @@ class Exponential(GSObject):
         _jac = jnp.eye(2) if jac is None else jac
         return draw_by_kValue(self, image, _jac)
 
+    @_wraps(_galsim.Exponential.withFlux)
     def withFlux(self, flux):
         return Exponential(
             scale_radius=self.scale_radius, flux=flux, gsparams=self.gsparams
