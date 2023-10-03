@@ -849,7 +849,6 @@ class JacobianWCS(LocalWCS):
     def _pixelArea(self):
         return abs(self._det)
 
-    # @_wraps(_galsim.JacobianWCS.getMatrix, lax_description="The JAX version returns JAX arrays.")
     def getMatrix(self):
         """Get the Jacobian as a NumPy matrix:
 
