@@ -109,6 +109,17 @@ def _run_object_checks(obj, cls, kind):
 
         # check that we cannot hash the object
         assert obj.__hash__ is None
+    elif kind == "pickle-eval-repr-wcs":
+        import jax_galsim as galsim  # noqa: F401
+
+        # eval repr is identity mapping
+        assert eval(repr(obj)) == obj
+
+        # pickle is identity mapping
+        assert pickle.loads(pickle.dumps(obj)) == obj
+
+        # check that we cannot hash the object
+        hash(obj)
     elif kind == "vmap-jit-grad":
         # JAX tracing should be an identity
         assert cls.tree_unflatten(*((obj.tree_flatten())[::-1])) == obj
@@ -148,6 +159,32 @@ def _run_object_checks(obj, cls, kind):
         np.testing.assert_allclose(
             _kgradfun_vmap(x, obj), [_kgradfun(_x, obj) for _x in x]
         )
+    elif kind == "vmap-jit-grad-wcs":
+        assert obj.__class__.tree_unflatten(*((obj.tree_flatten())[::-1])) == obj
+
+        def _reg_fun(x):
+            return obj.toWorld(jax_galsim.PositionD(x, -0.3)).x
+
+        _fun = jax.jit(_reg_fun)
+        _gradfun = jax.jit(jax.grad(_fun))
+        _fun_vmap = jax.jit(jax.vmap(_fun))
+        _gradfun_vmap = jax.jit(jax.vmap(_gradfun))
+
+        # we can jit the object
+        np.testing.assert_allclose(_fun(0.3), _reg_fun(0.3))
+
+        # check derivs
+        eps = 1e-6
+        grad = _gradfun(0.3)
+        finite_diff = (_reg_fun(0.3 + eps) - _reg_fun(0.3 - eps)) / (2 * eps)
+        np.testing.assert_allclose(grad, finite_diff)
+
+        # check vmap
+        x = jnp.linspace(-0.9, 0.9, 10)
+        np.testing.assert_allclose(_fun_vmap(x), [_reg_fun(_x) for _x in x])
+
+        # check vmap grad
+        np.testing.assert_allclose(_gradfun_vmap(x), [_gradfun(_x) for _x in x])
     elif kind == "docs-methods":
         # always has gsparams
         if isinstance(obj, jax_galsim.GSObject):
@@ -171,6 +208,13 @@ def _run_object_checks(obj, cls, kind):
                     "tree_unflatten",
                     "from_galsim",
                 ]:
+                    # this deprecated method doesn't have consistent doc strings in galsim
+                    if (
+                        issubclass(cls, jax_galsim.wcs.BaseWCS)
+                        and method == "withOrigin"
+                    ):
+                        continue
+
                     assert method in dir(gscls), (
                         cls.__name__ + "." + method + " not in galsim." + gscls.__name__
                     )
@@ -401,7 +445,7 @@ def test_api_position(obj):
     "obj",
     [
         jax_galsim.ImageD(jnp.ones((10, 10))),
-        jax_galsim.ImageD(jnp.ones((10, 10)), scale=0.5),
+        jax_galsim.ImageD(jnp.ones((10, 10)), scale=jnp.array(0.5)),
     ],
 )
 def test_api_image(obj):
@@ -437,5 +481,82 @@ def test_api_image(obj):
     np.testing.assert_allclose(_sgradfun_vmap(x), [_sgradfun(_x) for _x in x])
 
 
+OK_ERRORS_WCS = [
+    "__init__() missing 3 required positional arguments",
+    "__init__() missing 2 required positional arguments",
+    "__init__() missing 1 required positional argument",
+    "origin must be a PositionD or PositionI argument",
+    "__init__() takes from 2 to 4 positional arguments but 5 were given",
+    "__init__() takes 2 positional arguments but 3 were given",
+    "__init__() takes 2 positional arguments but 5 were given",
+    "__init__() takes 3 positional arguments but 5 were given",
+]
+
+
+def _attempt_init_wcs(cls):
+    obj = None
+
+    try:
+        obj = cls(jnp.array(0.4))
+    except Exception as e:
+        if any(estr in repr(e) for estr in OK_ERRORS_WCS):
+            pass
+        else:
+            raise e
+
+    try:
+        obj = cls(
+            jnp.array(0.4), jax_galsim.Shear(g1=jnp.array(0.1), g2=jnp.array(0.2))
+        )
+    except Exception as e:
+        if any(estr in repr(e) for estr in OK_ERRORS_WCS):
+            pass
+        else:
+            raise e
+
+    try:
+        obj = cls(jnp.array(0.45), jnp.array(-0.02), jnp.array(0.04), jnp.array(-0.35))
+    except Exception as e:
+        if any(estr in repr(e) for estr in OK_ERRORS_WCS):
+            pass
+        else:
+            raise e
+
+    return obj
+
+
 def test_api_wcs():
-    assert False
+    classes = []
+    for item in sorted(dir(jax_galsim.wcs)):
+        cls = getattr(jax_galsim.wcs, item)
+        if (
+            inspect.isclass(cls)
+            and issubclass(cls, jax_galsim.wcs.BaseWCS)
+            and cls
+            not in (
+                jax_galsim.wcs.BaseWCS,
+                jax_galsim.wcs.EuclideanWCS,
+                jax_galsim.wcs.LocalWCS,
+                jax_galsim.wcs.UniformWCS,
+            )
+        ):
+            classes.append(getattr(jax_galsim.wcs, item))
+
+    tested = set()
+    for cls in classes:
+        obj = _attempt_init_wcs(cls)
+        if obj is not None:
+            print(obj)
+            tested.add(cls.__name__)
+            _run_object_checks(obj, cls, "docs-methods")
+            _run_object_checks(obj, cls, "pickle-eval-repr-wcs")
+            _run_object_checks(obj, cls, "vmap-jit-grad-wcs")
+
+    assert {
+        "AffineTransform",
+        "JacobianWCS",
+        "ShearWCS",
+        "PixelScale",
+        "OffsetShearWCS",
+        "OffsetWCS",
+    } <= tested
