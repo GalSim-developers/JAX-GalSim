@@ -5,9 +5,16 @@ from galsim.errors import GalSimIncompatibleValuesError
 from jax._src.numpy.util import _wraps
 from jax.tree_util import register_pytree_node_class
 
+from jax_galsim.core.utils import ensure_hashable
+
 
 @register_pytree_node_class
-@_wraps(_galsim.Shear)
+@_wraps(
+    _galsim.Shear,
+    lax_description="""\
+The jax_galsim implementation of ``Shear`` does not perform range checking of the \
+shear (e.g., ``|g| <= 1``) upon construction.""",
+)
 class Shear(object):
     def __init__(self, *args, **kwargs):
         # There is no valid set of >2 keyword arguments, so raise an exception in this case:
@@ -28,7 +35,7 @@ class Shear(object):
         # Unnamed arg must be a complex shear
         if len(args) == 1:
             self._g = args[0]
-            if not isinstance(self._g, complex):
+            if not (jnp.all(jnp.iscomplex(self._g)) or isinstance(self._g, complex)):
                 raise TypeError(
                     "Non-keyword argument to Shear must be complex g1 + 1j * g2"
                 )
@@ -42,16 +49,12 @@ class Shear(object):
             g1 = kwargs.pop("g1", 0.0)
             g2 = kwargs.pop("g2", 0.0)
             self._g = g1 + 1j * g2
-            # if abs(self._g) > 1.0:
-            #     raise GalSimRangeError("Requested shear exceeds 1.", self._g, 0.0, 1.0)
 
         # e1,e2
         elif "e1" in kwargs or "e2" in kwargs:
             e1 = kwargs.pop("e1", 0.0)
             e2 = kwargs.pop("e2", 0.0)
             absesq = e1**2 + e2**2
-            # if absesq > 1.0:
-            #     raise GalSimRangeError("Requested distortion exceeds 1.", np.sqrt(absesq), 0.0, 1.0)
             self._g = (e1 + 1j * e2) * self._e2g(absesq)
 
         # eta1,eta2
@@ -74,8 +77,6 @@ class Shear(object):
             if not isinstance(beta, Angle):
                 raise TypeError("beta must be an Angle instance.")
             g = kwargs.pop("g")
-            # if g > 1 or g < 0:
-            #     raise GalSimRangeError("Requested |shear| is outside [0,1].", g, 0.0, 1.0)
             self._g = g * jnp.exp(2j * beta.rad)
 
         # e,beta
@@ -90,8 +91,6 @@ class Shear(object):
             if not isinstance(beta, Angle):
                 raise TypeError("beta must be an Angle instance.")
             e = kwargs.pop("e")
-            # if e > 1 or e < 0:
-            #     raise GalSimRangeError("Requested distortion is outside [0,1].", e, 0.0, 1.0)
             self._g = self._e2g(e**2) * e * jnp.exp(2j * beta.rad)
 
         # eta,beta
@@ -106,8 +105,6 @@ class Shear(object):
             if not isinstance(beta, Angle):
                 raise TypeError("beta must be an Angle instance.")
             eta = kwargs.pop("eta")
-            # if eta < 0:
-            #     raise GalSimRangeError("Requested eta is below 0.", eta, 0.0)
             self._g = self._eta2g(eta) * eta * jnp.exp(2j * beta.rad)
 
         # q,beta
@@ -122,8 +119,6 @@ class Shear(object):
             if not isinstance(beta, Angle):
                 raise TypeError("beta must be an Angle instance.")
             q = kwargs.pop("q")
-            # if q <= 0 or q > 1:
-            #     raise GalSimRangeError("Cannot use requested axis ratio.", q, 0.0, 1.0)
             eta = -jnp.log(q)
             self._g = self._eta2g(eta) * eta * jnp.exp(2j * beta.rad)
 
@@ -216,27 +211,30 @@ class Shear(object):
         return 2.0 / (1.0 + absgsq)
 
     def _e2g(self, absesq):
-        if absesq > 1.0e-4:
-            return 1.0 / (1.0 + jnp.sqrt(1.0 - absesq))
-        else:
+        return jnp.where(
+            absesq > 1.0e-4,
+            1.0 / (1.0 + jnp.sqrt(1.0 - absesq)),
             # Avoid numerical issues near e=0 using Taylor expansion
-            return 0.5 + absesq * (0.125 + absesq * (0.0625 + absesq * 0.0390625))
+            0.5 + absesq * (0.125 + absesq * (0.0625 + absesq * 0.0390625)),
+        )
 
     def _g2eta(self, absg):
-        if absg > 1.0e-4:
-            return 2.0 * jnp.arctanh(absg) / absg
-        else:
+        absgsq = absg * absg
+        return jnp.where(
+            absg > 1.0e-4,
+            2.0 * jnp.arctanh(absg) / absg,
             # This doesn't have as much trouble with accuracy, but have to avoid absg=0,
             # so might as well Taylor expand for small values.
-            absgsq = absg * absg
-            return 2.0 + absgsq * ((2.0 / 3.0) + absgsq * 0.4)
+            2.0 + absgsq * ((2.0 / 3.0) + absgsq * 0.4),
+        )
 
     def _eta2g(self, abseta):
-        if abseta > 1.0e-4:
-            return jnp.tanh(0.5 * abseta) / abseta
-        else:
-            absetasq = abseta * abseta
-            return 0.5 + absetasq * ((-1.0 / 24.0) + absetasq * (1.0 / 240.0))
+        absetasq = abseta * abseta
+        return jnp.where(
+            abseta > 1.0e-4,
+            jnp.tanh(0.5 * abseta) / abseta,
+            0.5 + absetasq * ((-1.0 / 24.0) + absetasq * (1.0 / 240.0)),
+        )
 
     # define all the various operators on Shear objects
     def __neg__(self):
@@ -271,13 +269,16 @@ class Shear(object):
         return theta * radians
 
     def __repr__(self):
-        return "galsim.Shear(%r)" % (self.shear)
+        return "galsim.Shear(%r)" % (ensure_hashable(self.shear))
 
     def __str__(self):
-        return "galsim.Shear(g1=%s,g2=%s)" % (self.g1, self.g2)
+        return "galsim.Shear(g1=%s,g2=%s)" % (
+            ensure_hashable(self.g1),
+            ensure_hashable(self.g2),
+        )
 
     def __hash__(self):
-        return hash(self._g)
+        return hash(ensure_hashable(self._g))
 
     def tree_flatten(self):
         children = (self._g,)

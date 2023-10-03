@@ -325,7 +325,7 @@ class Transformation(GSObject):
     def _drawReal(self, image, jac=None, offset=(0.0, 0.0), flux_scaling=1.0):
         dx, dy = offset
         if jac is not None:
-            x1 = jac.dot(self.offset.array)
+            x1 = jac.dot(self.offset._array)
             dx += x1[0]
             dy += x1[1]
         else:

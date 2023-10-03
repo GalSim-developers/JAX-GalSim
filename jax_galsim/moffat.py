@@ -1,11 +1,10 @@
-from functools import partial
-
 import galsim as _galsim
 import jax
 import jax.numpy as jnp
 import jax.scipy as jsc
 import tensorflow_probability as tfp
 from jax._src.numpy.util import _wraps
+from jax.tree_util import Partial as partial
 from jax.tree_util import register_pytree_node_class
 
 from jax_galsim.core.bessel import j0
@@ -22,13 +21,13 @@ def _Knu(nu, x):
 
 
 @jax.jit
-def MoffatIntegrant(x, k, beta):
+def _MoffatIntegrant(x, k, beta):
     """For truncated Hankel used in truncated Moffat"""
     return x * jnp.power(1 + x**2, -beta) * j0(k * x)
 
 
 def _xMoffatIntegrant(k, beta, rmax, quad):
-    return quad_integral(partial(MoffatIntegrant, k=k, beta=beta), 0.0, rmax, quad)
+    return quad_integral(partial(_MoffatIntegrant, k=k, beta=beta), 0.0, rmax, quad)
 
 
 @jax.jit
@@ -38,7 +37,8 @@ def _hankel(k, beta, rmax):
     return jax.vmap(g)(k)
 
 
-def MoffatCalculateSRFromHLR(re, rm, beta, Nloop=1000):
+@jax.jit
+def _MoffatCalculateSRFromHLR(re, rm, beta):
     """
     The basic equation that is relevant here is the flux of a Moffat profile
     out to some radius.
@@ -62,7 +62,7 @@ def MoffatCalculateSRFromHLR(re, rm, beta, Nloop=1000):
         x = jnp.sqrt(x - 1)
         return re / x
 
-    rd = jax.lax.fori_loop(0, Nloop, body, re)
+    rd = jax.lax.fori_loop(0, 1000, body, re)
 
     return rd
 
@@ -103,7 +103,7 @@ class Moffat(GSObject):
                     scale_radius=(
                         jax.lax.select(
                             trunc > 0,
-                            MoffatCalculateSRFromHLR(half_light_radius, trunc, beta),
+                            _MoffatCalculateSRFromHLR(half_light_radius, trunc, beta),
                             half_light_radius
                             / jnp.sqrt(jnp.power(0.5, 1.0 / (1.0 - beta)) - 1.0),
                         )

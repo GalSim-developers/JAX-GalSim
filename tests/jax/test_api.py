@@ -29,6 +29,14 @@ OK_ERRORS = [
     "At least one GSObject must be provided",
     "Single input argument must be a GSObject or list of them",
     "__init__() missing 1 required positional argument",
+    "__init__() missing 2 required positional arguments",
+    "Arguments to Convolution must be GSObjects",
+    "Convolution constructor got unexpected keyword argument(s)",
+    "Either scale_radius or half_light_radius must be specified",
+    "One of sigma, fwhm, and half_light_radius must be specified",
+    "One of scale_radius, half_light_radius, or fwhm must be specified",
+    "Arguments to Sum must be GSObjects",
+    "'ArrayImpl' object has no attribute 'gsparams'",
 ]
 
 
@@ -42,7 +50,15 @@ def _attempt_init(cls, kwargs):
             raise e
 
     try:
-        return cls(2.0, **kwargs)
+        return cls(jnp.array(2.0), **kwargs)
+    except Exception as e:
+        if any(estr in repr(e) for estr in OK_ERRORS):
+            pass
+        else:
+            raise e
+
+    try:
+        return cls(jnp.array(2.0), jnp.array(4.0), **kwargs)
     except Exception as e:
         if any(estr in repr(e) for estr in OK_ERRORS):
             pass
@@ -82,6 +98,17 @@ def _run_object_checks(obj, cls, kind):
 
         # check that we can hash the object
         hash(obj)
+    elif kind == "pickle-eval-repr-img":
+        from numpy import array  # noqa: F401
+
+        # eval repr is identity mapping
+        assert eval(repr(obj)) == obj
+
+        # pickle is identity mapping
+        assert pickle.loads(pickle.dumps(obj)) == obj
+
+        # check that we cannot hash the object
+        assert obj.__hash__ is None
     elif kind == "vmap-jit-grad":
         # JAX tracing should be an identity
         assert cls.tree_unflatten(*((obj.tree_flatten())[::-1])) == obj
@@ -123,8 +150,9 @@ def _run_object_checks(obj, cls, kind):
         )
     elif kind == "docs-methods":
         # always has gsparams
-        assert obj.gsparams is not None
-        assert obj.gsparams == jax_galsim.GSParams.default
+        if isinstance(obj, jax_galsim.GSObject):
+            assert obj.gsparams is not None
+            assert obj.gsparams == jax_galsim.GSParams.default
 
         # check docs
         gscls = getattr(_galsim, cls.__name__)
@@ -137,7 +165,12 @@ def _run_object_checks(obj, cls, kind):
         # check methods except the special JAX ones which should be exclusive to JAX
         for method in dir(cls):
             if not method.startswith("_"):
-                if method not in ["params", "tree_flatten", "tree_unflatten"]:
+                if method not in [
+                    "params",
+                    "tree_flatten",
+                    "tree_unflatten",
+                    "from_galsim",
+                ]:
                     assert method in dir(gscls), (
                         cls.__name__ + "." + method + " not in galsim." + gscls.__name__
                     )
@@ -157,6 +190,8 @@ def _run_object_checks(obj, cls, kind):
                                 assert line.strip() in getattr(cls, method).__doc__
                 else:
                     assert method not in dir(gscls), cls.__name__ + "." + method
+    else:
+        raise RuntimeError("Unknown test: %r" % kind)
 
 
 @pytest.mark.parametrize(
@@ -177,8 +212,18 @@ def test_api_gsobject(kind):
                 classes.append(_attr)
     cls_tested = set()
     for cls in classes:
-        for scale_type in ["fwhm", "sigma", "half_light_radius", "scale_radius"]:
-            kwargs = {scale_type: 1.5}
+        for scale_type in [
+            None,
+            "fwhm",
+            "sigma",
+            "half_light_radius",
+            "scale_radius",
+            "flux",
+        ]:
+            if scale_type is not None:
+                kwargs = {scale_type: jnp.array(1.5)}
+            else:
+                kwargs = {}
             obj = _attempt_init(cls, kwargs)
 
             if obj is not None and obj.__class__ is not jax_galsim.GSObject:
@@ -203,3 +248,194 @@ def test_api_gsobject(kind):
     assert "Exponential" in cls_tested
     assert "Gaussian" in cls_tested
     assert "Moffat" in cls_tested
+    assert "Box" in cls_tested
+    assert "Pixel" in cls_tested
+
+
+@pytest.mark.parametrize(
+    "obj",
+    [
+        jax_galsim.Shear(g1=jnp.array(0.1), g2=jnp.array(0.2)),
+        jax_galsim.Shear(e1=jnp.array(0.1), e2=jnp.array(0.2)),
+        jax_galsim.Shear(eta1=jnp.array(0.1), eta2=jnp.array(0.2)),
+        jax_galsim.Shear(jnp.array(0.1) + 1j * jnp.array(0.2)),
+    ],
+)
+def test_api_shear(obj):
+    _run_object_checks(obj, jax_galsim.Shear, "docs-methods")
+    _run_object_checks(obj, jax_galsim.Shear, "pickle-eval-repr")
+
+    def _reg_sfun(g1):
+        return (jax_galsim.Shear(g1=g1, g2=0.2) + jax_galsim.Shear(g1=g1, g2=-0.1)).eta1
+
+    _sfun = jax.jit(_reg_sfun)
+
+    _sgradfun = jax.jit(jax.grad(_sfun))
+    _sfun_vmap = jax.jit(jax.vmap(_sfun))
+    _sgradfun_vmap = jax.jit(jax.vmap(_sgradfun))
+
+    # JAX tracing should be an identity
+    assert jax_galsim.Shear.tree_unflatten(*((obj.tree_flatten())[::-1])) == obj
+
+    # we can jit the object
+    np.testing.assert_allclose(_sfun(0.3), _reg_sfun(0.3))
+
+    # check derivs
+    eps = 1e-6
+    grad = _sgradfun(0.3)
+    finite_diff = (_reg_sfun(0.3 + eps) - _reg_sfun(0.3 - eps)) / (2 * eps)
+    np.testing.assert_allclose(grad, finite_diff)
+
+    # check vmap
+    x = jnp.linspace(-0.9, 0.9, 10)
+    np.testing.assert_allclose(_sfun_vmap(x), [_reg_sfun(_x) for _x in x])
+
+    # check vmap grad
+    np.testing.assert_allclose(_sgradfun_vmap(x), [_sgradfun(_x) for _x in x])
+
+
+@pytest.mark.parametrize(
+    "obj",
+    [
+        jax_galsim.BoundsD(),
+        jax_galsim.BoundsI(),
+        jax_galsim.BoundsD(
+            jnp.array(0.2), jnp.array(4.0), jnp.array(-0.5), jnp.array(4.7)
+        ),
+        jax_galsim.BoundsI(jnp.array(-10), jnp.array(5), jnp.array(0), jnp.array(7)),
+    ],
+)
+def test_api_bounds(obj):
+    _run_object_checks(obj, obj.__class__, "docs-methods")
+    _run_object_checks(obj, obj.__class__, "pickle-eval-repr")
+
+    # JAX tracing should be an identity
+    assert obj.__class__.tree_unflatten(*((obj.tree_flatten())[::-1])) == obj
+
+    if isinstance(obj, jax_galsim.BoundsD):
+
+        def _reg_sfun(g1):
+            return (
+                (
+                    obj.__class__(g1, g1 + 0.5, 2 * g1, 2 * g1 + 0.5).expand(0.5)
+                    + obj.__class__(-g1, -g1 + 0.5, -2 * g1, -2 * g1 + 0.5)
+                )
+                .expand(4)
+                .area()
+            )
+
+        _sfun = jax.jit(_reg_sfun)
+
+        _sgradfun = jax.jit(jax.grad(_sfun))
+        _sfun_vmap = jax.jit(jax.vmap(_sfun))
+        _sgradfun_vmap = jax.jit(jax.vmap(_sgradfun))
+
+        # we can jit the object
+        np.testing.assert_allclose(_sfun(0.3), _reg_sfun(0.3))
+
+        # check derivs
+        eps = 1e-6
+        grad = _sgradfun(0.3)
+        finite_diff = (_reg_sfun(0.3 + eps) - _reg_sfun(0.3 - eps)) / (2 * eps)
+        np.testing.assert_allclose(grad, finite_diff)
+
+        # check vmap
+        x = jnp.linspace(-0.9, 0.9, 10)
+        np.testing.assert_allclose(_sfun_vmap(x), [_reg_sfun(_x) for _x in x])
+
+        # check vmap grad
+        np.testing.assert_allclose(_sgradfun_vmap(x), [_sgradfun(_x) for _x in x])
+
+
+@pytest.mark.parametrize(
+    "obj",
+    [
+        jax_galsim.PositionD(),
+        jax_galsim.PositionI(),
+        jax_galsim.PositionD(jnp.array(0.1), jnp.array(-0.2)),
+        jax_galsim.PositionD(x=jnp.array(0.1), y=jnp.array(-0.2)),
+        jax_galsim.PositionI(jnp.array(1), jnp.array(-2)),
+        jax_galsim.PositionI(x=jnp.array(1), y=jnp.array(-2)),
+    ],
+)
+def test_api_position(obj):
+    _run_object_checks(obj, obj.__class__, "docs-methods")
+    _run_object_checks(obj, obj.__class__, "pickle-eval-repr")
+
+    # JAX tracing should be an identity
+    assert obj.__class__.tree_unflatten(*((obj.tree_flatten())[::-1])) == obj
+
+    if isinstance(obj, jax_galsim.PositionD):
+
+        def _reg_sfun(g1):
+            return (
+                (obj.__class__(g1, 0.5) + obj.__class__(-g1, -2))
+                .shear(jax_galsim.Shear(g1=0.1, g2=0.2))
+                .x
+            )
+
+        _sfun = jax.jit(_reg_sfun)
+
+        _sgradfun = jax.jit(jax.grad(_sfun))
+        _sfun_vmap = jax.jit(jax.vmap(_sfun))
+        _sgradfun_vmap = jax.jit(jax.vmap(_sgradfun))
+
+        # we can jit the object
+        np.testing.assert_allclose(_sfun(0.3), _reg_sfun(0.3))
+
+        # check derivs
+        eps = 1e-6
+        grad = _sgradfun(0.3)
+        finite_diff = (_reg_sfun(0.3 + eps) - _reg_sfun(0.3 - eps)) / (2 * eps)
+        np.testing.assert_allclose(grad, finite_diff)
+
+        # check vmap
+        x = jnp.linspace(-0.9, 0.9, 10)
+        np.testing.assert_allclose(_sfun_vmap(x), [_reg_sfun(_x) for _x in x])
+
+        # check vmap grad
+        np.testing.assert_allclose(_sgradfun_vmap(x), [_sgradfun(_x) for _x in x])
+
+
+@pytest.mark.parametrize(
+    "obj",
+    [
+        jax_galsim.ImageD(jnp.ones((10, 10))),
+        jax_galsim.ImageD(jnp.ones((10, 10)), scale=0.5),
+    ],
+)
+def test_api_image(obj):
+    _run_object_checks(obj, obj.__class__, "docs-methods")
+    _run_object_checks(obj, obj.__class__, "pickle-eval-repr-img")
+
+    # JAX tracing should be an identity
+    assert obj.__class__.tree_unflatten(*((obj.tree_flatten())[::-1])) == obj
+
+    def _reg_sfun(g1):
+        return (obj / g1)(2, 2)
+
+    _sfun = jax.jit(_reg_sfun)
+
+    _sgradfun = jax.jit(jax.grad(_sfun))
+    _sfun_vmap = jax.jit(jax.vmap(_sfun))
+    _sgradfun_vmap = jax.jit(jax.vmap(_sgradfun))
+
+    # we can jit the object
+    np.testing.assert_allclose(_sfun(0.3), _reg_sfun(0.3))
+
+    # check derivs
+    eps = 1e-6
+    grad = _sgradfun(0.3)
+    finite_diff = (_reg_sfun(0.3 + eps) - _reg_sfun(0.3 - eps)) / (2 * eps)
+    np.testing.assert_allclose(grad, finite_diff)
+
+    # check vmap
+    x = jnp.linspace(-0.9, 0.9, 10)
+    np.testing.assert_allclose(_sfun_vmap(x), [_reg_sfun(_x) for _x in x])
+
+    # check vmap grad
+    np.testing.assert_allclose(_sgradfun_vmap(x), [_sgradfun(_x) for _x in x])
+
+
+def test_api_wcs():
+    assert False
