@@ -11,6 +11,7 @@ enabled_tests:
     - test_utilities.py
     - test_shear.py
     - test_shear_position.py
+    - test_wcs.py
   coord:
     - test_angle.py
     - test_angleunit.py
