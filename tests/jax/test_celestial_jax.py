@@ -1,14 +1,13 @@
 import galsim as _galsim
-import jax_galsim
-
 import numpy as np
-
 import pytest
 
+import jax_galsim
 
-@pytest.mark.parametrize("projection", [
-    None, 'gnomonic', 'stereographic', 'lambert', 'postel'
-])
+
+@pytest.mark.parametrize(
+    "projection", [None, "gnomonic", "stereographic", "lambert", "postel"]
+)
 def test_celestial_jax_comp_to_galsim(projection):
     gcc = _galsim.CelestialCoord(0.234 * _galsim.radians, 0.342 * _galsim.radians)
     gcA = _galsim.CelestialCoord(-0.193 * _galsim.radians, 0.882 * _galsim.radians)

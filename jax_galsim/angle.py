@@ -20,14 +20,15 @@
 import galsim as _galsim
 import jax.numpy as jnp
 from jax._src.numpy.util import _wraps
-from jax_galsim.core.utils import cast_scalar_to_float, ensure_hashable
 from jax.tree_util import register_pytree_node_class
+
+from jax_galsim.core.utils import cast_scalar_to_float, ensure_hashable
 
 
 @_wraps(_galsim.AngleUnit)
 @register_pytree_node_class
 class AngleUnit(object):
-    valid_names = ['rad', 'deg', 'hr', 'hour', 'arcmin', 'arcsec']
+    valid_names = ["rad", "deg", "hr", "hour", "arcmin", "arcsec"]
 
     def __init__(self, value):
         """
@@ -61,34 +62,34 @@ class AngleUnit(object):
     @staticmethod
     def from_name(unit):
         unit = unit.strip().lower()
-        if unit.startswith('rad'):
+        if unit.startswith("rad"):
             return radians
-        elif unit.startswith('deg'):
+        elif unit.startswith("deg"):
             return degrees
-        elif unit.startswith('hour'):
+        elif unit.startswith("hour"):
             return hours
-        elif unit.startswith('hr'):
+        elif unit.startswith("hr"):
             return hours
-        elif unit.startswith('arcmin'):
+        elif unit.startswith("arcmin"):
             return arcmin
-        elif unit.startswith('arcsec'):
+        elif unit.startswith("arcsec"):
             return arcsec
-        else :
+        else:
             raise ValueError("Unknown Angle unit: %s" % unit)
 
     def __repr__(self):
         if self == radians:
-            return 'galsim.radians'
+            return "galsim.radians"
         elif self == degrees:
-            return 'galsim.degrees'
+            return "galsim.degrees"
         elif self == hours:
-            return 'galsim.hours'
+            return "galsim.hours"
         elif self == arcmin:
-            return 'galsim.arcmin'
+            return "galsim.arcmin"
         elif self == arcsec:
-            return 'galsim.arcsec'
+            return "galsim.arcsec"
         else:
-            return 'galsim.AngleUnit(%r)' % ensure_hashable(self.value)
+            return "galsim.AngleUnit(%r)" % ensure_hashable(self.value)
 
     def __eq__(self, other):
         return isinstance(other, AngleUnit) and jnp.array_equal(self.value, other.value)
@@ -97,7 +98,7 @@ class AngleUnit(object):
         return not self.__eq__(other)
 
     def __hash__(self):
-        return hash(('galsim.AngleUnit', ensure_hashable(self.value)))
+        return hash(("galsim.AngleUnit", ensure_hashable(self.value)))
 
     def tree_flatten(self):
         """This function flattens the AngleUnit into a list of children
@@ -117,11 +118,11 @@ class AngleUnit(object):
 # Convenient pre-set built-in units
 # (These are typically the only ones we will use.)
 
-radians = AngleUnit(1.)
-hours = AngleUnit(jnp.pi / 12.)
-degrees = AngleUnit(jnp.pi / 180.)
-arcmin = AngleUnit(jnp.pi / 10800.)
-arcsec = AngleUnit(jnp.pi / 648000.)
+radians = AngleUnit(1.0)
+hours = AngleUnit(jnp.pi / 12.0)
+degrees = AngleUnit(jnp.pi / 180.0)
+arcmin = AngleUnit(jnp.pi / 10800.0)
+arcsec = AngleUnit(jnp.pi / 648000.0)
 
 
 @_wraps(_galsim.Angle)
@@ -131,7 +132,9 @@ class Angle(object):
         # We also want to allow angle1 = Angle(angle2) as a copy, so check for that.
         if isinstance(theta, Angle):
             if unit is not None:
-                raise TypeError("Cannot provide unit if theta is already an Angle instance")
+                raise TypeError(
+                    "Cannot provide unit if theta is already an Angle instance"
+                )
             self._rad = theta._rad
         elif unit is None:
             raise TypeError("Must provide unit for Angle.__init__")
@@ -162,12 +165,16 @@ class Angle(object):
 
     def __add__(self, other):
         if not isinstance(other, Angle):
-            raise TypeError("Cannot add %s of type %s to an Angle" % (other, type(other)))
+            raise TypeError(
+                "Cannot add %s of type %s to an Angle" % (other, type(other))
+            )
         return _Angle(self._rad + other._rad)
 
     def __sub__(self, other):
         if not isinstance(other, Angle):
-            raise TypeError("Cannot subtract %s of type %s from an Angle" % (other, type(other)))
+            raise TypeError(
+                "Cannot subtract %s of type %s from an Angle" % (other, type(other))
+            )
         return _Angle(self._rad - other._rad)
 
     def __mul__(self, other):
@@ -183,17 +190,21 @@ class Angle(object):
         elif other == float(other):
             return _Angle(self._rad / other)
         else:
-            raise TypeError("Cannot divide Angle by %s of type %s" % (other, type(other)))
+            raise TypeError(
+                "Cannot divide Angle by %s of type %s" % (other, type(other))
+            )
 
     __truediv__ = __div__
 
     @_wraps(_galsim.Angle.wrap)
     def wrap(self, center=None):
         if center is None:
-            center = _Angle(0.)
+            center = _Angle(0.0)
         start = center._rad - jnp.pi
-        offset = (self._rad - start) // (2. * jnp.pi)  # How many full cycles to subtract
-        return _Angle(self._rad - offset * 2. * jnp.pi)
+        offset = (self._rad - start) // (
+            2.0 * jnp.pi
+        )  # How many full cycles to subtract
+        return _Angle(self._rad - offset * 2.0 * jnp.pi)
 
     def sin(self):
         """Return the sin of an Angle."""
@@ -208,17 +219,16 @@ class Angle(object):
         return jnp.tan(self._rad)
 
     def sincos(self):
-        """Return both the sin and cos of an Angle as a numpy array [sint, cost].
-        """
+        """Return both the sin and cos of an Angle as a numpy array [sint, cost]."""
         sin = jnp.sin(self._rad)
         cos = jnp.cos(self._rad)
         return sin, cos
 
     def __str__(self):
-        return str(ensure_hashable(self._rad)) + ' radians'
+        return str(ensure_hashable(self._rad)) + " radians"
 
     def __repr__(self):
-        return 'galsim.Angle(%r, galsim.radians)' % ensure_hashable(self.rad)
+        return "galsim.Angle(%r, galsim.radians)" % ensure_hashable(self.rad)
 
     def __eq__(self, other):
         return isinstance(other, Angle) and jnp.array_equal(self.rad, other.rad)
@@ -228,40 +238,48 @@ class Angle(object):
 
     def __le__(self, other):
         if not isinstance(other, Angle):
-            raise TypeError("Cannot compare %s of type %s to an Angle" % (other, type(other)))
+            raise TypeError(
+                "Cannot compare %s of type %s to an Angle" % (other, type(other))
+            )
         return self._rad <= other._rad
 
     def __lt__(self, other):
         if not isinstance(other, Angle):
-            raise TypeError("Cannot compare %s of type %s to an Angle" % (other, type(other)))
+            raise TypeError(
+                "Cannot compare %s of type %s to an Angle" % (other, type(other))
+            )
         return self._rad < other._rad
 
     def __ge__(self, other):
         if not isinstance(other, Angle):
-            raise TypeError("Cannot compare %s of type %s to an Angle" % (other, type(other)))
+            raise TypeError(
+                "Cannot compare %s of type %s to an Angle" % (other, type(other))
+            )
         return self._rad >= other._rad
 
     def __gt__(self, other):
         if not isinstance(other, Angle):
-            raise TypeError("Cannot compare %s of type %s to an Angle" % (other, type(other)))
+            raise TypeError(
+                "Cannot compare %s of type %s to an Angle" % (other, type(other))
+            )
         return self._rad > other._rad
 
     def __hash__(self):
-        return hash(('galsim.Angle', self._rad))
+        return hash(("galsim.Angle", self._rad))
 
     @staticmethod
     def _make_dms_string(decimal, sep, prec, pad, plus_sign):
         # Account for the sign properly
         if decimal < 0:
-            sign = '-'
+            sign = "-"
             decimal = -decimal
         elif plus_sign:
-            sign = '+'
+            sign = "+"
         else:
-            sign = ''
+            sign = ""
 
         # Figure out the 3 sep tokens
-        sep1 = sep2 = ''
+        sep1 = sep2 = ""
         sep3 = None
         if len(sep) == 1:
             sep1 = sep2 = sep
@@ -285,14 +303,14 @@ class Angle(object):
 
         # Make the string
         if pad:
-            d_str = '%02d' % d
-            m_str = '%02d' % m
-            s_str = '%02d' % s
+            d_str = "%02d" % d
+            m_str = "%02d" % m
+            s_str = "%02d" % s
         else:
-            d_str = '%d' % d
-            m_str = '%d' % m
-            s_str = '%d' % s
-        string = '%s%s%s%s%s%s.%0*d' % (
+            d_str = "%d" % d
+            m_str = "%d" % m
+            s_str = "%d" % s
+        string = "%s%s%s%s%s%s.%0*d" % (
             sign,
             d_str,
             sep1,
@@ -303,8 +321,8 @@ class Angle(object):
             decimal,
         )
         if not prec:
-            string = string.rstrip('0')
-            string = string.rstrip('.')
+            string = string.rstrip("0")
+            string = string.rstrip(".")
         if sep3:
             string = string + sep3
         return string
@@ -337,17 +355,17 @@ class Angle(object):
 
     @staticmethod
     def _parse_dms(dms):
-        """Convert a string of the form dd:mm:ss.decimal into decimal degrees.
-        """
+        """Convert a string of the form dd:mm:ss.decimal into decimal degrees."""
         import re
-        tokens = tuple(filter(None, re.split(r'([\.\d]+)', dms.strip())))
+
+        tokens = tuple(filter(None, re.split(r"([\.\d]+)", dms.strip())))
         if len(tokens) <= 1:
             raise ValueError("string is not of the expected format")
         sign = 1
         try:
             dd = float(tokens[0])
         except ValueError:
-            if tokens[0].strip() == '-':
+            if tokens[0].strip() == "-":
                 sign = -1
             tokens = tokens[1:]
             dd = float(tokens[0])
@@ -361,7 +379,7 @@ class Angle(object):
         if len(tokens) >= 7:
             raise ValueError("string is not of the expected format")
         ss = float(tokens[4])
-        return sign * (dd + mm / 60. + ss / 3600.)
+        return sign * (dd + mm / 60.0 + ss / 3600.0)
 
     def tree_flatten(self):
         """This function flattens the Angle into a list of children

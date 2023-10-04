@@ -17,18 +17,18 @@
 # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
-from functools import partial
 import warnings
+from functools import partial
 
+import coord as _coord
+import galsim as _galsim
 import jax
 import jax.numpy as jnp
 from jax._src.numpy.util import _wraps
-from jax_galsim.core.utils import ensure_hashable
 from jax.tree_util import register_pytree_node_class
-import galsim as _galsim
-import coord as _coord
 
-from jax_galsim.angle import Angle, _Angle, radians, degrees, arcsec
+from jax_galsim.angle import Angle, _Angle, arcsec, degrees, radians
+from jax_galsim.core.utils import ensure_hashable
 
 
 def _ecliptic_obliquity(epoch):
@@ -39,14 +39,14 @@ def _ecliptic_obliquity(epoch):
     :returns the obliquity as an Angle instance
     """
     # We need to figure out the time in Julian centuries from J2000 for this epoch.
-    t = (epoch - 2000.) / 100.
+    t = (epoch - 2000.0) / 100.0
     # Then we use the last (most recent) formula listed under
     # http://en.wikipedia.org/wiki/Ecliptic#Obliquity_of_the_ecliptic, from
     # JPL's 2010 calculations.
-    ep = Angle.from_dms('23:26:21.406')
-    ep -= Angle.from_dms('00:00:46.836769') * t
-    ep -= Angle.from_dms('00:00:0.0001831') * (t**2)
-    ep += Angle.from_dms('00:00:0.0020034') * (t**3)
+    ep = Angle.from_dms("23:26:21.406")
+    ep -= Angle.from_dms("00:00:46.836769") * t
+    ep -= Angle.from_dms("00:00:0.0001831") * (t**2)
+    ep += Angle.from_dms("00:00:0.0020034") * (t**3)
     # There are even higher order terms, but they are probably not important for any reasonable
     # calculation someone would do with this package.
     return ep
@@ -56,9 +56,12 @@ def _sun_position_ecliptic(date):
     return _Angle(_coord.util.sun_position_ecliptic(date).rad)
 
 
-@_wraps(_galsim.celestial.CelestialCoord, lax_description=(
-    "The JAX version of this object does not check that the declination is between -90 and 90."
-))
+@_wraps(
+    _galsim.celestial.CelestialCoord,
+    lax_description=(
+        "The JAX version of this object does not check that the declination is between -90 and 90."
+    ),
+)
 @register_pytree_node_class
 class CelestialCoord(object):
     def __init__(self, ra, dec=None):
@@ -91,8 +94,7 @@ class CelestialCoord(object):
 
     @property
     def rad(self):
-        """A convenience property, giving a tuple (ra.rad, dec.rad)
-        """
+        """A convenience property, giving a tuple (ra.rad, dec.rad)"""
         return (self._ra.rad, self._dec.rad)
 
     @jax.jit
@@ -107,7 +109,15 @@ class CelestialCoord(object):
     # DO NOT ACUTALLY USE THIS, HERE FOR TESTING PURPOSES ONLY
     def _set_aux(self):
         aux = self._get_aux()
-        self._cosra, self._sinra, self._cosdec, self._sindec, self._x, self._y, self._z = aux
+        (
+            self._cosra,
+            self._sinra,
+            self._cosdec,
+            self._sindec,
+            self._x,
+            self._y,
+            self._z,
+        ) = aux
 
     @_wraps(_galsim.celestial.CelestialCoord.get_xyz)
     def get_xyz(self):
@@ -118,7 +128,7 @@ class CelestialCoord(object):
         lax_description=(
             "The JAX version of this static method does not check that the norm of the input "
             "vector is non-zero."
-        )
+        ),
     )
     @staticmethod
     @jax.jit
@@ -140,7 +150,7 @@ class CelestialCoord(object):
         )
         ret._cosra = jnp.where(
             ret._cosdec == 0,
-            1.,
+            1.0,
             ret._x / ret._cosdec,
         )
         ret._ra = (jnp.arctan2(ret._sinra, ret._cosra) * radians).wrap(_Angle(jnp.pi))
@@ -150,7 +160,7 @@ class CelestialCoord(object):
     @_wraps(_galsim.celestial.CelestialCoord.radec_to_xyz)
     @staticmethod
     @jax.jit
-    def radec_to_xyz(ra, dec, r=1.):
+    def radec_to_xyz(ra, dec, r=1.0):
         cosdec = jnp.cos(dec)
         x = cosdec * jnp.cos(ra) * r
         y = cosdec * jnp.sin(ra) * r
@@ -159,7 +169,7 @@ class CelestialCoord(object):
 
     @_wraps(_galsim.celestial.CelestialCoord.xyz_to_radec)
     @staticmethod
-    @partial(jax.jit, static_argnames=('return_r',))
+    @partial(jax.jit, static_argnames=("return_r",))
     def xyz_to_radec(x, y, z, return_r=False):
         xy2 = x**2 + y**2
         ra = jnp.arctan2(y, x)
@@ -185,7 +195,7 @@ class CelestialCoord(object):
         # Compute the raw dsq between two coordinates.
         c1_x, c1_y, c1_z = auxc1[4:]
         c2_x, c2_y, c2_z = auxc2[4:]
-        return (c1_x - c2_x)**2 + (c1_y - c2_y)**2 + (c1_z - c2_z)**2
+        return (c1_x - c2_x) ** 2 + (c1_y - c2_y) ** 2 + (c1_z - c2_z) ** 2
 
     @staticmethod
     @jax.jit
@@ -193,9 +203,11 @@ class CelestialCoord(object):
         # Compute the raw cross product between two coordinates.
         c1_x, c1_y, c1_z = auxc1[4:]
         c2_x, c2_y, c2_z = auxc2[4:]
-        return (c1_y * c2_z - c2_y * c1_z,
-                c1_z * c2_x - c2_z * c1_x,
-                c1_x * c2_y - c2_x * c1_y)
+        return (
+            c1_y * c2_z - c2_y * c1_z,
+            c1_z * c2_x - c2_z * c1_x,
+            c1_x * c2_y - c2_x * c1_y,
+        )
 
     @_wraps(_galsim.celestial.CelestialCoord.distanceTo)
     @jax.jit
@@ -222,10 +234,11 @@ class CelestialCoord(object):
             # This direct distance can then be converted to a great circle distance via
             #
             # sin(theta/2) = d/2
-            2. * jnp.arcsin(0.5 * jnp.sqrt(dsq)),
+            2.0 * jnp.arcsin(0.5 * jnp.sqrt(dsq)),
             # Points are nearly antipodes where the accuracy of this formula starts to break down.
             # But in this case, the cross product provides an accurate distance.
-            jnp.pi - jnp.arcsin(jnp.sqrt(jnp.sum(jnp.array(self._raw_cross(aux, auxc))**2))),
+            jnp.pi
+            - jnp.arcsin(jnp.sqrt(jnp.sum(jnp.array(self._raw_cross(aux, auxc)) ** 2))),
         )
 
         return _Angle(theta)
@@ -268,12 +281,12 @@ class CelestialCoord(object):
         # These are unnormalized yet.
         _x, _y, _z = aux[4:]
         c_x, c_y, c_z = auxc[4:]
-        wx = c_x - _x + _x * dsq / 2.
-        wy = c_y - _y + _y * dsq / 2.
-        wz = c_z - _z + _z * dsq / 2.
+        wx = c_x - _x + _x * dsq / 2.0
+        wy = c_y - _y + _y * dsq / 2.0
+        wz = c_z - _z + _z * dsq / 2.0
 
         # Normalize
-        wr = (wx**2 + wy**2 + wz**2)**0.5
+        wr = (wx**2 + wy**2 + wz**2) ** 0.5
         # if wr == 0.:
         #     raise ValueError("coord2 does not define a unique great circle with self.")
         wx /= wr
@@ -309,12 +322,12 @@ class CelestialCoord(object):
 
         # JAX has separate code path for 3x3 determinants that doesn't match the LU path in
         # galsim/ numpy. The slogdet function uses the LU decomp by default, so we use that.
-        sign, logdet = jnp.linalg.slogdet(jnp.array(
-            [[c2_x, c2_y, c2_z],
-             [_x, _y, _z],
-             [c3_x, c3_y, c3_z]],
-            dtype=float,
-        ))
+        sign, logdet = jnp.linalg.slogdet(
+            jnp.array(
+                [[c2_x, c2_y, c2_z], [_x, _y, _z], [c3_x, c3_y, c3_z]],
+                dtype=float,
+            )
+        )
         return sign * jnp.exp(logdet)
 
     @jax.jit
@@ -403,16 +416,16 @@ class CelestialCoord(object):
         dasq = self._raw_dsq(aux, auxc2)
         dbsq = self._raw_dsq(aux, auxc3)
 
-        tanEo2 = F / (0.25 * (4. - dasq) * (4. - dbsq) + G)
-        E = 2. * jnp.arctan(jnp.abs(tanEo2))
+        tanEo2 = F / (0.25 * (4.0 - dasq) * (4.0 - dbsq) + G)
+        E = 2.0 * jnp.arctan(jnp.abs(tanEo2))
         return E
 
-    _valid_projections = [None, 'gnomonic', 'stereographic', 'lambert', 'postel']
+    _valid_projections = [None, "gnomonic", "stereographic", "lambert", "postel"]
 
     @_wraps(_galsim.celestial.CelestialCoord.project)
     def project(self, coord2, projection=None):
         if projection not in CelestialCoord._valid_projections:
-            raise ValueError('Unknown projection: %s' % projection)
+            raise ValueError("Unknown projection: %s" % projection)
 
         # The core calculation is done in a helper function:
         u, v = self._project(coord2._get_aux(), projection)
@@ -422,7 +435,7 @@ class CelestialCoord(object):
     @_wraps(_galsim.celestial.CelestialCoord.project_rad)
     def project_rad(self, ra, dec, projection=None):
         if projection not in CelestialCoord._valid_projections:
-            raise ValueError('Unknown projection: %s' % projection)
+            raise ValueError("Unknown projection: %s" % projection)
 
         cosra = jnp.cos(ra)
         sinra = jnp.sin(ra)
@@ -467,18 +480,18 @@ class CelestialCoord(object):
         cosc = cosdec * cosdra
         cosc *= _cosdec
         cosc += _sindec * sindec
-        if projection is None or projection[0] == 'g':
-            k = 1. / cosc
-        elif projection[0] == 's':
-            k = 2. / (1. + cosc)
-        elif projection[0] == 'l':
-            k = jnp.sqrt(2. / (1. + cosc))
+        if projection is None or projection[0] == "g":
+            k = 1.0 / cosc
+        elif projection[0] == "s":
+            k = 2.0 / (1.0 + cosc)
+        elif projection[0] == "l":
+            k = jnp.sqrt(2.0 / (1.0 + cosc))
         else:
             c = jnp.arccos(cosc)
             # k = c / np.sin(c)
             # np.sinc is defined as sin(pi x) / (pi x)
             # So need to divide by pi first.
-            k = 1. / jnp.sinc(c / jnp.pi)
+            k = 1.0 / jnp.sinc(c / jnp.pi)
 
         # u = k * cosdec * sindra
         # v = k * ( self._cosdec * sindec - self._sindec * cosdec * cosdra )
@@ -494,7 +507,7 @@ class CelestialCoord(object):
     @_wraps(_galsim.celestial.CelestialCoord.deproject)
     def deproject(self, u, v, projection=None):
         if projection not in CelestialCoord._valid_projections:
-            raise ValueError('Unknown projection: %s' % projection)
+            raise ValueError("Unknown projection: %s" % projection)
 
         # Again, do the core calculations in a helper function
         ra, dec = self._deproject(u / radians, v / radians, projection)
@@ -504,7 +517,7 @@ class CelestialCoord(object):
     @_wraps(_galsim.celestial.CelestialCoord.deproject_rad)
     def deproject_rad(self, u, v, projection=None):
         if projection not in CelestialCoord._valid_projections:
-            raise ValueError('Unknown projection: %s' % projection)
+            raise ValueError("Unknown projection: %s" % projection)
 
         return self._deproject(u, v, projection)
 
@@ -533,25 +546,25 @@ class CelestialCoord(object):
 
         rsq = u * u
         rsq += v * v
-        if projection is None or projection[0] == 'g':
+        if projection is None or projection[0] == "g":
             # c = arctan(r)
             # cos(c) = 1 / sqrt(1+r^2)
             # sin(c) = r / sqrt(1+r^2)
-            cosc = sinc_over_r = 1. / jnp.sqrt(1. + rsq)
-        elif projection[0] == 's':
+            cosc = sinc_over_r = 1.0 / jnp.sqrt(1.0 + rsq)
+        elif projection[0] == "s":
             # c = 2 * arctan(r/2)
             # Some trig manipulations reveal:
             # cos(c) = (4-r^2) / (4+r^2)
             # sin(c) = 4r / (4+r^2)
-            cosc = (4. - rsq) / (4. + rsq)
-            sinc_over_r = 4. / (4. + rsq)
-        elif projection[0] == 'l':
+            cosc = (4.0 - rsq) / (4.0 + rsq)
+            sinc_over_r = 4.0 / (4.0 + rsq)
+        elif projection[0] == "l":
             # c = 2 * arcsin(r/2)
             # Some trig manipulations reveal:
             # cos(c) = 1 - r^2/2
             # sin(c) = r sqrt(4-r^2) / 2
-            cosc = 1. - rsq / 2.
-            sinc_over_r = jnp.sqrt(4. - rsq) / 2.
+            cosc = 1.0 - rsq / 2.0
+            sinc_over_r = jnp.sqrt(4.0 - rsq) / 2.0
         else:
             r = jnp.sqrt(rsq)
             cosc = jnp.cos(r)
@@ -566,7 +579,7 @@ class CelestialCoord(object):
         sindec += cosc * _sindec
         # Remember the - sign so +dra is -u.  East is left.
         tandra_num = u * sinc_over_r
-        tandra_num *= -1.
+        tandra_num *= -1.0
         # tandra_denom = cosc * self._cosdec - v * sinc_over_r * self._sindec
         tandra_denom = v * sinc_over_r
         tandra_denom *= -_sindec
@@ -580,14 +593,14 @@ class CelestialCoord(object):
     @_wraps(_galsim.celestial.CelestialCoord.jac_deproject)
     def jac_deproject(self, u, v, projection=None):
         if projection not in CelestialCoord._valid_projections:
-            raise ValueError('Unknown projection: %s' % projection)
+            raise ValueError("Unknown projection: %s" % projection)
 
         return self._jac_deproject(u.rad, v.rad, projection)
 
     @_wraps(_galsim.celestial.CelestialCoord.jac_deproject_rad)
     def jac_deproject_rad(self, u, v, projection=None):
         if projection not in CelestialCoord._valid_projections:
-            raise ValueError('Unknown projection: %s' % projection)
+            raise ValueError("Unknown projection: %s" % projection)
 
         return self._jac_deproject(u, v, projection)
 
@@ -608,26 +621,26 @@ class CelestialCoord(object):
         rsq = u * u + v * v
         # rsq1 = (u + 1.e-4)**2 + v**2
         # rsq2 = u**2 + (v + 1.e-4)**2
-        if projection is None or projection[0] == 'g':
-            c = s = 1. / jnp.sqrt(1. + rsq)
+        if projection is None or projection[0] == "g":
+            c = s = 1.0 / jnp.sqrt(1.0 + rsq)
             s3 = s * s * s
             dcdu = dsdu = -u * s3
             dcdv = dsdv = -v * s3
-        elif projection[0] == 's':
-            s = 4. / (4. + rsq)
-            c = 2. * s - 1.
+        elif projection[0] == "s":
+            s = 4.0 / (4.0 + rsq)
+            c = 2.0 * s - 1.0
             ssq = s * s
             dcdu = -u * ssq
             dcdv = -v * ssq
             dsdu = 0.5 * dcdu
             dsdv = 0.5 * dcdv
-        elif projection[0] == 'l':
-            c = 1. - rsq / 2.
-            s = jnp.sqrt(4. - rsq) / 2.
+        elif projection[0] == "l":
+            c = 1.0 - rsq / 2.0
+            s = jnp.sqrt(4.0 - rsq) / 2.0
             dcdu = -u
             dcdv = -v
-            dsdu = -u / (4. * s)
-            dsdv = -v / (4. * s)
+            dsdu = -u / (4.0 * s)
+            dsdv = -v / (4.0 * s)
         else:
             r = jnp.sqrt(rsq)
 
@@ -646,33 +659,33 @@ class CelestialCoord(object):
             #     dsdv = (c-s)*v/rsq
 
             c = jnp.where(
-                r == 0.,
-                1.,
+                r == 0.0,
+                1.0,
                 jnp.cos(r),
             )
             s = jnp.where(
-                r == 0.,
-                1.,
+                r == 0.0,
+                1.0,
                 jnp.sin(r) / r,
             )
             dcdu = jnp.where(
-                r == 0.,
+                r == 0.0,
                 -u,
                 -s * u,
             )
             dcdv = jnp.where(
-                r == 0.,
+                r == 0.0,
                 -v,
                 -s * v,
             )
             dsdu = jnp.where(
-                r == 0.,
-                0.,
+                r == 0.0,
+                0.0,
                 (c - s) * u / rsq,
             )
             dsdv = jnp.where(
-                r == 0.,
-                0.,
+                r == 0.0,
+                0.0,
                 (c - s) * v / rsq,
             )
 
@@ -680,7 +693,7 @@ class CelestialCoord(object):
         s0 = _sindec
         c0 = _cosdec
         sindec = c * s0 + v * s * c0
-        cosdec = jnp.sqrt(1. - sindec * sindec)
+        cosdec = jnp.sqrt(1.0 - sindec * sindec)
         dddu = (s0 * dcdu + v * dsdu * c0) / cosdec
         dddv = (s0 * dcdv + (v * dsdv + s) * c0) / cosdec
 
@@ -688,8 +701,12 @@ class CelestialCoord(object):
         tandra_denom = c * c0 - v * s * s0
         # Note: A^2 sec^2(dra) = denom^2 (1 + tan^2(dra) = denom^2 + num^2
         A2sec2dra = tandra_denom**2 + tandra_num**2
-        drdu = ((u * dsdu + s) * tandra_denom - u * s * (dcdu * c0 - v * dsdu * s0)) / A2sec2dra
-        drdv = (u * dsdv * tandra_denom - u * s * (dcdv * c0 - (v * dsdv + s) * s0)) / A2sec2dra
+        drdu = (
+            (u * dsdu + s) * tandra_denom - u * s * (dcdu * c0 - v * dsdu * s0)
+        ) / A2sec2dra
+        drdv = (
+            u * dsdv * tandra_denom - u * s * (dcdv * c0 - (v * dsdv + s) * s0)
+        ) / A2sec2dra
 
         drdu *= cosdec
         drdv *= cosdec
@@ -697,10 +714,12 @@ class CelestialCoord(object):
 
     @_wraps(_galsim.celestial.CelestialCoord.precess)
     def precess(self, from_epoch, to_epoch):
-        return CelestialCoord._precess(from_epoch, to_epoch, self._ra.rad, self._dec.rad)
+        return CelestialCoord._precess(
+            from_epoch, to_epoch, self._ra.rad, self._dec.rad
+        )
 
     @_wraps(_galsim.celestial.CelestialCoord.galactic)
-    def galactic(self, epoch=2000.):
+    def galactic(self, epoch=2000.0):
         # cf. Lang, Astrophysical Formulae, page 13
         # cos(b) cos(el-33) = cos(dec) cos(ra-282.25)
         # cos(b) sin(el-33) = sin(dec) sin(62.6) + cos(dec) sin(ra-282.25) cos(62.6)
@@ -727,7 +746,7 @@ class CelestialCoord(object):
 
     @_wraps(_galsim.celestial.CelestialCoord.from_galactic)
     @staticmethod
-    def from_galactic(el, b, epoch=2000.):
+    def from_galactic(el, b, epoch=2000.0):
         el0 = 32.93191857 * degrees
         r0 = 282.859481208 * degrees
         d0 = 62.8717488056 * degrees
@@ -748,7 +767,7 @@ class CelestialCoord(object):
 
     @_wraps(_galsim.celestial.CelestialCoord.ecliptic)
     @partial(jax.jit, static_argnames=("date",))
-    def ecliptic(self, epoch=2000., date=None):
+    def ecliptic(self, epoch=2000.0, date=None):
         # We are going to work in terms of the (x, y, z) projections.
         _x, _y, _z = self._get_aux()[4:]
 
@@ -779,7 +798,7 @@ class CelestialCoord(object):
     @_wraps(_galsim.celestial.CelestialCoord.from_ecliptic)
     @staticmethod
     @partial(jax.jit, static_argnames=("date",))
-    def from_ecliptic(lam, beta, epoch=2000., date=None):
+    def from_ecliptic(lam, beta, epoch=2000.0, date=None):
         if date is not None:
             lam += _sun_position_ecliptic(date)
 
@@ -804,10 +823,16 @@ class CelestialCoord(object):
         return CelestialCoord.from_xyz(x_eq, y_eq, z_eq)
 
     def __repr__(self):
-        return 'galsim.CelestialCoord(%r, %r)' % (ensure_hashable(self._ra), ensure_hashable(self._dec))
+        return "galsim.CelestialCoord(%r, %r)" % (
+            ensure_hashable(self._ra),
+            ensure_hashable(self._dec),
+        )
 
     def __str__(self):
-        return 'galsim.CelestialCoord(%s, %s)' % (ensure_hashable(self._ra), ensure_hashable(self._dec))
+        return "galsim.CelestialCoord(%s, %s)" % (
+            ensure_hashable(self._ra),
+            ensure_hashable(self._dec),
+        )
 
     def __hash__(self):
         return hash(repr(self))
@@ -838,10 +863,9 @@ class CelestialCoord(object):
 
     @jax.jit
     def _precess_kern(from_epoch, to_epoch, _x, _y, _z, _ra, _dec):
-
         # t0, t below correspond to Lieske's big T and little T
-        t0 = (from_epoch - 2000.) / 100.
-        t = (to_epoch - from_epoch) / 100.
+        t0 = (from_epoch - 2000.0) / 100.0
+        t = (to_epoch - from_epoch) / 100.0
         t02 = t0 * t0
         t2 = t * t
         t3 = t2 * t
@@ -849,15 +873,18 @@ class CelestialCoord(object):
         # a,b,c below correspond to Lieske's zeta_A, z_A and theta_A
         a = (
             (2306.2181 + 1.39656 * t0 - 0.000139 * t02) * t
-            + (0.30188 - 0.000344 * t0) * t2 + 0.017998 * t3
+            + (0.30188 - 0.000344 * t0) * t2
+            + 0.017998 * t3
         ) * arcsec
         b = (
             (2306.2181 + 1.39656 * t0 - 0.000139 * t02) * t
-            + (1.09468 + 0.000066 * t0) * t2 + 0.018203 * t3
+            + (1.09468 + 0.000066 * t0) * t2
+            + 0.018203 * t3
         ) * arcsec
         c = (
             (2004.3109 - 0.85330 * t0 - 0.000217 * t02) * t
-            + (-0.42665 - 0.000217 * t0) * t2 - 0.041833 * t3
+            + (-0.42665 - 0.000217 * t0) * t2
+            - 0.041833 * t3
         ) * arcsec
         sina, cosa = a.sincos()
         sinb, cosb = b.sincos()
@@ -893,9 +920,13 @@ class CelestialCoord(object):
             jnp.array_equal(from_epoch, to_epoch),
             lambda *args: _CelestialCoord(_Angle(args[-2]), _Angle(args[-1])),
             CelestialCoord._precess_kern,
-            from_epoch, to_epoch,
-            _x, _y, _z,
-            _ra, _dec,
+            from_epoch,
+            to_epoch,
+            _x,
+            _y,
+            _z,
+            _ra,
+            _dec,
         )
 
     @staticmethod
