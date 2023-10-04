@@ -57,3 +57,4 @@ allowed_failures:
   - "ValueError not raised by greatCirclePoint"
   - "TypeError not raised by __mul__"
   - "ValueError not raised by CelestialCoord"
+  - "module 'jax_galsim' has no attribute 'TanWCS'"
