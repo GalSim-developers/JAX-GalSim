@@ -49,7 +49,7 @@ from .moffat import Moffat
 
 from .sum import Add, Sum
 from .transform import Transform, Transformation
-from .convolve import Convolve, Convolution
+from .convolve import Convolve, Convolution, Deconvolution, Deconvolve
 
 # WCS
 from .wcs import (
