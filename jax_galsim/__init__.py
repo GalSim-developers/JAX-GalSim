@@ -21,9 +21,6 @@ from galsim.errors import (
     GalSimWarning,
 )
 
-# Bessel
-from .core.bessel import j0
-
 # Basic building blocks
 from .bounds import Bounds, BoundsD, BoundsI
 from .gsparams import GSParams
@@ -47,10 +44,6 @@ from .exponential import Exponential
 from .gaussian import Gaussian
 from .box import Box, Pixel
 from .gsobject import GSObject
-
-
-# Integration
-from .core.integrate import ClenshawCurtisQuad, quad_integral
 
 # Interpolation
 from .moffat import Moffat

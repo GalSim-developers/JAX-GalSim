@@ -1,6 +1,6 @@
+import inspect
 import os
 from functools import lru_cache
-import inspect
 
 import pytest
 import yaml

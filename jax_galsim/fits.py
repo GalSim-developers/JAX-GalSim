@@ -75,7 +75,7 @@ def _image_as_numpy(image):
             pass
 
 
-@_wraps(_galsim.fits.read)
+@_wraps(_galsim.fits.write)
 def write(*args, **kwargs):
     if len(args) >= 1 and isinstance(args[0], Image):
         with _image_as_numpy(args[0]) as image:

@@ -3,6 +3,7 @@ import jax.numpy as jnp
 from jax._src.numpy.util import _wraps
 from jax.tree_util import register_pytree_node_class
 
+from jax_galsim.core.utils import ensure_hashable
 from jax_galsim.gsobject import GSObject
 from jax_galsim.position import Position, PositionD, PositionI
 from jax_galsim.shear import Shear
@@ -502,6 +503,7 @@ class LocalWCS(UniformWCS):
     as (0,0) in world coordinates
     """
 
+    @_wraps(_galsim.wcs.LocalWCS.isLocal)
     def isLocal(self):
         return True
 
@@ -657,7 +659,7 @@ class PixelScale(LocalWCS):
         )
 
     def __repr__(self):
-        return "galsim.PixelScale(%r)" % self.scale
+        return "galsim.PixelScale(%r)" % ensure_hashable(self.scale)
 
     def __hash__(self):
         return hash(repr(self))
@@ -666,8 +668,6 @@ class PixelScale(LocalWCS):
 @_wraps(_galsim.ShearWCS)
 @register_pytree_node_class
 class ShearWCS(LocalWCS):
-    from jax_galsim.shear import Shear
-
     _req_params = {"scale": float, "shear": Shear}
 
     def __init__(self, scale, shear):
@@ -763,7 +763,7 @@ class ShearWCS(LocalWCS):
         )
 
     def __repr__(self):
-        return "galsim.ShearWCS(%r, %r)" % (self.scale, self.shear)
+        return "galsim.ShearWCS(%r, %r)" % (ensure_hashable(self.scale), self.shear)
 
     def __hash__(self):
         return hash(repr(self))
@@ -850,10 +850,10 @@ class JacobianWCS(LocalWCS):
         return abs(self._det)
 
     def getMatrix(self):
-        """Get the Jacobian as a JAX matrix:
+        """Get the Jacobian as a NumPy matrix:
 
-        jax.numpy.array( [[ dudx, dudy ],
-                          [ dvdx, dvdy ]] )
+        numpy.array( [[ dudx, dudy ],
+                      [ dvdx, dvdy ]] )
         """
         return jnp.array([[self.dudx, self.dudy], [self.dvdx, self.dvdy]], dtype=float)
 
@@ -958,10 +958,10 @@ class JacobianWCS(LocalWCS):
 
     def __repr__(self):
         return "galsim.JacobianWCS(%r, %r, %r, %r)" % (
-            self.dudx,
-            self.dudy,
-            self.dvdx,
-            self.dvdy,
+            ensure_hashable(self.dudx),
+            ensure_hashable(self.dudy),
+            ensure_hashable(self.dvdx),
+            ensure_hashable(self.dvdy),
         )
 
     def __hash__(self):
@@ -1050,7 +1050,7 @@ class OffsetWCS(UniformWCS):
 
     def __repr__(self):
         return "galsim.OffsetWCS(%r, %r, %r)" % (
-            self.scale,
+            ensure_hashable(self.scale),
             self.origin,
             self.world_origin,
         )
@@ -1062,8 +1062,6 @@ class OffsetWCS(UniformWCS):
 @_wraps(_galsim.OffsetShearWCS)
 @register_pytree_node_class
 class OffsetShearWCS(UniformWCS):
-    from .shear import Shear
-
     _req_params = {"scale": float, "shear": Shear}
     _opt_params = {"origin": PositionD, "world_origin": PositionD}
 
@@ -1103,7 +1101,7 @@ class OffsetShearWCS(UniformWCS):
 
     def __repr__(self):
         return "galsim.OffsetShearWCS(%r, %r, %r, %r)" % (
-            self.scale,
+            ensure_hashable(self.scale),
             self.shear,
             self.origin,
             self.world_origin,
@@ -1223,10 +1221,10 @@ class AffineTransform(UniformWCS):
         return (
             "galsim.AffineTransform(%r, %r, %r, %r, origin=%r, world_origin=%r)"
         ) % (
-            self.dudx,
-            self.dudy,
-            self.dvdx,
-            self.dvdy,
+            ensure_hashable(self.dudx),
+            ensure_hashable(self.dudy),
+            ensure_hashable(self.dvdx),
+            ensure_hashable(self.dvdy),
             self.origin,
             self.world_origin,
         )

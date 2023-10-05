@@ -72,18 +72,13 @@ class Sum(GSObject):
         return self._params["obj_list"]
 
     @property
+    @_wraps(_galsim.Sum.flux)
     def flux(self):
         flux_list = jnp.array([obj.flux for obj in self.obj_list])
         return jnp.sum(flux_list)
 
+    @_wraps(_galsim.Sum.withGSParams)
     def withGSParams(self, gsparams=None, **kwargs):
-        """Create a version of the current object with the given gsparams
-
-        .. note::
-
-            Unless you set ``propagate_gsparams=False``, this method will also update the gsparams
-            of each object being added.
-        """
         if gsparams == self.gsparams:
             return self
         ret = self.__class__(
