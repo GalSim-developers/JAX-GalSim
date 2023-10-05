@@ -31,25 +31,10 @@ from jax_galsim.angle import Angle, _Angle, arcsec, degrees, radians
 from jax_galsim.core.utils import ensure_hashable
 
 
+# wrappers for functions we want to be in coord but need to return
+# the JAX version of the objects
 def _ecliptic_obliquity(epoch):
-    """Helper routine to return the obliquity of the ecliptic for a given date.
-
-    :param epoch:   The epoch at which to calculate the obliquity.
-
-    :returns the obliquity as an Angle instance
-    """
-    # We need to figure out the time in Julian centuries from J2000 for this epoch.
-    t = (epoch - 2000.0) / 100.0
-    # Then we use the last (most recent) formula listed under
-    # http://en.wikipedia.org/wiki/Ecliptic#Obliquity_of_the_ecliptic, from
-    # JPL's 2010 calculations.
-    ep = Angle.from_dms("23:26:21.406")
-    ep -= Angle.from_dms("00:00:46.836769") * t
-    ep -= Angle.from_dms("00:00:0.0001831") * (t**2)
-    ep += Angle.from_dms("00:00:0.0020034") * (t**3)
-    # There are even higher order terms, but they are probably not important for any reasonable
-    # calculation someone would do with this package.
-    return ep
+    return _Angle(_coord.util.ecliptic_obliquity(epoch).rad)
 
 
 def _sun_position_ecliptic(date):
