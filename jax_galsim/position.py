@@ -140,7 +140,7 @@ class Position(object):
             a `galsim.PositionD` instance.
         """
         shear_mat = shear.getMatrix()
-        shear_pos = jnp.dot(shear_mat, jnp.array([self.x, self.y]))
+        shear_pos = jnp.dot(shear_mat, self._array)
         return PositionD(shear_pos[0], shear_pos[1])
 
     def round(self):
