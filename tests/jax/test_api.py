@@ -631,3 +631,39 @@ def test_api_angle():
 
     # check vmap grad
     np.testing.assert_allclose(_sgradfun_vmap(x), [_sgradfun(_x) for _x in x])
+
+
+def test_api_celestial_coord():
+    obj = jax_galsim.CelestialCoord(45 * jax_galsim.degrees, -30 * jax_galsim.degrees)
+    _run_object_checks(obj, obj.__class__, "docs-methods")
+    _run_object_checks(obj, obj.__class__, "pickle-eval-repr")
+
+    # JAX tracing should be an identity
+    assert obj.__class__.tree_unflatten(*((obj.tree_flatten())[::-1])) == obj
+
+    def _reg_sfun(g1):
+        return obj.distanceTo(
+            jax_galsim.CelestialCoord(g1 * jax_galsim.degrees, 20 * jax_galsim.degrees)
+        ).rad
+
+    _sfun = jax.jit(_reg_sfun)
+
+    _sgradfun = jax.jit(jax.grad(_sfun))
+    _sfun_vmap = jax.jit(jax.vmap(_sfun))
+    _sgradfun_vmap = jax.jit(jax.vmap(_sgradfun))
+
+    # we can jit the object
+    np.testing.assert_allclose(_sfun(0.3), _reg_sfun(0.3))
+
+    # check derivs
+    eps = 1e-6
+    grad = _sgradfun(0.3)
+    finite_diff = (_reg_sfun(0.3 + eps) - _reg_sfun(0.3 - eps)) / (2 * eps)
+    np.testing.assert_allclose(grad, finite_diff)
+
+    # check vmap
+    x = jnp.linspace(-0.9, 0.9, 10)
+    np.testing.assert_allclose(_sfun_vmap(x), [_reg_sfun(_x) for _x in x])
+
+    # check vmap grad
+    np.testing.assert_allclose(_sgradfun_vmap(x), [_sgradfun(_x) for _x in x])

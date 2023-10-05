@@ -31,10 +31,20 @@ from jax_galsim.angle import Angle, _Angle, arcsec, degrees, radians
 from jax_galsim.core.utils import ensure_hashable
 
 
-# wrappers for functions we want to be in coord but need to return
-# the JAX version of the objects
+@_wraps(_coord.util.ecliptic_obliquity)
 def _ecliptic_obliquity(epoch):
-    return _Angle(_coord.util.ecliptic_obliquity(epoch).rad)
+    # We need to figure out the time in Julian centuries from J2000 for this epoch.
+    t = (epoch - 2000.0) / 100.0
+    # Then we use the last (most recent) formula listed under
+    # http://en.wikipedia.org/wiki/Ecliptic#Obliquity_of_the_ecliptic, from
+    # JPL's 2010 calculations.
+    ep = Angle.from_dms("23:26:21.406")
+    ep -= Angle.from_dms("00:00:46.836769") * t
+    ep -= Angle.from_dms("00:00:0.0001831") * (t**2)
+    ep += Angle.from_dms("00:00:0.0020034") * (t**3)
+    # There are even higher order terms, but they are probably not important for any reasonable
+    # calculation someone would do with this package.
+    return ep
 
 
 def _sun_position_ecliptic(date):
@@ -108,6 +118,8 @@ class CelestialCoord(object):
     def get_xyz(self):
         return self._get_aux()[4:]
 
+    @staticmethod
+    @jax.jit
     @_wraps(
         _galsim.celestial.CelestialCoord.from_xyz,
         lax_description=(
@@ -115,8 +127,6 @@ class CelestialCoord(object):
             "vector is non-zero."
         ),
     )
-    @staticmethod
-    @jax.jit
     def from_xyz(x, y, z):
         norm = jnp.sqrt(x * x + y * y + z * z)
         # JAX cannot check this condition
@@ -142,9 +152,9 @@ class CelestialCoord(object):
         ret._dec = jnp.arctan2(ret._sindec, ret._cosdec) * radians
         return ret
 
-    @_wraps(_galsim.celestial.CelestialCoord.radec_to_xyz)
     @staticmethod
     @jax.jit
+    @_wraps(_galsim.celestial.CelestialCoord.radec_to_xyz)
     def radec_to_xyz(ra, dec, r=1.0):
         cosdec = jnp.cos(dec)
         x = cosdec * jnp.cos(ra) * r
@@ -152,9 +162,9 @@ class CelestialCoord(object):
         z = jnp.sin(dec) * r
         return x, y, z
 
-    @_wraps(_galsim.celestial.CelestialCoord.xyz_to_radec)
     @staticmethod
     @partial(jax.jit, static_argnames=("return_r",))
+    @_wraps(_galsim.celestial.CelestialCoord.xyz_to_radec)
     def xyz_to_radec(x, y, z, return_r=False):
         xy2 = x**2 + y**2
         ra = jnp.arctan2(y, x)
@@ -729,8 +739,8 @@ class CelestialCoord(object):
 
         return (el, b)
 
-    @_wraps(_galsim.celestial.CelestialCoord.from_galactic)
     @staticmethod
+    @_wraps(_galsim.celestial.CelestialCoord.from_galactic)
     def from_galactic(el, b, epoch=2000.0):
         el0 = 32.93191857 * degrees
         r0 = 282.859481208 * degrees
@@ -750,8 +760,8 @@ class CelestialCoord(object):
         temp = CelestialCoord.from_xyz(x2, y2, z2)
         return CelestialCoord(temp.ra + r0, temp.dec).normal()
 
-    @_wraps(_galsim.celestial.CelestialCoord.ecliptic)
     @partial(jax.jit, static_argnames=("date",))
+    @_wraps(_galsim.celestial.CelestialCoord.ecliptic)
     def ecliptic(self, epoch=2000.0, date=None):
         # We are going to work in terms of the (x, y, z) projections.
         _x, _y, _z = self._get_aux()[4:]
@@ -780,9 +790,9 @@ class CelestialCoord(object):
 
         return (lam.wrap(), beta)
 
-    @_wraps(_galsim.celestial.CelestialCoord.from_ecliptic)
     @staticmethod
     @partial(jax.jit, static_argnames=("date",))
+    @_wraps(_galsim.celestial.CelestialCoord.from_ecliptic)
     def from_ecliptic(lam, beta, epoch=2000.0, date=None):
         if date is not None:
             lam += _sun_position_ecliptic(date)

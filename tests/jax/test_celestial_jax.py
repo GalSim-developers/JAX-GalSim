@@ -106,3 +106,15 @@ def test_celestial_jax_comp_to_galsim(projection):
         cc.jac_deproject(u2, v2, projection=projection),
         gcc.jac_deproject(gu2, gv2, projection=projection),
     )
+
+
+def test_celestial_jax_ecliptic_obliquity():
+    from coord.util import ecliptic_obliquity
+
+    from jax_galsim.celestial import _ecliptic_obliquity
+
+    for epoch in range(1900, 2200):
+        np.testing.assert_allclose(
+            ecliptic_obliquity(epoch).rad,
+            _ecliptic_obliquity(epoch).rad,
+        )
