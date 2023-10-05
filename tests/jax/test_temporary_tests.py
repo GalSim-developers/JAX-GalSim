@@ -1,8 +1,8 @@
-import numpy as np
 import galsim as ref_galsim
-import jax_galsim
-
+import numpy as np
 import pytest
+
+import jax_galsim
 
 
 def test_convolve_temp():
@@ -92,24 +92,24 @@ def test_shearconvolve_temp():
 def test_pickling_eval_repr(obj1):
     """This test is here until we run all of the galsim tests which cover this one."""
     # test copied from galsim
-    from numbers import Integral, Real, Complex  # noqa: F401
-    import pickle
     import copy
+    import pickle
+    from collections.abc import Hashable
+    from numbers import Complex, Integral, Real  # noqa: F401
 
     # In case the repr uses these:
     from numpy import (  # noqa: F401
         array,
-        uint16,
-        uint32,
-        int16,
-        int32,
-        float32,
-        float64,
         complex64,
         complex128,
+        float32,
+        float64,
+        int16,
+        int32,
         ndarray,
+        uint16,
+        uint32,
     )
-    from collections.abc import Hashable
 
     def func(x):
         return x

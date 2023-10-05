@@ -4,7 +4,11 @@ import jax.numpy as jnp
 from jax._src.numpy.util import _wraps
 from jax.tree_util import register_pytree_node_class
 
-from jax_galsim.core.utils import cast_scalar_to_float, cast_scalar_to_int
+from jax_galsim.core.utils import (
+    cast_scalar_to_float,
+    cast_scalar_to_int,
+    ensure_hashable,
+)
 from jax_galsim.position import Position, PositionD, PositionI
 
 
@@ -128,8 +132,8 @@ class Bounds(_galsim.Bounds):
         else:
             raise TypeError("include takes at most 2 arguments (%d given)" % len(args))
 
+    @_wraps(_galsim.Bounds.expand)
     def expand(self, factor_x, factor_y=None):
-        "Grow the `Bounds` by the supplied factor about the center."
         if factor_y is None:
             factor_y = factor_x
         dx = (self.xmax - self.xmin) * 0.5 * (factor_x - 1.0)
@@ -181,11 +185,49 @@ class Bounds(_galsim.Bounds):
                 % (self.__class__.__name__, self._pos_class.__name__)
             )
 
+    def __repr__(self):
+        if self.isDefined():
+            return "galsim.%s(xmin=%r, xmax=%r, ymin=%r, ymax=%r)" % (
+                self.__class__.__name__,
+                ensure_hashable(self.xmin),
+                ensure_hashable(self.xmax),
+                ensure_hashable(self.ymin),
+                ensure_hashable(self.ymax),
+            )
+        else:
+            return "galsim.%s()" % (self.__class__.__name__)
+
+    def __str__(self):
+        if self.isDefined():
+            return "galsim.%s(%s,%s,%s,%s)" % (
+                self.__class__.__name__,
+                ensure_hashable(self.xmin),
+                ensure_hashable(self.xmax),
+                ensure_hashable(self.ymin),
+                ensure_hashable(self.ymax),
+            )
+        else:
+            return "galsim.%s()" % (self.__class__.__name__)
+
+    def __hash__(self):
+        return hash(
+            (
+                self.__class__.__name__,
+                ensure_hashable(self.xmin),
+                ensure_hashable(self.xmax),
+                ensure_hashable(self.ymin),
+                ensure_hashable(self.ymax),
+            )
+        )
+
     def tree_flatten(self):
         """This function flattens the Bounds into a list of children
         nodes that will be traced by JAX and auxiliary static data."""
         # Define the children nodes of the PyTree that need tracing
-        children = (self.xmin, self.xmax, self.ymin, self.ymax)
+        if self.isDefined():
+            children = (self.xmin, self.xmax, self.ymin, self.ymax)
+        else:
+            children = tuple()
         # Define auxiliary static data that doesn’t need to be traced
         aux_data = None
         return (children, aux_data)
@@ -215,13 +257,9 @@ class Bounds(_galsim.Bounds):
         )
 
 
+@_wraps(_galsim.BoundsD)
 @register_pytree_node_class
 class BoundsD(Bounds):
-    """A `Bounds` that takes floating point values.
-
-    See the `Bounds` doc string for more details.
-    """
-
     _pos_class = PositionD
 
     def __init__(self, *args, **kwargs):
@@ -253,15 +291,9 @@ class BoundsD(Bounds):
         return PositionD((self.xmax + self.xmin) / 2.0, (self.ymax + self.ymin) / 2.0)
 
 
+@_wraps(_galsim.BoundsI)
 @register_pytree_node_class
 class BoundsI(Bounds):
-    """A `Bounds` that takes only integer values.
-
-    Typically used to define the bounding box of an image.
-
-    See the `Bounds` doc string for more details.
-    """
-
     _pos_class = PositionI
 
     def __init__(self, *args, **kwargs):

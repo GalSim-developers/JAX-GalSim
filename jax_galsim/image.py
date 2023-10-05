@@ -5,6 +5,7 @@ from jax._src.numpy.util import _wraps
 from jax.tree_util import register_pytree_node_class
 
 from jax_galsim.bounds import Bounds, BoundsD, BoundsI
+from jax_galsim.core.utils import ensure_hashable
 from jax_galsim.position import PositionI
 from jax_galsim.utilities import parse_pos_args
 from jax_galsim.wcs import BaseWCS, PixelScale
@@ -50,7 +51,7 @@ class Image(object):
         jnp.complex64,
         jnp.complex128,
     ]
-    valid_dtypes = set(_valid_dtypes)
+    valid_dtypes = _valid_dtypes
 
     def __init__(self, *args, **kwargs):
         # Parse the args, kwargs
@@ -290,7 +291,7 @@ class Image(object):
         if self.wcs is not None and self.wcs._isPixelScale:
             return "galsim.Image(bounds=%s, scale=%s, dtype=%s)" % (
                 self.bounds,
-                self.scale,
+                ensure_hashable(self.scale),
                 t,
             )
         else:
@@ -299,6 +300,9 @@ class Image(object):
                 self.wcs,
                 t,
             )
+
+    # Not immutable object.  So shouldn't be used as a hash.
+    __hash__ = None
 
     # Read-only attributes:
     @property
@@ -580,6 +584,7 @@ class Image(object):
         else:
             raise TypeError("image[..] requires either 1 or 2 args")
 
+    @_wraps(_galsim.Image.wrap)
     def wrap(self, bounds, hermitian=False):
         if not isinstance(bounds, BoundsI):
             raise TypeError("bounds must be a galsim.BoundsI instance")
