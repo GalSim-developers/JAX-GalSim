@@ -116,11 +116,12 @@ class Interpolant:
         """Create a version of the current interpolant with the given gsparams"""
         if gsparams == self.gsparams:
             return self
-        from copy import copy
-
-        ret = copy(self)
-        ret._gsparams = GSParams.check(gsparams, self.gsparams, **kwargs)
-        return ret
+        # Checking gsparams
+        gsparams = GSParams.check(gsparams, self.gsparams, **kwargs)
+        # Flattening the representation to instantiate a clean new object
+        children, aux_data = self.tree_flatten()
+        aux_data["gsparams"] = gsparams
+        return self.tree_unflatten(aux_data, children)
 
     def __repr__(self):
         return "galsim.%s(gsparams=%r)" % (self.__class__.__name__, self._gsparams)
@@ -397,6 +398,7 @@ class SincInterpolant(Interpolant):
         return self._unit_integrals[:n]
 
     def _comp_fluxes(self):
+        # the sinc function oscillates so we want to integrate over an even number of periods
         n = self.ixrange // 2 + 1
         if n % 2 != 0:
             n += 1
@@ -525,6 +527,7 @@ class Quintic(Interpolant):
     # at include/Interpolant.h
     _positive_flux = 1.1293413499280066555
     _negative_flux = 0.1293413499280066555
+    # from galsim itself via `galsim.Quintic().unit_integrals()`
     _unit_integrals = jnp.array(
         [
             0.8724826228119177,
@@ -615,7 +618,8 @@ class Quintic(Interpolant):
 @_wraps(_galsim.interpolant.Lanczos)
 @register_pytree_node_class
 class Lanczos(Interpolant):
-    # this data was generated in the dev notebook lanczos_interp_devel.ipynb
+    # this data was generated in the dev notebook at
+    # dev/notebooks/lanczos_interp_devel.ipynb
     _posflux_conserve_dc = {
         1: 1.0,
         2: 1.0886717592825461,
