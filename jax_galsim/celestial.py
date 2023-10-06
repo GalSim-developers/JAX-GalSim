@@ -31,6 +31,8 @@ from jax_galsim.angle import Angle, _Angle, arcsec, degrees, radians
 from jax_galsim.core.utils import ensure_hashable
 
 
+# we have to copy this one since JAX sends in `t` as a traced array
+# and the coord.Angle classes don't know how to handle that
 @_wraps(_coord.util.ecliptic_obliquity)
 def _ecliptic_obliquity(epoch):
     # We need to figure out the time in Julian centuries from J2000 for this epoch.
