@@ -11,7 +11,11 @@ def cast_scalar_to_float(x):
     else:
         try:
             return float(x)
-        except TypeError:
+        except TypeError as e:
+            # needed so that tests of jax_galsim.angle pass
+            if "AngleUnit" in str(e):
+                raise e
+
             return x
 
 

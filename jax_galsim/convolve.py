@@ -334,3 +334,193 @@ class Convolution(GSObject):
     def tree_unflatten(cls, aux_data, children):
         """Recreates an instance of the class from flatten representation"""
         return cls(children[0]["obj_list"], **aux_data)
+
+
+@_wraps(
+    _galsim.convolve.Deconvolve,
+    lax_description="Does not support ChromaticDeconvolution",
+)
+def Deconvolve(obj, gsparams=None, propagate_gsparams=True):
+    # from .chromatic import ChromaticDeconvolution
+    # if isinstance(obj, ChromaticObject):
+    #     return ChromaticDeconvolution(obj, gsparams=gsparams, propagate_gsparams=propagate_gsparams)
+    # elif isinstance(obj, GSObject):
+    if isinstance(obj, GSObject):
+        return Deconvolution(
+            obj, gsparams=gsparams, propagate_gsparams=propagate_gsparams
+        )
+    else:
+        raise TypeError(
+            "Argument to Deconvolve must be either a GSObject or a ChromaticObject."
+        )
+
+
+@_wraps(_galsim.convolve.Deconvolution)
+@register_pytree_node_class
+class Deconvolution(GSObject):
+    _has_hard_edges = False
+    _is_analytic_x = False
+
+    def __init__(self, obj, gsparams=None, propagate_gsparams=True):
+        if not isinstance(obj, GSObject):
+            raise TypeError("Argument to Deconvolution must be a GSObject.")
+
+        # Save the original object as an attribute, so it can be inspected later if necessary.
+        self._gsparams = GSParams.check(gsparams, obj.gsparams)
+        self._min_acc_kvalue = obj.flux * self.gsparams.kvalue_accuracy
+        self._inv_min_acc_kvalue = 1.0 / self._min_acc_kvalue
+        self._propagate_gsparams = propagate_gsparams
+        if self._propagate_gsparams:
+            self._orig_obj = obj.withGSParams(self._gsparams)
+        else:
+            self._orig_obj = obj
+
+    @property
+    def orig_obj(self):
+        """The original object that is being deconvolved."""
+        return self._orig_obj
+
+    @property
+    def _noise(self):
+        if self.orig_obj.noise is not None:
+            galsim_warn("Unable to propagate noise in galsim.Deconvolution")
+        return None
+
+    def withGSParams(self, gsparams=None, **kwargs):
+        """Create a version of the current object with the given gsparams
+
+        .. note::
+
+            Unless you set ``propagate_gsparams=False``, this method will also update the gsparams
+            of the wrapped component object.
+        """
+        if gsparams == self.gsparams:
+            return self
+        from copy import copy
+
+        ret = copy(self)
+        ret._gsparams = GSParams.check(gsparams, self.gsparams, **kwargs)
+        if self._propagate_gsparams:
+            ret._orig_obj = self._orig_obj.withGSParams(ret._gsparams)
+        return ret
+
+    def __eq__(self, other):
+        return self is other or (
+            isinstance(other, Deconvolution)
+            and self.orig_obj == other.orig_obj
+            and self.gsparams == other.gsparams
+            and self._propagate_gsparams == other._propagate_gsparams
+        )
+
+    def __hash__(self):
+        return hash(
+            (
+                "galsim.Deconvolution",
+                self.orig_obj,
+                self.gsparams,
+                self._propagate_gsparams,
+            )
+        )
+
+    def __repr__(self):
+        return "galsim.Deconvolution(%r, gsparams=%r, propagate_gsparams=%r)" % (
+            self.orig_obj,
+            self.gsparams,
+            self._propagate_gsparams,
+        )
+
+    def __str__(self):
+        return "galsim.Deconvolve(%s)" % self.orig_obj
+
+    def _prepareDraw(self):
+        self.orig_obj._prepareDraw()
+
+    @property
+    def _maxk(self):
+        return self.orig_obj.maxk
+
+    @property
+    def _stepk(self):
+        return self.orig_obj.stepk
+
+    @property
+    def _is_axisymmetric(self):
+        return self.orig_obj.is_axisymmetric
+
+    @property
+    def _is_analytic_k(self):
+        return self.orig_obj.is_analytic_k
+
+    @property
+    def _centroid(self):
+        return -self.orig_obj.centroid
+
+    @property
+    def _flux(self):
+        return 1.0 / self.orig_obj.flux
+
+    @property
+    def _max_sb(self):
+        # The only way to really give this any meaning is to consider it in the context
+        # of being part of a larger convolution with other components.  The calculation
+        # of maxSB for Convolve is
+        #     maxSB = flux_final / Sum_i (flux_i / maxSB_i)
+        #
+        # A deconvolution will contribute a -sigma^2 to the sum, so a logical choice for
+        # maxSB is to have flux / maxSB = -flux_adaptee / maxSB_adaptee, so its contribution
+        # to the Sum_i 2pi sigma^2 is to subtract its adaptee's value of sigma^2.
+        #
+        # maxSB = -flux * maxSB_adaptee / flux_adaptee
+        #       = -maxSB_adaptee / flux_adaptee^2
+        #
+        return -self.orig_obj.max_sb / self.orig_obj.flux**2
+
+    def _kValue(self, pos):
+        # Really, for very low original kvalues, this gets very high, which can be unstable
+        # in the presence of noise.  So if the original value is less than min_acc_kvalue,
+        # we instead just return 1/min_acc_kvalue rather than the real inverse.
+        kval = self.orig_obj._kValue(pos)
+        return jnp.where(
+            jnp.abs(kval) < self._min_acc_kvalue,
+            self._inv_min_acc_kvalue,
+            1.0 / kval,
+        )
+
+    def _drawKImage(self, image, jac=None):
+        image = self.orig_obj._drawKImage(image, jac)
+        image._array = jnp.where(
+            jnp.abs(image.array) > self._min_acc_kvalue,
+            1.0 / image.array,
+            self._inv_min_acc_kvalue,
+        )
+        kx, ky = image.get_pixel_centers()
+        _jac = jnp.eye(2) if jac is None else jac
+        # N.B. The jacobian is transposed in k space.  This is not a typo.
+        kx, ky = (_jac[0, 0] * kx + _jac[1, 0] * ky), (
+            _jac[0, 1] * kx + _jac[1, 1] * ky
+        )
+        ksq = (kx**2 + ky**2) * image.scale**2
+        # Set to zero outside of nominal maxk so as not to amplify high frequencies.
+        image._array = jnp.where(
+            ksq > self.maxk**2,
+            0.0,
+            image.array,
+        )
+        return image
+
+    def tree_flatten(self):
+        """This function flattens the GSObject into a list of children
+        nodes that will be traced by JAX and auxiliary static data."""
+        # Define the children nodes of the PyTree that need tracing
+        children = (self._orig_obj,)
+        # Define auxiliary static data that doesn’t need to be traced
+        aux_data = {
+            "gsparams": self.gsparams,
+            "propagate_gsparams": self._propagate_gsparams,
+        }
+        return (children, aux_data)
+
+    @classmethod
+    def tree_unflatten(cls, aux_data, children):
+        """Recreates an instance of the class from flatten representation"""
+        return cls(children[0], **aux_data)

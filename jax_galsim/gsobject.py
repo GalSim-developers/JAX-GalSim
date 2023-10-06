@@ -349,9 +349,9 @@ class GSObject:
 
         Note: Not differentiable with respect to theta (yet).
         """
-        from coord.angle import Angle
-
         from jax_galsim.transform import Transform
+
+        from .angle import Angle
 
         if not isinstance(theta, Angle):
             raise TypeError("Input theta should be an Angle")

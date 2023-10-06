@@ -1,16 +1,23 @@
 # This defines which tests from the GalSim suite will run
 enabled_tests:
-  - test_gaussian.py
-  - test_exponential.py
-  - test_moffat.py
-  - test_sum.py
-  - test_transforms.py
-  - test_convolve.py
-  - test_fitsheader.py
-  - test_utilities.py
-  - test_shear.py
-  - test_shear_position.py
-  - test_interpolatedimage.py
+  galsim:
+    - test_gaussian.py
+    - test_exponential.py
+    - test_moffat.py
+    - test_sum.py
+    - test_transforms.py
+    - test_convolve.py
+    - test_fitsheader.py
+    - test_utilities.py
+    - test_shear.py
+    - test_shear_position.py
+    - test_wcs.py
+    - test_interpolatedimage.py
+  coord:
+    - test_angle.py
+    - test_angleunit.py
+    - test_astropy.py
+    - test_celestial.py
 
 # This documents which error messages will be allowed
 # without being reported as an error. These typically
@@ -29,14 +36,12 @@ allowed_failures:
   - "module 'jax_galsim' has no attribute 'UVFunction'"
   - "module 'jax_galsim' has no attribute 'FitsWCS'"
   - "module 'jax_galsim' has no attribute 'FitsHeader'"
-  - "module 'jax_galsim' has no attribute 'CelestialCoord'"
   - "module 'jax_galsim' has no attribute 'UniformDeviate'"
   - "module 'jax_galsim' has no attribute 'AstropyWCS'"
   - "module 'jax_galsim' has no attribute 'GSFitsWCS'"
   - "module 'jax_galsim' has no attribute 'WcsToolsWCS'"
   - "module 'jax_galsim' has no attribute 'AutoCorrelate'"
   - "module 'jax_galsim' has no attribute 'AutoConvolve'"
-  - "module 'jax_galsim' has no attribute 'Deconvolve'"
   - "module 'jax_galsim' has no attribute 'integ'"
   - "module 'jax_galsim.utilities' has no attribute 'roll2d'"
   - "module 'jax_galsim.utilities' has no attribute 'kxky'"
@@ -55,3 +60,9 @@ allowed_failures:
   - "'Image' object has no attribute 'FindAdaptiveMom'"
   - " module 'jax_galsim' has no attribute '_InterpolatedImage'"
   - "JAX arrays are immutable."
+  - "CelestialCoord.precess is too slow"  # cannot get jax to warmup but once it does it passes
+  - "ValueError not raised by from_xyz"
+  - "ValueError not raised by greatCirclePoint"
+  - "TypeError not raised by __mul__"
+  - "ValueError not raised by CelestialCoord"
+  - "module 'jax_galsim' has no attribute 'TanWCS'"

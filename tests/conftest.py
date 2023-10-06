@@ -26,7 +26,14 @@ def pytest_ignore_collect(collection_path, path, config):
     These somtimes fail to import and cause pytest to fail.
     """
     if "tests/GalSim/tests" in str(collection_path):
-        if not any([t in str(collection_path) for t in test_config["enabled_tests"]]):
+        if not any(
+            [t in str(collection_path) for t in test_config["enabled_tests"]["galsim"]]
+        ):
+            return True
+    if "tests/Coord/tests" in str(collection_path):
+        if not any(
+            [t in str(collection_path) for t in test_config["enabled_tests"]["coord"]]
+        ):
             return True
 
 
@@ -43,7 +50,11 @@ def pytest_collection_modifyitems(config, items):
             continue
 
         # if this is a galsim test we check if it is requested or not
-        if not any([t in item.nodeid for t in test_config["enabled_tests"]]):
+        if (
+            not any([t in item.nodeid for t in test_config["enabled_tests"]["galsim"]])
+        ) and (
+            not any([t in item.nodeid for t in test_config["enabled_tests"]["coord"]])
+        ):
             item.add_marker(skip)
 
 
@@ -66,6 +77,14 @@ def pytest_pycollect_makemodule(module_path, path, parent):
 
     # Overwrites the galsim module
     module.obj.galsim = __import__("jax_galsim")
+    if hasattr(module.obj, "coord"):
+        module.obj.coord = __import__("jax_galsim")
+    if hasattr(module.obj, "radians"):
+        module.obj.radians = __import__("jax_galsim").radians
+        module.obj.degrees = __import__("jax_galsim").degrees
+        module.obj.hours = __import__("jax_galsim").hours
+        module.obj.arcmin = __import__("jax_galsim").arcmin
+        module.obj.arcsec = __import__("jax_galsim").arcsec
 
     # Overwrites galsim in the galsim_test_helpers module
     for k, v in module.obj.__dict__.items():
@@ -80,6 +99,17 @@ def pytest_pycollect_makemodule(module_path, path, parent):
 
         if k == "default_params" and isinstance(v, __import__("galsim").GSParams):
             module.obj.default_params = __import__("jax_galsim").GSParams.from_galsim(v)
+
+    # override coord in its helper_util.py
+    for k, v in module.obj.__dict__.items():
+        if (
+            callable(v)
+            and hasattr(v, "__globals__")
+            and inspect.getsourcefile(v).endswith("helper_util.py")
+            and _infile("def " + k, inspect.getsourcefile(v))
+        ):
+            v.__globals__["coord"] = __import__("jax_galsim")
+            v.__globals__["galsim"] = __import__("jax_galsim")
 
     return module
 
