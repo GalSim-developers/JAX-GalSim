@@ -58,8 +58,8 @@ class AngleUnit(object):
 
     __truediv__ = __div__
 
-    @_wraps(_galsim.AngleUnit.from_name)
     @staticmethod
+    @_wraps(_galsim.AngleUnit.from_name)
     def from_name(unit):
         unit = unit.strip().lower()
         if unit.startswith("rad"):
@@ -265,7 +265,7 @@ class Angle(object):
         return self._rad > other._rad
 
     def __hash__(self):
-        return hash(("galsim.Angle", self._rad))
+        return hash(("galsim.Angle", ensure_hashable(self._rad)))
 
     @staticmethod
     def _make_dms_string(decimal, sep, prec, pad, plus_sign):
@@ -343,13 +343,13 @@ class Angle(object):
             raise ValueError("prec must be >= 0")
         return self._make_dms_string(self / degrees, sep, prec, pad, plus_sign)
 
-    @_wraps(_galsim.Angle.from_hms)
     @staticmethod
+    @_wraps(_galsim.Angle.from_hms)
     def from_hms(str):
         return Angle._parse_dms(str) * hours
 
-    @_wraps(_galsim.Angle.from_dms)
     @staticmethod
+    @_wraps(_galsim.Angle.from_dms)
     def from_dms(str):
         return Angle._parse_dms(str) * degrees
 
