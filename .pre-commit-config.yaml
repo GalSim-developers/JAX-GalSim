@@ -11,9 +11,9 @@ repos:
       - id: flake8
         entry: pflake8
         additional_dependencies: [pyproject-flake8]
-        exclude: tests/Galsim|tests/Coord/|tests/jax/galsim/
+        exclude: tests/Galsim/|tests/Coord/|tests/jax/galsim/
   - repo: https://github.com/pycqa/isort
     rev: 5.12.0
     hooks:
       - id: isort
-        exclude: tests/Galsim|tests/Coord/|tests/jax/galsim/
+        exclude: tests/Galsim/|tests/Coord/|tests/jax/galsim/
