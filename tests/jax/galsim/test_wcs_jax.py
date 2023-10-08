@@ -5,9 +5,10 @@ import sys
 import time
 import warnings
 
-import galsim
 import numpy as np
-from galsim_test_helpers import *
+from galsim_test_helpers import assert_raises, do_pickle, gsobject_compare, timer
+
+import jax_galsim as galsim
 
 # These positions will be used a few times below, so define them here.
 # One of the tests requires that the last pair are integers, so don't change that.
@@ -476,7 +477,9 @@ def do_wcs_image(wcs, name, approx=False):
     # Use the "blank" image as our test image.  It's not blank in the sense of having all
     # zeros.  Rather, there are basically random values that we can use to test that
     # the shifted values are correct.  And it is a conveniently small-ish, non-square image.
-    dir = "fits_files"
+    dir = os.path.join(
+        os.path.dirname(__file__), "..", "..", "GalSim", "tests", "fits_files"
+    )
     file_name = "blankimg.fits"
     im = galsim.fits.read(file_name, dir=dir)
     np.testing.assert_equal(im.origin.x, 1, "initial origin is not 1,1 as expected")
@@ -910,7 +913,7 @@ def do_jac_decomp(wcs, name):
 
     M = scale * S.dot(R).dot(F)
     J = wcs.getMatrix()
-    np.testing.assert_almost_equal(
+    np.testing.assert_array_almost_equal(
         M, J, 8, "Decomposition was inconsistent with jacobian for " + name
     )
 
@@ -3448,7 +3451,7 @@ def test_fittedsipwcs():
         "ZTF": (0.1, 0.1),
     }
 
-    dir = "fits_files"
+    dir = os.path.join(os.path.dirname(__file__), "..", "..", "GalSim/tests/fits_files")
 
     if __name__ == "__main__":
         test_tags = all_tags

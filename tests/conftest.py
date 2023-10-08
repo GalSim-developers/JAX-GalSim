@@ -68,6 +68,19 @@ def _infile(val, fname):
     return False
 
 
+def _convert_galsim_to_jax_galsim(obj):
+    import galsim as _galsim  # noqa: F401
+    from numpy import array  # noqa: F401
+
+    import jax_galsim as galsim  # noqa: F401
+
+    if isinstance(obj, _galsim.GSObject):
+        ret_obj = eval(repr(obj))
+        return ret_obj
+    else:
+        return obj
+
+
 def pytest_pycollect_makemodule(module_path, path, parent):
     """This hook is tasked with overriding the galsim import
     at the top of each test file. Replaces it by jax-galsim.
@@ -110,6 +123,19 @@ def pytest_pycollect_makemodule(module_path, path, parent):
         ):
             v.__globals__["coord"] = __import__("jax_galsim")
             v.__globals__["galsim"] = __import__("jax_galsim")
+
+    # the galsim WCS tests have some items that are galsim objects that need conversions
+    # to jax_galsim objects
+    if module.name.endswith("tests/GalSim/tests/test_wcs.py"):
+        for k, v in module.obj.__dict__.items():
+            if isinstance(v, __import__("galsim").GSObject):
+                module.obj.__dict__[k] = _convert_galsim_to_jax_galsim(v)
+            elif isinstance(v, list):
+                module.obj.__dict__[k] = [
+                    _convert_galsim_to_jax_galsim(obj) for obj in v
+                ]
+
+        module.obj._convert_galsim_to_jax_galsim = _convert_galsim_to_jax_galsim
 
     return module
 
