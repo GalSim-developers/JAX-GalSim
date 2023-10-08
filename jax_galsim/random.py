@@ -1,7 +1,6 @@
 import secrets
 
 import galsim as _galsim
-
 import jax
 import jax.numpy as jnp
 import jax.random as jrandom
@@ -14,7 +13,6 @@ except ImportError:
     from jax.random import wrap_key_data
 
 from jax_galsim.core.utils import ensure_hashable
-
 
 LAX_FUNCTIONAL_RNG = (
     "The JAX version of the this class is purely function and thus cannot "
@@ -35,7 +33,10 @@ class BaseDeviate:
     def __init__(self, seed=None):
         self.reset(seed=seed)
 
-    @_wraps(_galsim.BaseDeviate.seed, lax_description="The JAX version of this method does no type checking.")
+    @_wraps(
+        _galsim.BaseDeviate.seed,
+        lax_description="The JAX version of this method does no type checking.",
+    )
     def seed(self, seed=0):
         self._seed(seed=seed)
 
@@ -50,7 +51,7 @@ class BaseDeviate:
             "The JAX version of this method does no type checking. Also, the JAX version of this "
             "class cannot be linked to another JAX version of this class so ``reset`` is equivalent "
             "to ``seed``. If another ``BaseDeviate`` is supplied, that deviates current state is used."
-        )
+        ),
     )
     def reset(self, seed=None):
         if isinstance(seed, BaseDeviate):
@@ -71,11 +72,15 @@ class BaseDeviate:
     @property
     @_wraps(_galsim.BaseDeviate.np)
     def np(self):
-        raise NotImplementedError("The JAX galsim.BaseDeviate does not support being used as a numpy PRNG.")
+        raise NotImplementedError(
+            "The JAX galsim.BaseDeviate does not support being used as a numpy PRNG."
+        )
 
     @_wraps(_galsim.BaseDeviate.as_numpy_generator)
     def as_numpy_generator(self):
-        raise NotImplementedError("The JAX galsim.BaseDeviate does not support being used as a numpy PRNG.")
+        raise NotImplementedError(
+            "The JAX galsim.BaseDeviate does not support being used as a numpy PRNG."
+        )
 
     @_wraps(_galsim.BaseDeviate.duplicate)
     def duplicate(self):
@@ -86,7 +91,10 @@ class BaseDeviate:
     def __copy__(self):
         return self.duplicate()
 
-    @_wraps(_galsim.BaseDeviate.clearCache, lax_description="This method is a no-op for the JAX version of this class.")
+    @_wraps(
+        _galsim.BaseDeviate.clearCache,
+        lax_description="This method is a no-op for the JAX version of this class.",
+    )
     def clearCache(self):
         pass
 
@@ -95,7 +103,7 @@ class BaseDeviate:
         lax_description=(
             "The JAX version of this class has reliable discarding and uses one key per value "
             "so it never generates in pairs. Thus this method will never raise an error."
-        )
+        ),
     )
     def discard(self, n, suppress_warnings=False):
         def _discard(i, key):
@@ -120,7 +128,7 @@ class BaseDeviate:
         lax_description=(
             "JAX arrays cannot be changed in-place, so the JAX version of "
             "this method returns a new array."
-        )
+        ),
     )
     def generate(self, array):
         self._key, array = self.__class__._generate(self._key, array)
@@ -131,7 +139,7 @@ class BaseDeviate:
         lax_description=(
             "JAX arrays cannot be changed in-place, so the JAX version of "
             "this method returns a new array."
-        )
+        ),
     )
     def add_generate(self, array):
         return self.generate(array) + array
@@ -141,11 +149,10 @@ class BaseDeviate:
         return val
 
     def __eq__(self, other):
-        return (
-            self is other
-            or (
-                isinstance(other, self.__class__)
-                and jnp.array_equal(jrandom.key_data(self._key), jrandom.key_data(other._key))
+        return self is other or (
+            isinstance(other, self.__class__)
+            and jnp.array_equal(
+                jrandom.key_data(self._key), jrandom.key_data(other._key)
             )
         )
 
@@ -189,7 +196,9 @@ class BaseDeviate:
 class UniformDeviate(BaseDeviate):
     def _generate(key, array):
         # we do it this way so that the RNG appears to have a fixed state that is advanced per value drawn
-        key, res = jax.lax.scan(UniformDeviate._generate_one, key, None, length=array.ravel().shape[0])
+        key, res = jax.lax.scan(
+            UniformDeviate._generate_one, key, None, length=array.ravel().shape[0]
+        )
         return key, res.reshape(array.shape)
 
     @jax.jit
