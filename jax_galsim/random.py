@@ -32,6 +32,7 @@ class BaseDeviate:
 
     def __init__(self, seed=None):
         self.reset(seed=seed)
+        self._params = {}
 
     @_wraps(
         _galsim.BaseDeviate.seed,
@@ -50,7 +51,7 @@ class BaseDeviate:
         lax_description=(
             "The JAX version of this method does no type checking. Also, the JAX version of this "
             "class cannot be linked to another JAX version of this class so ``reset`` is equivalent "
-            "to ``seed``. If another ``BaseDeviate`` is supplied, that deviates current state is used."
+            "to ``seed``. If another ``BaseDeviate`` is supplied, that deviate's current state is used."
         ),
     )
     def reset(self, seed=None):
@@ -69,6 +70,9 @@ class BaseDeviate:
     def _reset(self, rng):
         self._key = rng._key
 
+    def serialize(self):
+        return repr(ensure_hashable(jrandom.key_data(self._key)))
+
     @property
     @_wraps(_galsim.BaseDeviate.np)
     def np(self):
@@ -81,15 +85,6 @@ class BaseDeviate:
         raise NotImplementedError(
             "The JAX galsim.BaseDeviate does not support being used as a numpy PRNG."
         )
-
-    @_wraps(_galsim.BaseDeviate.duplicate)
-    def duplicate(self):
-        ret = BaseDeviate.__new__(self.__class__)
-        ret._key = self._key
-        return ret
-
-    def __copy__(self):
-        return self.duplicate()
 
     @_wraps(
         _galsim.BaseDeviate.clearCache,
@@ -106,11 +101,15 @@ class BaseDeviate:
         ),
     )
     def discard(self, n, suppress_warnings=False):
-        def _discard(i, key):
+        self._key = self.__class__._discard(self._key, n)
+
+    @jax.jit
+    def _discard(key, n):
+        def __discard(i, key):
             key, subkey = jrandom.split(key)
             return key
 
-        self._key = jax.lax.fori_loop(0, n, _discard, self._key)
+        return jax.lax.fori_loop(0, n, __discard, key)
 
     @_wraps(
         _galsim.BaseDeviate.raw,
@@ -148,12 +147,23 @@ class BaseDeviate:
         self._key, val = self.__class__._generate_one(self._key, None)
         return val
 
+    @_wraps(_galsim.BaseDeviate.duplicate)
+    def duplicate(self):
+        ret = self.__class__.__new__(self.__class__)
+        ret._key = self._key
+        ret._params = self._params.copy()
+        return ret
+
+    def __copy__(self):
+        return self.duplicate()
+
     def __eq__(self, other):
         return self is other or (
             isinstance(other, self.__class__)
             and jnp.array_equal(
                 jrandom.key_data(self._key), jrandom.key_data(other._key)
             )
+            and self._params == other._params
         )
 
     def __ne__(self, other):
@@ -161,23 +171,11 @@ class BaseDeviate:
 
     __hash__ = None
 
-    def serialize(self):
-        return repr(ensure_hashable(jrandom.key_data(self._key)))
-
-    def __repr__(self):
-        return "galsim.%s(%r) " % (
-            self.__class__.__name__,
-            ensure_hashable(jrandom.key_data(self._key)),
-        )
-
-    def __str__(self):
-        return self.__repr__()
-
     def tree_flatten(self):
         """This function flattens the PRNG into a list of children
         nodes that will be traced by JAX and auxiliary static data."""
         # Define the children nodes of the PyTree that need tracing
-        children = (jrandom.key_data(self._key),)
+        children = (jrandom.key_data(self._key), self._params)
         # Define auxiliary static data that doesn’t need to be traced
         aux_data = {}
         return (children, aux_data)
@@ -185,7 +183,15 @@ class BaseDeviate:
     @classmethod
     def tree_unflatten(cls, aux_data, children):
         """Recreates an instance of the class from flatten representation"""
-        return cls(children[0])
+        return cls(children[0], **(children[1]))
+
+    def __repr__(self):
+        return "galsim.BaseDeviate(seed=%r) " % (
+            ensure_hashable(jrandom.key_data(self._key)),
+        )
+
+    def __str__(self):
+        return self.__repr__()
 
 
 @_wraps(
@@ -206,75 +212,80 @@ class UniformDeviate(BaseDeviate):
         _key, subkey = jrandom.split(key)
         return _key, jrandom.uniform(subkey, dtype=float)
 
+    def __repr__(self):
+        return "galsim.UniformDeviate(seed=%r) " % (
+            ensure_hashable(jrandom.key_data(self._key)),
+        )
 
-# class GaussianDeviate(BaseDeviate):
-#     """Pseudo-random number generator with Gaussian distribution.
+    def __str__(self):
+        return "galsim.UniformDeviate()"
 
-#     See http://en.wikipedia.org/wiki/Gaussian_distribution for further details.
 
-#     Successive calls to ``g()`` generate pseudo-random values distributed according to a Gaussian
-#     distribution with the provided ``mean``, ``sigma``::
+@_wraps(
+    _galsim.GaussianDeviate,
+    lax_description=LAX_FUNCTIONAL_RNG,
+)
+@register_pytree_node_class
+class GaussianDeviate(BaseDeviate):
+    def __init__(self, seed=None, mean=0.0, sigma=1.0):
+        super().__init__(seed=seed)
+        self._params["mean"] = mean
+        self._params["sigma"] = sigma
 
-#         >>> g = galsim.GaussianDeviate(31415926)
-#         >>> g()
-#         0.5533754000847082
-#         >>> g()
-#         1.0218588970190354
+    @property
+    def mean(self):
+        """The mean of the Gaussian distribution."""
+        return self._params["mean"]
 
-#     Parameters:
-#         seed:       Something that can seed a `BaseDeviate`: an integer seed or another
-#                     `BaseDeviate`.  Using 0 means to generate a seed from the system.
-#                     [default: None]
-#         mean:       Mean of Gaussian distribution. [default: 0.]
-#         sigma:      Sigma of Gaussian distribution. [default: 1.; Must be > 0]
-#     """
-#     def __init__(self, seed=None, mean=0., sigma=1.):
-#         if sigma < 0.:
-#             raise GalSimRangeError("GaussianDeviate sigma must be > 0.", sigma, 0.)
-#         self._rng_type = _galsim.GaussianDeviateImpl
-#         self._rng_args = (float(mean), float(sigma))
-#         self.reset(seed)
+    @property
+    def sigma(self):
+        """The sigma of the Gaussian distribution."""
+        return self._params["sigma"]
 
-#     @property
-#     def mean(self):
-#         """The mean of the Gaussian distribution.
-#         """
-#         return self._rng_args[0]
+    @_wraps(
+        _galsim.BaseDeviate.generate,
+        lax_description=(
+            "JAX arrays cannot be changed in-place, so the JAX version of "
+            "this method returns a new array."
+        ),
+    )
+    def generate(self, array):
+        self._key, array = self.__class__._generate(self._key, array)
+        return array * self.sigma + self.mean
 
-#     @property
-#     def sigma(self):
-#         """The sigma of the Gaussian distribution.
-#         """
-#         return self._rng_args[1]
+    def _generate(key, array):
+        # we do it this way so that the RNG appears to have a fixed state that is advanced per value drawn
+        key, res = jax.lax.scan(
+            GaussianDeviate._generate_one, key, None, length=array.ravel().shape[0]
+        )
+        return key, res.reshape(array.shape)
 
-#     @property
-#     def generates_in_pairs(self):
-#         return True
+    def __call__(self):
+        self._key, val = self.__class__._generate_one(self._key, None)
+        return val * self.sigma + self.mean
 
-#     def __call__(self):
-#         """Draw a new random number from the distribution.
+    @jax.jit
+    def _generate_one(key, x):
+        _key, subkey = jrandom.split(key)
+        return _key, jrandom.normal(subkey, dtype=float)
 
-#         Returns a Gaussian deviate with the given mean and sigma.
-#         """
-#         return self._rng.generate1()
+    @_wraps(_galsim.GaussianDeviate.generate_from_variance)
+    def generate_from_variance(self, array):
+        self._key, _array = self.__class__._generate(self._key, array)
+        return _array * jnp.sqrt(array)
 
-#     def generate_from_variance(self, array):
-#         """Generate many Gaussian deviate values using the existing array values as the
-#         variance for each.
-#         """
-#         array_1d = np.ascontiguousarray(array.ravel(), dtype=float)
-#         #assert(array_1d.strides[0] == array_1d.itemsize)
-#         _a = array_1d.__array_interface__['data'][0]
-#         self._rng.generate_from_variance(len(array_1d), _a)
-#         if array_1d.data != array.data:
-#             # array_1d is not a view into the original array.  Need to copy back.
-#             np.copyto(array, array_1d.reshape(array.shape), casting='unsafe')
+    def __repr__(self):
+        return "galsim.GaussianDeviate(seed=%r, mean=%r, sigma=%r)" % (
+            ensure_hashable(jrandom.key_data(self._key)),
+            ensure_hashable(self.mean),
+            ensure_hashable(self.sigma),
+        )
 
-#     def __repr__(self):
-#         return 'galsim.GaussianDeviate(seed=%r, mean=%r, sigma=%r)'%(
-#                 self._seed_repr(), self.mean, self.sigma)
-#     def __str__(self):
-#         return 'galsim.GaussianDeviate(mean=%r, sigma=%r)'%(self.mean, self.sigma)
+    def __str__(self):
+        return "galsim.GaussianDeviate(mean=%r, sigma=%r)" % (
+            ensure_hashable(self.mean),
+            ensure_hashable(self.sigma),
+        )
 
 
 # class BinomialDeviate(BaseDeviate):

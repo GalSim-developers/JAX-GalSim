@@ -27,7 +27,7 @@ uResult = (0.0160653916, 0.228817832, 0.1609966951)
 gMean = 4.7
 gSigma = 3.2
 # the right answer for the first three Gaussian deviates produced from testseed
-gResult = (6.3344979808161215, 6.2082355273987861, -0.069894693358302007)
+gResult = (-2.1568953985, 2.3232138032, 1.5308165692)
 
 # N, p to use for binomial tests
 bN = 10
@@ -300,208 +300,220 @@ def test_uniform():
     # assert_raises(TypeError, u.seed, 12.3)
 
 
-# @timer
-# def test_gaussian():
-#     """Test Gaussian random number generator
-#     """
-#     g = galsim.GaussianDeviate(testseed, mean=gMean, sigma=gSigma)
-#     g2 = g.duplicate()
-#     g3 = galsim.GaussianDeviate(g.serialize(), mean=gMean, sigma=gSigma)
-#     testResult = (g(), g(), g())
-#     np.testing.assert_array_almost_equal(
-#             np.array(testResult), np.array(gResult), precision,
-#             err_msg='Wrong Gaussian random number sequence generated')
-#     testResult = (g2(), g2(), g2())
-#     np.testing.assert_array_almost_equal(
-#             np.array(testResult), np.array(gResult), precision,
-#             err_msg='Wrong Gaussian random number sequence generated with duplicate')
-#     testResult = (g3(), g3(), g3())
-#     np.testing.assert_array_almost_equal(
-#             np.array(testResult), np.array(gResult), precision,
-#             err_msg='Wrong Gaussian random number sequence generated from serialize')
+@timer
+def test_gaussian():
+    """Test Gaussian random number generator
+    """
+    g = galsim.GaussianDeviate(testseed, mean=gMean, sigma=gSigma)
+    g2 = g.duplicate()
+    g3 = galsim.GaussianDeviate(g.serialize(), mean=gMean, sigma=gSigma)
+    testResult = (g(), g(), g())
+    np.testing.assert_array_almost_equal(
+        np.array(testResult), np.array(gResult), precision,
+        err_msg='Wrong Gaussian random number sequence generated')
+    testResult = (g2(), g2(), g2())
+    np.testing.assert_array_almost_equal(
+        np.array(testResult), np.array(gResult), precision,
+        err_msg='Wrong Gaussian random number sequence generated with duplicate')
+    testResult = (g3(), g3(), g3())
+    np.testing.assert_array_almost_equal(
+        np.array(testResult), np.array(gResult), precision,
+        err_msg='Wrong Gaussian random number sequence generated from serialize')
 
-#     # Check that the mean and variance come out right
-#     g = galsim.GaussianDeviate(testseed, mean=gMean, sigma=gSigma)
-#     vals = [g() for i in range(nvals)]
-#     mean = np.mean(vals)
-#     var = np.var(vals)
-#     mu = gMean
-#     v = gSigma**2
-#     print('mean = ',mean,'  true mean = ',mu)
-#     print('var = ',var,'   true var = ',v)
-#     np.testing.assert_almost_equal(mean, mu, 1,
-#             err_msg='Wrong mean from GaussianDeviate')
-#     np.testing.assert_almost_equal(var, v, 0,
-#             err_msg='Wrong variance from GaussianDeviate')
+    # Check that the mean and variance come out right
+    g = galsim.GaussianDeviate(testseed, mean=gMean, sigma=gSigma)
+    vals = [g() for i in range(nvals)]
+    mean = np.mean(vals)
+    var = np.var(vals)
+    mu = gMean
+    v = gSigma**2
+    print('mean = ', mean, '  true mean = ', mu)
+    print('var = ', var, '   true var = ', v)
+    np.testing.assert_almost_equal(
+        mean, mu, 1,
+        err_msg='Wrong mean from GaussianDeviate')
+    np.testing.assert_almost_equal(
+        var, v, 0,
+        err_msg='Wrong variance from GaussianDeviate')
 
-#     # Check discard
-#     g2 = galsim.GaussianDeviate(testseed, mean=gMean, sigma=gSigma)
-#     g2.discard(nvals)
-#     v1,v2 = g(),g2()
-#     print('after %d vals, next one is %s, %s'%(nvals,v1,v2))
-#     assert v1 == v2
-#     # Note: For Gaussian, this only works if nvals is even.
-#     g2 = galsim.GaussianDeviate(testseed, mean=gMean, sigma=gSigma)
-#     g2.discard(nvals+1, suppress_warnings=True)
-#     v1,v2 = g(),g2()
-#     print('after %d vals, next one is %s, %s'%(nvals+1,v1,v2))
-#     assert v1 != v2
-#     assert g.has_reliable_discard
-#     assert g.generates_in_pairs
+    # Check discard
+    g2 = galsim.GaussianDeviate(testseed, mean=gMean, sigma=gSigma)
+    g2.discard(nvals)
+    v1, v2 = g(), g2()
+    print('after %d vals, next one is %s, %s' % (nvals, v1, v2))
+    assert v1 == v2
+    # NOTE: JAX doesn't appear to have this issue
+    # Note: For Gaussian, this only works if nvals is even.
+    # g2 = galsim.GaussianDeviate(testseed, mean=gMean, sigma=gSigma)
+    # g2.discard(nvals+1, suppress_warnings=True)
+    # v1,v2 = g(),g2()
+    # print('after %d vals, next one is %s, %s'%(nvals+1,v1,v2))
+    # assert v1 != v2
+    assert g.has_reliable_discard
+    # NOTE changed to NOT here for JAX
+    assert not g.generates_in_pairs
 
-#     # If don't explicitly suppress the warning, then a warning is emitted when n is odd.
-#     g2 = galsim.GaussianDeviate(testseed, mean=gMean, sigma=gSigma)
-#     with assert_warns(galsim.GalSimWarning):
-#         g2.discard(nvals+1)
+    # NOTE: JAX doesn't warn for this
+    # If don't explicitly suppress the warning, then a warning is emitted when n is odd.
+    # g2 = galsim.GaussianDeviate(testseed, mean=gMean, sigma=gSigma)
+    # with assert_warns(galsim.GalSimWarning):
+    #     g2.discard(nvals+1)
 
-#     # Check seed, reset
-#     g.seed(testseed)
-#     testResult2 = (g(), g(), g())
-#     np.testing.assert_array_equal(
-#             np.array(testResult), np.array(testResult2),
-#             err_msg='Wrong Gaussian random number sequence generated after seed')
+    # Check seed, reset
+    g.seed(testseed)
+    testResult2 = (g(), g(), g())
+    np.testing.assert_array_equal(
+        np.array(testResult), np.array(testResult2),
+        err_msg='Wrong Gaussian random number sequence generated after seed')
 
-#     g.reset(testseed)
-#     testResult2 = (g(), g(), g())
-#     np.testing.assert_array_equal(
-#             np.array(testResult), np.array(testResult2),
-#             err_msg='Wrong Gaussian random number sequence generated after reset(seed)')
+    g.reset(testseed)
+    testResult2 = (g(), g(), g())
+    np.testing.assert_array_equal(
+        np.array(testResult), np.array(testResult2),
+        err_msg='Wrong Gaussian random number sequence generated after reset(seed)')
 
-#     rng = galsim.BaseDeviate(testseed)
-#     g.reset(rng)
-#     testResult2 = (g(), g(), g())
-#     np.testing.assert_array_equal(
-#             np.array(testResult), np.array(testResult2),
-#             err_msg='Wrong Gaussian random number sequence generated after reset(rng)')
+    rng = galsim.BaseDeviate(testseed)
+    g.reset(rng)
+    testResult2 = (g(), g(), g())
+    np.testing.assert_array_equal(
+        np.array(testResult), np.array(testResult2),
+        err_msg='Wrong Gaussian random number sequence generated after reset(rng)')
 
-#     ud = galsim.UniformDeviate(testseed)
-#     g.reset(ud)
-#     testResult = (g(), g(), g())
-#     np.testing.assert_array_equal(
-#             np.array(testResult), np.array(testResult2),
-#             err_msg='Wrong Gaussian random number sequence generated after reset(ud)')
+    ud = galsim.UniformDeviate(testseed)
+    g.reset(ud)
+    testResult = (g(), g(), g())
+    np.testing.assert_array_equal(
+        np.array(testResult), np.array(testResult2),
+        err_msg='Wrong Gaussian random number sequence generated after reset(ud)')
 
-#     # Check that two connected Gaussian deviates work correctly together.
-#     g2 = galsim.GaussianDeviate(testseed, mean=gMean, sigma=gSigma)
-#     g.reset(g2)
-#     # Note: GaussianDeviate generates two values at a time, so we have to compare them in pairs.
-#     testResult2 = (g(), g(), g2())
-#     np.testing.assert_array_equal(
-#             np.array(testResult), np.array(testResult2),
-#             err_msg='Wrong Gaussian random number sequence generated using two gds')
-#     g.seed(testseed)
-#     # For the same reason, after seeding one, we need to manually clear the other's cache:
-#     g2.clearCache()
-#     testResult2 = (g2(), g2(), g())
-#     np.testing.assert_array_equal(
-#             np.array(testResult), np.array(testResult2),
-#             err_msg='Wrong Gaussian random number sequence generated using two gds after seed')
+    # NOTE jax doesn't allow connected RNGs
+    # # Check that two connected Gaussian deviates work correctly together.
+    # g2 = galsim.GaussianDeviate(testseed, mean=gMean, sigma=gSigma)
+    # g.reset(g2)
+    # # Note: GaussianDeviate generates two values at a time, so we have to compare them in pairs.
+    # testResult2 = (g(), g(), g2())
+    # np.testing.assert_array_equal(
+    #     np.array(testResult), np.array(testResult2),
+    #     err_msg='Wrong Gaussian random number sequence generated using two gds')
+    # g.seed(testseed)
+    # # For the same reason, after seeding one, we need to manually clear the other's cache:
+    # g2.clearCache()
+    # testResult2 = (g2(), g2(), g())
+    # np.testing.assert_array_equal(
+    #     np.array(testResult), np.array(testResult2),
+    #     err_msg='Wrong Gaussian random number sequence generated using two gds after seed')
 
-#     # Check that seeding with the time works (although we cannot check the output).
-#     # We're mostly just checking that this doesn't raise an exception.
-#     # The output could be anything.
-#     g.seed()
-#     testResult2 = (g(), g(), g())
-#     assert testResult2 != testResult
-#     g.reset()
-#     testResult3 = (g(), g(), g())
-#     assert testResult3 != testResult
-#     assert testResult3 != testResult2
-#     g.reset()
-#     testResult4 = (g(), g(), g())
-#     assert testResult4 != testResult
-#     assert testResult4 != testResult2
-#     assert testResult4 != testResult3
-#     g = galsim.GaussianDeviate(mean=gMean, sigma=gSigma)
-#     testResult5 = (g(), g(), g())
-#     assert testResult5 != testResult
-#     assert testResult5 != testResult2
-#     assert testResult5 != testResult3
-#     assert testResult5 != testResult4
+    # Check that seeding with the time works (although we cannot check the output).
+    # We're mostly just checking that this doesn't raise an exception.
+    # The output could be anything.
+    g.seed()
+    testResult2 = (g(), g(), g())
+    assert testResult2 != testResult
+    g.reset()
+    testResult3 = (g(), g(), g())
+    assert testResult3 != testResult
+    assert testResult3 != testResult2
+    g.reset()
+    testResult4 = (g(), g(), g())
+    assert testResult4 != testResult
+    assert testResult4 != testResult2
+    assert testResult4 != testResult3
+    g = galsim.GaussianDeviate(mean=gMean, sigma=gSigma)
+    testResult5 = (g(), g(), g())
+    assert testResult5 != testResult
+    assert testResult5 != testResult2
+    assert testResult5 != testResult3
+    assert testResult5 != testResult4
 
-#     # Test generate
-#     g.seed(testseed)
-#     test_array = np.empty(3)
-#     g.generate(test_array)
-#     np.testing.assert_array_almost_equal(
-#             test_array, np.array(gResult), precision,
-#             err_msg='Wrong Gaussian random number sequence from generate.')
+    # Test generate
+    g.seed(testseed)
+    test_array = np.empty(3)
+    test_array.fill(np.nan)
+    test_array = g.generate(test_array)
+    np.testing.assert_array_almost_equal(
+        test_array, np.array(gResult), precision,
+        err_msg='Wrong Gaussian random number sequence from generate.')
 
-#     # Test generate_from_variance.
-#     g2 = galsim.GaussianDeviate(testseed, mean=5, sigma=0.3)
-#     g3 = galsim.GaussianDeviate(testseed, mean=5, sigma=0.3)
-#     test_array.fill(gSigma**2)
-#     g2.generate_from_variance(test_array)
-#     np.testing.assert_array_almost_equal(
-#             test_array, np.array(gResult)-gMean, precision,
-#             err_msg='Wrong Gaussian random number sequence from generate_from_variance.')
-#     # After running generate_from_variance, it should be back to using the specified mean, sigma.
-#     # Note: need to round up to even number for discard, since gd generates 2 at a time.
-#     g3.discard((len(test_array)+1)//2 * 2)
-#     print('g2,g3 = ',g2(),g3())
-#     assert g2() == g3()
+    # Test generate_from_variance.
+    g2 = galsim.GaussianDeviate(testseed, mean=5, sigma=0.3)
+    g3 = galsim.GaussianDeviate(testseed, mean=5, sigma=0.3)
+    test_array = np.empty(3)
+    test_array.fill(gSigma**2)
+    test_array = g2.generate_from_variance(test_array)
+    np.testing.assert_array_almost_equal(
+        test_array, np.array(gResult) - gMean, precision,
+        err_msg='Wrong Gaussian random number sequence from generate_from_variance.')
+    # NOTE JAX can use the array shape here
+    # After running generate_from_variance, it should be back to using the specified mean, sigma.
+    # Note: need to round up to even number for discard, since gd generates 2 at a time.
+    g3.discard(len(test_array))
+    print('g2,g3 = ', g2(), g3())
+    assert g2() == g3()
 
-#     # Test generate with a float32 array.
-#     g.seed(testseed)
-#     test_array = np.empty(3, dtype=np.float32)
-#     g.generate(test_array)
-#     np.testing.assert_array_almost_equal(
-#             test_array, np.array(gResult), precisionF,
-#             err_msg='Wrong Gaussian random number sequence from generate.')
+    # Test generate with a float32 array.
+    g.seed(testseed)
+    test_array = np.empty(3, dtype=np.float32)
+    test_array.fill(np.nan)
+    test_array = g.generate(test_array)
+    np.testing.assert_array_almost_equal(
+        test_array, np.array(gResult), precisionF,
+        err_msg='Wrong Gaussian random number sequence from generate.')
 
-#     # Test generate_from_variance.
-#     g2.seed(testseed)
-#     test_array.fill(gSigma**2)
-#     g2.generate_from_variance(test_array)
-#     np.testing.assert_array_almost_equal(
-#             test_array, np.array(gResult)-gMean, precisionF,
-#             err_msg='Wrong Gaussian random number sequence from generate_from_variance.')
+    # Test generate_from_variance.
+    g2.seed(testseed)
+    test_array = np.empty(3, dtype=np.float32)
+    test_array.fill(gSigma**2)
+    test_array = g2.generate_from_variance(test_array)
+    np.testing.assert_array_almost_equal(
+        test_array, np.array(gResult) - gMean, precisionF,
+        err_msg='Wrong Gaussian random number sequence from generate_from_variance.')
 
-#     # Check that generated values are independent of number of threads.
-#     g1 = galsim.GaussianDeviate(testseed, mean=53, sigma=1.3)
-#     g2 = galsim.GaussianDeviate(testseed, mean=53, sigma=1.3)
-#     v1 = np.empty(555)
-#     v2 = np.empty(555)
-#     with single_threaded():
-#         g1.generate(v1)
-#     with single_threaded(num_threads=10):
-#         g2.generate(v2)
-#     np.testing.assert_array_equal(v1, v2)
-#     with single_threaded():
-#         g1.add_generate(v1)
-#     with single_threaded(num_threads=10):
-#         g2.add_generate(v2)
-#     np.testing.assert_array_equal(v1, v2)
-#     ud = galsim.UniformDeviate(testseed + 3)
-#     ud.generate(v1)
-#     v1 += 6.7
-#     v2[:] = v1
-#     with single_threaded():
-#         g1.generate_from_variance(v1)
-#     with single_threaded(num_threads=10):
-#         g2.generate_from_variance(v2)
-#     np.testing.assert_array_equal(v1, v2)
+    # Check that generated values are independent of number of threads.
+    g1 = galsim.GaussianDeviate(testseed, mean=53, sigma=1.3)
+    g2 = galsim.GaussianDeviate(testseed, mean=53, sigma=1.3)
+    v1 = np.empty(555)
+    v2 = np.empty(555)
+    with single_threaded():
+        v1 = g1.generate(v1)
+    with single_threaded(num_threads=10):
+        v2 = g2.generate(v2)
+    np.testing.assert_array_equal(v1, v2)
+    with single_threaded():
+        v1 = g1.add_generate(v1)
+    with single_threaded(num_threads=10):
+        v2 = g2.add_generate(v2)
+    np.testing.assert_array_equal(v1, v2)
+    ud = galsim.UniformDeviate(testseed + 3)
+    ud.generate(v1)
+    v1 += 6.7
+    v2 = v1.copy()
+    with single_threaded():
+        v1 = g1.generate_from_variance(v1)
+    with single_threaded(num_threads=10):
+        v2 = g2.generate_from_variance(v2)
+    np.testing.assert_array_equal(v1, v2)
 
-#     # Check picklability
-#     do_pickle(g, lambda x: (x.serialize(), x.mean, x.sigma))
-#     do_pickle(g, lambda x: (x(), x(), x(), x()))
-#     do_pickle(g)
-#     assert 'GaussianDeviate' in repr(g)
-#     assert 'GaussianDeviate' in str(g)
-#     assert isinstance(eval(repr(g)), galsim.GaussianDeviate)
-#     assert isinstance(eval(str(g)), galsim.GaussianDeviate)
+    # Check picklability
+    do_pickle(g, lambda x: (x.serialize(), x.mean, x.sigma))
+    do_pickle(g, lambda x: (x(), x(), x(), x()))
+    do_pickle(g)
+    assert 'GaussianDeviate' in repr(g)
+    assert 'GaussianDeviate' in str(g)
+    assert isinstance(eval(repr(g)), galsim.GaussianDeviate)
+    assert isinstance(eval(str(g)), galsim.GaussianDeviate)
 
-#     # Check that we can construct a GaussianDeviate from None, and that it depends on dev/random.
-#     g1 = galsim.GaussianDeviate(None)
-#     g2 = galsim.GaussianDeviate(None)
-#     assert g1 != g2, "Consecutive GaussianDeviate(None) compared equal!"
-#     # We shouldn't be able to construct a GaussianDeviate from anything but a BaseDeviate, int, str,
-#     # or None.
-#     assert_raises(TypeError, galsim.GaussianDeviate, dict())
-#     assert_raises(TypeError, galsim.GaussianDeviate, list())
-#     assert_raises(TypeError, galsim.GaussianDeviate, set())
+    # Check that we can construct a GaussianDeviate from None, and that it depends on dev/random.
+    g1 = galsim.GaussianDeviate(None)
+    g2 = galsim.GaussianDeviate(None)
+    assert g1 != g2, "Consecutive GaussianDeviate(None) compared equal!"
 
-#     assert_raises(ValueError, galsim.GaussianDeviate, testseed, mean=1, sigma=-1)
+    # NOTE: We do not test for these since we do no type checking in JAX
+    # We shouldn't be able to construct a GaussianDeviate from anything but a BaseDeviate, int, str,
+    # or None.
+    # assert_raises(TypeError, galsim.GaussianDeviate, dict())
+    # assert_raises(TypeError, galsim.GaussianDeviate, list())
+    # assert_raises(TypeError, galsim.GaussianDeviate, set())
+    # assert_raises(ValueError, galsim.GaussianDeviate, testseed, mean=1, sigma=-1)
 
 
 # @timer
