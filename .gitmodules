@@ -2,3 +2,7 @@
 	path = tests/GalSim
 	url = https://github.com/GalSim-developers/GalSim
 	branch = fix_tests
+[submodule "tests/Coord"]
+	path = tests/Coord
+	url = https://github.com/LSSTDESC/Coord.git
+	branch = fix-tests-jax-galsim

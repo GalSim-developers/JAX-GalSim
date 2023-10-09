@@ -859,7 +859,7 @@ class JacobianWCS(LocalWCS):
 
     @_wraps(_galsim.JacobianWCS.getDecomposition)
     def getDecomposition(self):
-        from coord.angle import radians
+        from .angle import radians
 
         # First we need to see whether or not the transformation includes a flip.  The evidence
         # for a flip is that the determinant is negative.

@@ -1,5 +1,3 @@
-from galsim.angle import arcmin, arcsec, degrees, hours, radians
-
 # Inherit all Exception and Warning classes from galsim
 from galsim.errors import (
     GalSimBoundsError,
@@ -25,6 +23,7 @@ from galsim.errors import (
 from .bounds import Bounds, BoundsD, BoundsI
 from .gsparams import GSParams
 from .position import Position, PositionD, PositionI
+from .angle import Angle, AngleUnit, _Angle, radians, hours, degrees, arcmin, arcsec
 
 # Image
 from .image import (
@@ -62,6 +61,7 @@ from .wcs import (
     OffsetShearWCS,
 )
 from .fits import FitsHeader
+from .celestial import CelestialCoord
 
 # Shear
 from .shear import Shear, _Shear
