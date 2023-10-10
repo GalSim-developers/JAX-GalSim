@@ -528,55 +528,60 @@ class PoissonDeviate(BaseDeviate):
 #         return 'galsim.GammaDeviate(k=%r, theta=%r)'%(self.k, self.theta)
 
 
-# class Chi2Deviate(BaseDeviate):
-#     """Pseudo-random Chi^2-distributed deviate for degrees-of-freedom parameter ``n``.
+@_wraps(
+    _galsim.Chi2Deviate,
+    lax_description=LAX_FUNCTIONAL_RNG,
+)
+@register_pytree_node_class
+class Chi2Deviate(BaseDeviate):
+    def __init__(self, seed=None, n=1.0):
+        super().__init__(seed=seed)
+        self._params["n"] = n
 
-#     See http://en.wikipedia.org/wiki/Chi-squared_distribution (note that k=n in the notation
-#     adopted in the Boost.Random routine called by this class).  The Chi^2 distribution is a
-#     real-valued distribution producing deviates >= 0.
+    @property
+    def n(self):
+        """The number of degrees of freedom."""
+        return self._params["n"]
 
-#     Successive calls to ``chi2()`` generate pseudo-random values distributed according to a
-#     chi-square distribution with the specified degrees of freedom, ``n``::
+    @_wraps(
+        _galsim.BaseDeviate.generate,
+        lax_description=(
+            "JAX arrays cannot be changed in-place, so the JAX version of "
+            "this method returns a new array."
+        ),
+    )
+    def generate(self, array):
+        self._key, array = self.__class__._generate(self._key, array, self.n)
+        return array
 
-#         >>> chi2 = galsim.Chi2Deviate(31415926, n=7)
-#         >>> chi2()
-#         7.9182211987712385
-#         >>> chi2()
-#         6.644121724269535
+    @jax.jit
+    def _generate(key, array, n):
+        # we do it this way so that the RNG appears to have a fixed state that is advanced per value drawn
+        key, res = jax.lax.scan(
+            Chi2Deviate._generate_one,
+            key,
+            jnp.broadcast_to(n, array.ravel().shape),
+            length=array.ravel().shape[0],
+        )
+        return key, res.reshape(array.shape)
 
-#     Parameters:
-#         seed:       Something that can seed a `BaseDeviate`: an integer seed or another
-#                     `BaseDeviate`.  Using 0 means to generate a seed from the system.
-#                     [default: None]
-#         n:          Number of degrees of freedom for the output distribution. [default: 1;
-#                     Must be > 0]
-#     """
-#     def __init__(self, seed=None, n=1.):
-#         self._rng_type = _galsim.Chi2DeviateImpl
-#         self._rng_args = (float(n),)
-#         self.reset(seed)
+    def __call__(self):
+        self._key, val = self.__class__._generate_one(self._key, self.n)
+        return val
 
-#     @property
-#     def n(self):
-#         """The number of degrees of freedom.
-#         """
-#         return self._rng_args[0]
+    @jax.jit
+    def _generate_one(key, n):
+        _key, subkey = jrandom.split(key)
+        return _key, jrandom.chisquare(subkey, n, dtype=float)
 
-#     @property
-#     def has_reliable_discard(self):
-#         return False
+    def __repr__(self):
+        return "galsim.Chi2Deviate(seed=%r, n=%r)" % (
+            ensure_hashable(jrandom.key_data(self._key)),
+            ensure_hashable(self.n),
+        )
 
-#     def __call__(self):
-#         """Draw a new random number from the distribution.
-
-#         Returns a Chi2-distributed deviate with the given number of degrees of freedom.
-#         """
-#         return self._rng.generate1()
-
-#     def __repr__(self):
-#         return 'galsim.Chi2Deviate(seed=%r, n=%r)'%(self._seed_repr(), self.n)
-#     def __str__(self):
-#         return 'galsim.Chi2Deviate(n=%r)'%(self.n)
+    def __str__(self):
+        return "galsim.Chi2Deviate(n=%r)" % (ensure_hashable(self.n),)
 
 
 # class DistDeviate(BaseDeviate):

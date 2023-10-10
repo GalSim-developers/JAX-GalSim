@@ -55,7 +55,7 @@ gammaResult = (4.7375613139927157, 15.272973580418618, 21.485016362839747)
 # n to use for Chi2 tests
 chi2N = 30
 # Tabulated results for Chi2
-chi2Result = (32.209933900954049, 50.040002656028513, 24.301442486313896)
+chi2Result = (36.7583415337, 32.7223187231, 23.1555198334)
 
 # function and min&max to use for DistDeviate function call tests
 dmin = 0.0
@@ -1340,151 +1340,156 @@ def test_poisson():
 #     assert_raises(TypeError, galsim.GammaDeviate, set())
 
 
-# @timer
-# def test_chi2():
-#     """Test Chi^2 random number generator
-#     """
-#     c = galsim.Chi2Deviate(testseed, n=chi2N)
-#     c2 = c.duplicate()
-#     c3 = galsim.Chi2Deviate(c.serialize(), n=chi2N)
-#     testResult = (c(), c(), c())
-#     np.testing.assert_array_almost_equal(
-#             np.array(testResult), np.array(chi2Result), precision,
-#             err_msg='Wrong Chi^2 random number sequence generated')
-#     testResult = (c2(), c2(), c2())
-#     np.testing.assert_array_almost_equal(
-#             np.array(testResult), np.array(chi2Result), precision,
-#             err_msg='Wrong Chi^2 random number sequence generated with duplicate')
-#     testResult = (c3(), c3(), c3())
-#     np.testing.assert_array_almost_equal(
-#             np.array(testResult), np.array(chi2Result), precision,
-#             err_msg='Wrong Chi^2 random number sequence generated from serialize')
+@timer
+def test_chi2():
+    """Test Chi^2 random number generator
+    """
+    c = galsim.Chi2Deviate(testseed, n=chi2N)
+    c2 = c.duplicate()
+    c3 = galsim.Chi2Deviate(c.serialize(), n=chi2N)
+    testResult = (c(), c(), c())
+    np.testing.assert_array_almost_equal(
+        np.array(testResult), np.array(chi2Result), precision,
+        err_msg='Wrong Chi^2 random number sequence generated')
+    testResult = (c2(), c2(), c2())
+    np.testing.assert_array_almost_equal(
+        np.array(testResult), np.array(chi2Result), precision,
+        err_msg='Wrong Chi^2 random number sequence generated with duplicate')
+    testResult = (c3(), c3(), c3())
+    np.testing.assert_array_almost_equal(
+        np.array(testResult), np.array(chi2Result), precision,
+        err_msg='Wrong Chi^2 random number sequence generated from serialize')
 
-#     # Check that the mean and variance come out right
-#     c = galsim.Chi2Deviate(testseed, n=chi2N)
-#     vals = [c() for i in range(nvals)]
-#     mean = np.mean(vals)
-#     var = np.var(vals)
-#     mu = chi2N
-#     v = 2.*chi2N
-#     print('mean = ',mean,'  true mean = ',mu)
-#     print('var = ',var,'   true var = ',v)
-#     np.testing.assert_almost_equal(mean, mu, 1,
-#             err_msg='Wrong mean from Chi2Deviate')
-#     np.testing.assert_almost_equal(var, v, 0,
-#             err_msg='Wrong variance from Chi2Deviate')
+    # Check that the mean and variance come out right
+    c = galsim.Chi2Deviate(testseed, n=chi2N)
+    vals = [c() for i in range(nvals)]
+    mean = np.mean(vals)
+    var = np.var(vals)
+    mu = chi2N
+    v = 2. * chi2N
+    print('mean = ', mean, '  true mean = ', mu)
+    print('var = ', var, '   true var = ', v)
+    np.testing.assert_almost_equal(
+        mean, mu, 1,
+        err_msg='Wrong mean from Chi2Deviate')
+    np.testing.assert_almost_equal(
+        var, v, 0,
+        err_msg='Wrong variance from Chi2Deviate')
 
-#     # Check discard
-#     c2 = galsim.Chi2Deviate(testseed, n=chi2N)
-#     c2.discard(nvals, suppress_warnings=True)
-#     v1,v2 = c(),c2()
-#     print('after %d vals, next one is %s, %s'%(nvals,v1,v2))
-#     # Chi2 uses at least 2 rngs per value, but can use arbitrarily more than this.
-#     assert v1 != v2
-#     assert not c.has_reliable_discard
-#     assert not c.generates_in_pairs
+    # NOTE:
+    # Check discard
+    c2 = galsim.Chi2Deviate(testseed, n=chi2N)
+    c2.discard(nvals)
+    v1, v2 = c(), c2()
+    print('after %d vals, next one is %s, %s' % (nvals, v1, v2))
+    assert v1 == v2
+    assert c.has_reliable_discard
+    assert not c.generates_in_pairs
 
-#     # Discard normally emits a warning for Chi2
-#     c2 = galsim.Chi2Deviate(testseed, n=chi2N)
-#     with assert_warns(galsim.GalSimWarning):
-#         c2.discard(nvals)
+    # NOTE jax has reliable discard
+    # # Discard normally emits a warning for Chi2
+    # c2 = galsim.Chi2Deviate(testseed, n=chi2N)
+    # with assert_warns(galsim.GalSimWarning):
+    #     c2.discard(nvals)
 
-#     # Check seed, reset
-#     c.seed(testseed)
-#     testResult2 = (c(), c(), c())
-#     np.testing.assert_array_equal(
-#             np.array(testResult), np.array(testResult2),
-#             err_msg='Wrong Chi^2 random number sequence generated after seed')
+    # Check seed, reset
+    c.seed(testseed)
+    testResult2 = (c(), c(), c())
+    np.testing.assert_array_equal(
+        np.array(testResult), np.array(testResult2),
+        err_msg='Wrong Chi^2 random number sequence generated after seed')
 
-#     c.reset(testseed)
-#     testResult2 = (c(), c(), c())
-#     np.testing.assert_array_equal(
-#             np.array(testResult), np.array(testResult2),
-#             err_msg='Wrong Chi^2 random number sequence generated after reset(seed)')
+    c.reset(testseed)
+    testResult2 = (c(), c(), c())
+    np.testing.assert_array_equal(
+        np.array(testResult), np.array(testResult2),
+        err_msg='Wrong Chi^2 random number sequence generated after reset(seed)')
 
-#     rng = galsim.BaseDeviate(testseed)
-#     c.reset(rng)
-#     testResult2 = (c(), c(), c())
-#     np.testing.assert_array_equal(
-#             np.array(testResult), np.array(testResult2),
-#             err_msg='Wrong Chi^2 random number sequence generated after reset(rng)')
+    rng = galsim.BaseDeviate(testseed)
+    c.reset(rng)
+    testResult2 = (c(), c(), c())
+    np.testing.assert_array_equal(
+        np.array(testResult), np.array(testResult2),
+        err_msg='Wrong Chi^2 random number sequence generated after reset(rng)')
 
-#     ud = galsim.UniformDeviate(testseed)
-#     c.reset(ud)
-#     testResult = (c(), c(), c())
-#     np.testing.assert_array_equal(
-#             np.array(testResult), np.array(testResult2),
-#             err_msg='Wrong Chi^2 random number sequence generated after reset(ud)')
+    ud = galsim.UniformDeviate(testseed)
+    c.reset(ud)
+    testResult = (c(), c(), c())
+    np.testing.assert_array_equal(
+        np.array(testResult), np.array(testResult2),
+        err_msg='Wrong Chi^2 random number sequence generated after reset(ud)')
 
-#     # Check that two connected Chi^2 deviates work correctly together.
-#     c2 = galsim.Chi2Deviate(testseed, n=chi2N)
-#     c.reset(c2)
-#     testResult2 = (c(), c2(), c())
-#     np.testing.assert_array_equal(
-#             np.array(testResult), np.array(testResult2),
-#             err_msg='Wrong Chi^2 random number sequence generated using two cds')
-#     c.seed(testseed)
-#     testResult2 = (c2(), c(), c2())
-#     np.testing.assert_array_equal(
-#             np.array(testResult), np.array(testResult2),
-#             err_msg='Wrong Chi^2 random number sequence generated using two cds after seed')
+    # NOTE we cannot connect two deviates in JAX
+    # # Check that two connected Chi^2 deviates work correctly together.
+    # c2 = galsim.Chi2Deviate(testseed, n=chi2N)
+    # c.reset(c2)
+    # testResult2 = (c(), c2(), c())
+    # np.testing.assert_array_equal(
+    #     np.array(testResult), np.array(testResult2),
+    #     err_msg='Wrong Chi^2 random number sequence generated using two cds')
+    # c.seed(testseed)
+    # testResult2 = (c2(), c(), c2())
+    # np.testing.assert_array_equal(
+    #     np.array(testResult), np.array(testResult2),
+    #     err_msg='Wrong Chi^2 random number sequence generated using two cds after seed')
 
-#     # Check that seeding with the time works (although we cannot check the output).
-#     # We're mostly just checking that this doesn't raise an exception.
-#     # The output could be anything.
-#     c.seed()
-#     testResult2 = (c(), c(), c())
-#     assert testResult2 != testResult
-#     c.reset()
-#     testResult3 = (c(), c(), c())
-#     assert testResult3 != testResult
-#     assert testResult3 != testResult2
-#     c.reset()
-#     testResult4 = (c(), c(), c())
-#     assert testResult4 != testResult
-#     assert testResult4 != testResult2
-#     assert testResult4 != testResult3
-#     c = galsim.Chi2Deviate(n=chi2N)
-#     testResult5 = (c(), c(), c())
-#     assert testResult5 != testResult
-#     assert testResult5 != testResult2
-#     assert testResult5 != testResult3
-#     assert testResult5 != testResult4
+    # Check that seeding with the time works (although we cannot check the output).
+    # We're mostly just checking that this doesn't raise an exception.
+    # The output could be anything.
+    c.seed()
+    testResult2 = (c(), c(), c())
+    assert testResult2 != testResult
+    c.reset()
+    testResult3 = (c(), c(), c())
+    assert testResult3 != testResult
+    assert testResult3 != testResult2
+    c.reset()
+    testResult4 = (c(), c(), c())
+    assert testResult4 != testResult
+    assert testResult4 != testResult2
+    assert testResult4 != testResult3
+    c = galsim.Chi2Deviate(n=chi2N)
+    testResult5 = (c(), c(), c())
+    assert testResult5 != testResult
+    assert testResult5 != testResult2
+    assert testResult5 != testResult3
+    assert testResult5 != testResult4
 
-#     # Test generate
-#     c.seed(testseed)
-#     test_array = np.empty(3)
-#     c.generate(test_array)
-#     np.testing.assert_array_almost_equal(
-#             test_array, np.array(chi2Result), precision,
-#             err_msg='Wrong Chi^2 random number sequence from generate.')
+    # Test generate
+    c.seed(testseed)
+    test_array = np.empty(3)
+    test_array = c.generate(test_array)
+    np.testing.assert_array_almost_equal(
+        test_array, np.array(chi2Result), precision,
+        err_msg='Wrong Chi^2 random number sequence from generate.')
 
-#     # Test generate with a float32 array
-#     c.seed(testseed)
-#     test_array = np.empty(3, dtype=np.float32)
-#     c.generate(test_array)
-#     np.testing.assert_array_almost_equal(
-#             test_array, np.array(chi2Result), precisionF,
-#             err_msg='Wrong Chi^2 random number sequence from generate.')
+    # Test generate with a float32 array
+    c.seed(testseed)
+    test_array = np.empty(3, dtype=np.float32)
+    test_array = c.generate(test_array)
+    np.testing.assert_array_almost_equal(
+        test_array, np.array(chi2Result), precisionF,
+        err_msg='Wrong Chi^2 random number sequence from generate.')
 
-#     # Check picklability
-#     do_pickle(c, lambda x: (x.serialize(), x.n))
-#     do_pickle(c, lambda x: (x(), x(), x(), x()))
-#     do_pickle(c)
-#     assert 'Chi2Deviate' in repr(c)
-#     assert 'Chi2Deviate' in str(c)
-#     assert isinstance(eval(repr(c)), galsim.Chi2Deviate)
-#     assert isinstance(eval(str(c)), galsim.Chi2Deviate)
+    # Check picklability
+    do_pickle(c, lambda x: (x.serialize(), x.n))
+    do_pickle(c, lambda x: (x(), x(), x(), x()))
+    do_pickle(c)
+    assert 'Chi2Deviate' in repr(c)
+    assert 'Chi2Deviate' in str(c)
+    assert isinstance(eval(repr(c)), galsim.Chi2Deviate)
+    assert isinstance(eval(str(c)), galsim.Chi2Deviate)
 
-#     # Check that we can construct a Chi2Deviate from None, and that it depends on dev/random.
-#     c1 = galsim.Chi2Deviate(None)
-#     c2 = galsim.Chi2Deviate(None)
-#     assert c1 != c2, "Consecutive Chi2Deviate(None) compared equal!"
-#     # We shouldn't be able to construct a Chi2Deviate from anything but a BaseDeviate, int, str,
-#     # or None.
-#     assert_raises(TypeError, galsim.Chi2Deviate, dict())
-#     assert_raises(TypeError, galsim.Chi2Deviate, list())
-#     assert_raises(TypeError, galsim.Chi2Deviate, set())
+    # Check that we can construct a Chi2Deviate from None, and that it depends on dev/random.
+    c1 = galsim.Chi2Deviate(None)
+    c2 = galsim.Chi2Deviate(None)
+    assert c1 != c2, "Consecutive Chi2Deviate(None) compared equal!"
+    # NOTE jax does not raise
+    # # We shouldn't be able to construct a Chi2Deviate from anything but a BaseDeviate, int, str,
+    # # or None.
+    # assert_raises(TypeError, galsim.Chi2Deviate, dict())
+    # assert_raises(TypeError, galsim.Chi2Deviate, list())
+    # assert_raises(TypeError, galsim.Chi2Deviate, set())
 
 
 # @timer
