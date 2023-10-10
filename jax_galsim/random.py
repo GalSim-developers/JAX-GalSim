@@ -34,6 +34,10 @@ class BaseDeviate:
         self.reset(seed=seed)
         self._params = {}
 
+    @property
+    def key(self):
+        return self._key
+
     @_wraps(
         _galsim.BaseDeviate.seed,
         lax_description="The JAX version of this method does no type checking.",
@@ -835,38 +839,14 @@ class Chi2Deviate(BaseDeviate):
 #                  self._npoints == other._npoints))
 
 
-# class GalSimBitGenerator(np.random.BitGenerator):
-#     """A numpy.random.BitGenerator that uses the GalSim C++-layer random number generator
-#     for the random bit generation.
-
-#     Parameters:
-#         rng:    The galsim.BaseDeviate object to use for the underlying bit generation.
-#     """
-#     def __init__(self, rng):
-#         super().__init__(0)
-#         self.rng = rng
-#         self.rng._rng.setup_bitgen(self.capsule)
-
-# def permute(rng, *args):
-#     """Randomly permute one or more lists.
-
-#     If more than one list is given, then all lists will have the same random permutation
-#     applied to it.
-
-#     Parameters:
-#         rng:    The random number generator to use. (This will be converted to a `UniformDeviate`.)
-#         args:   Any number of lists to be permuted.
-#     """
-#     from .random import UniformDeviate
-#     ud = UniformDeviate(rng)
-#     if len(args) == 0:
-#         raise TypeError("permute called with no lists to permute")
-
-#     # We use an algorithm called the Knuth shuffle, which is based on the Fisher-Yates shuffle.
-#     # See http://en.wikipedia.org/wiki/Fisher-Yates_shuffle for more information.
-#     n = len(args[0])
-#     for i in range(n-1,1,-1):
-#         j = int((i+1) * ud())
-#         if j == i+1: j = i  # I'm not sure if this is possible, but just in case...
-#         for lst in args:
-#             lst[i], lst[j] = lst[j], lst[i]
+@_wraps(
+    _galsim.random.permute,
+    lax_description="The JAX implementation of this function cannot operate in-place and so returns a new list of arrays.",
+)
+def permute(rng, *args):
+    rng = BaseDeviate(rng)
+    arrs = []
+    for arr in args:
+        arrs.append(jrandom.permutation(rng.key, arr))
+    rng.discard(1)
+    return arrs

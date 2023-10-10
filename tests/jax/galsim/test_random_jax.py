@@ -1941,32 +1941,33 @@ def test_chi2():
 #         task_queue.put('STOP')
 
 
-# @timer
-# def test_permute():
-#     """Simple tests of the permute() function."""
-#     # Make a fake list, and another list consisting of indices.
-#     my_list = [3.7, 4.1, 1.9, 11.1, 378.3, 100.0]
-#     import copy
-#     my_list_copy = copy.deepcopy(my_list)
-#     n_list = len(my_list)
-#     ind_list = list(range(n_list))
+@timer
+def test_permute():
+    """Simple tests of the permute() function."""
+    # Make a fake list, and another list consisting of indices.
+    my_list = [3.7, 4.1, 1.9, 11.1, 378.3, 100.0]
+    import copy
+    my_list_copy = copy.deepcopy(my_list)
+    n_list = len(my_list)
+    ind_list = list(range(n_list))
 
-#     # Permute both at the same time.
-#     galsim.random.permute(312, my_list, ind_list)
+    # Permute both at the same time.
+    galsim.random.permute(312, np.array(my_list), np.array(ind_list))
 
-#     # Make sure that everything is sensible
-#     for ind in range(n_list):
-#         assert my_list_copy[ind_list[ind]] == my_list[ind]
+    # Make sure that everything is sensible
+    for ind in range(n_list):
+        assert my_list_copy[ind_list[ind]] == my_list[ind]
 
-#     # Repeat with same seed, should do same permutation.
-#     my_list = copy.deepcopy(my_list_copy)
-#     galsim.random.permute(312, my_list)
-#     for ind in range(n_list):
-#         assert my_list_copy[ind_list[ind]] == my_list[ind]
+    # Repeat with same seed, should do same permutation.
+    my_list = copy.deepcopy(my_list_copy)
+    galsim.random.permute(312, np.array(my_list))
+    for ind in range(n_list):
+        assert my_list_copy[ind_list[ind]] == my_list[ind]
 
-#     # permute with no lists should raise TypeError
-#     with assert_raises(TypeError):
-#         galsim.random.permute(312)
+    # NOTE no errors raised in JAX
+    # # permute with no lists should raise TypeError
+    # with assert_raises(TypeError):
+    #     galsim.random.permute(312)
 
 
 # @timer
