@@ -6,7 +6,7 @@ import time
 import warnings
 
 import numpy as np
-from galsim_test_helpers import assert_raises, do_pickle, gsobject_compare, timer
+from galsim_test_helpers import assert_raises, do_pickle, gsobject_compare, timer, assert_warns, profile
 
 import jax_galsim as galsim
 
@@ -3133,9 +3133,9 @@ def test_inverseab_convergence():
                     [0.0003767412741890354, 0.00019733136932198898],
                 ]
             ),
-            coord.CelestialCoord(
-                coord.Angle(2.171481673601117, coord.radians),
-                coord.Angle(-0.47508762601580773, coord.radians),
+            galsim.CelestialCoord(
+                galsim.Angle(2.171481673601117, galsim.radians),
+                galsim.Angle(-0.47508762601580773, galsim.radians),
             ),
             None,
             np.array(
