@@ -1874,71 +1874,71 @@ def test_chi2():
 #     assert isinstance(eval(str(d)), galsim.DistDeviate)
 
 
-# @timer
-# def test_multiprocess():
-#     """Test that the same random numbers are generated in single-process and multi-process modes.
-#     """
-#     from multiprocessing import current_process
-#     from multiprocessing import get_context
-#     ctx = get_context('fork')
-#     Process = ctx.Process
-#     Queue = ctx.Queue
+@timer
+def test_multiprocess():
+    """Test that the same random numbers are generated in single-process and multi-process modes.
+    """
+    from multiprocessing import current_process
+    from multiprocessing import get_context
+    ctx = get_context('fork')
+    Process = ctx.Process
+    Queue = ctx.Queue
 
-#     def generate_list(seed):
-#         """Given a particular seed value, generate a list of random numbers.
-#            Should be deterministic given the input seed value.
-#         """
-#         rng = galsim.UniformDeviate(seed)
-#         out = []
-#         for i in range(20):
-#             out.append(rng())
-#         return out
+    def generate_list(seed):
+        """Given a particular seed value, generate a list of random numbers.
+           Should be deterministic given the input seed value.
+        """
+        rng = galsim.UniformDeviate(seed)
+        out = []
+        for i in range(20):
+            out.append(rng())
+        return out
 
-#     def worker(input, output):
-#         """input is a queue with seed values
-#            output is a queue storing the results of the tasks along with the process name,
-#            and which args the result is for.
-#         """
-#         for args in iter(input.get, 'STOP'):
-#             result = generate_list(*args)
-#             output.put( (result, current_process().name, args) )
+    def worker(input, output):
+        """input is a queue with seed values
+           output is a queue storing the results of the tasks along with the process name,
+           and which args the result is for.
+        """
+        for args in iter(input.get, 'STOP'):
+            result = generate_list(*args)
+            output.put((result, current_process().name, args))
 
-#     # Use sequential numbers.
-#     # On inspection, can see that even the first value in each list is random with
-#     # respect to the other lists.  i.e. "nearby" inputs do not produce nearby outputs.
-#     # I don't know of an actual assert to do for this, but it is clearly true.
-#     seeds = [ 1532424 + i for i in range(16) ]
+    # Use sequential numbers.
+    # On inspection, can see that even the first value in each list is random with
+    # respect to the other lists.  i.e. "nearby" inputs do not produce nearby outputs.
+    # I don't know of an actual assert to do for this, but it is clearly true.
+    seeds = [1532424 + i for i in range(16)]
 
-#     nproc = 4  # Each process will do 4 lists (typically)
+    nproc = 4  # Each process will do 4 lists (typically)
 
-#     # First make lists in the single process:
-#     ref_lists = dict()
-#     for seed in seeds:
-#         list = generate_list(seed)
-#         ref_lists[seed] = list
+    # First make lists in the single process:
+    ref_lists = dict()
+    for seed in seeds:
+        list = generate_list(seed)
+        ref_lists[seed] = list
 
-#     # Now do this with multiprocessing
-#     # Put the seeds in a queue
-#     task_queue = Queue()
-#     for seed in seeds:
-#         task_queue.put( [seed] )
+    # Now do this with multiprocessing
+    # Put the seeds in a queue
+    task_queue = Queue()
+    for seed in seeds:
+        task_queue.put([seed])
 
-#     # Run the tasks:
-#     done_queue = Queue()
-#     for k in range(nproc):
-#         Process(target=worker, args=(task_queue, done_queue)).start()
+    # Run the tasks:
+    done_queue = Queue()
+    for k in range(nproc):
+        Process(target=worker, args=(task_queue, done_queue)).start()
 
-#     # Check the results in the order they finished
-#     for i in range(len(seeds)):
-#         list, proc, args = done_queue.get()
-#         seed = args[0]
-#         np.testing.assert_array_equal(
-#                 list, ref_lists[seed],
-#                 err_msg="Random numbers are different when using multiprocessing")
+    # Check the results in the order they finished
+    for i in range(len(seeds)):
+        _list, proc, args = done_queue.get()
+        seed = args[0]
+        np.testing.assert_array_equal(
+            _list, ref_lists[seed],
+            err_msg="Random numbers are different when using multiprocessing")
 
-#     # Stop the processes:
-#     for k in range(nproc):
-#         task_queue.put('STOP')
+    # Stop the processes:
+    for k in range(nproc):
+        task_queue.put('STOP')
 
 
 @timer
@@ -1970,86 +1970,33 @@ def test_permute():
     #     galsim.random.permute(312)
 
 
-# @timer
-# def test_ne():
-#     """ Check that inequality works as expected for corner cases where the reprs of two
-#     unequal BaseDeviates may be the same due to truncation.
-#     """
-#     a = galsim.BaseDeviate(seed='1 2 3 4 5 6 7 8 9 10')
-#     b = galsim.BaseDeviate(seed='1 2 3 7 6 5 4 8 9 10')
-#     assert repr(a) == repr(b)
-#     assert a != b
+@timer
+def test_int64():
+    # cf. #1009
+    # Check that various possible integer types work as seeds.
 
-#     # Check DistDeviate separately, since it overrides __repr__ and __eq__
-#     d1 = galsim.DistDeviate(seed=a, function=galsim.LookupTable([1, 2, 3], [4, 5, 6]))
-#     d2 = galsim.DistDeviate(seed=b, function=galsim.LookupTable([1, 2, 3], [4, 5, 6]))
-#     assert repr(d1) == repr(d2)
-#     assert d1 != d2
+    rng1 = galsim.BaseDeviate(int(123))
+    # cf. https://www.numpy.org/devdocs/user/basics.types.html
+    ivalues = [
+        np.int8(123),  # Note this one requires i < 128
+        np.int16(123),
+        np.int32(123),
+        np.int64(123),
+        np.uint8(123),
+        np.uint16(123),
+        np.uint32(123),
+        np.uint64(123),
+        np.short(123),
+        np.ushort(123),
+        np.intc(123),
+        np.uintc(123),
+        np.intp(123),
+        np.uintp(123),
+        np.int_(123),
+        np.longlong(123),
+        np.ulonglong(123),
+        np.array(123).astype(np.int64)]
 
-# @timer
-# def test_int64():
-#     # cf. #1009
-#     # Check that various possible integer types work as seeds.
-
-#     rng1 = galsim.BaseDeviate(int(123))
-#     # cf. https://www.numpy.org/devdocs/user/basics.types.html
-#     ivalues =[np.int8(123),  # Note this one requires i < 128
-#               np.int16(123),
-#               np.int32(123),
-#               np.int64(123),
-#               np.uint8(123),
-#               np.uint16(123),
-#               np.uint32(123),
-#               np.uint64(123),
-#               np.short(123),
-#               np.ushort(123),
-#               np.intc(123),
-#               np.uintc(123),
-#               np.intp(123),
-#               np.uintp(123),
-#               np.int_(123),
-#               np.longlong(123),
-#               np.ulonglong(123),
-#               np.array(123).astype(np.int64)]
-
-#     for i in ivalues:
-#         rng2 = galsim.BaseDeviate(i)
-#         assert rng2 == rng1
-
-# @timer
-# def test_numpy_generator():
-#     rng = galsim.BaseDeviate(1234)
-#     gen = galsim.BaseDeviate(1234).as_numpy_generator()
-
-#     # The regular (and somewhat cumbersome) GalSim way:
-#     a1 = np.empty(10, dtype=float)
-#     galsim.UniformDeviate(rng).generate(a1)
-#     a1 *= 9.
-#     a1 += 1.
-
-#     # The nicer numpy syntax
-#     a2 = gen.uniform(1.,10., size=10)
-#     print('a1 = ',a1)
-#     print('a2 = ',a2)
-#     np.testing.assert_array_equal(a1, a2)
-
-#     # Can also use the np property as a quick shorthand
-#     a1 = rng.np.normal(0, 10, size=20)
-#     a2 = gen.normal(0, 10, size=20)
-#     print('a1 = ',a1)
-#     print('a2 = ',a2)
-#     np.testing.assert_array_equal(a1, a2)
-
-#     # Check that normal gives statistically the right mean/var.
-#     # (Numpy's normal uses the next_uint64 function, so this is a non-trivial test of that
-#     # code, which I originally got wrong.)
-#     a3 = gen.normal(17, 23, size=1_000_000)
-#     print('mean = ',np.mean(a3))
-#     print('std = ',np.std(a3))
-#     assert np.isclose(np.mean(a3), 17, rtol=1.e-3)
-#     assert np.isclose(np.std(a3), 23, rtol=3.e-3)
-
-# if __name__ == "__main__":
-#     testfns = [v for k, v in vars().items() if k[:5] == 'test_' and callable(v)]
-#     for testfn in testfns:
-#         testfn()
+    for i in ivalues:
+        rng2 = galsim.BaseDeviate(i)
+        assert rng2 == rng1
