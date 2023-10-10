@@ -391,7 +391,16 @@ class PoissonDeviate(BaseDeviate):
     @jax.jit
     def _generate_one(key, mean):
         _key, subkey = jrandom.split(key)
-        return _key, jrandom.poisson(subkey, mean, dtype=int)
+        val = jax.lax.cond(
+            mean < 2**17,
+            lambda subkey, mean: jrandom.poisson(subkey, mean, dtype=int).astype(float),
+            lambda subkey, mean: (
+                jrandom.normal(subkey, dtype=float) * jnp.sqrt(mean) + mean
+            ),
+            subkey,
+            mean,
+        )
+        return _key, val
 
     @_wraps(_galsim.PoissonDeviate.generate_from_expectation)
     def generate_from_expectation(self, array):

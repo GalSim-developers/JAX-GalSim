@@ -878,161 +878,157 @@ def test_poisson():
     # assert_raises(TypeError, galsim.PoissonDeviate, set())
 
 
-# @timer
-# def test_poisson_highmean():
-#     """Test Poisson random number generator with high (>2^30) mean (cf. Issue #881)
+@timer
+def test_poisson_highmean():
+    # NOTE JAX has the same issues as boost with high mean poisson RVs but
+    # it happens at lower mean values
+    mean_vals = [
+        2**17 - 50,  # Uses Poisson
+        2**17,       # Uses Poisson (highest value of mean that does)
+        2**17 + 50,  # Uses Gaussian
+        2**18,       # This is where problems happen if not using Gaussian
+        5.e20,       # Definitely would have problems with normal implementation.
+    ]
 
-#     It turns out that the boost poisson deviate class that we use maxes out at 2^31 and wraps
-#     around to -2^31.  We have code to automatically switch over to using a Gaussian deviate
-#     instead if the mean > 2^30 (factor of 2 from the problem to be safe).  Check that this
-#     works properly.
-#     """
-#     mean_vals =[ 2**30 + 50,  # Uses Gaussian
-#                  2**30 - 50,  # Uses Poisson
-#                  2**30,       # Uses Poisson (highest value of mean that does)
-#                  2**31,       # This is where problems happen if not using Gaussian
-#                  5.e20,       # Definitely would have problems with normal implementation.
-#                ]
+    nvals = 100000
+    rtol_var = 1.e-2
 
-#     if __name__ == '__main__':
-#         nvals = 10000000
-#         rtol_var = 1.e-3
-#     else:
-#         nvals = 100000
-#         rtol_var = 1.e-2
+    for mean in mean_vals:
+        print('Test PoissonDeviate with mean = ', np.log(mean) / np.log(2))
+        p = galsim.PoissonDeviate(testseed, mean=mean)
+        p2 = p.duplicate()
+        p3 = galsim.PoissonDeviate(p.serialize(), mean=mean)
+        testResult = (p(), p(), p())
+        testResult2 = (p2(), p2(), p2())
+        testResult3 = (p3(), p3(), p3())
+        np.testing.assert_allclose(
+            testResult2, testResult, rtol=1.e-8,
+            err_msg='PoissonDeviate.duplicate not equivalent for mean=%s' % mean)
+        np.testing.assert_allclose(
+            testResult3, testResult, rtol=1.e-8,
+            err_msg='PoissonDeviate from serialize not equivalent for mean=%s' % mean)
 
-#     for mean in mean_vals:
-#         print('Test PoissonDeviate with mean = ',mean)
-#         p = galsim.PoissonDeviate(testseed, mean=mean)
-#         p2 = p.duplicate()
-#         p3 = galsim.PoissonDeviate(p.serialize(), mean=mean)
-#         testResult = (p(), p(), p())
-#         testResult2 = (p2(), p2(), p2())
-#         testResult3 = (p3(), p3(), p3())
-#         np.testing.assert_allclose(
-#                 testResult2, testResult, rtol=1.e-8,
-#                 err_msg='PoissonDeviate.duplicate not equivalent for mean=%s'%mean)
-#         np.testing.assert_allclose(
-#                 testResult3, testResult, rtol=1.e-8,
-#                 err_msg='PoissonDeviate from serialize not equivalent for mean=%s'%mean)
+        # Check that the mean and variance come out right
+        p = galsim.PoissonDeviate(testseed, mean=mean)
+        vals = [p() for i in range(nvals)]
+        mu = np.mean(vals)
+        var = np.var(vals)
+        print("rtol = ", 3 * np.sqrt(mean / nvals) / mean)
+        print('mean = ', mu, '  true mean = ', mean)
+        print('var = ', var, '   true var = ', mean)
+        np.testing.assert_allclose(
+            mu, mean, rtol=3 * np.sqrt(mean / nvals) / mean,
+            err_msg='Wrong mean from PoissonDeviate with mean=%s' % mean)
+        np.testing.assert_allclose(
+            var, mean, rtol=rtol_var,
+            err_msg='Wrong variance from PoissonDeviate with mean=%s' % mean)
 
-#         # Check that the mean and variance come out right
-#         p = galsim.PoissonDeviate(testseed, mean=mean)
-#         vals = [p() for i in range(nvals)]
-#         mu = np.mean(vals)
-#         var = np.var(vals)
-#         print('mean = ',mu,'  true mean = ',mean)
-#         print('var = ',var,'   true var = ',mean)
-#         np.testing.assert_allclose(mu, mean, rtol=1.e-5,
-#                 err_msg='Wrong mean from PoissonDeviate with mean=%s'%mean)
-#         np.testing.assert_allclose(var, mean, rtol=rtol_var,
-#                 err_msg='Wrong variance from PoissonDeviate with mean=%s'%mean)
+        # Check discard
+        p2 = galsim.PoissonDeviate(testseed, mean=mean)
+        p2.discard(nvals, suppress_warnings=True)
+        v1, v2 = p(), p2()
+        print('after %d vals, next one is %s, %s' % (nvals, v1, v2))
+        assert v1 == v2
 
-#         # Check discard
-#         p2 = galsim.PoissonDeviate(testseed, mean=mean)
-#         p2.discard(nvals, suppress_warnings=True)
-#         v1,v2 = p(),p2()
-#         print('after %d vals, next one is %s, %s'%(nvals,v1,v2))
-#         if mean > 2**30:
-#             # Poisson doesn't have a reliable rng count (unless the mean is vv small).
-#             # But above 2**30 we're back to Gaussian, which is reliable.
-#             assert v1 == v2
+        # NOTE: JAX cannot connect RNGs
+        # # Check that two connected poisson deviates work correctly together.
+        # p2 = galsim.PoissonDeviate(testseed, mean=mean)
+        # p.reset(p2)
+        # testResult2 = (p(), p(), p2())
+        # np.testing.assert_array_equal(
+        #     testResult2, testResult,
+        #     err_msg='Wrong poisson random number sequence generated using two pds')
+        # p.seed(testseed)
+        # p2.clearCache()
+        # testResult2 = (p2(), p2(), p())
+        # np.testing.assert_array_equal(
+        #     testResult2, testResult,
+        #     err_msg='Wrong poisson random number sequence generated using two pds after seed')
 
-#         # Check that two connected poisson deviates work correctly together.
-#         p2 = galsim.PoissonDeviate(testseed, mean=mean)
-#         p.reset(p2)
-#         testResult2 = (p(), p(), p2())
-#         np.testing.assert_array_equal(
-#                 testResult2, testResult,
-#                 err_msg='Wrong poisson random number sequence generated using two pds')
-#         p.seed(testseed)
-#         p2.clearCache()
-#         testResult2 = (p2(), p2(), p())
-#         np.testing.assert_array_equal(
-#                 testResult2, testResult,
-#                 err_msg='Wrong poisson random number sequence generated using two pds after seed')
+        # FIXME no noise methods for images in JAX yet
+        # Test filling an image
+        # p.seed(testseed)
+        # testimage = galsim.ImageD(np.zeros((3, 1)))
+        # testimage.addNoise(galsim.DeviateNoise(p))
+        # np.testing.assert_array_equal(
+        #     testimage.array.flatten(), testResult,
+        #     err_msg='Wrong poisson random number sequence generated when applied to image.')
 
-#         # Test filling an image
-#         p.seed(testseed)
-#         testimage = galsim.ImageD(np.zeros((3, 1)))
-#         testimage.addNoise(galsim.DeviateNoise(p))
-#         np.testing.assert_array_equal(
-#                 testimage.array.flatten(), testResult,
-#                 err_msg='Wrong poisson random number sequence generated when applied to image.')
+        # # The PoissonNoise version also subtracts off the mean value
+        # rng = galsim.BaseDeviate(testseed)
+        # pn = galsim.PoissonNoise(rng, sky_level=mean)
+        # testimage.fill(0)
+        # testimage.addNoise(pn)
+        # np.testing.assert_array_equal(
+        #     testimage.array.flatten(), np.array(testResult) - mean,
+        #     err_msg='Wrong poisson random number sequence generated using PoissonNoise')
 
-#         # The PoissonNoise version also subtracts off the mean value
-#         rng = galsim.BaseDeviate(testseed)
-#         pn = galsim.PoissonNoise(rng, sky_level=mean)
-#         testimage.fill(0)
-#         testimage.addNoise(pn)
-#         np.testing.assert_array_equal(
-#                 testimage.array.flatten(), np.array(testResult)-mean,
-#                 err_msg='Wrong poisson random number sequence generated using PoissonNoise')
+        # # Check PoissonNoise variance:
+        # np.testing.assert_allclose(
+        #     pn.getVariance(), mean, rtol=1.e-8,
+        #     err_msg="PoissonNoise getVariance returns wrong variance")
+        # np.testing.assert_allclose(
+        #     pn.sky_level, mean, rtol=1.e-8,
+        #     err_msg="PoissonNoise sky_level returns wrong value")
 
-#         # Check PoissonNoise variance:
-#         np.testing.assert_allclose(
-#                 pn.getVariance(), mean, rtol=1.e-8,
-#                 err_msg="PoissonNoise getVariance returns wrong variance")
-#         np.testing.assert_allclose(
-#                 pn.sky_level, mean, rtol=1.e-8,
-#                 err_msg="PoissonNoise sky_level returns wrong value")
-
-#         # Check that the noise model really does produce this variance.
-#         big_im = galsim.Image(2048,2048,dtype=float)
-#         big_im.addNoise(pn)
-#         var = np.var(big_im.array)
-#         print('variance = ',var)
-#         print('getVar = ',pn.getVariance())
-#         np.testing.assert_allclose(
-#                 var, pn.getVariance(), rtol=rtol_var,
-#                 err_msg='Realized variance for PoissonNoise did not match getVariance()')
+        # # Check that the noise model really does produce this variance.
+        # big_im = galsim.Image(2048, 2048, dtype=float)
+        # big_im.addNoise(pn)
+        # var = np.var(big_im.array)
+        # print('variance = ', var)
+        # print('getVar = ', pn.getVariance())
+        # np.testing.assert_allclose(
+        #     var, pn.getVariance(), rtol=rtol_var,
+        #     err_msg='Realized variance for PoissonNoise did not match getVariance()')
 
 
-# @timer
-# def test_poisson_zeromean():
-#     """Make sure Poisson Deviate behaves sensibly when mean=0.
-#     """
-#     p = galsim.PoissonDeviate(testseed, mean=0)
-#     p2 = p.duplicate()
-#     p3 = galsim.PoissonDeviate(p.serialize(), mean=0)
-#     do_pickle(p)
+@timer
+def test_poisson_zeromean():
+    """Make sure Poisson Deviate behaves sensibly when mean=0.
+    """
+    p = galsim.PoissonDeviate(testseed, mean=0)
+    p2 = p.duplicate()
+    p3 = galsim.PoissonDeviate(p.serialize(), mean=0)
+    do_pickle(p)
 
-#     # Test direct draws
-#     testResult = (p(), p(), p())
-#     testResult2 = (p2(), p2(), p2())
-#     testResult3 = (p3(), p3(), p3())
-#     np.testing.assert_array_equal(testResult, 0)
-#     np.testing.assert_array_equal(testResult2, 0)
-#     np.testing.assert_array_equal(testResult3, 0)
+    # Test direct draws
+    testResult = (p(), p(), p())
+    testResult2 = (p2(), p2(), p2())
+    testResult3 = (p3(), p3(), p3())
+    np.testing.assert_array_equal(testResult, 0)
+    np.testing.assert_array_equal(testResult2, 0)
+    np.testing.assert_array_equal(testResult3, 0)
 
-#     # Test generate
-#     test_array = np.empty(3, dtype=int)
-#     p.generate(test_array)
-#     np.testing.assert_array_equal(test_array, 0)
-#     p2.generate(test_array)
-#     np.testing.assert_array_equal(test_array, 0)
-#     p3.generate(test_array)
-#     np.testing.assert_array_equal(test_array, 0)
+    # Test generate
+    test_array = np.empty(3, dtype=int)
+    p.generate(test_array)
+    np.testing.assert_array_equal(test_array, 0)
+    p2.generate(test_array)
+    np.testing.assert_array_equal(test_array, 0)
+    p3.generate(test_array)
+    np.testing.assert_array_equal(test_array, 0)
 
-#     # Test generate_from_expectation
-#     test_array = np.array([0,0,0])
-#     np.testing.assert_allclose(test_array, 0)
-#     test_array = np.array([1,0,4])
-#     assert test_array[0] != 0
-#     assert test_array[1] == 0
-#     assert test_array[2] != 0
+    # Test generate_from_expectation
+    test_array = np.array([0, 0, 0])
+    np.testing.assert_allclose(test_array, 0)
+    test_array = np.array([1, 0, 4])
+    assert test_array[0] != 0
+    assert test_array[1] == 0
+    assert test_array[2] != 0
 
-#     # Error raised if mean<0
-#     with assert_raises(ValueError):
-#         p = galsim.PoissonDeviate(testseed, mean=-0.1)
-#     with assert_raises(ValueError):
-#         p = galsim.PoissonDeviate(testseed, mean=-10)
-#     test_array = np.array([-1,1,4])
-#     with assert_raises(ValueError):
-#         p.generate_from_expectation(test_array)
-#     test_array = np.array([1,-1,-4])
-#     with assert_raises(ValueError):
-#         p.generate_from_expectation(test_array)
+    # NOTE JAX does not raise an error for this
+    # # Error raised if mean<0
+    # with assert_raises(ValueError):
+    #     p = galsim.PoissonDeviate(testseed, mean=-0.1)
+    # with assert_raises(ValueError):
+    #     p = galsim.PoissonDeviate(testseed, mean=-10)
+    # test_array = np.array([-1,1,4])
+    # with assert_raises(ValueError):
+    #     p.generate_from_expectation(test_array)
+    # test_array = np.array([1,-1,-4])
+    # with assert_raises(ValueError):
+    #     p.generate_from_expectation(test_array)
+
 
 # @timer
 # def test_weibull():
