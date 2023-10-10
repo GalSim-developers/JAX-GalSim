@@ -8,7 +8,7 @@ from .errors import GalSimConfigError, GalSimConfigValueError
 from .errors import GalSimWarning, GalSimDeprecationWarning
 
 # noise
-from .random import BaseDeviate, UniformDeviate, GaussianDeviate
+from .random import BaseDeviate, UniformDeviate, GaussianDeviate, PoissonDeviate
 
 # Basic building blocks
 from .bounds import Bounds, BoundsD, BoundsI

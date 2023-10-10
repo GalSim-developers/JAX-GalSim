@@ -38,7 +38,7 @@ bResult = (9, 8, 7)
 # mean to use for Poisson tests
 pMean = 7
 # the right answer for the first three Poisson deviates produced from testseed
-pResult = (4, 5, 6)
+pResult = (6, 11, 4)
 
 # a & b to use for Weibull tests
 wA = 4.0
@@ -675,195 +675,207 @@ def test_gaussian():
 #     assert_raises(TypeError, galsim.BinomialDeviate, set())
 
 
-# @timer
-# def test_poisson():
-#     """Test Poisson random number generator
-#     """
-#     p = galsim.PoissonDeviate(testseed, mean=pMean)
-#     p2 = p.duplicate()
-#     p3 = galsim.PoissonDeviate(p.serialize(), mean=pMean)
-#     testResult = (p(), p(), p())
-#     np.testing.assert_array_almost_equal(
-#             np.array(testResult), np.array(pResult), precision,
-#             err_msg='Wrong Poisson random number sequence generated')
-#     testResult = (p2(), p2(), p2())
-#     np.testing.assert_array_almost_equal(
-#             np.array(testResult), np.array(pResult), precision,
-#             err_msg='Wrong Poisson random number sequence generated with duplicate')
-#     testResult = (p3(), p3(), p3())
-#     np.testing.assert_array_almost_equal(
-#             np.array(testResult), np.array(pResult), precision,
-#             err_msg='Wrong Poisson random number sequence generated from serialize')
+@timer
+def test_poisson():
+    """Test Poisson random number generator
+    """
+    p = galsim.PoissonDeviate(testseed, mean=pMean)
+    p2 = p.duplicate()
+    p3 = galsim.PoissonDeviate(p.serialize(), mean=pMean)
+    testResult = (p(), p(), p())
+    np.testing.assert_array_almost_equal(
+        np.array(testResult), np.array(pResult), precision,
+        err_msg='Wrong Poisson random number sequence generated')
+    testResult = (p2(), p2(), p2())
+    np.testing.assert_array_almost_equal(
+        np.array(testResult), np.array(pResult), precision,
+        err_msg='Wrong Poisson random number sequence generated with duplicate')
+    testResult = (p3(), p3(), p3())
+    np.testing.assert_array_almost_equal(
+        np.array(testResult), np.array(pResult), precision,
+        err_msg='Wrong Poisson random number sequence generated from serialize')
 
-#     # Check that the mean and variance come out right
-#     p = galsim.PoissonDeviate(testseed, mean=pMean)
-#     vals = [p() for i in range(nvals)]
-#     mean = np.mean(vals)
-#     var = np.var(vals)
-#     mu = pMean
-#     v = pMean
-#     print('mean = ',mean,'  true mean = ',mu)
-#     print('var = ',var,'   true var = ',v)
-#     np.testing.assert_almost_equal(mean, mu, 1,
-#             err_msg='Wrong mean from PoissonDeviate')
-#     np.testing.assert_almost_equal(var, v, 1,
-#             err_msg='Wrong variance from PoissonDeviate')
+    # Check that the mean and variance come out right
+    p = galsim.PoissonDeviate(testseed, mean=pMean)
+    vals = [p() for i in range(nvals)]
+    mean = np.mean(vals)
+    var = np.var(vals)
+    mu = pMean
+    v = pMean
+    print('mean = ', mean, '  true mean = ', mu)
+    print('var = ', var, '   true var = ', v)
+    np.testing.assert_almost_equal(
+        mean, mu, 1,
+        err_msg='Wrong mean from PoissonDeviate')
+    np.testing.assert_almost_equal(
+        var, v, 1,
+        err_msg='Wrong variance from PoissonDeviate')
 
-#     # Check discard
-#     p2 = galsim.PoissonDeviate(testseed, mean=pMean)
-#     p2.discard(nvals, suppress_warnings=True)
-#     v1,v2 = p(),p2()
-#     print('With mean = %d, after %d vals, next one is %s, %s'%(pMean,nvals,v1,v2))
-#     assert v1 == v2
+    # Check discard
+    p2 = galsim.PoissonDeviate(testseed, mean=pMean)
+    p2.discard(nvals, suppress_warnings=True)
+    v1, v2 = p(), p2()
+    print('With mean = %d, after %d vals, next one is %s, %s' % (pMean, nvals, v1, v2))
+    assert v1 == v2
 
-#     # With a very small mean value, Poisson reliably only uses 1 rng per value.
-#     # But at only slightly larger means, it sometimes uses two rngs for a single value.
-#     # Basically anything >= 10 causes this next test to have v1 != v2
-#     high_mean = 10
-#     p = galsim.PoissonDeviate(testseed, mean=high_mean)
-#     p2 = galsim.PoissonDeviate(testseed, mean=high_mean)
-#     vals = [p() for i in range(nvals)]
-#     p2.discard(nvals, suppress_warnings=True)
-#     v1,v2 = p(),p2()
-#     print('With mean = %d, after %d vals, next one is %s, %s'%(high_mean,nvals,v1,v2))
-#     assert v1 != v2
-#     assert not p.has_reliable_discard
-#     assert not p.generates_in_pairs
+    # NOTE: the JAX RNGs have reliabel discard
+    # With a very small mean value, Poisson reliably only uses 1 rng per value.
+    # But at only slightly larger means, it sometimes uses two rngs for a single value.
+    # Basically anything >= 10 causes this next test to have v1 != v2
+    high_mean = 10
+    p = galsim.PoissonDeviate(testseed, mean=high_mean)
+    p2 = galsim.PoissonDeviate(testseed, mean=high_mean)
+    vals = [p() for i in range(nvals)]
+    p2.discard(nvals, suppress_warnings=True)
+    v1, v2 = p(), p2()
+    print('With mean = %d, after %d vals, next one is %s, %s' % (high_mean, nvals, v1, v2))
+    assert v1 == v2
+    assert p.has_reliable_discard
+    assert not p.generates_in_pairs
 
-#     # Discard normally emits a warning for Poisson
-#     p2 = galsim.PoissonDeviate(testseed, mean=pMean)
-#     with assert_warns(galsim.GalSimWarning):
-#         p2.discard(nvals)
+    # NOTE jax-galsim doesn't do this
+    # Discard normally emits a warning for Poisson
+    # p2 = galsim.PoissonDeviate(testseed, mean=pMean)
+    # with assert_warns(galsim.GalSimWarning):
+    #     p2.discard(nvals)
 
-#     # Check seed, reset
-#     p = galsim.PoissonDeviate(testseed, mean=pMean)
-#     p.seed(testseed)
-#     testResult2 = (p(), p(), p())
-#     np.testing.assert_array_equal(
-#             np.array(testResult), np.array(testResult2),
-#             err_msg='Wrong poisson random number sequence generated after seed')
+    # Check seed, reset
+    p = galsim.PoissonDeviate(testseed, mean=pMean)
+    p.seed(testseed)
+    testResult2 = (p(), p(), p())
+    np.testing.assert_array_equal(
+        np.array(testResult), np.array(testResult2),
+        err_msg='Wrong poisson random number sequence generated after seed')
 
-#     p.reset(testseed)
-#     testResult2 = (p(), p(), p())
-#     np.testing.assert_array_equal(
-#             np.array(testResult), np.array(testResult2),
-#             err_msg='Wrong poisson random number sequence generated after reset(seed)')
+    p.reset(testseed)
+    testResult2 = (p(), p(), p())
+    np.testing.assert_array_equal(
+        np.array(testResult), np.array(testResult2),
+        err_msg='Wrong poisson random number sequence generated after reset(seed)')
 
-#     rng = galsim.BaseDeviate(testseed)
-#     p.reset(rng)
-#     testResult2 = (p(), p(), p())
-#     np.testing.assert_array_equal(
-#             np.array(testResult), np.array(testResult2),
-#             err_msg='Wrong poisson random number sequence generated after reset(rng)')
+    rng = galsim.BaseDeviate(testseed)
+    p.reset(rng)
+    testResult2 = (p(), p(), p())
+    np.testing.assert_array_equal(
+        np.array(testResult), np.array(testResult2),
+        err_msg='Wrong poisson random number sequence generated after reset(rng)')
 
-#     ud = galsim.UniformDeviate(testseed)
-#     p.reset(ud)
-#     testResult = (p(), p(), p())
-#     np.testing.assert_array_equal(
-#             np.array(testResult), np.array(testResult2),
-#             err_msg='Wrong poisson random number sequence generated after reset(ud)')
+    ud = galsim.UniformDeviate(testseed)
+    p.reset(ud)
+    testResult = (p(), p(), p())
+    np.testing.assert_array_equal(
+        np.array(testResult), np.array(testResult2),
+        err_msg='Wrong poisson random number sequence generated after reset(ud)')
 
-#     # Check that two connected poisson deviates work correctly together.
-#     p2 = galsim.PoissonDeviate(testseed, mean=pMean)
-#     p.reset(p2)
-#     testResult2 = (p(), p2(), p())
-#     np.testing.assert_array_equal(
-#             np.array(testResult), np.array(testResult2),
-#             err_msg='Wrong poisson random number sequence generated using two pds')
-#     p.seed(testseed)
-#     testResult2 = (p2(), p(), p2())
-#     np.testing.assert_array_equal(
-#             np.array(testResult), np.array(testResult2),
-#             err_msg='Wrong poisson random number sequence generated using two pds after seed')
+    # NOTE: jax-galsim doesn't have connected RNGs
+    # # Check that two connected poisson deviates work correctly together.
+    # p2 = galsim.PoissonDeviate(testseed, mean=pMean)
+    # p.reset(p2)
+    # testResult2 = (p(), p2(), p())
+    # np.testing.assert_array_equal(
+    #     np.array(testResult), np.array(testResult2),
+    #     err_msg='Wrong poisson random number sequence generated using two pds')
+    # p.seed(testseed)
+    # testResult2 = (p2(), p(), p2())
+    # np.testing.assert_array_equal(
+    #         np.array(testResult), np.array(testResult2),
+    #         err_msg='Wrong poisson random number sequence generated using two pds after seed')
 
-#     # Check that seeding with the time works (although we cannot check the output).
-#     # We're mostly just checking that this doesn't raise an exception.
-#     # The output could be anything.  However, in this case, there are few enough options
-#     # for the output that occasionally two of these match.  So we don't do the normal
-#     # testResult2 != testResult, etc.
-#     p.seed()
-#     testResult2 = (p(), p(), p())
-#     #assert testResult2 != testResult
-#     p.reset()
-#     testResult3 = (p(), p(), p())
-#     #assert testResult3 != testResult
-#     #assert testResult3 != testResult2
-#     p.reset()
-#     testResult4 = (p(), p(), p())
-#     #assert testResult4 != testResult
-#     #assert testResult4 != testResult2
-#     #assert testResult4 != testResult3
-#     p = galsim.PoissonDeviate(mean=pMean)
-#     testResult5 = (p(), p(), p())
-#     #assert testResult5 != testResult
-#     #assert testResult5 != testResult2
-#     #assert testResult5 != testResult3
-#     #assert testResult5 != testResult4
+    # Check that seeding with the time works (although we cannot check the output).
+    # We're mostly just checking that this doesn't raise an exception.
+    # The output could be anything.  However, in this case, there are few enough options
+    # for the output that occasionally two of these match.  So we don't do the normal
+    # testResult2 != testResult, etc.
+    p.seed()
+    testResult2 = (p(), p(), p())
+    p.reset()
+    testResult3 = (p(), p(), p())
+    p.reset()
+    testResult4 = (p(), p(), p())
+    p = galsim.PoissonDeviate(mean=pMean)
+    testResult5 = (p(), p(), p())
+    assert (
+        (testResult2 != testResult)
+        or (testResult3 != testResult)
+        or (testResult4 != testResult)
+        or (testResult5 != testResult)
+    )
+    try:
+        assert testResult3 != testResult2
+        assert testResult4 != testResult2
+        assert testResult4 != testResult3
+        assert testResult5 != testResult2
+        assert testResult5 != testResult3
+        assert testResult5 != testResult4
+    except AssertionError:
+        print("one of the poisson results was equal but this can happen occasionally")
 
-#     # Test generate
-#     p.seed(testseed)
-#     test_array = np.empty(3)
-#     p.generate(test_array)
-#     np.testing.assert_array_almost_equal(
-#             test_array, np.array(pResult), precision,
-#             err_msg='Wrong poisson random number sequence from generate.')
+    # Test generate
+    p.seed(testseed)
+    test_array = np.empty(3)
+    test_array.fill(np.nan)
+    test_array = p.generate(test_array)
+    np.testing.assert_array_almost_equal(
+        test_array, np.array(pResult), precision,
+        err_msg='Wrong poisson random number sequence from generate.')
 
-#     # Test generate with an int array
-#     p.seed(testseed)
-#     test_array = np.empty(3, dtype=int)
-#     p.generate(test_array)
-#     np.testing.assert_array_almost_equal(
-#             test_array, np.array(pResult), precisionI,
-#             err_msg='Wrong poisson random number sequence from generate.')
+    # Test generate with an int array
+    p.seed(testseed)
+    test_array = np.empty(3, dtype=int)
+    test_array = p.generate(test_array)
+    np.testing.assert_array_almost_equal(
+        test_array, np.array(pResult), precisionI,
+        err_msg='Wrong poisson random number sequence from generate.')
 
-#     # Test generate_from_expectation
-#     p2 = galsim.PoissonDeviate(testseed, mean=77)
-#     test_array = np.array([pMean]*3, dtype=int)
-#     p2.generate_from_expectation(test_array)
-#     np.testing.assert_array_almost_equal(
-#             test_array, np.array(pResult), precisionI,
-#             err_msg='Wrong poisson random number sequence from generate_from_expectation.')
-#     # After generating, it should be back to mean=77
-#     test_array2 = np.array([p2() for i in range(100)])
-#     print('test_array2 = ',test_array2)
-#     print('mean = ',test_array2.mean())
-#     assert np.isclose(test_array2.mean(), 77, atol=2)
+    # Test generate_from_expectation
+    p2 = galsim.PoissonDeviate(testseed, mean=77)
+    test_array = np.array([pMean] * 3, dtype=int)
+    test_array = p2.generate_from_expectation(test_array)
+    np.testing.assert_array_almost_equal(
+        test_array, np.array(pResult), precisionI,
+        err_msg='Wrong poisson random number sequence from generate_from_expectation.')
+    # After generating, it should be back to mean=77
+    test_array2 = np.array([p2() for i in range(100)])
+    print('test_array2 = ', test_array2)
+    print('mean = ', test_array2.mean())
+    assert np.isclose(test_array2.mean(), 77, atol=2)
 
-#     # Check that generated values are independent of number of threads.
-#     # This should be trivial, since Poisson disables multi-threading, but check anyway.
-#     p1 = galsim.PoissonDeviate(testseed, mean=77)
-#     p2 = galsim.PoissonDeviate(testseed, mean=77)
-#     v1 = np.empty(555)
-#     v2 = np.empty(555)
-#     with single_threaded():
-#         p1.generate(v1)
-#     with single_threaded(num_threads=10):
-#         p2.generate(v2)
-#     np.testing.assert_array_equal(v1, v2)
-#     with single_threaded():
-#         p1.add_generate(v1)
-#     with single_threaded(num_threads=10):
-#         p2.add_generate(v2)
-#     np.testing.assert_array_equal(v1, v2)
+    # Check that generated values are independent of number of threads.
+    # This should be trivial, since Poisson disables multi-threading, but check anyway.
+    p1 = galsim.PoissonDeviate(testseed, mean=77)
+    p2 = galsim.PoissonDeviate(testseed, mean=77)
+    v1 = np.empty(555)
+    v2 = np.empty(555)
+    with single_threaded():
+        v1 = p1.generate(v1)
+    with single_threaded(num_threads=10):
+        v2 = p2.generate(v2)
+    np.testing.assert_array_equal(v1, v2)
+    with single_threaded():
+        v1 = p1.add_generate(v1)
+    with single_threaded(num_threads=10):
+        v2 = p2.add_generate(v2)
+    np.testing.assert_array_equal(v1, v2)
 
-#     # Check picklability
-#     do_pickle(p, lambda x: (x.serialize(), x.mean))
-#     do_pickle(p, lambda x: (x(), x(), x(), x()))
-#     do_pickle(p)
-#     assert 'PoissonDeviate' in repr(p)
-#     assert 'PoissonDeviate' in str(p)
-#     assert isinstance(eval(repr(p)), galsim.PoissonDeviate)
-#     assert isinstance(eval(str(p)), galsim.PoissonDeviate)
+    # Check picklability
+    do_pickle(p, lambda x: (x.serialize(), x.mean))
+    do_pickle(p, lambda x: (x(), x(), x(), x()))
+    do_pickle(p)
+    assert 'PoissonDeviate' in repr(p)
+    assert 'PoissonDeviate' in str(p)
+    assert isinstance(eval(repr(p)), galsim.PoissonDeviate)
+    assert isinstance(eval(str(p)), galsim.PoissonDeviate)
 
-#     # Check that we can construct a PoissonDeviate from None, and that it depends on dev/random.
-#     p1 = galsim.PoissonDeviate(None)
-#     p2 = galsim.PoissonDeviate(None)
-#     assert p1 != p2, "Consecutive PoissonDeviate(None) compared equal!"
-#     # We shouldn't be able to construct a PoissonDeviate from anything but a BaseDeviate, int, str,
-#     # or None.
-#     assert_raises(TypeError, galsim.PoissonDeviate, dict())
-#     assert_raises(TypeError, galsim.PoissonDeviate, list())
-#     assert_raises(TypeError, galsim.PoissonDeviate, set())
+    # Check that we can construct a PoissonDeviate from None, and that it depends on dev/random.
+    p1 = galsim.PoissonDeviate(None)
+    p2 = galsim.PoissonDeviate(None)
+    assert p1 != p2, "Consecutive PoissonDeviate(None) compared equal!"
+    # NOTE we do not use type checking in JAX
+    # # We shouldn't be able to construct a PoissonDeviate from anything but a BaseDeviate, int, str,
+    # # or None.
+    # assert_raises(TypeError, galsim.PoissonDeviate, dict())
+    # assert_raises(TypeError, galsim.PoissonDeviate, list())
+    # assert_raises(TypeError, galsim.PoissonDeviate, set())
 
 
 # @timer

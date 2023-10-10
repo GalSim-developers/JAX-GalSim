@@ -200,6 +200,7 @@ class BaseDeviate:
 )
 @register_pytree_node_class
 class UniformDeviate(BaseDeviate):
+    @jax.jit
     def _generate(key, array):
         # we do it this way so that the RNG appears to have a fixed state that is advanced per value drawn
         key, res = jax.lax.scan(
@@ -253,6 +254,7 @@ class GaussianDeviate(BaseDeviate):
         self._key, array = self.__class__._generate(self._key, array)
         return array * self.sigma + self.mean
 
+    @jax.jit
     def _generate(key, array):
         # we do it this way so that the RNG appears to have a fixed state that is advanced per value drawn
         key, res = jax.lax.scan(
@@ -341,70 +343,76 @@ class GaussianDeviate(BaseDeviate):
 #         return 'galsim.BinomialDeviate(N=%r, p=%r)'%(self.n, self.p)
 
 
-# class PoissonDeviate(BaseDeviate):
-#     """Pseudo-random Poisson deviate with specified ``mean``.
+@_wraps(
+    _galsim.PoissonDeviate,
+    lax_description=LAX_FUNCTIONAL_RNG,
+)
+@register_pytree_node_class
+class PoissonDeviate(BaseDeviate):
+    def __init__(self, seed=None, mean=1.0):
+        super().__init__(seed=seed)
+        self._params["mean"] = mean
 
-#     The input ``mean`` sets the mean and variance of the Poisson deviate.  An integer deviate with
-#     this distribution is returned after each call.
-#     See http://en.wikipedia.org/wiki/Poisson_distribution for more details.
+    @property
+    def mean(self):
+        """The mean of the Gaussian distribution."""
+        return self._params["mean"]
 
-#     Successive calls to ``p()`` generate pseudo-random integer values distributed according to a
-#     Poisson distribution with the specified ``mean``::
+    @_wraps(
+        _galsim.BaseDeviate.generate,
+        lax_description=(
+            "JAX arrays cannot be changed in-place, so the JAX version of "
+            "this method returns a new array."
+        ),
+    )
+    def generate(self, array):
+        self._key, array = self.__class__._generate(self._key, array, self.mean)
+        return array
 
-#         >>> p = galsim.PoissonDeviate(31415926, mean=100)
-#         >>> p()
-#         94
-#         >>> p()
-#         106
+    @jax.jit
+    def _generate(key, array, mean):
+        # we do it this way so that the RNG appears to have a fixed state that is advanced per value drawn
+        key, res = jax.lax.scan(
+            PoissonDeviate._generate_one,
+            key,
+            jnp.broadcast_to(mean, array.ravel().shape),
+            length=array.ravel().shape[0],
+        )
+        return key, res.reshape(array.shape)
 
-#     Parameters:
-#         seed:       Something that can seed a `BaseDeviate`: an integer seed or another
-#                     `BaseDeviate`.  Using 0 means to generate a seed from the system.
-#                     [default: None]
-#         mean:       Mean of the distribution. [default: 1; Must be > 0]
-#     """
-#     def __init__(self, seed=None, mean=1.):
-#         if mean < 0:
-#             raise GalSimValueError("PoissonDeviate is only defined for mean >= 0.", mean)
-#         self._rng_type = _galsim.PoissonDeviateImpl
-#         self._rng_args = (float(mean),)
-#         self.reset(seed)
+    def __call__(self):
+        self._key, val = self.__class__._generate_one(self._key, self.mean)
+        return val
 
-#     @property
-#     def mean(self):
-#         """The mean of the distribution.
-#         """
-#         return self._rng_args[0]
+    @jax.jit
+    def _generate_one(key, mean):
+        _key, subkey = jrandom.split(key)
+        return _key, jrandom.poisson(subkey, mean, dtype=int)
 
-#     @property
-#     def has_reliable_discard(self):
-#         return False
+    @_wraps(_galsim.PoissonDeviate.generate_from_expectation)
+    def generate_from_expectation(self, array):
+        self._key, _array = self.__class__._generate_from_exp(self._key, array)
+        return _array
 
-#     def __call__(self):
-#         """Draw a new random number from the distribution.
+    @jax.jit
+    def _generate_from_exp(key, array):
+        # we do it this way so that the RNG appears to have a fixed state that is advanced per value drawn
+        key, res = jax.lax.scan(
+            PoissonDeviate._generate_one,
+            key,
+            array.ravel(),
+            length=array.ravel().shape[0],
+        )
+        return key, res.reshape(array.shape)
 
-#         Returns a Poisson deviate with the given mean.
-#         """
-#         return self._rng.generate1()
+    def __repr__(self):
+        return "galsim.PoissonDeviate(seed=%r, mean=%r)" % (
+            ensure_hashable(jrandom.key_data(self._key)),
+            ensure_hashable(self.mean),
+        )
 
-#     def generate_from_expectation(self, array):
-#         """Generate many Poisson deviate values using the existing array values as the
-#         expectation value (aka mean) for each.
-#         """
-#         if np.any(array < 0):
-#             raise GalSimValueError("Expectation array may not have values < 0.", array)
-#         array_1d = np.ascontiguousarray(array.ravel(), dtype=float)
-#         #assert(array_1d.strides[0] == array_1d.itemsize)
-#         _a = array_1d.__array_interface__['data'][0]
-#         self._rng.generate_from_expectation(len(array_1d), _a)
-#         if array_1d.data != array.data:
-#             # array_1d is not a view into the original array.  Need to copy back.
-#             np.copyto(array, array_1d.reshape(array.shape), casting='unsafe')
-
-#     def __repr__(self):
-#         return 'galsim.PoissonDeviate(seed=%r, mean=%r)'%(self._seed_repr(), self.mean)
-#     def __str__(self):
-#         return 'galsim.PoissonDeviate(mean=%r)'%(self.mean)
+    def __str__(self):
+        return "galsim.PoissonDeviate(mean=%r)" % (ensure_hashable(self.mean),)
 
 
 # class WeibullDeviate(BaseDeviate):
