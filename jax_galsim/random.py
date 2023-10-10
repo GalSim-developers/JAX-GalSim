@@ -244,7 +244,7 @@ class GaussianDeviate(BaseDeviate):
         return self._params["sigma"]
 
     @_wraps(
-        _galsim.BaseDeviate.generate,
+        _galsim.GaussianDeviate.generate,
         lax_description=(
             "JAX arrays cannot be changed in-place, so the JAX version of "
             "this method returns a new array."
@@ -359,7 +359,7 @@ class PoissonDeviate(BaseDeviate):
         return self._params["mean"]
 
     @_wraps(
-        _galsim.BaseDeviate.generate,
+        _galsim.PoissonDeviate.generate,
         lax_description=(
             "JAX arrays cannot be changed in-place, so the JAX version of "
             "this method returns a new array."
@@ -471,61 +471,70 @@ class PoissonDeviate(BaseDeviate):
 #         return 'galsim.WeibullDeviate(a=%r, b=%r)'%(self.a, self.b)
 
 
-# class GammaDeviate(BaseDeviate):
-#     """A Gamma-distributed deviate with shape parameter ``k`` and scale parameter ``theta``.
-#     See http://en.wikipedia.org/wiki/Gamma_distribution.
-#     (Note: we use the k, theta notation. If you prefer alpha, beta, use k=alpha, theta=1/beta.)
-#     The Gamma distribution is a real valued distribution producing deviates >= 0.
+@_wraps(
+    _galsim.GammaDeviate,
+    lax_description=LAX_FUNCTIONAL_RNG,
+)
+@register_pytree_node_class
+class GammaDeviate(BaseDeviate):
+    def __init__(self, seed=None, k=1.0, theta=1.0):
+        super().__init__(seed=seed)
+        self._params["k"] = k
+        self._params["theta"] = theta
 
-#     Successive calls to ``g()`` generate pseudo-random values distributed according to a gamma
-#     distribution with the specified shape and scale parameters ``k`` and ``theta``::
+    @property
+    def k(self):
+        """The shape parameter, k."""
+        return self._params["k"]
 
-#         >>> gam = galsim.GammaDeviate(31415926, k=1, theta=2)
-#         >>> gam()
-#         0.37508882726316
-#         >>> gam()
-#         1.3504199388358704
+    @property
+    def theta(self):
+        """The scale parameter, theta."""
+        return self._params["theta"]
 
-#     Parameters:
-#         seed:       Something that can seed a `BaseDeviate`: an integer seed or another
-#                     `BaseDeviate`.  Using 0 means to generate a seed from the system.
-#                     [default: None]
-#         k:          Shape parameter of the distribution. [default: 1; Must be > 0]
-#         theta:      Scale parameter of the distribution. [default: 1; Must be > 0]
-#     """
-#     def __init__(self, seed=None, k=1., theta=1.):
-#         self._rng_type = _galsim.GammaDeviateImpl
-#         self._rng_args = (float(k), float(theta))
-#         self.reset(seed)
+    @_wraps(
+        _galsim.GammaDeviate.generate,
+        lax_description=(
+            "JAX arrays cannot be changed in-place, so the JAX version of "
+            "this method returns a new array."
+        ),
+    )
+    def generate(self, array):
+        self._key, array = self.__class__._generate(self._key, array, self.k)
+        return array * self.theta
 
-#     @property
-#     def k(self):
-#         """The shape parameter, k.
-#         """
-#         return self._rng_args[0]
+    @jax.jit
+    def _generate(key, array, k):
+        # we do it this way so that the RNG appears to have a fixed state that is advanced per value drawn
+        key, res = jax.lax.scan(
+            GammaDeviate._generate_one,
+            key,
+            jnp.broadcast_to(k, array.ravel().shape),
+            length=array.ravel().shape[0],
+        )
+        return key, res.reshape(array.shape)
 
-#     @property
-#     def theta(self):
-#         """The scale parameter, theta.
-#         """
-#         return self._rng_args[1]
+    def __call__(self):
+        self._key, val = self.__class__._generate_one(self._key, self.k)
+        return val * self.theta
 
-#     @property
-#     def has_reliable_discard(self):
-#         return False
+    @jax.jit
+    def _generate_one(key, k):
+        _key, subkey = jrandom.split(key)
+        return _key, jrandom.gamma(subkey, k, dtype=float)
 
-#     def __call__(self):
-#         """Draw a new random number from the distribution.
+    def __repr__(self):
+        return "galsim.GammaDeviate(seed=%r, k=%r, theta=%r)" % (
+            ensure_hashable(jrandom.key_data(self._key)),
+            ensure_hashable(self.k),
+            ensure_hashable(self.theta),
+        )
 
-#         Returns a Gamma-distributed deviate with the given k and theta.
-#         """
-#         return self._rng.generate1()
-
-#     def __repr__(self):
-#         return 'galsim.GammaDeviate(seed=%r, k=%r, theta=%r)'%(
-#                 self._seed_repr(), self.k, self.theta)
-#     def __str__(self):
-#         return 'galsim.GammaDeviate(k=%r, theta=%r)'%(self.k, self.theta)
+    def __str__(self):
+        return "galsim.GammaDeviate(k=%r, theta=%r)" % (
+            ensure_hashable(self.k),
+            ensure_hashable(self.theta),
+        )
 
 
 @_wraps(
@@ -544,7 +553,7 @@ class Chi2Deviate(BaseDeviate):
         return self._params["n"]
 
     @_wraps(
-        _galsim.BaseDeviate.generate,
+        _galsim.Chi2Deviate.generate,
         lax_description=(
             "JAX arrays cannot be changed in-place, so the JAX version of "
             "this method returns a new array."

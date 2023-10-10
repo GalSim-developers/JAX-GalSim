@@ -50,7 +50,7 @@ wResult = (5.3648053017485591, 6.3093033550873878, 7.7982696798921074)
 gammaK = 1.5
 gammaTheta = 4.5
 # Tabulated results for Gamma
-gammaResult = (4.7375613139927157, 15.272973580418618, 21.485016362839747)
+gammaResult = (10.9318881415, 7.6074550007, 2.0526795529)
 
 # n to use for Chi2 tests
 chi2N = 30
@@ -1193,151 +1193,157 @@ def test_poisson():
 #     assert_raises(TypeError, galsim.WeibullDeviate, set())
 
 
-# @timer
-# def test_gamma():
-#     """Test Gamma random number generator
-#     """
-#     g = galsim.GammaDeviate(testseed, k=gammaK, theta=gammaTheta)
-#     g2 = g.duplicate()
-#     g3 = galsim.GammaDeviate(g.serialize(), k=gammaK, theta=gammaTheta)
-#     testResult = (g(), g(), g())
-#     np.testing.assert_array_almost_equal(
-#             np.array(testResult), np.array(gammaResult), precision,
-#             err_msg='Wrong Gamma random number sequence generated')
-#     testResult = (g2(), g2(), g2())
-#     np.testing.assert_array_almost_equal(
-#             np.array(testResult), np.array(gammaResult), precision,
-#             err_msg='Wrong Gamma random number sequence generated with duplicate')
-#     testResult = (g3(), g3(), g3())
-#     np.testing.assert_array_almost_equal(
-#             np.array(testResult), np.array(gammaResult), precision,
-#             err_msg='Wrong Gamma random number sequence generated from serialize')
+@timer
+def test_gamma():
+    """Test Gamma random number generator
+    """
+    g = galsim.GammaDeviate(testseed, k=gammaK, theta=gammaTheta)
+    g2 = g.duplicate()
+    g3 = galsim.GammaDeviate(g.serialize(), k=gammaK, theta=gammaTheta)
+    testResult = (g(), g(), g())
+    np.testing.assert_array_almost_equal(
+        np.array(testResult), np.array(gammaResult), precision,
+        err_msg='Wrong Gamma random number sequence generated')
+    testResult = (g2(), g2(), g2())
+    np.testing.assert_array_almost_equal(
+        np.array(testResult), np.array(gammaResult), precision,
+        err_msg='Wrong Gamma random number sequence generated with duplicate')
+    testResult = (g3(), g3(), g3())
+    np.testing.assert_array_almost_equal(
+        np.array(testResult), np.array(gammaResult), precision,
+        err_msg='Wrong Gamma random number sequence generated from serialize')
 
-#     # Check that the mean and variance come out right
-#     g = galsim.GammaDeviate(testseed, k=gammaK, theta=gammaTheta)
-#     vals = [g() for i in range(nvals)]
-#     mean = np.mean(vals)
-#     var = np.var(vals)
-#     mu = gammaK*gammaTheta
-#     v = gammaK*gammaTheta**2
-#     print('mean = ',mean,'  true mean = ',mu)
-#     print('var = ',var,'   true var = ',v)
-#     np.testing.assert_almost_equal(mean, mu, 1,
-#             err_msg='Wrong mean from GammaDeviate')
-#     np.testing.assert_almost_equal(var, v, 0,
-#             err_msg='Wrong variance from GammaDeviate')
+    # Check that the mean and variance come out right
+    g = galsim.GammaDeviate(testseed, k=gammaK, theta=gammaTheta)
+    vals = [g() for i in range(nvals)]
+    mean = np.mean(vals)
+    var = np.var(vals)
+    mu = gammaK * gammaTheta
+    v = gammaK * gammaTheta**2
+    print('mean = ', mean, '  true mean = ', mu)
+    print('var = ', var, '   true var = ', v)
+    np.testing.assert_almost_equal(
+        mean, mu, 1,
+        err_msg='Wrong mean from GammaDeviate')
+    np.testing.assert_almost_equal(
+        var, v, 0,
+        err_msg='Wrong variance from GammaDeviate')
 
-#     # Check discard
-#     g2 = galsim.GammaDeviate(testseed, k=gammaK, theta=gammaTheta)
-#     g2.discard(nvals, suppress_warnings=True)
-#     v1,v2 = g(),g2()
-#     print('after %d vals, next one is %s, %s'%(nvals,v1,v2))
-#     # Gamma uses at least 2 rngs per value, but can use arbitrarily more than this.
-#     assert v1 != v2
-#     assert not g.has_reliable_discard
-#     assert not g.generates_in_pairs
+    # NOTE jax has a reliabble discard
+    # Check discard
+    g2 = galsim.GammaDeviate(testseed, k=gammaK, theta=gammaTheta)
+    g2.discard(nvals, suppress_warnings=True)
+    v1, v2 = g(), g2()
+    print('after %d vals, next one is %s, %s' % (nvals, v1, v2))
+    # Gamma uses at least 2 rngs per value, but can use arbitrarily more than this.
+    assert v1 == v2
+    assert g.has_reliable_discard
+    assert not g.generates_in_pairs
 
-#     # Discard normally emits a warning for Gamma
-#     g2 = galsim.GammaDeviate(testseed, k=gammaK, theta=gammaTheta)
-#     with assert_warns(galsim.GalSimWarning):
-#         g2.discard(nvals)
+    # NOTE jax has a reliabble discard
+    # Discard normally emits a warning for Gamma
+    # g2 = galsim.GammaDeviate(testseed, k=gammaK, theta=gammaTheta)
+    # with assert_warns(galsim.GalSimWarning):
+    #     g2.discard(nvals)
 
-#     # Check seed, reset
-#     g.seed(testseed)
-#     testResult2 = (g(), g(), g())
-#     np.testing.assert_array_equal(
-#             np.array(testResult), np.array(testResult2),
-#             err_msg='Wrong gamma random number sequence generated after seed')
+    # Check seed, reset
+    g.seed(testseed)
+    testResult2 = (g(), g(), g())
+    np.testing.assert_array_equal(
+        np.array(testResult), np.array(testResult2),
+        err_msg='Wrong gamma random number sequence generated after seed')
 
-#     g.reset(testseed)
-#     testResult2 = (g(), g(), g())
-#     np.testing.assert_array_equal(
-#             np.array(testResult), np.array(testResult2),
-#             err_msg='Wrong gamma random number sequence generated after reset(seed)')
+    g.reset(testseed)
+    testResult2 = (g(), g(), g())
+    np.testing.assert_array_equal(
+        np.array(testResult), np.array(testResult2),
+        err_msg='Wrong gamma random number sequence generated after reset(seed)')
 
-#     rng = galsim.BaseDeviate(testseed)
-#     g.reset(rng)
-#     testResult2 = (g(), g(), g())
-#     np.testing.assert_array_equal(
-#             np.array(testResult), np.array(testResult2),
-#             err_msg='Wrong gamma random number sequence generated after reset(rng)')
+    rng = galsim.BaseDeviate(testseed)
+    g.reset(rng)
+    testResult2 = (g(), g(), g())
+    np.testing.assert_array_equal(
+        np.array(testResult), np.array(testResult2),
+        err_msg='Wrong gamma random number sequence generated after reset(rng)')
 
-#     ud = galsim.UniformDeviate(testseed)
-#     g.reset(ud)
-#     testResult = (g(), g(), g())
-#     np.testing.assert_array_equal(
-#             np.array(testResult), np.array(testResult2),
-#             err_msg='Wrong gamma random number sequence generated after reset(ud)')
+    ud = galsim.UniformDeviate(testseed)
+    g.reset(ud)
+    testResult = (g(), g(), g())
+    np.testing.assert_array_equal(
+        np.array(testResult), np.array(testResult2),
+        err_msg='Wrong gamma random number sequence generated after reset(ud)')
 
-#     # Check that two connected gamma deviates work correctly together.
-#     g2 = galsim.GammaDeviate(testseed, k=gammaK, theta=gammaTheta)
-#     g.reset(g2)
-#     testResult2 = (g(), g2(), g())
-#     np.testing.assert_array_equal(
-#             np.array(testResult), np.array(testResult2),
-#             err_msg='Wrong gamma random number sequence generated using two gds')
-#     g.seed(testseed)
-#     testResult2 = (g2(), g(), g2())
-#     np.testing.assert_array_equal(
-#             np.array(testResult), np.array(testResult2),
-#             err_msg='Wrong gamma random number sequence generated using two gds after seed')
+    # NOTE jax cannot connect RNGs
+    # # Check that two connected gamma deviates work correctly together.
+    # g2 = galsim.GammaDeviate(testseed, k=gammaK, theta=gammaTheta)
+    # g.reset(g2)
+    # testResult2 = (g(), g2(), g())
+    # np.testing.assert_array_equal(
+    #     np.array(testResult), np.array(testResult2),
+    #     err_msg='Wrong gamma random number sequence generated using two gds')
+    # g.seed(testseed)
+    # testResult2 = (g2(), g(), g2())
+    # np.testing.assert_array_equal(
+    #         np.array(testResult), np.array(testResult2),
+    #         err_msg='Wrong gamma random number sequence generated using two gds after seed')
 
-#     # Check that seeding with the time works (although we cannot check the output).
-#     # We're mostly just checking that this doesn't raise an exception.
-#     # The output could be anything.
-#     g.seed()
-#     testResult2 = (g(), g(), g())
-#     assert testResult2 != testResult
-#     g.reset()
-#     testResult3 = (g(), g(), g())
-#     assert testResult3 != testResult
-#     assert testResult3 != testResult2
-#     g.reset()
-#     testResult4 = (g(), g(), g())
-#     assert testResult4 != testResult
-#     assert testResult4 != testResult2
-#     assert testResult4 != testResult3
-#     g = galsim.GammaDeviate(k=gammaK, theta=gammaTheta)
-#     testResult5 = (g(), g(), g())
-#     assert testResult5 != testResult
-#     assert testResult5 != testResult2
-#     assert testResult5 != testResult3
-#     assert testResult5 != testResult4
+    # Check that seeding with the time works (although we cannot check the output).
+    # We're mostly just checking that this doesn't raise an exception.
+    # The output could be anything.
+    g.seed()
+    testResult2 = (g(), g(), g())
+    assert testResult2 != testResult
+    g.reset()
+    testResult3 = (g(), g(), g())
+    assert testResult3 != testResult
+    assert testResult3 != testResult2
+    g.reset()
+    testResult4 = (g(), g(), g())
+    assert testResult4 != testResult
+    assert testResult4 != testResult2
+    assert testResult4 != testResult3
+    g = galsim.GammaDeviate(k=gammaK, theta=gammaTheta)
+    testResult5 = (g(), g(), g())
+    assert testResult5 != testResult
+    assert testResult5 != testResult2
+    assert testResult5 != testResult3
+    assert testResult5 != testResult4
 
-#     # Test generate
-#     g.seed(testseed)
-#     test_array = np.empty(3)
-#     g.generate(test_array)
-#     np.testing.assert_array_almost_equal(
-#             test_array, np.array(gammaResult), precision,
-#             err_msg='Wrong gamma random number sequence from generate.')
+    # Test generate
+    g.seed(testseed)
+    test_array = np.empty(3)
+    test_array = g.generate(test_array)
+    np.testing.assert_array_almost_equal(
+        test_array, np.array(gammaResult), precision,
+        err_msg='Wrong gamma random number sequence from generate.')
 
-#     # Test generate with a float32 array
-#     g.seed(testseed)
-#     test_array = np.empty(3, dtype=np.float32)
-#     g.generate(test_array)
-#     np.testing.assert_array_almost_equal(
-#             test_array, np.array(gammaResult), precisionF,
-#             err_msg='Wrong gamma random number sequence from generate.')
+    # Test generate with a float32 array
+    g.seed(testseed)
+    test_array = np.empty(3, dtype=np.float32)
+    test_array = g.generate(test_array)
+    np.testing.assert_array_almost_equal(
+        test_array, np.array(gammaResult), precisionF,
+        err_msg='Wrong gamma random number sequence from generate.')
 
-#     # Check picklability
-#     do_pickle(g, lambda x: (x.serialize(), x.k, x.theta))
-#     do_pickle(g, lambda x: (x(), x(), x(), x()))
-#     do_pickle(g)
-#     assert 'GammaDeviate' in repr(g)
-#     assert 'GammaDeviate' in str(g)
-#     assert isinstance(eval(repr(g)), galsim.GammaDeviate)
-#     assert isinstance(eval(str(g)), galsim.GammaDeviate)
+    # Check picklability
+    do_pickle(g, lambda x: (x.serialize(), x.k, x.theta))
+    do_pickle(g, lambda x: (x(), x(), x(), x()))
+    do_pickle(g)
+    assert 'GammaDeviate' in repr(g)
+    assert 'GammaDeviate' in str(g)
+    assert isinstance(eval(repr(g)), galsim.GammaDeviate)
+    assert isinstance(eval(str(g)), galsim.GammaDeviate)
 
-#     # Check that we can construct a GammaDeviate from None, and that it depends on dev/random.
-#     g1 = galsim.GammaDeviate(None)
-#     g2 = galsim.GammaDeviate(None)
-#     assert g1 != g2, "Consecutive GammaDeviate(None) compared equal!"
-#     # We shouldn't be able to construct a GammaDeviate from anything but a BaseDeviate, int, str,
-#     # or None.
-#     assert_raises(TypeError, galsim.GammaDeviate, dict())
-#     assert_raises(TypeError, galsim.GammaDeviate, list())
-#     assert_raises(TypeError, galsim.GammaDeviate, set())
+    # Check that we can construct a GammaDeviate from None, and that it depends on dev/random.
+    g1 = galsim.GammaDeviate(None)
+    g2 = galsim.GammaDeviate(None)
+    assert g1 != g2, "Consecutive GammaDeviate(None) compared equal!"
+    # NOTE jax does not raise for type errors
+    # # We shouldn't be able to construct a GammaDeviate from anything but a BaseDeviate, int, str,
+    # # or None.
+    # assert_raises(TypeError, galsim.GammaDeviate, dict())
+    # assert_raises(TypeError, galsim.GammaDeviate, list())
+    # assert_raises(TypeError, galsim.GammaDeviate, set())
 
 
 @timer

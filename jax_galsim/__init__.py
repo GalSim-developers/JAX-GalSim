@@ -14,6 +14,7 @@ from .random import (
     GaussianDeviate,
     PoissonDeviate,
     Chi2Deviate,
+    GammaDeviate,
 )
 
 # Basic building blocks
