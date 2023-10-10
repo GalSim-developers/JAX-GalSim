@@ -9,7 +9,7 @@ from jax.tree_util import register_pytree_node_class
 
 try:
     from jax.extend.random import wrap_key_data
-except ModuleNotFoundError:
+except (ModuleNotFoundError, ImportError):
     from jax.random import wrap_key_data
 
 from jax_galsim.core.utils import ensure_hashable
