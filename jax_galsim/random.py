@@ -428,60 +428,74 @@ class PoissonDeviate(BaseDeviate):
         return "galsim.PoissonDeviate(mean=%r)" % (ensure_hashable(self.mean),)
 
 
-# class WeibullDeviate(BaseDeviate):
-#     """Pseudo-random Weibull-distributed deviate for shape parameter ``a`` and scale parameter ``b``.
+@_wraps(
+    _galsim.WeibullDeviate,
+    lax_description=LAX_FUNCTIONAL_RNG,
+)
+@register_pytree_node_class
+class WeibullDeviate(BaseDeviate):
+    def __init__(self, seed=None, a=1.0, b=1.0):
+        super().__init__(seed=seed)
+        self._params["a"] = a
+        self._params["b"] = b
 
-#     The Weibull distribution is related to a number of other probability distributions; in
-#     particular, it interpolates between the exponential distribution (a=1) and the Rayleigh
-#     distribution (a=2).
-#     See http://en.wikipedia.org/wiki/Weibull_distribution (a=k and b=lambda in the notation adopted
-#     in the Wikipedia article) for more details.  The Weibull distribution is real valued and
-#     produces deviates >= 0.
+    @property
+    def a(self):
+        """The shape parameter, a."""
+        return self._params["a"]
 
-#     Successive calls to ``w()`` generate pseudo-random values distributed according to a Weibull
-#     distribution with the specified shape and scale parameters ``a`` and ``b``::
+    @property
+    def b(self):
+        """The scale parameter, b."""
+        return self._params["b"]
 
-#         >>> w = galsim.WeibullDeviate(31415926, a=1.3, b=4)
-#         >>> w()
-#         1.1038481241018219
-#         >>> w()
-#         2.957052966368049
+    @_wraps(
+        _galsim.WeibullDeviate.generate,
+        lax_description=(
+            "JAX arrays cannot be changed in-place, so the JAX version of "
+            "this method returns a new array."
+        ),
+    )
+    def generate(self, array):
+        self._key, array = self.__class__._generate(self._key, array, self.a, self.b)
+        return array
 
-#     Parameters:
-#         seed:       Something that can seed a `BaseDeviate`: an integer seed or another
-#                     `BaseDeviate`.  Using 0 means to generate a seed from the system.
-#                     [default: None]
-#         a:          Shape parameter of the distribution. [default: 1; Must be > 0]
-#         b:          Scale parameter of the distribution. [default: 1; Must be > 0]
-#     """
-#     def __init__(self, seed=None, a=1., b=1.):
-#         self._rng_type = _galsim.WeibullDeviateImpl
-#         self._rng_args = (float(a), float(b))
-#         self.reset(seed)
+    @jax.jit
+    def _generate(key, array, a, b):
+        # we do it this way so that the RNG appears to have a fixed state that is advanced per value drawn
+        carry, res = jax.lax.scan(
+            WeibullDeviate._generate_one,
+            (key, a, b),
+            None,
+            length=array.ravel().shape[0],
+        )
+        key, _, _ = carry
+        return key, res.reshape(array.shape)
 
-#     @property
-#     def a(self):
-#         """The shape parameter, a.
-#         """
-#         return self._rng_args[0]
+    def __call__(self):
+        carry, val = self.__class__._generate_one((self._key, self.a, self.b), None)
+        self._key, _, _ = carry
+        return val
 
-#     @property
-#     def b(self):
-#         """The scale parameter, b.
-#         """
-#         return self._rng_args[1]
+    @jax.jit
+    def _generate_one(args, x):
+        key, a, b = args
+        _key, subkey = jrandom.split(key)
+        # argument order is scale, concentration
+        return (_key, a, b), jrandom.weibull_min(subkey, b, a, dtype=float)
 
-#     def __call__(self):
-#         """Draw a new random number from the distribution.
+    def __repr__(self):
+        return "galsim.WeibullDeviate(seed=%r, a=%r, b=%r)" % (
+            ensure_hashable(jrandom.key_data(self._key)),
+            ensure_hashable(self.a),
+            ensure_hashable(self.b),
+        )
 
-#         Returns a Weibull-distributed deviate with the given shape parameters a and b.
-#         """
-#         return self._rng.generate1()
-
-#     def __repr__(self):
-#         return 'galsim.WeibullDeviate(seed=%r, a=%r, b=%r)'%(self._seed_repr(), self.a, self.b)
-#     def __str__(self):
-#         return 'galsim.WeibullDeviate(a=%r, b=%r)'%(self.a, self.b)
+    def __str__(self):
+        return "galsim.WeibullDeviate(a=%r, b=%r)" % (
+            ensure_hashable(self.a),
+            ensure_hashable(self.b),
+        )
 
 
 @_wraps(

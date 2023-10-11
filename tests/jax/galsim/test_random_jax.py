@@ -1,3 +1,4 @@
+import math
 import numpy as np
 import os
 import galsim
@@ -44,7 +45,7 @@ pResult = (6, 11, 4)
 wA = 4.0
 wB = 9.0
 # Tabulated results for Weibull
-wResult = (5.3648053017485591, 6.3093033550873878, 7.7982696798921074)
+wResult = (3.2106530102, 6.4256210259, 5.8255498741)
 
 # k & theta to use for Gamma tests
 gammaK = 1.5
@@ -1030,163 +1031,167 @@ def test_poisson_zeromean():
     #     p.generate_from_expectation(test_array)
 
 
-# @timer
-# def test_weibull():
-#     """Test Weibull random number generator
-#     """
-#     w = galsim.WeibullDeviate(testseed, a=wA, b=wB)
-#     w2 = w.duplicate()
-#     w3 = galsim.WeibullDeviate(w.serialize(), a=wA, b=wB)
-#     testResult = (w(), w(), w())
-#     np.testing.assert_array_almost_equal(
-#             np.array(testResult), np.array(wResult), precision,
-#             err_msg='Wrong Weibull random number sequence generated')
-#     testResult = (w2(), w2(), w2())
-#     np.testing.assert_array_almost_equal(
-#             np.array(testResult), np.array(wResult), precision,
-#             err_msg='Wrong Weibull random number sequence generated with duplicate')
-#     testResult = (w3(), w3(), w3())
-#     np.testing.assert_array_almost_equal(
-#             np.array(testResult), np.array(wResult), precision,
-#             err_msg='Wrong Weibull random number sequence generated from serialize')
+@timer
+def test_weibull():
+    """Test Weibull random number generator
+    """
+    w = galsim.WeibullDeviate(testseed, a=wA, b=wB)
+    w2 = w.duplicate()
+    w3 = galsim.WeibullDeviate(w.serialize(), a=wA, b=wB)
+    testResult = (w(), w(), w())
+    np.testing.assert_array_almost_equal(
+        np.array(testResult), np.array(wResult), precision,
+        err_msg='Wrong Weibull random number sequence generated')
+    testResult = (w2(), w2(), w2())
+    np.testing.assert_array_almost_equal(
+        np.array(testResult), np.array(wResult), precision,
+        err_msg='Wrong Weibull random number sequence generated with duplicate')
+    testResult = (w3(), w3(), w3())
+    np.testing.assert_array_almost_equal(
+        np.array(testResult), np.array(wResult), precision,
+        err_msg='Wrong Weibull random number sequence generated from serialize')
 
-#     # Check that the mean and variance come out right
-#     w = galsim.WeibullDeviate(testseed, a=wA, b=wB)
-#     vals = [w() for i in range(nvals)]
-#     mean = np.mean(vals)
-#     var = np.var(vals)
-#     gammaFactor1 = math.gamma(1.+1./wA)
-#     gammaFactor2 = math.gamma(1.+2./wA)
-#     mu = wB * gammaFactor1
-#     v = wB**2 * gammaFactor2 - mu**2
-#     print('mean = ',mean,'  true mean = ',mu)
-#     print('var = ',var,'   true var = ',v)
-#     np.testing.assert_almost_equal(mean, mu, 1,
-#             err_msg='Wrong mean from WeibullDeviate')
-#     np.testing.assert_almost_equal(var, v, 1,
-#             err_msg='Wrong variance from WeibullDeviate')
+    # Check that the mean and variance come out right
+    w = galsim.WeibullDeviate(testseed, a=wA, b=wB)
+    vals = [w() for i in range(nvals)]
+    mean = np.mean(vals)
+    var = np.var(vals)
+    gammaFactor1 = math.gamma(1. + 1. / wA)
+    gammaFactor2 = math.gamma(1. + 2. / wA)
+    mu = wB * gammaFactor1
+    v = wB**2 * gammaFactor2 - mu**2
+    print('mean = ', mean, '  true mean = ', mu)
+    print('var = ', var, '   true var = ', v)
+    np.testing.assert_almost_equal(
+        mean, mu, 1,
+        err_msg='Wrong mean from WeibullDeviate')
+    np.testing.assert_almost_equal(
+        var, v, 1,
+        err_msg='Wrong variance from WeibullDeviate')
 
-#     # Check discard
-#     w2 = galsim.WeibullDeviate(testseed, a=wA, b=wB)
-#     w2.discard(nvals)
-#     v1,v2 = w(),w2()
-#     print('after %d vals, next one is %s, %s'%(nvals,v1,v2))
-#     assert v1 == v2
-#     assert w.has_reliable_discard
-#     assert not w.generates_in_pairs
+    # Check discard
+    w2 = galsim.WeibullDeviate(testseed, a=wA, b=wB)
+    w2.discard(nvals)
+    v1, v2 = w(), w2()
+    print('after %d vals, next one is %s, %s' % (nvals, v1, v2))
+    assert v1 == v2
+    assert w.has_reliable_discard
+    assert not w.generates_in_pairs
 
-#     # Check seed, reset
-#     w.seed(testseed)
-#     testResult2 = (w(), w(), w())
-#     np.testing.assert_array_equal(
-#             np.array(testResult), np.array(testResult2),
-#             err_msg='Wrong weibull random number sequence generated after seed')
+    # Check seed, reset
+    w.seed(testseed)
+    testResult2 = (w(), w(), w())
+    np.testing.assert_array_equal(
+        np.array(testResult), np.array(testResult2),
+        err_msg='Wrong weibull random number sequence generated after seed')
 
-#     w.reset(testseed)
-#     testResult2 = (w(), w(), w())
-#     np.testing.assert_array_equal(
-#             np.array(testResult), np.array(testResult2),
-#             err_msg='Wrong weibull random number sequence generated after reset(seed)')
+    w.reset(testseed)
+    testResult2 = (w(), w(), w())
+    np.testing.assert_array_equal(
+        np.array(testResult), np.array(testResult2),
+        err_msg='Wrong weibull random number sequence generated after reset(seed)')
 
-#     rng = galsim.BaseDeviate(testseed)
-#     w.reset(rng)
-#     testResult2 = (w(), w(), w())
-#     np.testing.assert_array_equal(
-#             np.array(testResult), np.array(testResult2),
-#             err_msg='Wrong weibull random number sequence generated after reset(rng)')
+    rng = galsim.BaseDeviate(testseed)
+    w.reset(rng)
+    testResult2 = (w(), w(), w())
+    np.testing.assert_array_equal(
+        np.array(testResult), np.array(testResult2),
+        err_msg='Wrong weibull random number sequence generated after reset(rng)')
 
-#     ud = galsim.UniformDeviate(testseed)
-#     w.reset(ud)
-#     testResult = (w(), w(), w())
-#     np.testing.assert_array_equal(
-#             np.array(testResult), np.array(testResult2),
-#             err_msg='Wrong weibull random number sequence generated after reset(ud)')
+    ud = galsim.UniformDeviate(testseed)
+    w.reset(ud)
+    testResult = (w(), w(), w())
+    np.testing.assert_array_equal(
+        np.array(testResult), np.array(testResult2),
+        err_msg='Wrong weibull random number sequence generated after reset(ud)')
 
-#     # Check that two connected weibull deviates work correctly together.
-#     w2 = galsim.WeibullDeviate(testseed, a=wA, b=wB)
-#     w.reset(w2)
-#     testResult2 = (w(), w2(), w())
-#     np.testing.assert_array_equal(
-#             np.array(testResult), np.array(testResult2),
-#             err_msg='Wrong weibull random number sequence generated using two wds')
-#     w.seed(testseed)
-#     testResult2 = (w2(), w(), w2())
-#     np.testing.assert_array_equal(
-#             np.array(testResult), np.array(testResult2),
-#             err_msg='Wrong weibull random number sequence generated using two wds after seed')
+    # NOTE JAX does not allow connected deviates
+    # # Check that two connected weibull deviates work correctly together.
+    # w2 = galsim.WeibullDeviate(testseed, a=wA, b=wB)
+    # w.reset(w2)
+    # testResult2 = (w(), w2(), w())
+    # np.testing.assert_array_equal(
+    #     np.array(testResult), np.array(testResult2),
+    #     err_msg='Wrong weibull random number sequence generated using two wds')
+    # w.seed(testseed)
+    # testResult2 = (w2(), w(), w2())
+    # np.testing.assert_array_equal(
+    #         np.array(testResult), np.array(testResult2),
+    #         err_msg='Wrong weibull random number sequence generated using two wds after seed')
 
-#     # Check that seeding with the time works (although we cannot check the output).
-#     # We're mostly just checking that this doesn't raise an exception.
-#     # The output could be anything.
-#     w.seed()
-#     testResult2 = (w(), w(), w())
-#     assert testResult2 != testResult
-#     w.reset()
-#     testResult3 = (w(), w(), w())
-#     assert testResult3 != testResult
-#     assert testResult3 != testResult2
-#     w.reset()
-#     testResult4 = (w(), w(), w())
-#     assert testResult4 != testResult
-#     assert testResult4 != testResult2
-#     assert testResult4 != testResult3
-#     w = galsim.WeibullDeviate(a=wA, b=wB)
-#     testResult5 = (w(), w(), w())
-#     assert testResult5 != testResult
-#     assert testResult5 != testResult2
-#     assert testResult5 != testResult3
-#     assert testResult5 != testResult4
+    # Check that seeding with the time works (although we cannot check the output).
+    # We're mostly just checking that this doesn't raise an exception.
+    # The output could be anything.
+    w.seed()
+    testResult2 = (w(), w(), w())
+    assert testResult2 != testResult
+    w.reset()
+    testResult3 = (w(), w(), w())
+    assert testResult3 != testResult
+    assert testResult3 != testResult2
+    w.reset()
+    testResult4 = (w(), w(), w())
+    assert testResult4 != testResult
+    assert testResult4 != testResult2
+    assert testResult4 != testResult3
+    w = galsim.WeibullDeviate(a=wA, b=wB)
+    testResult5 = (w(), w(), w())
+    assert testResult5 != testResult
+    assert testResult5 != testResult2
+    assert testResult5 != testResult3
+    assert testResult5 != testResult4
 
-#     # Test generate
-#     w.seed(testseed)
-#     test_array = np.empty(3)
-#     w.generate(test_array)
-#     np.testing.assert_array_almost_equal(
-#             test_array, np.array(wResult), precision,
-#             err_msg='Wrong weibull random number sequence from generate.')
+    # Test generate
+    w.seed(testseed)
+    test_array = np.empty(3)
+    test_array = w.generate(test_array)
+    np.testing.assert_array_almost_equal(
+        test_array, np.array(wResult), precision,
+        err_msg='Wrong weibull random number sequence from generate.')
 
-#     # Test generate with a float32 array
-#     w.seed(testseed)
-#     test_array = np.empty(3, dtype=np.float32)
-#     w.generate(test_array)
-#     np.testing.assert_array_almost_equal(
-#             test_array, np.array(wResult), precisionF,
-#             err_msg='Wrong weibull random number sequence from generate.')
+    # Test generate with a float32 array
+    w.seed(testseed)
+    test_array = np.empty(3, dtype=np.float32)
+    test_array = w.generate(test_array)
+    np.testing.assert_array_almost_equal(
+        test_array, np.array(wResult), precisionF,
+        err_msg='Wrong weibull random number sequence from generate.')
 
-#     # Check that generated values are independent of number of threads.
-#     w1 = galsim.WeibullDeviate(testseed, a=3.1, b=7.3)
-#     w2 = galsim.WeibullDeviate(testseed, a=3.1, b=7.3)
-#     v1 = np.empty(555)
-#     v2 = np.empty(555)
-#     with single_threaded():
-#         w1.generate(v1)
-#     with single_threaded(num_threads=10):
-#         w2.generate(v2)
-#     np.testing.assert_array_equal(v1, v2)
-#     with single_threaded():
-#         w1.add_generate(v1)
-#     with single_threaded(num_threads=10):
-#         w2.add_generate(v2)
-#     np.testing.assert_array_equal(v1, v2)
+    # Check that generated values are independent of number of threads.
+    w1 = galsim.WeibullDeviate(testseed, a=3.1, b=7.3)
+    w2 = galsim.WeibullDeviate(testseed, a=3.1, b=7.3)
+    v1 = np.empty(555)
+    v2 = np.empty(555)
+    with single_threaded():
+        v1 = w1.generate(v1)
+    with single_threaded(num_threads=10):
+        v2 = w2.generate(v2)
+    np.testing.assert_array_equal(v1, v2)
+    with single_threaded():
+        v1 = w1.add_generate(v1)
+    with single_threaded(num_threads=10):
+        v2 = w2.add_generate(v2)
+    np.testing.assert_array_equal(v1, v2)
 
-#     # Check picklability
-#     do_pickle(w, lambda x: (x.serialize(), x.a, x.b))
-#     do_pickle(w, lambda x: (x(), x(), x(), x()))
-#     do_pickle(w)
-#     assert 'WeibullDeviate' in repr(w)
-#     assert 'WeibullDeviate' in str(w)
-#     assert isinstance(eval(repr(w)), galsim.WeibullDeviate)
-#     assert isinstance(eval(str(w)), galsim.WeibullDeviate)
+    # Check picklability
+    do_pickle(w, lambda x: (x.serialize(), x.a, x.b))
+    do_pickle(w, lambda x: (x(), x(), x(), x()))
+    do_pickle(w)
+    assert 'WeibullDeviate' in repr(w)
+    assert 'WeibullDeviate' in str(w)
+    assert isinstance(eval(repr(w)), galsim.WeibullDeviate)
+    assert isinstance(eval(str(w)), galsim.WeibullDeviate)
 
-#     # Check that we can construct a WeibullDeviate from None, and that it depends on dev/random.
-#     w1 = galsim.WeibullDeviate(None)
-#     w2 = galsim.WeibullDeviate(None)
-#     assert w1 != w2, "Consecutive WeibullDeviate(None) compared equal!"
-#     # We shouldn't be able to construct a WeibullDeviate from anything but a BaseDeviate, int, str,
-#     # or None.
-#     assert_raises(TypeError, galsim.WeibullDeviate, dict())
-#     assert_raises(TypeError, galsim.WeibullDeviate, list())
-#     assert_raises(TypeError, galsim.WeibullDeviate, set())
+    # Check that we can construct a WeibullDeviate from None, and that it depends on dev/random.
+    w1 = galsim.WeibullDeviate(None)
+    w2 = galsim.WeibullDeviate(None)
+    assert w1 != w2, "Consecutive WeibullDeviate(None) compared equal!"
+    # NOTE JAX does not do type checking
+    # # We shouldn't be able to construct a WeibullDeviate from anything but a BaseDeviate, int, str,
+    # # or None.
+    # assert_raises(TypeError, galsim.WeibullDeviate, dict())
+    # assert_raises(TypeError, galsim.WeibullDeviate, list())
+    # assert_raises(TypeError, galsim.WeibullDeviate, set())
 
 
 @timer
