@@ -54,12 +54,7 @@ class Transformation(GSObject):
             obj = obj.withGSParams(self._gsparams)
 
         self._params = {
-            "jac": jax.lax.cond(
-                jac is not None,
-                lambda jac: jnp.broadcast_to(jnp.array(jac, dtype=float).ravel(), (4,)),
-                lambda jax: jnp.array([1.0, 0.0, 0.0, 1.0]),
-                jac,
-            ),
+            "jac": jac,
             "offset": PositionD(offset),
             "flux_ratio": flux_ratio,
         }
@@ -77,7 +72,14 @@ class Transformation(GSObject):
 
     @property
     def _jac(self):
-        return jnp.asarray(self._params["jac"], dtype=float).reshape(2, 2)
+        jac = self._params["jac"]
+        jac = jax.lax.cond(
+            jac is not None,
+            lambda jac: jnp.broadcast_to(jnp.array(jac, dtype=float).ravel(), (4,)),
+            lambda jax: jnp.array([1.0, 0.0, 0.0, 1.0]),
+            jac,
+        )
+        return jnp.asarray(jac, dtype=float).reshape(2, 2)
 
     @property
     def original(self):

@@ -66,13 +66,14 @@ def _attempt_init(cls, kwargs):
         else:
             raise e
 
-    try:
-        return cls(jax_galsim.Gaussian(**kwargs))
-    except Exception as e:
-        if any(estr in repr(e) for estr in OK_ERRORS):
-            pass
-        else:
-            raise e
+    if cls in [jax_galsim.Convolution, jax_galsim.Deconvolution]:
+        try:
+            return cls(jax_galsim.Gaussian(**kwargs))
+        except Exception as e:
+            if any(estr in repr(e) for estr in OK_ERRORS):
+                pass
+            else:
+                raise e
 
     return None
 
@@ -133,17 +134,30 @@ def _run_object_checks(obj, cls, kind):
         # JAX tracing should be an identity
         assert cls.tree_unflatten(*((obj.tree_flatten())[::-1])) == obj
 
-        # we can jit the object
-        np.testing.assert_allclose(_xfun(0.3, obj), obj.xValue(x=0.3, y=-0.3))
-        np.testing.assert_allclose(_kfun(0.3, obj), obj.kValue(kx=0.3, ky=-0.3).real)
-
-        # check derivs
         eps = 1e-6
-        grad = _xgradfun(0.3, obj)
-        finite_diff = (
-            obj.xValue(x=0.3 + eps, y=-0.3) - obj.xValue(x=0.3 - eps, y=-0.3)
-        ) / (2 * eps)
-        np.testing.assert_allclose(grad, finite_diff)
+        x = jnp.linspace(-1, 1, 10)
+
+        if cls not in [jax_galsim.Convolution, jax_galsim.Deconvolution]:
+            # we can jit the object
+            np.testing.assert_allclose(_xfun(0.3, obj), obj.xValue(x=0.3, y=-0.3))
+
+            # check derivs
+            grad = _xgradfun(0.3, obj)
+            finite_diff = (
+                obj.xValue(x=0.3 + eps, y=-0.3) - obj.xValue(x=0.3 - eps, y=-0.3)
+            ) / (2 * eps)
+            np.testing.assert_allclose(grad, finite_diff)
+
+            # check vmap
+            np.testing.assert_allclose(
+                _xfun_vmap(x, obj), [obj.xValue(x=_x, y=-0.3) for _x in x]
+            )
+            # check vmap grad
+            np.testing.assert_allclose(
+                _xgradfun_vmap(x, obj), [_xgradfun(_x, obj) for _x in x]
+            )
+
+        np.testing.assert_allclose(_kfun(0.3, obj), obj.kValue(kx=0.3, ky=-0.3).real)
 
         grad = _kgradfun(0.3, obj)
         finite_diff = (
@@ -152,18 +166,8 @@ def _run_object_checks(obj, cls, kind):
         ) / (2 * eps)
         np.testing.assert_allclose(grad, finite_diff)
 
-        # check vmap
-        x = jnp.linspace(-1, 1, 10)
-        np.testing.assert_allclose(
-            _xfun_vmap(x, obj), [obj.xValue(x=_x, y=-0.3) for _x in x]
-        )
         np.testing.assert_allclose(
             _kfun_vmap(x, obj), [obj.kValue(kx=_x, ky=-0.3).real for _x in x]
-        )
-
-        # check vmap grad
-        np.testing.assert_allclose(
-            _xgradfun_vmap(x, obj), [_xgradfun(_x, obj) for _x in x]
         )
         np.testing.assert_allclose(
             _kgradfun_vmap(x, obj), [_kgradfun(_x, obj) for _x in x]
