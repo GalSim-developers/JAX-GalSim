@@ -28,16 +28,19 @@ LAX_FUNCTIONAL_RNG = (
 @register_pytree_node_class
 class BaseDeviate:
     # always the case for JAX
-    has_reliable_discard = True
-    generates_in_pairs = False
-
     def __init__(self, seed=None):
         self.reset(seed=seed)
         self._params = {}
 
     @property
-    def key(self):
-        return self._key
+    @_wraps(_galsim.BaseDeviate.has_reliable_discard)
+    def has_reliable_discard(self):
+        return True
+
+    @property
+    @_wraps(_galsim.BaseDeviate.generates_in_pairs)
+    def generates_in_pairs(self):
+        return False
 
     @_wraps(
         _galsim.BaseDeviate.seed,
@@ -139,7 +142,7 @@ class BaseDeviate:
         return array
 
     @_wraps(
-        _galsim.BaseDeviate.generate,
+        _galsim.BaseDeviate.add_generate,
         lax_description=(
             "JAX arrays cannot be changed in-place, so the JAX version of "
             "this method returns a new array."
@@ -239,13 +242,13 @@ class GaussianDeviate(BaseDeviate):
         self._params["sigma"] = sigma
 
     @property
+    @_wraps(_galsim.GaussianDeviate.mean)
     def mean(self):
-        """The mean of the Gaussian distribution."""
         return self._params["mean"]
 
     @property
+    @_wraps(_galsim.GaussianDeviate.sigma)
     def sigma(self):
-        """The sigma of the Gaussian distribution."""
         return self._params["sigma"]
 
     @_wraps(
@@ -307,13 +310,13 @@ class BinomialDeviate(BaseDeviate):
         self._params["p"] = p
 
     @property
+    @_wraps(_galsim.BinomialDeviate.n)
     def n(self):
-        """The shape parameter, a."""
         return self._params["N"]
 
     @property
+    @_wraps(_galsim.BinomialDeviate.p)
     def p(self):
-        """The scale parameter, b."""
         return self._params["p"]
 
     @_wraps(
@@ -378,8 +381,8 @@ class PoissonDeviate(BaseDeviate):
         self._params["mean"] = mean
 
     @property
+    @_wraps(_galsim.PoissonDeviate.mean)
     def mean(self):
-        """The mean of the Gaussian distribution."""
         return self._params["mean"]
 
     @_wraps(
@@ -460,13 +463,13 @@ class WeibullDeviate(BaseDeviate):
         self._params["b"] = b
 
     @property
+    @_wraps(_galsim.WeibullDeviate.a)
     def a(self):
-        """The shape parameter, a."""
         return self._params["a"]
 
     @property
+    @_wraps(_galsim.WeibullDeviate.b)
     def b(self):
-        """The scale parameter, b."""
         return self._params["b"]
 
     @_wraps(
@@ -530,13 +533,13 @@ class GammaDeviate(BaseDeviate):
         self._params["theta"] = theta
 
     @property
+    @_wraps(_galsim.GammaDeviate.k)
     def k(self):
-        """The shape parameter, k."""
         return self._params["k"]
 
     @property
+    @_wraps(_galsim.GammaDeviate.theta)
     def theta(self):
-        """The scale parameter, theta."""
         return self._params["theta"]
 
     @_wraps(
@@ -595,8 +598,8 @@ class Chi2Deviate(BaseDeviate):
         self._params["n"] = n
 
     @property
+    @_wraps(_galsim.Chi2Deviate.n)
     def n(self):
-        """The number of degrees of freedom."""
         return self._params["n"]
 
     @_wraps(
@@ -890,6 +893,6 @@ def permute(rng, *args):
     rng = BaseDeviate(rng)
     arrs = []
     for arr in args:
-        arrs.append(jrandom.permutation(rng.key, arr))
+        arrs.append(jrandom.permutation(rng._key, arr))
     rng.discard(1)
     return arrs
