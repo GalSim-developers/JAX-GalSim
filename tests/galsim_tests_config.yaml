@@ -41,7 +41,6 @@ allowed_failures:
   - "module 'jax_galsim' has no attribute 'WcsToolsWCS'"
   - "module 'jax_galsim' has no attribute 'AutoCorrelate'"
   - "module 'jax_galsim' has no attribute 'AutoConvolve'"
-  - "module 'jax_galsim' has no attribute 'Deconvolve'"
   - "module 'jax_galsim' has no attribute 'integ'"
   - "module 'jax_galsim.utilities' has no attribute 'roll2d'"
   - "module 'jax_galsim.utilities' has no attribute 'kxky'"

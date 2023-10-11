@@ -37,6 +37,7 @@ OK_ERRORS = [
     "One of scale_radius, half_light_radius, or fwhm must be specified",
     "Arguments to Sum must be GSObjects",
     "'ArrayImpl' object has no attribute 'gsparams'",
+    "Argument to Deconvolution must be a GSObject.",
 ]
 
 
@@ -59,6 +60,14 @@ def _attempt_init(cls, kwargs):
 
     try:
         return cls(jnp.array(2.0), jnp.array(4.0), **kwargs)
+    except Exception as e:
+        if any(estr in repr(e) for estr in OK_ERRORS):
+            pass
+        else:
+            raise e
+
+    try:
+        return cls(jax_galsim.Gaussian(**kwargs))
     except Exception as e:
         if any(estr in repr(e) for estr in OK_ERRORS):
             pass
