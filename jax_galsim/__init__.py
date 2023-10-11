@@ -16,6 +16,7 @@ from .random import (
     Chi2Deviate,
     GammaDeviate,
     WeibullDeviate,
+    BinomialDeviate,
 )
 
 # Basic building blocks

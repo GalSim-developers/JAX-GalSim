@@ -1,4 +1,5 @@
 import secrets
+from functools import partial
 
 import galsim as _galsim
 import jax
@@ -294,57 +295,76 @@ class GaussianDeviate(BaseDeviate):
         )
 
 
-# class BinomialDeviate(BaseDeviate):
-#     """Pseudo-random Binomial deviate for ``N`` trials each of probability ``p``.
+@_wraps(
+    _galsim.BinomialDeviate,
+    lax_description=LAX_FUNCTIONAL_RNG,
+)
+@register_pytree_node_class
+class BinomialDeviate(BaseDeviate):
+    def __init__(self, seed=None, N=1, p=0.5):
+        super().__init__(seed=seed)
+        self._params["N"] = N
+        self._params["p"] = p
 
-#     ``N`` is number of 'coin flips,' ``p`` is probability of 'heads,' and each call returns an
-#     integer value where 0 <= value <= N gives the number of heads.  See
-#     http://en.wikipedia.org/wiki/Binomial_distribution for more information.
+    @property
+    def n(self):
+        """The shape parameter, a."""
+        return self._params["N"]
 
-#     Successive calls to ``b()`` generate pseudo-random integer values distributed according to a
-#     binomial distribution with the provided ``N``, ``p``::
+    @property
+    def p(self):
+        """The scale parameter, b."""
+        return self._params["p"]
 
-#         >>> b = galsim.BinomialDeviate(31415926, N=10, p=0.3)
-#         >>> b()
-#         2
-#         >>> b()
-#         3
+    @_wraps(
+        _galsim.BinomialDeviate.generate,
+        lax_description=(
+            "JAX arrays cannot be changed in-place, so the JAX version of "
+            "this method returns a new array."
+        ),
+    )
+    def generate(self, array):
+        self._key, array = BinomialDeviate._generate(self._key, array, self.n, self.p)
+        return array
 
-#     Parameters:
-#         seed:       Something that can seed a `BaseDeviate`: an integer seed or another
-#                     `BaseDeviate`.  Using 0 means to generate a seed from the system.
-#                     [default: None]
-#         N:          The number of 'coin flips' per trial. [default: 1; Must be > 0]
-#         p:          The probability of success per coin flip. [default: 0.5; Must be > 0]
-#     """
-#     def __init__(self, seed=None, N=1, p=0.5):
-#         self._rng_type = _galsim.BinomialDeviateImpl
-#         self._rng_args = (int(N), float(p))
-#         self.reset(seed)
+    @partial(jax.jit, static_argnums=(2,))
+    def _generate(key, array, n, p):
+        # we do it this way so that the RNG appears to have a fixed state that is advanced per value drawn
+        carry, res = jax.lax.scan(
+            BinomialDeviate._generate_one,
+            (key, jnp.broadcast_to(p, (n,))),
+            None,
+            length=array.ravel().shape[0],
+        )
+        key = carry[0]
+        return key, res.reshape(array.shape)
 
-#     @property
-#     def n(self):
-#         """The number of 'coin flips'.
-#         """
-#         return self._rng_args[0]
+    def __call__(self):
+        carry, val = BinomialDeviate._generate_one(
+            (self._key, jnp.broadcast_to(self.p, (self.n,))), None
+        )
+        self._key = carry[0]
+        return val
 
-#     @property
-#     def p(self):
-#         """The probability of success per 'coin flip'.
-#         """
-#         return self._rng_args[1]
+    @jax.jit
+    def _generate_one(args, x):
+        key, p = args
+        _key, subkey = jrandom.split(key)
+        # argument order is scale, concentration
+        return (_key, p), jnp.sum(jrandom.bernoulli(subkey, p))
 
-#     def __call__(self):
-#         """Draw a new random number from the distribution.
+    def __repr__(self):
+        return "galsim.BinomialDeviate(seed=%r, N=%r, p=%r)" % (
+            ensure_hashable(jrandom.key_data(self._key)),
+            ensure_hashable(self.n),
+            ensure_hashable(self.p),
+        )
 
-#         Returns a Binomial deviate with the given n and p.
-#         """
-#         return self._rng.generate1()
-
-#     def __repr__(self):
-#         return 'galsim.BinomialDeviate(seed=%r, N=%r, p=%r)'%(self._seed_repr(), self.n, self.p)
-#     def __str__(self):
-#         return 'galsim.BinomialDeviate(N=%r, p=%r)'%(self.n, self.p)
+    def __str__(self):
+        return "galsim.BinomialDeviate(N=%r, p=%r)" % (
+            ensure_hashable(self.n),
+            ensure_hashable(self.p),
+        )
 
 
 @_wraps(

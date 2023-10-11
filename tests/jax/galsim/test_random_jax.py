@@ -34,7 +34,7 @@ gResult = (-2.1568953985, 2.3232138032, 1.5308165692)
 bN = 10
 bp = 0.7
 # the right answer for the first three binomial deviates produced from testseed
-bResult = (9, 8, 7)
+bResult = (5, 8, 7)
 
 # mean to use for Poisson tests
 pMean = 7
@@ -517,163 +517,173 @@ def test_gaussian():
     # assert_raises(ValueError, galsim.GaussianDeviate, testseed, mean=1, sigma=-1)
 
 
-# @timer
-# def test_binomial():
-#     """Test binomial random number generator
-#     """
-#     b = galsim.BinomialDeviate(testseed, N=bN, p=bp)
-#     b2 = b.duplicate()
-#     b3 = galsim.BinomialDeviate(b.serialize(), N=bN, p=bp)
-#     testResult = (b(), b(), b())
-#     np.testing.assert_array_almost_equal(
-#             np.array(testResult), np.array(bResult), precision,
-#             err_msg='Wrong binomial random number sequence generated')
-#     testResult = (b2(), b2(), b2())
-#     np.testing.assert_array_almost_equal(
-#             np.array(testResult), np.array(bResult), precision,
-#             err_msg='Wrong binomial random number sequence generated with duplicate')
-#     testResult = (b3(), b3(), b3())
-#     np.testing.assert_array_almost_equal(
-#             np.array(testResult), np.array(bResult), precision,
-#             err_msg='Wrong binomial random number sequence generated from serialize')
+@timer
+def test_binomial():
+    """Test binomial random number generator
+    """
 
-#     # Check that the mean and variance come out right
-#     b = galsim.BinomialDeviate(testseed, N=bN, p=bp)
-#     vals = [b() for i in range(nvals)]
-#     mean = np.mean(vals)
-#     var = np.var(vals)
-#     mu = bN*bp
-#     v = bN*bp*(1.-bp)
-#     print('mean = ',mean,'  true mean = ',mu)
-#     print('var = ',var,'   true var = ',v)
-#     np.testing.assert_almost_equal(mean, mu, 1,
-#             err_msg='Wrong mean from BinomialDeviate')
-#     np.testing.assert_almost_equal(var, v, 1,
-#             err_msg='Wrong variance from BinomialDeviate')
+    b = galsim.BinomialDeviate(testseed, N=bN, p=bp)
+    b2 = b.duplicate()
+    b3 = galsim.BinomialDeviate(b.serialize(), N=bN, p=bp)
+    testResult = (b(), b(), b())
+    np.testing.assert_array_almost_equal(
+        np.array(testResult), np.array(bResult), precision,
+        err_msg='Wrong binomial random number sequence generated')
+    testResult = (b2(), b2(), b2())
+    np.testing.assert_array_almost_equal(
+        np.array(testResult), np.array(bResult), precision,
+        err_msg='Wrong binomial random number sequence generated with duplicate')
+    testResult = (b3(), b3(), b3())
+    np.testing.assert_array_almost_equal(
+        np.array(testResult), np.array(bResult), precision,
+        err_msg='Wrong binomial random number sequence generated from serialize')
 
-#     # Check discard
-#     b2 = galsim.BinomialDeviate(testseed, N=bN, p=bp)
-#     b2.discard(nvals)
-#     v1,v2 = b(),b2()
-#     print('after %d vals, next one is %s, %s'%(nvals,v1,v2))
-#     assert v1 == v2
-#     assert b.has_reliable_discard
-#     assert not b.generates_in_pairs
+    # Check that the mean and variance come out right
+    b = galsim.BinomialDeviate(testseed, N=bN, p=bp)
+    vals = [b() for i in range(nvals)]
+    mean = np.mean(vals)
+    var = np.var(vals)
+    mu = bN * bp
+    v = bN * bp * (1. - bp)
+    print('mean = ', mean, '  true mean = ', mu)
+    print('var = ', var, '   true var = ', v)
+    np.testing.assert_almost_equal(
+        mean, mu, 1,
+        err_msg='Wrong mean from BinomialDeviate')
+    np.testing.assert_almost_equal(
+        var, v, 1,
+        err_msg='Wrong variance from BinomialDeviate')
 
-#     # Check seed, reset
-#     b.seed(testseed)
-#     testResult2 = (b(), b(), b())
-#     np.testing.assert_array_equal(
-#             np.array(testResult), np.array(testResult2),
-#             err_msg='Wrong binomial random number sequence generated after seed')
+    # Check discard
+    b2 = galsim.BinomialDeviate(testseed, N=bN, p=bp)
+    b2.discard(nvals)
+    v1, v2 = b(), b2()
+    print('after %d vals, next one is %s, %s' % (nvals, v1, v2))
+    assert v1 == v2
+    assert b.has_reliable_discard
+    assert not b.generates_in_pairs
 
-#     b.reset(testseed)
-#     testResult2 = (b(), b(), b())
-#     np.testing.assert_array_equal(
-#             np.array(testResult), np.array(testResult2),
-#             err_msg='Wrong binomial random number sequence generated after reset(seed)')
+    # Check seed, reset
+    b.seed(testseed)
+    testResult2 = (b(), b(), b())
+    np.testing.assert_array_equal(
+        np.array(testResult), np.array(testResult2),
+        err_msg='Wrong binomial random number sequence generated after seed')
 
-#     rng = galsim.BaseDeviate(testseed)
-#     b.reset(rng)
-#     testResult2 = (b(), b(), b())
-#     np.testing.assert_array_equal(
-#             np.array(testResult), np.array(testResult2),
-#             err_msg='Wrong binomial random number sequence generated after reset(rng)')
+    b.reset(testseed)
+    testResult2 = (b(), b(), b())
+    np.testing.assert_array_equal(
+        np.array(testResult), np.array(testResult2),
+        err_msg='Wrong binomial random number sequence generated after reset(seed)')
 
-#     ud = galsim.UniformDeviate(testseed)
-#     b.reset(ud)
-#     testResult = (b(), b(), b())
-#     np.testing.assert_array_equal(
-#             np.array(testResult), np.array(testResult2),
-#             err_msg='Wrong binomial random number sequence generated after reset(ud)')
+    rng = galsim.BaseDeviate(testseed)
+    b.reset(rng)
+    testResult2 = (b(), b(), b())
+    np.testing.assert_array_equal(
+        np.array(testResult), np.array(testResult2),
+        err_msg='Wrong binomial random number sequence generated after reset(rng)')
 
-#     # Check that two connected binomial deviates work correctly together.
-#     b2 = galsim.BinomialDeviate(testseed, N=bN, p=bp)
-#     b.reset(b2)
-#     testResult2 = (b(), b2(), b())
-#     np.testing.assert_array_equal(
-#             np.array(testResult), np.array(testResult2),
-#             err_msg='Wrong binomial random number sequence generated using two bds')
-#     b.seed(testseed)
-#     testResult2 = (b2(), b(), b2())
-#     np.testing.assert_array_equal(
-#             np.array(testResult), np.array(testResult2),
-#             err_msg='Wrong binomial random number sequence generated using two bds after seed')
+    ud = galsim.UniformDeviate(testseed)
+    b.reset(ud)
+    testResult = (b(), b(), b())
+    np.testing.assert_array_equal(
+        np.array(testResult), np.array(testResult2),
+        err_msg='Wrong binomial random number sequence generated after reset(ud)')
 
-#     # Check that seeding with the time works (although we cannot check the output).
-#     # We're mostly just checking that this doesn't raise an exception.
-#     # The output could be anything.  However, in this case, there are few enough options
-#     # for the output that occasionally two of these match.  So we don't do the normal
-#     # testResult2 != testResult, etc.
-#     b.seed()
-#     testResult2 = (b(), b(), b())
-#     #assert testResult2 != testResult
-#     b.reset()
-#     testResult3 = (b(), b(), b())
-#     #assert testResult3 != testResult
-#     #assert testResult3 != testResult2
-#     b.reset()
-#     testResult4 = (b(), b(), b())
-#     #assert testResult4 != testResult
-#     #assert testResult4 != testResult2
-#     #assert testResult4 != testResult3
-#     b = galsim.BinomialDeviate(N=bN, p=bp)
-#     testResult5 = (b(), b(), b())
-#     #assert testResult5 != testResult
-#     #assert testResult5 != testResult2
-#     #assert testResult5 != testResult3
-#     #assert testResult5 != testResult4
+    # NOTE JAX does not support connected RNGs
+    # # Check that two connected binomial deviates work correctly together.
+    # b2 = galsim.BinomialDeviate(testseed, N=bN, p=bp)
+    # b.reset(b2)
+    # testResult2 = (b(), b2(), b())
+    # np.testing.assert_array_equal(
+    #     np.array(testResult), np.array(testResult2),
+    #     err_msg='Wrong binomial random number sequence generated using two bds')
+    # b.seed(testseed)
+    # testResult2 = (b2(), b(), b2())
+    # np.testing.assert_array_equal(
+    #     np.array(testResult), np.array(testResult2),
+    #     err_msg='Wrong binomial random number sequence generated using two bds after seed')
 
-#     # Test generate
-#     b.seed(testseed)
-#     test_array = np.empty(3)
-#     b.generate(test_array)
-#     np.testing.assert_array_almost_equal(
-#             test_array, np.array(bResult), precision,
-#             err_msg='Wrong binomial random number sequence from generate.')
+    # Check that seeding with the time works (although we cannot check the output).
+    # We're mostly just checking that this doesn't raise an exception.
+    # The output could be anything.  However, in this case, there are few enough options
+    # for the output that occasionally two of these match.  So we don't do the normal
+    # testResult2 != testResult, etc.
+    b.seed()
+    testResult2 = (b(), b(), b())
+    b.reset()
+    testResult3 = (b(), b(), b())
+    b.reset()
+    testResult4 = (b(), b(), b())
+    b = galsim.BinomialDeviate(testseed, N=bN, p=bp)
+    testResult5 = (b(), b(), b())
+    assert (
+        (testResult2 != testResult)
+        or (testResult3 != testResult)
+        or (testResult4 != testResult)
+        or (testResult5 != testResult)
+    )
+    try:
+        assert testResult3 != testResult2
+        assert testResult4 != testResult2
+        assert testResult4 != testResult3
+        assert testResult5 != testResult2
+        assert testResult5 != testResult3
+        assert testResult5 != testResult4
+    except AssertionError:
+        print("one of the poisson results was equal but this can happen occasionally")
 
-#     # Test generate with an int array
-#     b.seed(testseed)
-#     test_array = np.empty(3, dtype=int)
-#     b.generate(test_array)
-#     np.testing.assert_array_almost_equal(
-#             test_array, np.array(bResult), precisionI,
-#             err_msg='Wrong binomial random number sequence from generate.')
+    # Test generate
+    b.seed(testseed)
+    test_array = np.empty(3)
+    test_array = b.generate(test_array)
+    np.testing.assert_array_almost_equal(
+        test_array, np.array(bResult), precision,
+        err_msg='Wrong binomial random number sequence from generate.')
 
-#     # Check that generated values are independent of number of threads.
-#     b1 = galsim.BinomialDeviate(testseed, N=17, p=0.7)
-#     b2 = galsim.BinomialDeviate(testseed, N=17, p=0.7)
-#     v1 = np.empty(555)
-#     v2 = np.empty(555)
-#     with single_threaded():
-#         b1.generate(v1)
-#     with single_threaded(num_threads=10):
-#         b2.generate(v2)
-#     np.testing.assert_array_equal(v1, v2)
-#     with single_threaded():
-#         b1.add_generate(v1)
-#     with single_threaded(num_threads=10):
-#         b2.add_generate(v2)
-#     np.testing.assert_array_equal(v1, v2)
+    # Test generate with an int array
+    b.seed(testseed)
+    test_array = np.empty(3, dtype=int)
+    test_array = b.generate(test_array)
+    np.testing.assert_array_almost_equal(
+        test_array, np.array(bResult), precisionI,
+        err_msg='Wrong binomial random number sequence from generate.')
 
-#     # Check picklability
-#     do_pickle(b, lambda x: (x.serialize(), x.n, x.p))
-#     do_pickle(b, lambda x: (x(), x(), x(), x()))
-#     do_pickle(b)
-#     assert 'BinomialDeviate' in repr(b)
-#     assert 'BinomialDeviate' in str(b)
-#     assert isinstance(eval(repr(b)), galsim.BinomialDeviate)
-#     assert isinstance(eval(str(b)), galsim.BinomialDeviate)
+    # Check that generated values are independent of number of threads.
+    b1 = galsim.BinomialDeviate(testseed, N=17, p=0.7)
+    b2 = galsim.BinomialDeviate(testseed, N=17, p=0.7)
+    v1 = np.empty(555)
+    v2 = np.empty(555)
+    with single_threaded():
+        v1 = b1.generate(v1)
+    with single_threaded(num_threads=10):
+        v2 = b2.generate(v2)
+    np.testing.assert_array_equal(v1, v2)
+    with single_threaded():
+        v1 = b1.add_generate(v1)
+    with single_threaded(num_threads=10):
+        v2 = b2.add_generate(v2)
+    np.testing.assert_array_equal(v1, v2)
 
-#     # Check that we can construct a BinomialDeviate from None, and that it depends on dev/random.
-#     b1 = galsim.BinomialDeviate(None)
-#     b2 = galsim.BinomialDeviate(None)
-#     assert b1 != b2, "Consecutive BinomialDeviate(None) compared equal!"
-#     # We shouldn't be able to construct a BinomialDeviate from anything but a BaseDeviate, int, str,
-#     # or None.
-#     assert_raises(TypeError, galsim.BinomialDeviate, dict())
-#     assert_raises(TypeError, galsim.BinomialDeviate, list())
-#     assert_raises(TypeError, galsim.BinomialDeviate, set())
+    # Check picklability
+    do_pickle(b, lambda x: (x.serialize(), x.n, x.p))
+    do_pickle(b, lambda x: (x(), x(), x(), x()))
+    do_pickle(b)
+    assert 'BinomialDeviate' in repr(b)
+    assert 'BinomialDeviate' in str(b)
+    assert isinstance(eval(repr(b)), galsim.BinomialDeviate)
+    assert isinstance(eval(str(b)), galsim.BinomialDeviate)
+
+    # Check that we can construct a BinomialDeviate from None, and that it depends on dev/random.
+    b1 = galsim.BinomialDeviate(None)
+    b2 = galsim.BinomialDeviate(None)
+    assert b1 != b2, "Consecutive BinomialDeviate(None) compared equal!"
+    # NOTE JAX does not do type checking
+    # # We shouldn't be able to construct a BinomialDeviate from anything but a BaseDeviate, int, str,
+    # # or None.
+    # assert_raises(TypeError, galsim.BinomialDeviate, dict())
+    # assert_raises(TypeError, galsim.BinomialDeviate, list())
+    # assert_raises(TypeError, galsim.BinomialDeviate, set())
 
 
 @timer
