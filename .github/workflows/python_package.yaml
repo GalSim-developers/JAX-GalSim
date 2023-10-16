@@ -16,6 +16,7 @@ jobs:
 
     steps:
       - uses: actions/checkout@v3
+
       - uses: mamba-org/setup-micromamba@v1
         with:
           environment-name: test
@@ -37,6 +38,7 @@ jobs:
             jax
             galsim
             pip
+          cache-environment: true
 
       - name: Install package
         shell: bash -el {0}
