@@ -36,7 +36,6 @@ jobs:
             jax
             galsim
             pip
-          cache-environment: true
 
       - name: Install package
         shell: bash -el {0}
