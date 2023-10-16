@@ -28,7 +28,7 @@ jobs:
             flake8-pyproject
             compilers
             eigen
-            fftw3
+            fftw
             pybind11
             astropy
             scipy
