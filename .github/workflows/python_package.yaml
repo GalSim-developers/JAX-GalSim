@@ -36,7 +36,6 @@ jobs:
             pyyaml
             numpy
             jax
-            galsim
             pip
           cache-environment: true
 
@@ -64,8 +63,15 @@ jobs:
         run: |
           isort --check jax_galsim
 
-      - name: Test with pytest
+      - name: Build galsim
         shell: bash -el {0}
         run: |
           git submodule update --init --recursive
+          pushd tests/GalSim
+          pip install --no-deps --no-build-isolation -e .
+          popd
+
+      - name: Test with pytest
+        shell: bash -el {0}
+        run: |
           pytest

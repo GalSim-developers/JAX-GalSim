@@ -19,6 +19,7 @@ from jax.tree_util import register_pytree_node_class
 from jax_galsim import fits
 from jax_galsim.bounds import BoundsI
 from jax_galsim.core.draw import draw_by_kValue, draw_by_xValue
+from jax_galsim.core.utils import ensure_hashable
 from jax_galsim.gsobject import GSObject
 from jax_galsim.gsparams import GSParams
 from jax_galsim.image import Image
@@ -454,14 +455,11 @@ class InterpolatedImageImpl(GSObject):
             flux = self._image_flux
             if normalization.lower() in ("surface brightness", "sb"):
                 flux *= self._wcs.pixelArea()
-        self._flux = flux
+        _flux = flux
 
         # If the user specified a flux, then set the flux ratio for the transform that wraps
         # this class
-        if self._flux != self._image_flux:
-            self._flux_ratio = self._flux / self._image_flux
-        else:
-            self._flux_ratio = 1.0
+        self._flux_ratio = _flux / self._image_flux
 
         # Check that given pad_image is valid:
         if pad_image is not None:
@@ -681,10 +679,10 @@ class InterpolatedImageImpl(GSObject):
             )
             self._hash ^= hash(
                 (
-                    self.flux.item(),
-                    self._stepk.item(),
-                    self._maxk.item(),
-                    self._pad_factor,
+                    ensure_hashable(self.flux),
+                    ensure_hashable(self._stepk),
+                    ensure_hashable(self._maxk),
+                    ensure_hashable(self._pad_factor),
                 )
             )
             self._hash ^= hash(
@@ -695,34 +693,35 @@ class InterpolatedImageImpl(GSObject):
             # This mucking of the numbers seems to help make the hash more reliably different for
             # these two cases.  Note: "sometiems" because of this:
             # https://stackoverflow.com/questions/27522626/hash-function-in-python-3-3-returns-different-results-between-sessions
-            self._hash ^= hash((self._offset.x * 1.234, self._offset.y * 0.23424))
+            self._hash ^= hash((
+                ensure_hashable(self._offset.x * 1.234),
+                ensure_hashable(self._offset.y * 0.23424))
+            )
             self._hash ^= hash(self._gsparams)
             self._hash ^= hash(self._wcs)
             # Just hash the diagonal.  Much faster, and usually is unique enough.
             # (Let python handle collisions as needed if multiple similar IIs are used as keys.)
-            self._hash ^= hash(tuple(jnp.diag(self._pad_image.array).tolist()))
+            self._hash ^= hash(ensure_hashable(self._pad_image.array))
         return self._hash
 
     def __repr__(self):
-        s = "galsim.InterpolatedImage(%r, %r, %r" % (
-            self._image,
-            self.x_interpolant,
-            self.k_interpolant,
-        )
-        # Most things we keep even if not required, but the pad_image is large, so skip it
-        # if it's really just the same as the main image.
-        if self._pad_image.bounds != self._image.bounds:
-            s += ", pad_image=%r" % (self._pad_image)
-        s += ", wcs=%s" % self._wcs
-        s += ", pad_factor=%f, flux=%r, offset=%r" % (
-            self._pad_factor,
-            self.flux,
-            self._offset,
-        )
-        s += (
-            ", use_true_center=False, gsparams=%r, _force_stepk=%r, _force_maxk=%r)"
-            % (self.gsparams, self._stepk, self._maxk)
-        )
+        s = "galsim.InterpolatedImage(%r" % self._jax_children[0]
+
+        for k, v in self._jax_children[1].items():
+            if v is not None:
+                _v = ensure_hashable(v)
+                s += ", %s=%r" % (k, _v)
+
+        for k, v in self._jax_aux_data.items():
+            if v is not None:  # and k not in ["gsparams", "_force_stepk", "_force_maxk"]:
+                _v = ensure_hashable(v)
+                s += ", %s=%r" % (k, _v)
+
+        s += ")"
+        # s += (
+        #     ", gsparams=%r, _force_stepk=%r, _force_maxk=%r)"
+        #     % (self.gsparams, ensure_hashable(self._stepk), ensure_hashable(self._maxk))
+        # )
         return s
 
     def __str__(self):
@@ -766,11 +765,7 @@ class InterpolatedImageImpl(GSObject):
     @property
     def _flux(self):
         """By default, the flux is contained in the parameters dictionay."""
-        return self._params["flux"]
-
-    @_flux.setter
-    def _flux(self, value):
-        self._params["flux"] = value
+        return self._image_flux
 
     @property
     def _centroid(self):

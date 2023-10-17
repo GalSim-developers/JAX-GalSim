@@ -91,7 +91,10 @@ def pytest_pycollect_makemodule(module_path, path, parent):
         if (
             callable(v)
             and hasattr(v, "__globals__")
-            and inspect.getsourcefile(v).endswith("galsim_test_helpers.py")
+            and (
+                inspect.getsourcefile(v).endswith("galsim_test_helpers.py")
+                or inspect.getsourcefile(v).endswith("galsim/utilities.py")
+            )
             and _infile("def " + k, inspect.getsourcefile(v))
             and "galsim" in v.__globals__
         ):
