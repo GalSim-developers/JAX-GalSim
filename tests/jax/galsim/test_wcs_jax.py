@@ -1750,12 +1750,12 @@ def test_shearwcs():
     assert wcs != wcs3c, "OffsetShearWCS is not != a different one (origin)"
     assert wcs != wcs3d, "OffsetShearWCS is not != a different one (world_origin)"
 
-    ufunc = (
+    ufunc = (  # noqa: E731
         lambda x, y: ((1 - g1) * (x - x0) - g2 * (y - y0)) * scale * factor
-    )  # noqa: E731
-    vfunc = (
+    )
+    vfunc = (  # noqa: E731
         lambda x, y: ((1 + g1) * (y - y0) - g2 * (x - x0)) * scale * factor
-    )  # noqa: E731
+    )
     do_nonlocal_wcs(wcs, ufunc, vfunc, "OffsetShearWCS 1")
 
     # Add a world origin offset
@@ -1775,12 +1775,12 @@ def test_shearwcs():
     origin = galsim.PositionD(x0, y0)
     world_origin = galsim.PositionD(u0, v0)
     wcs = galsim.OffsetShearWCS(scale, shear, origin=origin, world_origin=world_origin)
-    ufunc = (
+    ufunc = (  # noqa: E731
         lambda x, y: ((1 - g1) * (x - x0) - g2 * (y - y0)) * scale * factor + u0
-    )  # noqa: E731
-    vfunc = (
+    )
+    vfunc = (  # noqa: E731
         lambda x, y: ((1 + g1) * (y - y0) - g2 * (x - x0)) * scale * factor + v0
-    )  # noqa: E731
+    )
     do_nonlocal_wcs(wcs, ufunc, vfunc, "OffsetShearWCS 3")
 
     # Check that using a wcs in the context of an image works correctly
@@ -2296,12 +2296,12 @@ def test_uvfunction():
 
     # This version doesn't work with numpy arrays because of the math functions.
     # This provides a test of that branch of the makeSkyImage function.
-    ufunc = (
+    ufunc = (  # noqa: E731
         lambda x, y: 0.17 * x * (1.0 + 1.0e-5 * math.sqrt(x**2 + y**2))
-    )  # noqa: E731
-    vfunc = (
+    )
+    vfunc = (  # noqa: E731
         lambda x, y: 0.17 * y * (1.0 + 1.0e-5 * math.sqrt(x**2 + y**2))
-    )  # noqa: E731
+    )
     wcs = galsim.UVFunction(ufunc, vfunc)
     do_nonlocal_wcs(wcs, ufunc, vfunc, "UVFunction with math funcs", test_pickle=False)
     do_wcs_image(wcs, "UVFunction_math")
