@@ -58,3 +58,5 @@ allowed_failures:
   - "TypeError not raised by __mul__"
   - "ValueError not raised by CelestialCoord"
   - "module 'jax_galsim' has no attribute 'TanWCS'"
+  - "'Image' object has no attribute 'FindAdaptiveMom'"
+  - " module 'jax_galsim' has no attribute 'BaseCorrelatedNoise'"

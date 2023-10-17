@@ -1,10 +1,22 @@
+from functools import partial
+
 import jax
+
+
+def convert_to_float(x):
+    if isinstance(x, jax.Array):
+        if x.shape == ():
+            return x.item()
+        else:
+            return x[0].astype(float).item()
+    else:
+        return float(x)
 
 
 def cast_scalar_to_float(x):
     """Cast the input to a float. Works on python floats and jax arrays."""
-    if isinstance(x, float):
-        return float(x)
+    if isinstance(x, jax.Array):
+        return x.astype(float)
     elif hasattr(x, "astype"):
         return x.astype(float)
     else:
@@ -51,3 +63,42 @@ def ensure_hashable(v):
             return v
     else:
         return v
+
+
+@partial(jax.jit, static_argnames=("niter",))
+def bisect_for_root(func, low, high, niter=75):
+    def _func(i, args):
+        func, low, flow, high, fhigh = args
+        mid = (low + high) / 2.0
+        fmid = func(mid)
+        return jax.lax.cond(
+            fmid * fhigh < 0,
+            lambda func, low, flow, mid, fmid, high, fhigh: (
+                func,
+                mid,
+                fmid,
+                high,
+                fhigh,
+            ),
+            lambda func, low, flow, mid, fmid, high, fhigh: (
+                func,
+                low,
+                flow,
+                mid,
+                fmid,
+            ),
+            func,
+            low,
+            flow,
+            mid,
+            fmid,
+            high,
+            fhigh,
+        )
+
+    low = 0.0
+    high = 1e5
+    flow = func(low)
+    fhigh = func(high)
+    args = (func, low, flow, high, fhigh)
+    return jax.lax.fori_loop(0, niter, _func, args)[-2]

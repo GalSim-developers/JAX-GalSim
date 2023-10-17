@@ -1,4 +1,5 @@
 import galsim as _galsim
+import jax
 import jax.numpy as jnp
 from jax._src.numpy.util import _wraps
 from jax.tree_util import register_pytree_node_class
@@ -47,34 +48,38 @@ class Transformation(GSObject):
         gsparams=None,
         propagate_gsparams=True,
     ):
-        self._offset = PositionD(offset)
-        self._flux_ratio = flux_ratio
         self._gsparams = GSParams.check(gsparams, obj.gsparams)
         self._propagate_gsparams = propagate_gsparams
         if self._propagate_gsparams:
             obj = obj.withGSParams(self._gsparams)
 
         self._params = {
-            "obj": obj,
             "jac": jac,
-            "offset": self._offset,
-            "flux_ratio": self._flux_ratio,
+            "offset": PositionD(offset),
+            "flux_ratio": flux_ratio,
         }
 
         if isinstance(obj, Transformation):
             # Combine the two affine transformations into one.
             dx, dy = self._fwd(obj.offset.x, obj.offset.y)
-            self._offset.x += dx
-            self._offset.y += dy
+            self._params["offset"].x += dx
+            self._params["offset"].y += dy
             self._params["jac"] = self._jac.dot(obj.jac)
-            self._flux_ratio *= obj._flux_ratio
+            self._params["flux_ratio"] *= obj._params["flux_ratio"]
             self._original = obj.original
         else:
             self._original = obj
 
     @property
     def _jac(self):
-        return jnp.asarray(self._params["jac"], dtype=float).reshape(2, 2)
+        jac = self._params["jac"]
+        jac = jax.lax.cond(
+            jac is not None,
+            lambda jac: jnp.broadcast_to(jnp.array(jac, dtype=float).ravel(), (4,)),
+            lambda jax: jnp.array([1.0, 0.0, 0.0, 1.0]),
+            jac,
+        )
+        return jnp.asarray(jac, dtype=float).reshape(2, 2)
 
     @property
     def original(self):
@@ -89,16 +94,20 @@ class Transformation(GSObject):
     @property
     def offset(self):
         """The offset of the transformation."""
-        return self._offset
+        return self._params["offset"]
 
     @property
     def flux_ratio(self):
         """The flux ratio of the transformation."""
-        return self._flux_ratio
+        return self._params["flux_ratio"]
 
     @property
     def _flux(self):
         return self._flux_scaling * self._original.flux
+
+    @property
+    def _offset(self):
+        return self._params["offset"]
 
     def withGSParams(self, gsparams=None, **kwargs):
         """Create a version of the current object with the given gsparams
@@ -110,13 +119,14 @@ class Transformation(GSObject):
         """
         if gsparams == self.gsparams:
             return self
-        from copy import copy
 
-        ret = copy(self)
-        ret._gsparams = GSParams.check(gsparams, self.gsparams, **kwargs)
+        chld, aux = self.tree_flatten()
+        aux["gsparams"] = GSParams.check(gsparams, self.gsparams, **kwargs)
         if self._propagate_gsparams:
-            ret._original = self._original.withGSParams(ret._gsparams)
-        return ret
+            new_obj = chld[0].withGSParams(aux["gsparams"])
+            chld = (new_obj,) + chld[1:]
+
+        return self.tree_unflatten(aux, chld)
 
     def __eq__(self, other):
         return self is other or (
@@ -149,7 +159,7 @@ class Transformation(GSObject):
             "propagate_gsparams=%r)"
         ) % (
             self.original,
-            ensure_hashable(self._jac),
+            ensure_hashable(self._jac.ravel()),
             self.offset,
             ensure_hashable(self.flux_ratio),
             self.gsparams,
@@ -221,11 +231,11 @@ class Transformation(GSObject):
     # than flux_ratio, which is really an amplitude scaling.
     @property
     def _amp_scaling(self):
-        return self._flux_ratio
+        return self._params["flux_ratio"]
 
     @property
     def _flux_scaling(self):
-        return jnp.abs(self._det) * self._flux_ratio
+        return jnp.abs(self._det) * self._params["flux_ratio"]
 
     def _fwd(self, x, y):
         res = jnp.dot(self._jac, jnp.array([x, y]))
@@ -240,8 +250,8 @@ class Transformation(GSObject):
         return res[0], res[1]
 
     def _kfactor(self, kx, ky):
-        kx *= -1j * self._offset.x
-        ky *= -1j * self._offset.y
+        kx *= -1j * self.offset.x
+        ky *= -1j * self.offset.y
         kx += ky
         return self._flux_scaling * jnp.exp(kx)
 
@@ -269,7 +279,7 @@ class Transformation(GSObject):
         #     stepk = Pi/R
         #     R <- R + |shift|
         #     stepk <- Pi/(Pi/stepk + |shift|)
-        dr = jnp.hypot(self._offset.x, self._offset.y)
+        dr = jnp.hypot(self.offset.x, self.offset.y)
         stepk = jnp.pi / (jnp.pi / stepk + dr)
         return stepk
 
@@ -283,7 +293,7 @@ class Transformation(GSObject):
             self._original.is_axisymmetric
             and self._jac[0, 0] == self._jac[1, 1]
             and self._jac[0, 1] == -self._jac[1, 0]
-            and self._offset == PositionD(0.0, 0.0)
+            and self.offset == PositionD(0.0, 0.0)
         )
 
     @property
@@ -314,7 +324,7 @@ class Transformation(GSObject):
         return self._amp_scaling * self._original.max_sb
 
     def _xValue(self, pos):
-        pos -= self._offset
+        pos -= self.offset
         inv_pos = PositionD(self._inv(pos.x, pos.y))
         return self._original._xValue(inv_pos) * self._amp_scaling
 
@@ -360,16 +370,21 @@ class Transformation(GSObject):
         return image
 
     def tree_flatten(self):
-        """This function flattens the GSObject into a list of children
+        """This function flattens the Transform into a list of children
         nodes that will be traced by JAX and auxiliary static data."""
         # Define the children nodes of the PyTree that need tracing
-        children = (self.params,)
+        children = (self._original, self._params)
         # Define auxiliary static data that doesn’t need to be traced
         aux_data = {
             "gsparams": self.gsparams,
             "propagate_gsparams": self._propagate_gsparams,
         }
         return (children, aux_data)
+
+    @classmethod
+    def tree_unflatten(cls, aux_data, children):
+        """Recreates an instance of the class from flatten representation"""
+        return cls(children[0], **(children[1]), **aux_data)
 
 
 def _Transform(

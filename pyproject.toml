@@ -21,3 +21,15 @@ skip = [
     "tests/Galsim/",
     "tests/Coord/",
 ]
+
+[tool.pytest.ini_options]
+minversion = "6.0"
+addopts = "-ra -q"
+testpaths = [
+    "tests/GalSim/tests/",
+    "tests/jax",
+    "tests/Coord/tests/",
+]
+filterwarnings = [
+    "ignore::DeprecationWarning",
+]
