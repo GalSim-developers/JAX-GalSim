@@ -27,6 +27,7 @@ with open(os.path.join(test_directory, "galsim_tests_config.yaml"), "r") as f:
 # we patch sys.modules.
 # see https://stackoverflow.com/questions/34213088/mocking-a-module-imported-inside-of-a-function
 orig_check_pickle = galsim.utilities.check_pickle
+orig_check_pickle.__globals__["BaseDeviate"] = jax_galsim.BaseDeviate
 
 
 def _check_pickle(*args, **kwargs):
