@@ -105,10 +105,6 @@ class Transformation(GSObject):
     def _flux(self):
         return self._flux_scaling * self._original.flux
 
-    @property
-    def _offset(self):
-        return self._params["offset"]
-
     def withGSParams(self, gsparams=None, **kwargs):
         """Create a version of the current object with the given gsparams
 
@@ -308,7 +304,7 @@ class Transformation(GSObject):
     def _centroid(self):
         cen = self._original.centroid
         cen = PositionD(self._fwd(cen.x, cen.y))
-        cen += self._offset
+        cen += self.offset
         return cen
 
     @property
