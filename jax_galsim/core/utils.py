@@ -1,10 +1,20 @@
 import jax
 
 
+def convert_to_float(x):
+    if isinstance(x, jax.Array):
+        if x.shape == ():
+            return x.item()
+        else:
+            return x[0].astype(float).item()
+    else:
+        return float(x)
+
+
 def cast_scalar_to_float(x):
     """Cast the input to a float. Works on python floats and jax arrays."""
-    if isinstance(x, float):
-        return float(x)
+    if isinstance(x, jax.Array):
+        return x.astype(float)
     elif hasattr(x, "astype"):
         return x.astype(float)
     else:
