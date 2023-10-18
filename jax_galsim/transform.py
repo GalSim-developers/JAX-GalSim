@@ -360,7 +360,7 @@ class Transformation(GSObject):
         image = self._original._drawKImage(image, jac1)
 
         _jac = jnp.eye(2) if jac is None else jac
-        image = apply_kImage_phases(self, image, _jac)
+        image = apply_kImage_phases(self.offset, image, _jac)
 
         image = image * self._flux_scaling
         return image
