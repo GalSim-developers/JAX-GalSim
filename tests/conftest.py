@@ -1,22 +1,40 @@
 import inspect
 import os
+import sys
 from functools import lru_cache
+from unittest.mock import patch
 
+import galsim
 import pytest
 import yaml
 
 # Define the accuracy for running the tests
 from jax.config import config
 
+import jax_galsim
+
 config.update("jax_enable_x64", True)
 
 # Identify the path to this current file
 test_directory = os.path.dirname(os.path.abspath(__file__))
 
-
 # Loading which tests to run
 with open(os.path.join(test_directory, "galsim_tests_config.yaml"), "r") as f:
     test_config = yaml.safe_load(f)
+
+# we need to patch the galsim utilities check_pickle function
+# to use jax_galsim. it has an import inside a function so
+# we patch sys.modules.
+# see https://stackoverflow.com/questions/34213088/mocking-a-module-imported-inside-of-a-function
+orig_check_pickle = galsim.utilities.check_pickle
+
+
+def _check_pickle(*args, **kwargs):
+    with patch.dict(sys.modules, {"galsim": jax_galsim}):
+        return orig_check_pickle(*args, **kwargs)
+
+
+galsim.utilities.check_pickle = _check_pickle
 
 
 def pytest_ignore_collect(collection_path, path, config):
