@@ -56,7 +56,7 @@ def apply_kImage_phases(gsobject, image, jacobian=jnp.eye(2)):
     kcoords = jnp.stack(image.get_pixel_centers(), axis=-1)
     kcoords = kcoords * image.scale  # Scale by the image pixel scale
     kcoords = jnp.dot(kcoords, jacobian)
-    cenx, ceny = gsobject._offset.x, gsobject._offset.y
+    cenx, ceny = gsobject.offset.x, gsobject.offset.y
 
     #
     # flux Exp(-i (kx cx + kxy cx + kyx cy + ky cy ) )
