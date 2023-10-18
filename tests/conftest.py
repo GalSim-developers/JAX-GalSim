@@ -25,7 +25,7 @@ def pytest_ignore_collect(collection_path, path, config):
     """
     if "tests/GalSim/tests" in str(collection_path):
         if not any(
-            [t in str(collection_path) for t in test_config["enabled_tests"]["galsim"]]
+            [t in str(collection_path) for t in test_config["enabled_tests"]]
         ):
             return True
 
