@@ -96,8 +96,6 @@ def bisect_for_root(func, low, high, niter=75):
             fhigh,
         )
 
-    low = 0.0
-    high = 1e5
     flow = func(low)
     fhigh = func(high)
     args = (func, low, flow, high, fhigh)
