@@ -1240,7 +1240,7 @@ def test_gamma():
         var, v, 0,
         err_msg='Wrong variance from GammaDeviate')
 
-    # NOTE jax has a reliabble discard
+    # NOTE jax has a reliable discard
     # Check discard
     g2 = galsim.GammaDeviate(testseed, k=gammaK, theta=gammaTheta)
     g2.discard(nvals, suppress_warnings=True)
@@ -1251,7 +1251,7 @@ def test_gamma():
     assert g.has_reliable_discard
     assert not g.generates_in_pairs
 
-    # NOTE jax has a reliabble discard
+    # NOTE jax has a reliable discard
     # Discard normally emits a warning for Gamma
     # g2 = galsim.GammaDeviate(testseed, k=gammaK, theta=gammaTheta)
     # with assert_warns(galsim.GalSimWarning):
