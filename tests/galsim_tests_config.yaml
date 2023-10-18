@@ -24,7 +24,6 @@ enabled_tests:
 # in jax_galsim
 allowed_failures:
   - "NotImplementedError"
-  - "module 'jax_galsim' has no attribute 'BaseDeviate"
   - "module 'jax_galsim' has no attribute 'Airy'"
   - "module 'jax_galsim' has no attribute 'Kolmogorov'"
   - "module 'jax_galsim' has no attribute 'Sersic'"
@@ -35,7 +34,6 @@ allowed_failures:
   - "module 'jax_galsim' has no attribute 'UVFunction'"
   - "module 'jax_galsim' has no attribute 'FitsWCS'"
   - "module 'jax_galsim' has no attribute 'FitsHeader'"
-  - "module 'jax_galsim' has no attribute 'UniformDeviate'"
   - "module 'jax_galsim' has no attribute 'AstropyWCS'"
   - "module 'jax_galsim' has no attribute 'GSFitsWCS'"
   - "module 'jax_galsim' has no attribute 'WcsToolsWCS'"
@@ -58,5 +56,8 @@ allowed_failures:
   - "TypeError not raised by __mul__"
   - "ValueError not raised by CelestialCoord"
   - "module 'jax_galsim' has no attribute 'TanWCS'"
+  - "has no attribute 'drawPhot'"
+  - "'jax_galsim.utilities' has no attribute 'horner'"
+  - "module 'jax_galsim.utilities' has no attribute 'horner2d'"
   - "'Image' object has no attribute 'FindAdaptiveMom'"
-  - " module 'jax_galsim' has no attribute 'BaseCorrelatedNoise'"
+  - "module 'jax_galsim' has no attribute 'BaseCorrelatedNoise'"
