@@ -6,7 +6,14 @@ import time
 import warnings
 
 import numpy as np
-from galsim_test_helpers import assert_raises, do_pickle, gsobject_compare, timer, assert_warns, profile
+from galsim_test_helpers import (
+    Profile,
+    assert_raises,
+    assert_warns,
+    check_pickle,
+    gsobject_compare,
+    timer,
+)
 
 import jax_galsim as galsim
 
@@ -804,7 +811,7 @@ def do_local_wcs(wcs, ufunc, vfunc, name):
     do_wcs_pos(wcs, ufunc, vfunc, name)
 
     # Check picklability
-    do_pickle(wcs)
+    check_pickle(wcs)
 
     # Test the transformation of a GSObject
     # These only work for local WCS projections!
@@ -1016,7 +1023,7 @@ def do_nonlocal_wcs(wcs, ufunc, vfunc, name, test_pickle=True, color=None):
 
     # Check picklability
     if test_pickle:
-        do_pickle(wcs)
+        check_pickle(wcs)
 
     # The GSObject transformation tests are only valid for a local WCS.
     # But it should work for wcs.local()
@@ -1223,7 +1230,7 @@ def do_celestial_wcs(wcs, name, test_pickle=True, approx=False):
 
     # Check picklability
     if test_pickle:
-        do_pickle(wcs)
+        check_pickle(wcs)
 
     near_ra_list = []
     near_dec_list = []
@@ -1743,8 +1750,12 @@ def test_shearwcs():
     assert wcs != wcs3c, "OffsetShearWCS is not != a different one (origin)"
     assert wcs != wcs3d, "OffsetShearWCS is not != a different one (world_origin)"
 
-    ufunc = lambda x, y: ((1 - g1) * (x - x0) - g2 * (y - y0)) * scale * factor  # noqa: E731
-    vfunc = lambda x, y: ((1 + g1) * (y - y0) - g2 * (x - x0)) * scale * factor  # noqa: E731
+    ufunc = (  # noqa: E731
+        lambda x, y: ((1 - g1) * (x - x0) - g2 * (y - y0)) * scale * factor
+    )
+    vfunc = (  # noqa: E731
+        lambda x, y: ((1 + g1) * (y - y0) - g2 * (x - x0)) * scale * factor
+    )
     do_nonlocal_wcs(wcs, ufunc, vfunc, "OffsetShearWCS 1")
 
     # Add a world origin offset
@@ -1764,8 +1775,12 @@ def test_shearwcs():
     origin = galsim.PositionD(x0, y0)
     world_origin = galsim.PositionD(u0, v0)
     wcs = galsim.OffsetShearWCS(scale, shear, origin=origin, world_origin=world_origin)
-    ufunc = lambda x, y: ((1 - g1) * (x - x0) - g2 * (y - y0)) * scale * factor + u0  # noqa: E731
-    vfunc = lambda x, y: ((1 + g1) * (y - y0) - g2 * (x - x0)) * scale * factor + v0  # noqa: E731
+    ufunc = (  # noqa: E731
+        lambda x, y: ((1 - g1) * (x - x0) - g2 * (y - y0)) * scale * factor + u0
+    )
+    vfunc = (  # noqa: E731
+        lambda x, y: ((1 + g1) * (y - y0) - g2 * (x - x0)) * scale * factor + v0
+    )
     do_nonlocal_wcs(wcs, ufunc, vfunc, "OffsetShearWCS 3")
 
     # Check that using a wcs in the context of an image works correctly
@@ -2281,8 +2296,12 @@ def test_uvfunction():
 
     # This version doesn't work with numpy arrays because of the math functions.
     # This provides a test of that branch of the makeSkyImage function.
-    ufunc = lambda x, y: 0.17 * x * (1.0 + 1.0e-5 * math.sqrt(x**2 + y**2))  # noqa: E731
-    vfunc = lambda x, y: 0.17 * y * (1.0 + 1.0e-5 * math.sqrt(x**2 + y**2))  # noqa: E731
+    ufunc = (  # noqa: E731
+        lambda x, y: 0.17 * x * (1.0 + 1.0e-5 * math.sqrt(x**2 + y**2))
+    )
+    vfunc = (  # noqa: E731
+        lambda x, y: 0.17 * y * (1.0 + 1.0e-5 * math.sqrt(x**2 + y**2))
+    )
     wcs = galsim.UVFunction(ufunc, vfunc)
     do_nonlocal_wcs(wcs, ufunc, vfunc, "UVFunction with math funcs", test_pickle=False)
     do_wcs_image(wcs, "UVFunction_math")
@@ -3961,7 +3980,7 @@ def test_int_args():
     # is unnecessary.
     dir = "des_data"
     file_name = "DECam_00158414_01.fits.fz"
-    with profile():
+    with Profile():
         t0 = time.time()
         wcs = galsim.FitsWCS(file_name, dir=dir)
         t1 = time.time()

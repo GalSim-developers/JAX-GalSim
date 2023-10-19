@@ -242,7 +242,7 @@ def test_shear_initialization():
         # JAX specific modification
         # -------------------------
         # We don't allow jax objects to be pickled.
-        # do_pickle(s)
+        # check_pickle(s)
 
     # finally check some examples of invalid initializations for Shear
     assert_raises(TypeError, galsim.Shear, 0.3)

@@ -2,9 +2,9 @@ name: Python package
 
 on:
   push:
-    branches: ["main"]
+    branches:
+      - main
   pull_request:
-    branches: ["main"]
 
 jobs:
   build:
@@ -42,4 +42,4 @@ jobs:
       - name: Test with pytest
         run: |
           git submodule update --init --recursive
-          pytest
+          pytest --durations=0

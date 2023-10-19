@@ -1,7 +1,6 @@
 import galsim as _galsim
 import jax
 import jax.numpy as jnp
-import jax.scipy as jsc
 import tensorflow_probability as tfp
 from jax._src.numpy.util import _wraps
 from jax.tree_util import Partial as partial
@@ -10,8 +9,9 @@ from jax.tree_util import register_pytree_node_class
 from jax_galsim.core.bessel import j0
 from jax_galsim.core.draw import draw_by_kValue, draw_by_xValue
 from jax_galsim.core.integrate import ClenshawCurtisQuad, quad_integral
-from jax_galsim.core.utils import ensure_hashable
+from jax_galsim.core.utils import bisect_for_root, ensure_hashable
 from jax_galsim.gsobject import GSObject
+from jax_galsim.position import PositionD
 
 
 @jax.jit
@@ -270,74 +270,20 @@ class Moffat(GSObject):
         return s
 
     @property
-    def _maxk_untrunc(self):
-        """untruncated Moffat maxK
-
-            The 2D Fourier Transform of f(r)=C (1+(r/rd)^2)^(-beta) leads
-             C rd^2 = Flux (beta-1)/pi (no truc)
-             and
-             f(k) = C rd^2 int_0^infty (1+x^2)^(-beta) J_0(krd x) x dx
-                  = 2 F (k rd /2)^(\beta-1) K[beta-1, k rd]/Gamma[beta-1]
-            with k->infty asymptotic behavior
-                 f(k)/F \approx sqrt(pi)/Gamma(beta-1) e^(-k') (k'/2)^(beta -3/2) with k' = k rd
-            So we solve f(maxk)/F = thr  (aka maxk_threshold  in  gsparams.py)
-                leading to the iterative search of
-                let alpha = -log(thr Gamma(beta-1)/sqrt(pi))
-                k = (\beta -3/2)log(k/2) + alpha
-                starting with k = alpha
-
-        note : in the code "alternative code" is related to issue #1208 in GalSim github
-        """
-
-        def body(i, val):
-            kcur, alpha = val
-            knew = (self.beta - 0.5) * jnp.log(kcur) + alpha
-            # knew = (self.beta -1.5)* jnp.log(kcur/2) + alpha # alternative code
-            return knew, alpha
-
-        # alpha = -jnp.log(self.gsparams.maxk_threshold
-        #  * jnp.exp(jsc.special.gammaln(self._beta-1))/jnp.sqrt(jnp.pi) ) # alternative code
-
-        alpha = -jnp.log(
-            self.gsparams.maxk_threshold
-            * jnp.power(2.0, self.beta - 0.5)
-            * jnp.exp(jsc.special.gammaln(self.beta - 1))
-            / (2 * jnp.sqrt(jnp.pi))
-        )
-
-        val_init = (
-            alpha,
-            alpha,
-        )
-        val = jax.lax.fori_loop(0, 5, body, val_init)
-        maxk, alpha = val
-        return maxk / self._r0
-
-    @property
     def _prefactor(self):
         return 2.0 * (self.beta - 1.0) / (self._fluxFactor)
 
-    @property
-    def _maxk_trunc(self):
-        """truncated Moffat maxK"""
-        # a for gaussian profile... this is f(k_max)/Flux = maxk_threshold
-        maxk_val = self.gsparams.maxk_threshold
-        dk = self.gsparams.table_spacing * jnp.sqrt(
-            jnp.sqrt(self.gsparams.kvalue_accuracy / 10.0)
+    @jax.jit
+    def _maxk_func(self, k):
+        return (
+            jnp.abs(self._kValue(PositionD(x=k, y=0)).real / self.flux)
+            - self.gsparams.maxk_threshold
         )
-        # 50 is a max (GalSim) but it may be lowered if necessary
-        ki = jnp.arange(0.0, 50.0, dk)
-        quad = ClenshawCurtisQuad.init(150)
-        g = partial(_xMoffatIntegrant, beta=self.beta, rmax=self._maxRrD, quad=quad)
-        fki_1 = jax.jit(jax.vmap(g))(ki)
-        fki = fki_1 * self._prefactor
-        cond = jnp.abs(fki) > maxk_val
-        maxk = ki[cond][-1]
-        return maxk / self._r0
 
     @property
+    @jax.jit
     def _maxk(self):
-        return jax.lax.select(self.trunc > 0, self._maxk_trunc, self._maxk_untrunc)
+        return bisect_for_root(partial(self._maxk_func), 0.0, 1e5, niter=75)
 
     @property
     def _stepk_lowbeta(self):
@@ -353,12 +299,10 @@ class Moffat(GSObject):
             jnp.power(self.gsparams.folding_threshold, 0.5 / (1.0 - self.beta))
             * self._r0
         )
-        if R > self._maxR:
-            R = self._maxR
+        R = jnp.minimum(R, self._maxR)
         # at least R should be 5 HLR
         R5hlr = self.gsparams.stepk_minimum_hlr * self.half_light_radius
-        if R < R5hlr:
-            R = R5hlr
+        R = jnp.maximum(R, R5hlr)
         return jnp.pi / R
 
     @property
