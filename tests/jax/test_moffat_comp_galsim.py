@@ -1,6 +1,7 @@
 import galsim as _galsim
-import jax_galsim as galsim
 import numpy as np
+
+import jax_galsim as galsim
 
 
 def test_moffat_comp_galsim_maxk():
