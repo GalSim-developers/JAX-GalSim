@@ -65,4 +65,19 @@ from .celestial import CelestialCoord
 
 # Shear
 from .shear import Shear, _Shear
+
+# Interpolations
+from .interpolant import (
+    Interpolant,
+    Delta,
+    Nearest,
+    SincInterpolant,
+    Linear,
+    Cubic,
+    Quintic,
+    Lanczos,
+)
+
+# packages kept separate
+from . import bessel
 from . import fits
