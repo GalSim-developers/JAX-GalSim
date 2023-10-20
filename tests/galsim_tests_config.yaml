@@ -68,3 +68,7 @@ allowed_failures:
   - "module 'jax_galsim.utilities' has no attribute 'horner2d'"
   - "'Image' object has no attribute 'FindAdaptiveMom'"
   - "module 'jax_galsim' has no attribute 'BaseCorrelatedNoise'"
+  - "'Image' object has no attribute 'addNoise'"
+  - "Transform does not support callable arguments."
+  - "The JAX galsim.BaseDeviate does not support being used as a numpy PRNG."
+  - "jax_galsim does not support the galsim WCS class GSFitsWCS"
