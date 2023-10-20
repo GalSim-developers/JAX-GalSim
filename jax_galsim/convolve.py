@@ -367,13 +367,19 @@ class Deconvolution(GSObject):
 
         # Save the original object as an attribute, so it can be inspected later if necessary.
         self._gsparams = GSParams.check(gsparams, obj.gsparams)
-        self._min_acc_kvalue = obj.flux * self.gsparams.kvalue_accuracy
-        self._inv_min_acc_kvalue = 1.0 / self._min_acc_kvalue
         self._propagate_gsparams = propagate_gsparams
         if self._propagate_gsparams:
             self._orig_obj = obj.withGSParams(self._gsparams)
         else:
             self._orig_obj = obj
+
+    @property
+    def _min_acc_kvalue(self):
+        return self._orig_obj.flux * self.gsparams.kvalue_accuracy
+
+    @property
+    def _inv_min_acc_kvalue(self):
+        return 1.0 / self._min_acc_kvalue
 
     @property
     def orig_obj(self):

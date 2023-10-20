@@ -509,22 +509,22 @@ def test_Image_basic():
         # -------------------------
         # We will not be doing pickles
         # Check picklability
-        # do_pickle(im1)
-        # do_pickle(im1_view)
-        # do_pickle(im2)
-        # do_pickle(im2_view)
-        # do_pickle(im2_cview)
-        # do_pickle(im3_view)
-        # do_pickle(im4_view)
+        # check_pickle(im1)
+        # check_pickle(im1_view)
+        # check_pickle(im2)
+        # check_pickle(im2_view)
+        # check_pickle(im2_cview)
+        # check_pickle(im3_view)
+        # check_pickle(im4_view)
 
     # JAX specific modification
     # -------------------------
     # We will not be doing pickles
     # Also check picklability of Bounds, Position here.
-    # do_pickle(galsim.PositionI(2,3))
-    # do_pickle(galsim.PositionD(2.2,3.3))
-    # do_pickle(galsim.BoundsI(2,3,7,8))
-    # do_pickle(galsim.BoundsD(2.1, 4.3, 6.5, 9.1))
+    # check_pickle(galsim.PositionI(2,3))
+    # check_pickle(galsim.PositionD(2.2,3.3))
+    # check_pickle(galsim.BoundsI(2,3,7,8))
+    # check_pickle(galsim.BoundsD(2.1, 4.3, 6.5, 9.1))
 
 
 @timer
@@ -632,10 +632,10 @@ def test_undefined_image():
         # JAX specific modification
         # -------------------------
         # We will not be doing pickles
-        # do_pickle(im1.bounds)
-        # do_pickle(im1)
-        # do_pickle(im1.view())
-        # do_pickle(im1.view(make_const=True))
+        # check_pickle(im1.bounds)
+        # check_pickle(im1)
+        # check_pickle(im1.view())
+        # check_pickle(im1.view(make_const=True))
 
 
 @timer
@@ -2908,7 +2908,7 @@ def test_Image_subImage():
         # JAX specific modification
         # -------------------------
         # We won't do any pickling
-        # do_pickle(image)
+        # check_pickle(image)
 
     assert_raises(TypeError, image.subImage, bounds=None)
     assert_raises(TypeError, image.subImage, bounds=galsim.BoundsD(0, 4, 0, 4))
@@ -3035,9 +3035,9 @@ def test_Image_resize():
                 im3_full.array, 23, err_msg="im3_full changed"
             )
 
-            do_pickle(im1)
-            do_pickle(im2)
-            do_pickle(im3)
+            check_pickle(im1)
+            check_pickle(im2)
+            check_pickle(im3)
 
     assert_raises(TypeError, im1.resize, bounds=None)
     assert_raises(TypeError, im1.resize, bounds=galsim.BoundsD(0, 5, 0, 5))
@@ -3083,7 +3083,7 @@ def test_Image_resize():
 #         assert_raises(galsim.GalSimImmutableError, image.setZero)
 #         assert_raises(galsim.GalSimImmutableError, image.invertSelf)
 
-#         do_pickle(image)
+#         check_pickle(image)
 
 
 @timer
@@ -3164,7 +3164,7 @@ def test_Image_constructor():
         # JAX specific modification
         # -------------------------
         # No picklibng for JAX images
-        # do_pickle(test_im)
+        # check_pickle(test_im)
 
         # Check that some invalid sets of construction args raise the appropriate errors
         # Invalid args
@@ -3246,7 +3246,7 @@ def test_Image_view():
     # JAX specific modification
     # -------------------------
     # No picklibng for JAX images
-    # do_pickle(im)
+    # check_pickle(im)
 
     # Test view with no arguments
     imv = im.view()
@@ -3262,8 +3262,8 @@ def test_Image_view():
     # JAX specific modification
     # -------------------------
     # No picklibng for JAX images
-    # do_pickle(im)
-    # do_pickle(imv)
+    # check_pickle(im)
+    # check_pickle(imv)
 
     # Test view with new origin
     imv = im.view(origin=(0, 0))
@@ -3288,8 +3288,8 @@ def test_Image_view():
     # JAX specific modification
     # -------------------------
     # No picklibng for JAX images
-    # do_pickle(imv)
-    # do_pickle(imv2)
+    # check_pickle(imv)
+    # check_pickle(imv2)
 
     # Test view with new center
     imv = im.view(center=(0, 0))
@@ -3316,8 +3316,8 @@ def test_Image_view():
     # JAX specific modification
     # -------------------------
     # No picklibng for JAX images
-    # do_pickle(imv)
-    # do_pickle(imv2)
+    # check_pickle(imv)
+    # check_pickle(imv2)
 
     # Test view with new scale
     imv = im.view(scale=0.17)
@@ -3342,8 +3342,8 @@ def test_Image_view():
     # JAX specific modification
     # -------------------------
     # No picklibng for JAX images
-    # do_pickle(imv)
-    # do_pickle(imv2)
+    # check_pickle(imv)
+    # check_pickle(imv2)
 
     # Test view with new wcs
     imv = im.view(wcs=galsim.JacobianWCS(0.0, 0.23, -0.23, 0.0))
@@ -3365,8 +3365,8 @@ def test_Image_view():
     # JAX specific modification
     # -------------------------
     # No picklibng for JAX images
-    # do_pickle(imv)
-    # do_pickle(imv2)
+    # check_pickle(imv)
+    # check_pickle(imv2)
 
     # Go back to original value for that pixel and make sure all are still equal to 17
     im.setValue(11, 19, 17)
@@ -3427,7 +3427,7 @@ def test_ne():
         galsim.ImageD(array1, wcs=galsim.PixelScale(0.2)),
         galsim.ImageD(array1, xmin=2),
     ]
-    all_obj_diff(objs)
+    check_all_diff(objs)
 
 
 @timer
@@ -3653,13 +3653,13 @@ def test_complex_image():
         # -------------------------
         # No picklibng for JAX images
         # Check picklability
-        # do_pickle(im1)
-        # do_pickle(im1_view)
-        # do_pickle(im1_cview)
-        # do_pickle(im2)
-        # do_pickle(im2_view)
-        # do_pickle(im3_view)
-        # do_pickle(im4_view)
+        # check_pickle(im1)
+        # check_pickle(im1_view)
+        # check_pickle(im1_cview)
+        # check_pickle(im2)
+        # check_pickle(im2_view)
+        # check_pickle(im3_view)
+        # check_pickle(im4_view)
 
 
 @timer

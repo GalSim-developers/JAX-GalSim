@@ -3,7 +3,7 @@ import jax.numpy as jnp
 from jax._src.numpy.util import _wraps
 from jax.tree_util import register_pytree_node_class
 
-from jax_galsim.core.utils import ensure_hashable
+from jax_galsim.core.utils import convert_to_float, ensure_hashable
 from jax_galsim.gsobject import GSObject
 from jax_galsim.position import Position, PositionD, PositionI
 from jax_galsim.shear import Shear
@@ -18,6 +18,8 @@ class BaseWCS(_galsim.BaseWCS):
         if len(args) == 1:
             if isinstance(args[0], GSObject):
                 return self.profileToWorld(*args, **kwargs)
+            elif isinstance(args[0], Shear):
+                return self.shearToWorld(*args, **kwargs)
             else:
                 return self.posToWorld(*args, **kwargs)
         elif len(args) == 2:
@@ -52,11 +54,19 @@ class BaseWCS(_galsim.BaseWCS):
             image_profile, flux_ratio, PositionD(offset)
         )
 
+    @_wraps(_galsim.BaseWCS.shearToWorld)
+    def shearToWorld(self, image_shear, image_pos=None, world_pos=None, color=None):
+        if color is None:
+            color = self._color
+        return self.local(image_pos, world_pos, color=color)._shearToWorld(image_shear)
+
     @_wraps(_galsim.BaseWCS.toImage)
     def toImage(self, *args, **kwargs):
         if len(args) == 1:
             if isinstance(args[0], GSObject):
                 return self.profileToImage(*args, **kwargs)
+            elif isinstance(args[0], Shear):
+                return self.shearToImage(*args, **kwargs)
             else:
                 return self.posToImage(*args, **kwargs)
         elif len(args) == 2:
@@ -93,6 +103,12 @@ class BaseWCS(_galsim.BaseWCS):
         return self.local(image_pos, world_pos, color=color)._profileToImage(
             world_profile, flux_ratio, PositionD(offset)
         )
+
+    @_wraps(_galsim.BaseWCS.shearToImage)
+    def shearToImage(self, world_shear, image_pos=None, world_pos=None, color=None):
+        if color is None:
+            color = self._color
+        return self.local(image_pos, world_pos, color=color)._shearToImage(world_shear)
 
     @_wraps(_galsim.BaseWCS.local)
     def local(self, image_pos=None, world_pos=None, color=None):
@@ -628,6 +644,13 @@ class PixelScale(LocalWCS):
             offset=offset,
         )
 
+    def _shearToWorld(self, image_shear):
+        # These are trivial for PixelScale.
+        return image_shear
+
+    def _shearToImage(self, world_shear):
+        return world_shear
+
     def _pixelArea(self):
         return self._scale**2
 
@@ -734,6 +757,13 @@ class ShearWCS(LocalWCS):
             * flux_ratio
         )
 
+    def _shearToWorld(self, image_shear):
+        # This isn't worth customizing.  Just use the jacobian.
+        return self._toJacobian()._shearToWorld(image_shear)
+
+    def _shearToImage(self, world_shear):
+        return self._toJacobian()._shearToImage(world_shear)
+
     def _pixelArea(self):
         return self._scale**2
 
@@ -757,6 +787,13 @@ class ShearWCS(LocalWCS):
 
     def _newOrigin(self, origin, world_origin):
         return OffsetShearWCS(self._scale, self._shear, origin, world_origin)
+
+    def _writeHeader(self, header, bounds):
+        header["GS_WCS"] = ("ShearWCS", "GalSim WCS name")
+        header["GS_SCALE"] = (self.scale, "GalSim image scale")
+        header["GS_G1"] = (self.shear.g1, "GalSim image shear g1")
+        header["GS_G2"] = (self.shear.g2, "GalSim image shear g2")
+        return self.affine()._writeLinearWCS(header, bounds)
 
     def copy(self):
         return ShearWCS(self._scale, self._shear)
@@ -851,6 +888,24 @@ class JacobianWCS(LocalWCS):
             flux_ratio=flux_ratio * self._pixelArea(),
             offset=offset,
         )
+
+    def _shearToWorld(self, image_shear):
+        # Code from https://github.com/rmjarvis/DESWL/blob/y3a1-v23/psf/run_piff.py#L691
+        e1 = image_shear.e1
+        e2 = image_shear.e2
+
+        M = jnp.array([[1 + e1, e2], [e2, 1 - e1]])
+        J = self.getMatrix()
+        M = J.dot(M).dot(J.T)
+
+        e1 = (M[0, 0] - M[1, 1]) / (M[0, 0] + M[1, 1])
+        e2 = (2.0 * M[0, 1]) / (M[0, 0] + M[1, 1])
+
+        return Shear(e1=e1, e2=e2)
+
+    def _shearToImage(self, world_shear):
+        # Same as above but inverse J matrix.
+        return self._inverse()._shearToWorld(world_shear)
 
     def _pixelArea(self):
         return abs(self._det)
@@ -1102,6 +1157,17 @@ class OffsetShearWCS(UniformWCS):
     def _newOrigin(self, origin, world_origin):
         return OffsetShearWCS(self.scale, self.shear, origin, world_origin)
 
+    def _writeHeader(self, header, bounds):
+        header["GS_WCS"] = ("OffsetShearWCS", "GalSim WCS name")
+        header["GS_SCALE"] = (self.scale, "GalSim image scale")
+        header["GS_G1"] = (self.shear.g1, "GalSim image shear g1")
+        header["GS_G2"] = (self.shear.g2, "GalSim image shear g2")
+        header["GS_X0"] = (self.origin.x, "GalSim image origin x coordinate")
+        header["GS_Y0"] = (self.origin.y, "GalSim image origin y coordinate")
+        header["GS_U0"] = (self.world_origin.x, "GalSim world origin u coordinate")
+        header["GS_V0"] = (self.world_origin.y, "GalSim world origin v coordinate")
+        return self.affine()._writeLinearWCS(header, bounds)
+
     def copy(self):
         return OffsetShearWCS(self.scale, self.shear, self.origin, self.world_origin)
 
@@ -1179,14 +1245,26 @@ class AffineTransform(UniformWCS):
     def _writeLinearWCS(self, header, bounds):
         header["CTYPE1"] = ("LINEAR", "name of the world coordinate axis")
         header["CTYPE2"] = ("LINEAR", "name of the world coordinate axis")
-        header["CRVAL1"] = (self.u0, "world coordinate at reference pixel = u0")
-        header["CRVAL2"] = (self.v0, "world coordinate at reference pixel = v0")
-        header["CRPIX1"] = (self.x0, "image coordinate of reference pixel = x0")
-        header["CRPIX2"] = (self.y0, "image coordinate of reference pixel = y0")
-        header["CD1_1"] = (self.dudx, "CD1_1 = dudx")
-        header["CD1_2"] = (self.dudy, "CD1_2 = dudy")
-        header["CD2_1"] = (self.dvdx, "CD2_1 = dvdx")
-        header["CD2_2"] = (self.dvdy, "CD2_2 = dvdy")
+        header["CRVAL1"] = (
+            convert_to_float(self.u0),
+            "world coordinate at reference pixel = u0",
+        )
+        header["CRVAL2"] = (
+            convert_to_float(self.v0),
+            "world coordinate at reference pixel = v0",
+        )
+        header["CRPIX1"] = (
+            convert_to_float(self.x0),
+            "image coordinate of reference pixel = x0",
+        )
+        header["CRPIX2"] = (
+            convert_to_float(self.y0),
+            "image coordinate of reference pixel = y0",
+        )
+        header["CD1_1"] = (convert_to_float(self.dudx), "CD1_1 = dudx")
+        header["CD1_2"] = (convert_to_float(self.dudy), "CD1_2 = dudy")
+        header["CD2_1"] = (convert_to_float(self.dvdx), "CD2_1 = dvdx")
+        header["CD2_2"] = (convert_to_float(self.dvdy), "CD2_2 = dvdy")
         return header
 
     @staticmethod

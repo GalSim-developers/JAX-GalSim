@@ -5,9 +5,17 @@ import sys
 import time
 import warnings
 
-import galsim
 import numpy as np
-from galsim_test_helpers import *
+from galsim_test_helpers import (
+    Profile,
+    assert_raises,
+    assert_warns,
+    check_pickle,
+    gsobject_compare,
+    timer,
+)
+
+import jax_galsim as galsim
 
 # These positions will be used a few times below, so define them here.
 # One of the tests requires that the last pair are integers, so don't change that.
@@ -476,7 +484,9 @@ def do_wcs_image(wcs, name, approx=False):
     # Use the "blank" image as our test image.  It's not blank in the sense of having all
     # zeros.  Rather, there are basically random values that we can use to test that
     # the shifted values are correct.  And it is a conveniently small-ish, non-square image.
-    dir = "fits_files"
+    dir = os.path.join(
+        os.path.dirname(__file__), "..", "..", "GalSim", "tests", "fits_files"
+    )
     file_name = "blankimg.fits"
     im = galsim.fits.read(file_name, dir=dir)
     np.testing.assert_equal(im.origin.x, 1, "initial origin is not 1,1 as expected")
@@ -910,7 +920,7 @@ def do_jac_decomp(wcs, name):
 
     M = scale * S.dot(R).dot(F)
     J = wcs.getMatrix()
-    np.testing.assert_almost_equal(
+    np.testing.assert_array_almost_equal(
         M, J, 8, "Decomposition was inconsistent with jacobian for " + name
     )
 
@@ -964,7 +974,6 @@ def do_nonlocal_wcs(wcs, ufunc, vfunc, name, test_pickle=True, color=None):
     wcs4 = wcs.local(wcs.origin, color=color)
     assert wcs != wcs4, name + " is not != wcs.local()"
     assert wcs4 != wcs, name + " is not != wcs.local() (reverse)"
-    world_origin = wcs.toWorld(wcs.origin, color=color)
     if wcs.isUniform():
         if wcs.world_origin == galsim.PositionD(0, 0):
             wcs2 = wcs.local(wcs.origin, color=color).withOrigin(wcs.origin)
@@ -1028,8 +1037,8 @@ def do_nonlocal_wcs(wcs, ufunc, vfunc, name, test_pickle=True, color=None):
     full_im2 = galsim.Image(galsim.BoundsI(-1023, 1024, -1023, 1024), scale=1.0)
 
     for x0, y0, u0, v0 in zip(far_x_list, far_y_list, far_u_list, far_v_list):
-        local_ufunc = lambda x, y: ufunc(x + x0, y + y0) - u0
-        local_vfunc = lambda x, y: vfunc(x + x0, y + y0) - v0
+        local_ufunc = lambda x, y: ufunc(x + x0, y + y0) - u0  # noqa: E731
+        local_vfunc = lambda x, y: vfunc(x + x0, y + y0) - v0  # noqa: E731
         image_pos = galsim.PositionD(x0, y0)
         world_pos = galsim.PositionD(u0, v0)
         do_wcs_pos(
@@ -1203,8 +1212,6 @@ def do_celestial_wcs(wcs, name, test_pickle=True, approx=False):
         digits,
         "shiftOrigin(new_origin) returned wrong world position",
     )
-
-    world_origin = wcs.toWorld(wcs.origin)
 
     full_im1 = galsim.Image(galsim.BoundsI(-1023, 1024, -1023, 1024), wcs=wcs)
     full_im2 = galsim.Image(galsim.BoundsI(-1023, 1024, -1023, 1024), scale=1.0)
@@ -1521,8 +1528,8 @@ def test_pixelscale():
     # assert_raises(TypeError, galsim.PixelScale, scale=scale, origin=galsim.PositionD(0, 0))
     # assert_raises(TypeError, galsim.PixelScale, scale=scale, world_origin=galsim.PositionD(0, 0))
 
-    ufunc = lambda x, y: x * scale
-    vfunc = lambda x, y: y * scale
+    ufunc = lambda x, y: x * scale  # noqa: E731
+    vfunc = lambda x, y: y * scale  # noqa: E731
 
     # Do generic tests that apply to all WCS types
     do_local_wcs(wcs, ufunc, vfunc, "PixelScale")
@@ -1593,8 +1600,8 @@ def test_pixelscale():
     assert wcs != wcs3b, "OffsetWCS is not != a different one (origin)"
     assert wcs != wcs3c, "OffsetWCS is not != a different one (world_origin)"
 
-    ufunc = lambda x, y: scale * (x - x0)
-    vfunc = lambda x, y: scale * (y - y0)
+    ufunc = lambda x, y: scale * (x - x0)  # noqa: E731
+    vfunc = lambda x, y: scale * (y - y0)  # noqa: E731
     do_nonlocal_wcs(wcs, ufunc, vfunc, "OffsetWCS 1")
 
     # Add a world origin offset
@@ -1602,8 +1609,8 @@ def test_pixelscale():
     v0 = -141.9
     world_origin = galsim.PositionD(u0, v0)
     wcs = galsim.OffsetWCS(scale, world_origin=world_origin)
-    ufunc = lambda x, y: scale * x + u0
-    vfunc = lambda x, y: scale * y + v0
+    ufunc = lambda x, y: scale * x + u0  # noqa: E731
+    vfunc = lambda x, y: scale * y + v0  # noqa: E731
     do_nonlocal_wcs(wcs, ufunc, vfunc, "OffsetWCS 2")
 
     # Add both kinds of offsets
@@ -1614,8 +1621,8 @@ def test_pixelscale():
     origin = galsim.PositionD(x0, y0)
     world_origin = galsim.PositionD(u0, v0)
     wcs = galsim.OffsetWCS(scale, origin=origin, world_origin=world_origin)
-    ufunc = lambda x, y: scale * (x - x0) + u0
-    vfunc = lambda x, y: scale * (y - y0) + v0
+    ufunc = lambda x, y: scale * (x - x0) + u0  # noqa: E731
+    vfunc = lambda x, y: scale * (y - y0) + v0  # noqa: E731
     do_nonlocal_wcs(wcs, ufunc, vfunc, "OffsetWCS 3")
 
     # Check that using a wcs in the context of an image works correctly
@@ -1657,8 +1664,8 @@ def test_shearwcs():
     assert wcs != wcs3b, "ShearWCS is not != a different one (shear)"
 
     factor = 1.0 / np.sqrt(1.0 - g1 * g1 - g2 * g2)
-    ufunc = lambda x, y: (x - g1 * x - g2 * y) * scale * factor
-    vfunc = lambda x, y: (y + g1 * y - g2 * x) * scale * factor
+    ufunc = lambda x, y: (x - g1 * x - g2 * y) * scale * factor  # noqa: E731
+    vfunc = lambda x, y: (y + g1 * y - g2 * x) * scale * factor  # noqa: E731
 
     # Do generic tests that apply to all WCS types
     do_local_wcs(wcs, ufunc, vfunc, "ShearWCS")
@@ -1743,8 +1750,12 @@ def test_shearwcs():
     assert wcs != wcs3c, "OffsetShearWCS is not != a different one (origin)"
     assert wcs != wcs3d, "OffsetShearWCS is not != a different one (world_origin)"
 
-    ufunc = lambda x, y: ((1 - g1) * (x - x0) - g2 * (y - y0)) * scale * factor
-    vfunc = lambda x, y: ((1 + g1) * (y - y0) - g2 * (x - x0)) * scale * factor
+    ufunc = (  # noqa: E731
+        lambda x, y: ((1 - g1) * (x - x0) - g2 * (y - y0)) * scale * factor
+    )
+    vfunc = (  # noqa: E731
+        lambda x, y: ((1 + g1) * (y - y0) - g2 * (x - x0)) * scale * factor
+    )
     do_nonlocal_wcs(wcs, ufunc, vfunc, "OffsetShearWCS 1")
 
     # Add a world origin offset
@@ -1752,8 +1763,8 @@ def test_shearwcs():
     v0 = -141.9
     world_origin = galsim.PositionD(u0, v0)
     wcs = galsim.OffsetShearWCS(scale, shear, world_origin=world_origin)
-    ufunc = lambda x, y: ((1 - g1) * x - g2 * y) * scale * factor + u0
-    vfunc = lambda x, y: ((1 + g1) * y - g2 * x) * scale * factor + v0
+    ufunc = lambda x, y: ((1 - g1) * x - g2 * y) * scale * factor + u0  # noqa: E731
+    vfunc = lambda x, y: ((1 + g1) * y - g2 * x) * scale * factor + v0  # noqa: E731
     do_nonlocal_wcs(wcs, ufunc, vfunc, "OffsetShearWCS 2")
 
     # Add both kinds of offsets
@@ -1764,8 +1775,12 @@ def test_shearwcs():
     origin = galsim.PositionD(x0, y0)
     world_origin = galsim.PositionD(u0, v0)
     wcs = galsim.OffsetShearWCS(scale, shear, origin=origin, world_origin=world_origin)
-    ufunc = lambda x, y: ((1 - g1) * (x - x0) - g2 * (y - y0)) * scale * factor + u0
-    vfunc = lambda x, y: ((1 + g1) * (y - y0) - g2 * (x - x0)) * scale * factor + v0
+    ufunc = (  # noqa: E731
+        lambda x, y: ((1 - g1) * (x - x0) - g2 * (y - y0)) * scale * factor + u0
+    )
+    vfunc = (  # noqa: E731
+        lambda x, y: ((1 + g1) * (y - y0) - g2 * (x - x0)) * scale * factor + v0
+    )
     do_nonlocal_wcs(wcs, ufunc, vfunc, "OffsetShearWCS 3")
 
     # Check that using a wcs in the context of an image works correctly
@@ -1825,8 +1840,8 @@ def test_affinetransform():
     assert wcs != wcs3c, "JacobianWCS is not != a different one (dvdx)"
     assert wcs != wcs3d, "JacobianWCS is not != a different one (dvdy)"
 
-    ufunc = lambda x, y: dudx * x + dudy * y
-    vfunc = lambda x, y: dvdx * x + dvdy * y
+    ufunc = lambda x, y: dudx * x + dudy * y  # noqa: E731
+    vfunc = lambda x, y: dvdx * x + dvdy * y  # noqa: E731
     do_local_wcs(wcs, ufunc, vfunc, "JacobianWCS 1")
 
     # Check the decomposition:
@@ -1882,8 +1897,8 @@ def test_affinetransform():
     assert wcs != wcs3e, "AffineTransform is not != a different one (origin)"
     assert wcs != wcs3f, "AffineTransform is not != a different one (world_origin)"
 
-    ufunc = lambda x, y: dudx * (x - x0) + dudy * (y - y0)
-    vfunc = lambda x, y: dvdx * (x - x0) + dvdy * (y - y0)
+    ufunc = lambda x, y: dudx * (x - x0) + dudy * (y - y0)  # noqa: E731
+    vfunc = lambda x, y: dvdx * (x - x0) + dvdy * (y - y0)  # noqa: E731
     do_nonlocal_wcs(wcs, ufunc, vfunc, "AffineTransform 1")
 
     # Next one with a flip and significant rotation and a large (u,v) offset
@@ -1893,8 +1908,8 @@ def test_affinetransform():
     dvdy = 0.1409
 
     wcs = galsim.JacobianWCS(dudx, dudy, dvdx, dvdy)
-    ufunc = lambda x, y: dudx * x + dudy * y
-    vfunc = lambda x, y: dvdx * x + dvdy * y
+    ufunc = lambda x, y: dudx * x + dudy * y  # noqa: E731
+    vfunc = lambda x, y: dvdx * x + dvdy * y  # noqa: E731
     do_local_wcs(wcs, ufunc, vfunc, "JacobianWCS 2")
 
     # Check the decomposition:
@@ -1906,8 +1921,8 @@ def test_affinetransform():
     wcs = galsim.AffineTransform(
         dudx, dudy, dvdx, dvdy, world_origin=galsim.PositionD(u0, v0)
     )
-    ufunc = lambda x, y: dudx * x + dudy * y + u0
-    vfunc = lambda x, y: dvdx * x + dvdy * y + v0
+    ufunc = lambda x, y: dudx * x + dudy * y + u0  # noqa: E731
+    vfunc = lambda x, y: dvdx * x + dvdy * y + v0  # noqa: E731
     do_nonlocal_wcs(wcs, ufunc, vfunc, "AffineTransform 2")
 
     # Finally a really crazy one that isn't remotely regular
@@ -1917,8 +1932,8 @@ def test_affinetransform():
     dvdy = -0.3013
 
     wcs = galsim.JacobianWCS(dudx, dudy, dvdx, dvdy)
-    ufunc = lambda x, y: dudx * x + dudy * y
-    vfunc = lambda x, y: dvdx * x + dvdy * y
+    ufunc = lambda x, y: dudx * x + dudy * y  # noqa: E731
+    vfunc = lambda x, y: dvdx * x + dvdy * y  # noqa: E731
     do_local_wcs(wcs, ufunc, vfunc, "Jacobian 3")
 
     # Check the decomposition:
@@ -1937,8 +1952,8 @@ def test_affinetransform():
     wcs = galsim.AffineTransform(
         dudx, dudy, dvdx, dvdy, origin=origin, world_origin=world_origin
     )
-    ufunc = lambda x, y: dudx * (x - x0) + dudy * (y - y0) + u0
-    vfunc = lambda x, y: dvdx * (x - x0) + dvdy * (y - y0) + v0
+    ufunc = lambda x, y: dudx * (x - x0) + dudy * (y - y0) + u0  # noqa: E731
+    vfunc = lambda x, y: dvdx * (x - x0) + dvdy * (y - y0) + v0  # noqa: E731
     do_nonlocal_wcs(wcs, ufunc, vfunc, "AffineTransform 3")
 
     # Check that using a wcs in the context of an image works correctly
@@ -2008,8 +2023,8 @@ def test_uvfunction():
     # First make some that are identical to simpler WCS classes:
     # 1. Like PixelScale
     scale = 0.17
-    ufunc = lambda x, y: x * scale
-    vfunc = lambda x, y: y * scale
+    ufunc = lambda x, y: x * scale  # noqa: E731
+    vfunc = lambda x, y: y * scale  # noqa: E731
     wcs = galsim.UVFunction(ufunc, vfunc)
     do_nonlocal_wcs(wcs, ufunc, vfunc, "UVFunction like PixelScale", test_pickle=False)
     assert wcs.ufunc(2.9, 3.7) == ufunc(2.9, 3.7)
@@ -2022,8 +2037,8 @@ def test_uvfunction():
     assert not wcs.isCelestial()
 
     # Also check with inverse functions.
-    xfunc = lambda u, v: u / scale
-    yfunc = lambda u, v: v / scale
+    xfunc = lambda u, v: u / scale  # noqa: E731
+    yfunc = lambda u, v: v / scale  # noqa: E731
     wcs = galsim.UVFunction(ufunc, vfunc, xfunc, yfunc)
     do_nonlocal_wcs(
         wcs, ufunc, vfunc, "UVFunction like PixelScale with inverse", test_pickle=False
@@ -2057,14 +2072,14 @@ def test_uvfunction():
     g1 = 0.14
     g2 = -0.37
     factor = 1.0 / np.sqrt(1.0 - g1 * g1 - g2 * g2)
-    ufunc = lambda x, y: (x - g1 * x - g2 * y) * scale * factor
-    vfunc = lambda x, y: (y + g1 * y - g2 * x) * scale * factor
+    ufunc = lambda x, y: (x - g1 * x - g2 * y) * scale * factor  # noqa: E731
+    vfunc = lambda x, y: (y + g1 * y - g2 * x) * scale * factor  # noqa: E731
     wcs = galsim.UVFunction(ufunc, vfunc)
     do_nonlocal_wcs(wcs, ufunc, vfunc, "UVFunction like ShearWCS", test_pickle=False)
 
     # Also check with inverse functions.
-    xfunc = lambda u, v: (u + g1 * u + g2 * v) / scale * factor
-    yfunc = lambda u, v: (v - g1 * v + g2 * u) / scale * factor
+    xfunc = lambda u, v: (u + g1 * u + g2 * v) / scale * factor  # noqa: E731
+    yfunc = lambda u, v: (v - g1 * v + g2 * u) / scale * factor  # noqa: E731
     wcs = galsim.UVFunction(ufunc, vfunc, xfunc, yfunc)
     do_nonlocal_wcs(
         wcs, ufunc, vfunc, "UVFunction like ShearWCS with inverse", test_pickle=False
@@ -2076,8 +2091,8 @@ def test_uvfunction():
     dvdx = 0.1409
     dvdy = 0.2391
 
-    ufunc = lambda x, y: dudx * x + dudy * y
-    vfunc = lambda x, y: dvdx * x + dvdy * y
+    ufunc = lambda x, y: dudx * x + dudy * y  # noqa: E731
+    vfunc = lambda x, y: dvdx * x + dvdy * y  # noqa: E731
     wcs = galsim.UVFunction(ufunc, vfunc)
     do_nonlocal_wcs(
         wcs, ufunc, vfunc, "UVFunction like AffineTransform", test_pickle=False
@@ -2113,7 +2128,7 @@ def test_uvfunction():
         uses_color=True,
     )
     do_nonlocal_wcs(
-        wcs, ufunc, vfunc, "UVFunction with unused color term", test_pickle=True
+        wcsc, ufunc, vfunc, "UVFunction with unused color term", test_pickle=True
     )
 
     # 4. Next some UVFunctions with non-trivial offsets
@@ -2123,8 +2138,8 @@ def test_uvfunction():
     v0 = -141.9
     origin = galsim.PositionD(x0, y0)
     world_origin = galsim.PositionD(u0, v0)
-    ufunc2 = lambda x, y: dudx * (x - x0) + dudy * (y - y0) + u0
-    vfunc2 = lambda x, y: dvdx * (x - x0) + dvdy * (y - y0) + v0
+    ufunc2 = lambda x, y: dudx * (x - x0) + dudy * (y - y0) + u0  # noqa: E731
+    vfunc2 = lambda x, y: dvdx * (x - x0) + dvdy * (y - y0) + v0  # noqa: E731
     wcs = galsim.UVFunction(ufunc2, vfunc2)
     do_nonlocal_wcs(
         wcs, ufunc2, vfunc2, "UVFunction with origins in funcs", test_pickle=False
@@ -2197,8 +2212,8 @@ def test_uvfunction():
             "UVFunction dvdy does not match expected value.",
         )
 
-    ufunc = lambda x, y: radial_u(x - x0, y - y0)
-    vfunc = lambda x, y: radial_v(x - x0, y - y0)
+    ufunc = lambda x, y: radial_u(x - x0, y - y0)  # noqa: E731
+    vfunc = lambda x, y: radial_v(x - x0, y - y0)  # noqa: E731
     do_nonlocal_wcs(wcs, ufunc, vfunc, "Cubic radial UVFunction", test_pickle=False)
 
     # Check that using a wcs in the context of an image works correctly
@@ -2209,8 +2224,8 @@ def test_uvfunction():
     cubic_u = Cubic(2.9e-5, 2000.0, "u")
     cubic_v = Cubic(-3.7e-5, 2000.0, "v")
     wcs = galsim.UVFunction(cubic_u, cubic_v, origin=galsim.PositionD(x0, y0))
-    ufunc = lambda x, y: cubic_u(x - x0, y - y0)
-    vfunc = lambda x, y: cubic_v(x - x0, y - y0)
+    ufunc = lambda x, y: cubic_u(x - x0, y - y0)  # noqa: E731
+    vfunc = lambda x, y: cubic_v(x - x0, y - y0)  # noqa: E731
     do_nonlocal_wcs(wcs, ufunc, vfunc, "Cubic object UVFunction", test_pickle=False)
 
     # Check that using a wcs in the context of an image works correctly
@@ -2218,8 +2233,8 @@ def test_uvfunction():
 
     # 7. Test the UVFunction that is used in demo9 to confirm that I got the
     # inverse function correct!
-    ufunc = lambda x, y: 0.05 * x * (1.0 + 2.0e-6 * (x**2 + y**2))
-    vfunc = lambda x, y: 0.05 * y * (1.0 + 2.0e-6 * (x**2 + y**2))
+    ufunc = lambda x, y: 0.05 * x * (1.0 + 2.0e-6 * (x**2 + y**2))  # noqa: E731
+    vfunc = lambda x, y: 0.05 * y * (1.0 + 2.0e-6 * (x**2 + y**2))  # noqa: E731
     # w = 0.05 (r + 2.e-6 r^3)
     # 0 = r^3 + 5e5 r - 1e7 w
     #
@@ -2231,7 +2246,7 @@ def test_uvfunction():
     #           ( 5 sqrt( w^2 + 5.e3/27 ) - 5 w )^1/3 )
     import math
 
-    xfunc = lambda u, v: (
+    xfunc = lambda u, v: (  # noqa: E731
         lambda w: (
             0.0
             if w == 0.0
@@ -2244,7 +2259,7 @@ def test_uvfunction():
             )
         )
     )(math.sqrt(u**2 + v**2))
-    yfunc = lambda u, v: (
+    yfunc = lambda u, v: (  # noqa: E731
         lambda w: (
             0.0
             if w == 0.0
@@ -2281,19 +2296,23 @@ def test_uvfunction():
 
     # This version doesn't work with numpy arrays because of the math functions.
     # This provides a test of that branch of the makeSkyImage function.
-    ufunc = lambda x, y: 0.17 * x * (1.0 + 1.0e-5 * math.sqrt(x**2 + y**2))
-    vfunc = lambda x, y: 0.17 * y * (1.0 + 1.0e-5 * math.sqrt(x**2 + y**2))
+    ufunc = (  # noqa: E731
+        lambda x, y: 0.17 * x * (1.0 + 1.0e-5 * math.sqrt(x**2 + y**2))
+    )
+    vfunc = (  # noqa: E731
+        lambda x, y: 0.17 * y * (1.0 + 1.0e-5 * math.sqrt(x**2 + y**2))
+    )
     wcs = galsim.UVFunction(ufunc, vfunc)
     do_nonlocal_wcs(wcs, ufunc, vfunc, "UVFunction with math funcs", test_pickle=False)
     do_wcs_image(wcs, "UVFunction_math")
 
     # 8. A non-trivial color example
-    ufunc = lambda x, y, c: (dudx + 0.1 * c) * x + dudy * y
-    vfunc = lambda x, y, c: dvdx * x + (dvdy - 0.2 * c) * y
-    xfunc = lambda u, v, c: ((dvdy - 0.2 * c) * u - dudy * v) / (
+    ufunc = lambda x, y, c: (dudx + 0.1 * c) * x + dudy * y  # noqa: E731
+    vfunc = lambda x, y, c: dvdx * x + (dvdy - 0.2 * c) * y  # noqa: E731
+    xfunc = lambda u, v, c: ((dvdy - 0.2 * c) * u - dudy * v) / (  # noqa: E731
         (dudx + 0.1 * c) * (dvdy - 0.2 * c) - dudy * dvdx
     )
-    yfunc = lambda u, v, c: (-dvdx * u + (dudx + 0.1 * c) * v) / (
+    yfunc = lambda u, v, c: (-dvdx * u + (dudx + 0.1 * c) * v) / (  # noqa: E731
         (dudx + 0.1 * c) * (dvdy - 0.2 * c) - dudy * dvdx
     )
     wcs = galsim.UVFunction(ufunc, vfunc, xfunc, yfunc, uses_color=True)
@@ -2326,10 +2345,10 @@ def test_uvfunction():
     )
 
     # 9. A non-trivial color example that fails for arrays
-    ufunc = lambda x, y, c: math.exp(c * x)
-    vfunc = lambda x, y, c: math.exp(c * y / 2)
-    xfunc = lambda u, v, c: math.log(u) / c
-    yfunc = lambda u, v, c: math.log(v) * 2 / c
+    ufunc = lambda x, y, c: math.exp(c * x)  # noqa: E731
+    vfunc = lambda x, y, c: math.exp(c * y / 2)  # noqa: E731
+    xfunc = lambda u, v, c: math.log(u) / c  # noqa: E731
+    yfunc = lambda u, v, c: math.log(v) * 2 / c  # noqa: E731
     wcs = galsim.UVFunction(ufunc, vfunc, xfunc, yfunc, uses_color=True)
     do_nonlocal_wcs(
         wcs,
@@ -2341,20 +2360,20 @@ def test_uvfunction():
     )
 
     # 10. One with invalid functions, which raise errors.  (Just for coverage really.)
-    ufunc = lambda x, y: 0.05 * x * math.sqrt(x**2 - y**2)
-    vfunc = lambda x, y: 0.05 * y * math.sqrt(3 * y**2 - x**2)
-    xfunc = lambda u, v: 0.05 * u * math.sqrt(2 * u**2 - 7 * v**2)
-    yfunc = lambda u, v: 0.05 * v * math.sqrt(8 * v**2 - u**2)
+    ufunc = lambda x, y: 0.05 * x * math.sqrt(x**2 - y**2)  # noqa: E731
+    vfunc = lambda x, y: 0.05 * y * math.sqrt(3 * y**2 - x**2)  # noqa: E731
+    xfunc = lambda u, v: 0.05 * u * math.sqrt(2 * u**2 - 7 * v**2)  # noqa: E731
+    yfunc = lambda u, v: 0.05 * v * math.sqrt(8 * v**2 - u**2)  # noqa: E731
     wcs = galsim.UVFunction(ufunc, vfunc, xfunc, yfunc)
     assert_raises(ValueError, wcs.toWorld, galsim.PositionD(5, 6))
     assert_raises(ValueError, wcs.toWorld, galsim.PositionD(8, 2))
     assert_raises(ValueError, wcs.toImage, galsim.PositionD(3, 3))
     assert_raises(ValueError, wcs.toImage, galsim.PositionD(6, 0))
     # Repeat with color
-    ufunc = lambda x, y, c: 0.05 * c * math.sqrt(x**2 - y**2)
-    vfunc = lambda x, y, c: 0.05 * c * math.sqrt(3 * y**2 - x**2)
-    xfunc = lambda u, v, c: 0.05 * c * math.sqrt(2 * u**2 - 7 * v**2)
-    yfunc = lambda u, v, c: 0.05 * c * math.sqrt(8 * v**2 - u**2)
+    ufunc = lambda x, y, c: 0.05 * c * math.sqrt(x**2 - y**2)  # noqa: E731
+    vfunc = lambda x, y, c: 0.05 * c * math.sqrt(3 * y**2 - x**2)  # noqa: E731
+    xfunc = lambda u, v, c: 0.05 * c * math.sqrt(2 * u**2 - 7 * v**2)  # noqa: E731
+    yfunc = lambda u, v, c: 0.05 * c * math.sqrt(8 * v**2 - u**2)  # noqa: E731
     wcs = galsim.UVFunction(ufunc, vfunc, xfunc, yfunc, uses_color=True)
     assert_raises(ValueError, wcs.toWorld, galsim.PositionD(5, 6), color=0.2)
     assert_raises(ValueError, wcs.toWorld, galsim.PositionD(8, 2), color=0.2)
@@ -2369,47 +2388,45 @@ def test_radecfunction():
     funcs = []
 
     scale = 0.17
-    ufunc = lambda x, y: x * scale
-    vfunc = lambda x, y: y * scale
+    ufunc = lambda x, y: x * scale  # noqa: E731
+    vfunc = lambda x, y: y * scale  # noqa: E731
     funcs.append((ufunc, vfunc, "like PixelScale"))
 
     scale = 0.23
     g1 = 0.14
     g2 = -0.37
     factor = 1.0 / np.sqrt(1.0 - g1 * g1 - g2 * g2)
-    ufunc = lambda x, y: (x - g1 * x - g2 * y) * scale * factor
-    vfunc = lambda x, y: (y + g1 * y - g2 * x) * scale * factor
+    ufunc = lambda x, y: (x - g1 * x - g2 * y) * scale * factor  # noqa: E731
+    vfunc = lambda x, y: (y + g1 * y - g2 * x) * scale * factor  # noqa: E731
     funcs.append((ufunc, vfunc, "like ShearWCS"))
 
     dudx = 0.2342
     dudy = 0.1432
     dvdx = 0.1409
     dvdy = 0.2391
-    ufunc = lambda x, y: dudx * x + dudy * y
-    vfunc = lambda x, y: dvdx * x + dvdy * y
+    ufunc = lambda x, y: dudx * x + dudy * y  # noqa: E731
+    vfunc = lambda x, y: dvdx * x + dvdy * y  # noqa: E731
     funcs.append((ufunc, vfunc, "like JacobianWCS"))
 
     x0 = 1.3
     y0 = -0.9
     u0 = 124.3
     v0 = -141.9
-    origin = galsim.PositionD(x0, y0)
-    world_origin = galsim.PositionD(u0, v0)
-    ufunc = lambda x, y: dudx * (x - x0) + dudy * (y - y0) + u0
-    vfunc = lambda x, y: dvdx * (x - x0) + dvdy * (y - y0) + v0
+    ufunc = lambda x, y: dudx * (x - x0) + dudy * (y - y0) + u0  # noqa: E731
+    vfunc = lambda x, y: dvdx * (x - x0) + dvdy * (y - y0) + v0  # noqa: E731
     funcs.append((ufunc, vfunc, "like AffineTransform"))
 
     funcs.append((radial_u, radial_v, "Cubic radial"))
 
-    ufunc = lambda x, y: radial_u(x - x0, y - y0)
-    vfunc = lambda x, y: radial_v(x - x0, y - y0)
+    ufunc = lambda x, y: radial_u(x - x0, y - y0)  # noqa: E731
+    vfunc = lambda x, y: radial_v(x - x0, y - y0)  # noqa: E731
     funcs.append((ufunc, vfunc, "offset Cubic radial"))
 
     cubic_u = Cubic(2.9e-5, 2000.0, "u")
     cubic_v = Cubic(-3.7e-5, 2000.0, "v")
 
-    ufunc = lambda x, y: cubic_u(x - x0, y - y0)
-    vfunc = lambda x, y: cubic_v(x - x0, y - y0)
+    ufunc = lambda x, y: cubic_u(x - x0, y - y0)  # noqa: E731
+    vfunc = lambda x, y: cubic_v(x - x0, y - y0)  # noqa: E731
     funcs.append((ufunc, vfunc, "offset Cubic object"))
 
     # The last one needs to not have a lambda, since we use it for the image test, which
@@ -2434,7 +2451,7 @@ def test_radecfunction():
             )
 
             scale = galsim.arcsec / galsim.radians
-            radec_func = lambda x, y: center.deproject_rad(
+            radec_func = lambda x, y: center.deproject_rad(  # noqa: E731
                 ufunc(x, y) * scale, vfunc(x, y) * scale, projection="lambert"
             )
             wcs2 = galsim.RaDecFunction(radec_func)
@@ -2447,12 +2464,12 @@ def test_radecfunction():
             # code does the right thing in that case too, since local and makeSkyImage
             # try the numpy option first and do something else if it fails.
             # This also tests the alternate initialization using separate ra_func, dec_fun.
-            ra_func = lambda x, y: center.deproject(
+            ra_func = lambda x, y: center.deproject(  # noqa: E731
                 ufunc(x, y) * galsim.arcsec,
                 vfunc(x, y) * galsim.arcsec,
                 projection="lambert",
             ).ra.rad
-            dec_func = lambda x, y: center.deproject(
+            dec_func = lambda x, y: center.deproject(  # noqa: E731
                 ufunc(x, y) * galsim.arcsec,
                 vfunc(x, y) * galsim.arcsec,
                 projection="lambert",
@@ -2521,7 +2538,6 @@ def test_radecfunction():
                     image_pos = galsim.PositionD(x, y)
                     world_pos1 = wcs1.toWorld(image_pos)
                     world_pos2 = test_wcs.toWorld(image_pos)
-                    origin = test_wcs.toWorld(galsim.PositionD(0.0, 0.0))
                     d3 = np.sqrt(world_pos1.x**2 + world_pos1.y**2)
                     d4 = center.distanceTo(world_pos2)
                     d4 = 2.0 * np.sin(d4 / 2) * galsim.radians / galsim.arcsec
@@ -2712,7 +2728,7 @@ def test_radecfunction():
     do_wcs_image(wcs3, "RaDecFunction")
 
     # One with invalid functions, which raise errors.  (Just for coverage really.)
-    radec_func = lambda x, y: center.deproject_rad(
+    radec_func = lambda x, y: center.deproject_rad(  # noqa: E731
         math.sqrt(x), math.sqrt(y), projection="lambert"
     )
     wcs = galsim.RaDecFunction(radec_func)
@@ -2780,8 +2796,8 @@ def test_astropywcs():
     """Test the AstropyWCS class"""
     with warnings.catch_warnings():
         warnings.filterwarnings("ignore", category=RuntimeWarning)
-        import astropy.wcs
-        import scipy  # AstropyWCS constructor will do this, so check now.
+        import astropy.wcs  # noqa: F401
+        import scipy  # noqa: F401 -  AstropyWCS constructor will do this, so check now.
 
     # These all work, but it is quite slow, so only test a few of them for the regular unit tests.
     # (1.8 seconds for 4 tags.)
@@ -3130,9 +3146,9 @@ def test_inverseab_convergence():
                     [0.0003767412741890354, 0.00019733136932198898],
                 ]
             ),
-            coord.CelestialCoord(
-                coord.Angle(2.171481673601117, coord.radians),
-                coord.Angle(-0.47508762601580773, coord.radians),
+            galsim.CelestialCoord(
+                galsim.Angle(2.171481673601117, galsim.radians),
+                galsim.Angle(-0.47508762601580773, galsim.radians),
             ),
             None,
             np.array(
@@ -3320,13 +3336,13 @@ def test_fitswcs():
         # mostly just tests the basic interface of the FitsWCS function.
         test_tags = ["TAN", "TPV"]
         try:
-            import starlink.Ast
+            import starlink.Ast  # noqa: F401
 
             # Useful also to test one that GSFitsWCS doesn't work on.  This works on Travis at
             # least, and helps to cover some of the FitsWCS functionality where the first try
             # isn't successful.
             test_tags.append("HPX")
-        except:
+        except Exception:
             pass
 
     dir = "fits_files"
@@ -3361,7 +3377,7 @@ def test_fitswcs():
         # We don't really have any accuracy checks here.  This really just checks that the
         # read function doesn't raise an exception.
         hdu, hdu_list, fin = galsim.fits.readFile(file_name, dir)
-        affine = galsim.AffineTransform._readHeader(hdu.header)
+        galsim.AffineTransform._readHeader(hdu.header)
         galsim.fits.closeHDUList(hdu_list, fin)
 
     # This does support LINEAR WCS types.
@@ -3419,7 +3435,7 @@ def check_sphere(ra1, dec1, ra2, dec2, atol=1):
     w = dsq >= 3.99
     if np.any(w):
         cross = np.cross(np.array([x1, y1, z1])[w], np.array([x2, y2, z2])[w])
-        crosssq = cross[0] ** 2 + cross[1] ** 2 + cross[2] ** 2
+        crossq = cross[0] ** 2 + cross[1] ** 2 + cross[2] ** 2
         dist[w] = np.pi - np.arcsin(np.sqrt(crossq))
     dist = np.rad2deg(dist) * 3600
     np.testing.assert_allclose(dist, 0.0, rtol=0.0, atol=atol)
@@ -3448,7 +3464,7 @@ def test_fittedsipwcs():
         "ZTF": (0.1, 0.1),
     }
 
-    dir = "fits_files"
+    dir = os.path.join(os.path.dirname(__file__), "..", "..", "GalSim/tests/fits_files")
 
     if __name__ == "__main__":
         test_tags = all_tags
@@ -3964,7 +3980,7 @@ def test_int_args():
     # is unnecessary.
     dir = "des_data"
     file_name = "DECam_00158414_01.fits.fz"
-    with profile():
+    with Profile():
         t0 = time.time()
         wcs = galsim.FitsWCS(file_name, dir=dir)
         t1 = time.time()
@@ -4008,8 +4024,8 @@ def test_razero():
     # do this.
     with warnings.catch_warnings():
         warnings.filterwarnings("ignore", category=RuntimeWarning)
-        import astropy.wcs
-        import scipy  # AstropyWCS constructor will do this, so check now.
+        import astropy.wcs  # noqa: F401
+        import scipy  # noqa: F401 - AstropyWCS constructor will do this, so check now.
 
     dir = "fits_files"
     # This file is based in sipsample.fits, but with the CRVAL1 changed to 0.002322805429

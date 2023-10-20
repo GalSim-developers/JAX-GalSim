@@ -51,12 +51,12 @@ def draw_by_kValue(gsobject, image, jacobian=jnp.eye(2)):
     return Image(array=im, bounds=image.bounds, wcs=image.wcs, check_bounds=False)
 
 
-def apply_kImage_phases(gsobject, image, jacobian=jnp.eye(2)):
+def apply_kImage_phases(offset, image, jacobian=jnp.eye(2)):
     # Create an array of coordinates
     kcoords = jnp.stack(image.get_pixel_centers(), axis=-1)
     kcoords = kcoords * image.scale  # Scale by the image pixel scale
     kcoords = jnp.dot(kcoords, jacobian)
-    cenx, ceny = gsobject._offset.x, gsobject._offset.y
+    cenx, ceny = offset.x, offset.y
 
     #
     # flux Exp(-i (kx cx + kxy cx + kyx cy + ky cy ) )

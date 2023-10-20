@@ -2,9 +2,9 @@ name: Python package
 
 on:
   push:
-    branches: ["main"]
+    branches:
+      - main
   pull_request:
-    branches: ["main"]
 
 jobs:
   build:
@@ -12,66 +12,34 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.8", "3.9"]
+        python-version: ["3.9", "3.10", "3.11"]
 
     steps:
       - uses: actions/checkout@v3
-
-      - uses: mamba-org/setup-micromamba@v1
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v3
         with:
-          environment-name: test
-          create-args: >-
-            python=${{ matrix.python-version }}
-            isort
-            flake8
-            pytest
-            black==23.3.0
-            flake8-pyproject
-            compilers
-            eigen
-            fftw
-            pybind11
-            astropy
-            scipy
-            pyyaml
-            numpy
-            jax
-            pip
-          cache-environment: true
-
-      - name: Install package
-        shell: bash -el {0}
+          python-version: ${{ matrix.python-version }}
+      - name: Install dependencies
         run: |
+          python -m pip install --upgrade pip
+          python -m pip install isort flake8 pytest black==23.3.0 flake8-pyproject
           python -m pip install .
-
       - name: Ensure black formatting
-        shell: bash -el {0}
         run: |
-          black --check jax_galsim/ tests/ --exclude tests/GalSim/
-
+          black --check jax_galsim/ tests/ --exclude "tests/GalSim/|tests/Coord/|tests/jax/galsim/"
       - name: Lint with flake8
-        shell: bash -el {0}
         run: |
           # stop the build if there are Python syntax errors or undefined names
           flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
           # exit-zero treats all errors as warnings. The GitHub editor is 127 chars wide
           flake8 jax_galsim/ --count --exit-zero --statistics
           flake8 tests/jax/ --count --exit-zero --statistics
-
       - name: Ensure isort
-        shell: bash -el {0}
         run: |
           isort --check jax_galsim
 
-      - name: Build galsim
-        shell: bash -el {0}
+      - name: Test with pytest
         run: |
           git submodule update --init --recursive
-          pushd tests/GalSim
-          pip install --no-deps --no-build-isolation -e .
-          popd
-
-      - name: Test with pytest
-        shell: bash -el {0}
-        run: |
-          pytest
+          pytest --durations=0

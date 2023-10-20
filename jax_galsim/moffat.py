@@ -9,7 +9,7 @@ from jax.tree_util import register_pytree_node_class
 from jax_galsim.core.bessel import j0
 from jax_galsim.core.draw import draw_by_kValue, draw_by_xValue
 from jax_galsim.core.integrate import ClenshawCurtisQuad, quad_integral
-from jax_galsim.core.utils import ensure_hashable
+from jax_galsim.core.utils import bisect_for_root, ensure_hashable
 from jax_galsim.gsobject import GSObject
 from jax_galsim.position import PositionD
 
@@ -273,27 +273,17 @@ class Moffat(GSObject):
     def _prefactor(self):
         return 2.0 * (self.beta - 1.0) / (self._fluxFactor)
 
+    @jax.jit
+    def _maxk_func(self, k):
+        return (
+            jnp.abs(self._kValue(PositionD(x=k, y=0)).real / self.flux)
+            - self.gsparams.maxk_threshold
+        )
+
     @property
     @jax.jit
     def _maxk(self):
-        def _func(i, args):
-            low, flow, high, fhigh = args
-            mid = (low + high) / 2.0
-            fmid = jnp.abs(self._kValue(PositionD(x=mid, y=0)).real / self.flux) - self.gsparams.maxk_threshold
-            return jax.lax.cond(
-                fmid * flow > 0,
-                lambda x: (mid, fmid, high, fhigh),
-                lambda x: (low, flow, mid, fmid),
-                fmid,
-            )
-
-        low = 0.0
-        high = 1e5
-        flow = jnp.abs(self._kValue(PositionD(x=low, y=0)).real / self.flux) - self.gsparams.maxk_threshold
-        fhigh = jnp.abs(self._kValue(PositionD(x=high, y=0)).real / self.flux) - self.gsparams.maxk_threshold
-        args = (low, flow, high, fhigh)
-        res = jax.lax.fori_loop(0, 50, _func, args)
-        return res[2]
+        return bisect_for_root(partial(self._maxk_func), 0.0, 1e5, niter=75)
 
     @property
     def _stepk_lowbeta(self):

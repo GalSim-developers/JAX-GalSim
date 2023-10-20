@@ -1,22 +1,41 @@
 import inspect
 import os
+import sys
 from functools import lru_cache
+from unittest.mock import patch
 
+import galsim
 import pytest
 import yaml
 
 # Define the accuracy for running the tests
 from jax.config import config
 
+import jax_galsim
+
 config.update("jax_enable_x64", True)
 
 # Identify the path to this current file
 test_directory = os.path.dirname(os.path.abspath(__file__))
 
-
 # Loading which tests to run
 with open(os.path.join(test_directory, "galsim_tests_config.yaml"), "r") as f:
     test_config = yaml.safe_load(f)
+
+# we need to patch the galsim utilities check_pickle function
+# to use jax_galsim. it has an import inside a function so
+# we patch sys.modules.
+# see https://stackoverflow.com/questions/34213088/mocking-a-module-imported-inside-of-a-function
+orig_check_pickle = galsim.utilities.check_pickle
+orig_check_pickle.__globals__["BaseDeviate"] = jax_galsim.BaseDeviate
+
+
+def _check_pickle(*args, **kwargs):
+    with patch.dict(sys.modules, {"galsim": jax_galsim}):
+        return orig_check_pickle(*args, **kwargs)
+
+
+galsim.utilities.check_pickle = _check_pickle
 
 
 def pytest_ignore_collect(collection_path, path, config):
@@ -68,6 +87,19 @@ def _infile(val, fname):
     return False
 
 
+def _convert_galsim_to_jax_galsim(obj):
+    import galsim as _galsim  # noqa: F401
+    from numpy import array  # noqa: F401
+
+    import jax_galsim as galsim  # noqa: F401
+
+    if isinstance(obj, _galsim.GSObject):
+        ret_obj = eval(repr(obj))
+        return ret_obj
+    else:
+        return obj
+
+
 def pytest_pycollect_makemodule(module_path, path, parent):
     """This hook is tasked with overriding the galsim import
     at the top of each test file. Replaces it by jax-galsim.
@@ -113,6 +145,19 @@ def pytest_pycollect_makemodule(module_path, path, parent):
         ):
             v.__globals__["coord"] = __import__("jax_galsim")
             v.__globals__["galsim"] = __import__("jax_galsim")
+
+    # the galsim WCS tests have some items that are galsim objects that need conversions
+    # to jax_galsim objects
+    if module.name.endswith("tests/GalSim/tests/test_wcs.py"):
+        for k, v in module.obj.__dict__.items():
+            if isinstance(v, __import__("galsim").GSObject):
+                module.obj.__dict__[k] = _convert_galsim_to_jax_galsim(v)
+            elif isinstance(v, list):
+                module.obj.__dict__[k] = [
+                    _convert_galsim_to_jax_galsim(obj) for obj in v
+                ]
+
+        module.obj._convert_galsim_to_jax_galsim = _convert_galsim_to_jax_galsim
 
     return module
 

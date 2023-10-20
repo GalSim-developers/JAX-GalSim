@@ -4,16 +4,16 @@ repos:
     hooks:
       - id: black
         language: python
-        exclude: tests/GalSim/|tests/Coord/
+        exclude: tests/GalSim/|tests/Coord/|tests/jax/galsim/
   - repo: https://github.com/pycqa/flake8
     rev: 6.1.0
     hooks:
       - id: flake8
         entry: pflake8
         additional_dependencies: [pyproject-flake8]
-        exclude: tests/
+        exclude: tests/Galsim/|tests/Coord/|tests/jax/galsim/
   - repo: https://github.com/pycqa/isort
     rev: 5.12.0
     hooks:
       - id: isort
-        exclude: tests/Galsim|tests/Coord/
+        exclude: tests/Galsim/|tests/Coord/|tests/jax/galsim/

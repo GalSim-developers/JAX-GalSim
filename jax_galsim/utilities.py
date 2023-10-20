@@ -4,6 +4,8 @@ from jax._src.numpy.util import _wraps
 
 from jax_galsim.position import PositionD, PositionI
 
+printoptions = _galsim.utilities.printoptions
+
 
 @_wraps(_galsim.utilities.parse_pos_args)
 def parse_pos_args(args, kwargs, name1, name2, integer=False, others=[]):
