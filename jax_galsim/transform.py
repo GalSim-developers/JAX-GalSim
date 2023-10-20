@@ -125,42 +125,22 @@ class Transformation(GSObject):
         return self.tree_unflatten(aux, chld)
 
     def __eq__(self, other):
-        return (self is other) or (
-            (type(other) is self.__class__)
-            and self._original == other._original
-            and jnp.array_equal(self._jac, other._jac)
-            and self._offset == other._offset
-            and self._flux_ratio == other._flux_ratio
+        return self is other or (
+            isinstance(other, Transformation)
+            and self.original == other.original
+            and jnp.array_equal(self.jac, other.jac)
+            and self.offset == other.offset
+            and self.flux_ratio == other.flux_ratio
             and self.gsparams == other.gsparams
             and self._propagate_gsparams == other._propagate_gsparams
         )
-
-    def tree_flatten(self):
-        """This function flattens the GSObject into a list of children
-        nodes that will be traced by JAX and auxiliary static data."""
-        # Define the children nodes of the PyTree that need tracing
-        children = (
-            self._original,
-            self.params,
-        )
-        # Define auxiliary static data that doesn’t need to be traced
-        aux_data = {
-            "gsparams": self.gsparams,
-            "propagate_gsparams": self._propagate_gsparams,
-        }
-        return (children, aux_data)
-
-    @classmethod
-    def tree_unflatten(cls, aux_data, children):
-        """Recreates an instance of the class from flatten representation"""
-        return cls(children[0], **(children[1]), **aux_data)
 
     def __hash__(self):
         return hash(
             (
                 "galsim.Transformation",
                 self.original,
-                ensure_hashable(self._jac),
+                ensure_hashable(self._jac.ravel()),
                 ensure_hashable(self.offset.x),
                 ensure_hashable(self.offset.y),
                 ensure_hashable(self.flux_ratio),
@@ -336,10 +316,6 @@ class Transformation(GSObject):
         return self._flux_scaling * self._original.negative_flux
 
     @property
-    def _flux_per_photon(self):
-        return self._calculate_flux_per_photon()
-
-    @property
     def _max_sb(self):
         return self._amp_scaling * self._original.max_sb
 
@@ -388,6 +364,23 @@ class Transformation(GSObject):
 
         image = image * self._flux_scaling
         return image
+
+    def tree_flatten(self):
+        """This function flattens the Transform into a list of children
+        nodes that will be traced by JAX and auxiliary static data."""
+        # Define the children nodes of the PyTree that need tracing
+        children = (self._original, self._params)
+        # Define auxiliary static data that doesn’t need to be traced
+        aux_data = {
+            "gsparams": self.gsparams,
+            "propagate_gsparams": self._propagate_gsparams,
+        }
+        return (children, aux_data)
+
+    @classmethod
+    def tree_unflatten(cls, aux_data, children):
+        """Recreates an instance of the class from flatten representation"""
+        return cls(children[0], **(children[1]), **aux_data)
 
 
 def _Transform(
