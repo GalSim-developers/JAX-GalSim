@@ -118,7 +118,7 @@ class Convolution(GSObject):
         # Save the construction parameters (as they are at this point) as attributes so they
         # can be inspected later if necessary.
         if bool(real_space):
-            raise NotImplementedError("Real space convolutions are not implemented")
+            raise NotImplementedError("Real-space convolutions are not implemented")
         self._real_space = bool(real_space)
 
         # Figure out what gsparams to use
@@ -296,7 +296,7 @@ class Convolution(GSObject):
         return self.flux / jnp.sum(jnp.array(area_list))
 
     def _xValue(self, pos):
-        raise NotImplementedError("Not implemented")
+        raise NotImplementedError("Real-space convolutions are not implemented")
 
     def _kValue(self, kpos):
         kv_list = [
@@ -305,10 +305,10 @@ class Convolution(GSObject):
         return jnp.prod(jnp.array(kv_list))
 
     def _drawReal(self, image, jac=None, offset=(0.0, 0.0), flux_scaling=1.0):
-        raise NotImplementedError("Not implemented")
+        raise NotImplementedError("Real-space convolutions are not implemented")
 
     def _shoot(self, photons, rng):
-        raise NotImplementedError("Not implemented")
+        raise NotImplementedError("Photon shooting convolutions are not implemented")
 
     def _drawKImage(self, image, jac=None):
         image = self.obj_list[0]._drawKImage(image, jac)

@@ -24,7 +24,8 @@ enabled_tests:
 # correspond to features that are not implemented yet
 # in jax_galsim
 allowed_failures:
-  - "NotImplementedError"
+  - "Real-space convolutions are not implemented"
+  - "Photon shooting convolutions are not implemented"
   - "module 'jax_galsim' has no attribute 'Airy'"
   - "module 'jax_galsim' has no attribute 'Kolmogorov'"
   - "module 'jax_galsim' has no attribute 'Sersic'"
