@@ -693,9 +693,11 @@ class InterpolatedImageImpl(GSObject):
             # This mucking of the numbers seems to help make the hash more reliably different for
             # these two cases.  Note: "sometiems" because of this:
             # https://stackoverflow.com/questions/27522626/hash-function-in-python-3-3-returns-different-results-between-sessions
-            self._hash ^= hash((
-                ensure_hashable(self._offset.x * 1.234),
-                ensure_hashable(self._offset.y * 0.23424))
+            self._hash ^= hash(
+                (
+                    ensure_hashable(self._offset.x * 1.234),
+                    ensure_hashable(self._offset.y * 0.23424),
+                )
             )
             self._hash ^= hash(self._gsparams)
             self._hash ^= hash(self._wcs)
@@ -713,7 +715,9 @@ class InterpolatedImageImpl(GSObject):
                 s += ", %s=%r" % (k, _v)
 
         for k, v in self._jax_aux_data.items():
-            if v is not None:  # and k not in ["gsparams", "_force_stepk", "_force_maxk"]:
+            if (
+                v is not None
+            ):  # and k not in ["gsparams", "_force_stepk", "_force_maxk"]:
                 _v = ensure_hashable(v)
                 s += ", %s=%r" % (k, _v)
 
