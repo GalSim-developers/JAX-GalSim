@@ -4,6 +4,14 @@ import jax
 import jax.numpy as jnp
 
 
+def compute_major_minor_from_jacobian(jac):
+    h1 = jnp.hypot(jac[0, 0] + jac[1, 1], jac[0, 1] - jac[1, 0])
+    h2 = jnp.hypot(jac[0, 0] - jac[1, 1], jac[0, 1] + jac[1, 0])
+    major = 0.5 * abs(h1 + h2)
+    minor = 0.5 * abs(h1 - h2)
+    return major, minor
+
+
 def convert_to_float(x):
     if isinstance(x, jax.Array):
         if x.shape == ():

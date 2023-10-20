@@ -4,7 +4,7 @@ import jax.numpy as jnp
 from jax._src.numpy.util import _wraps
 from jax.tree_util import register_pytree_node_class
 
-from jax_galsim.core.utils import ensure_hashable
+from jax_galsim.core.utils import compute_major_minor_from_jacobian, ensure_hashable
 from jax_galsim.gsobject import GSObject
 from jax_galsim.gsparams import GSParams
 from jax_galsim.position import PositionD
@@ -253,14 +253,7 @@ class Transformation(GSObject):
 
     def _major_minor(self):
         if not hasattr(self, "_major"):
-            h1 = jnp.hypot(
-                self._jac[0, 0] + self._jac[1, 1], self._jac[0, 1] - self._jac[1, 0]
-            )
-            h2 = jnp.hypot(
-                self._jac[0, 0] - self._jac[1, 1], self._jac[0, 1] + self._jac[1, 0]
-            )
-            self._major = 0.5 * abs(h1 + h2)
-            self._minor = 0.5 * abs(h1 - h2)
+            self._major, self._minor = compute_major_minor_from_jacobian(self._jac)
 
     @property
     def _maxk(self):

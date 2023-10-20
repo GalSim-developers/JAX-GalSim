@@ -19,7 +19,7 @@ from jax.tree_util import register_pytree_node_class
 from jax_galsim import fits
 from jax_galsim.bounds import BoundsI
 from jax_galsim.core.draw import draw_by_kValue, draw_by_xValue
-from jax_galsim.core.utils import ensure_hashable
+from jax_galsim.core.utils import compute_major_minor_from_jacobian, ensure_hashable
 from jax_galsim.gsobject import GSObject
 from jax_galsim.gsparams import GSParams
 from jax_galsim.image import Image
@@ -27,7 +27,7 @@ from jax_galsim.interpolant import Quintic
 from jax_galsim.position import PositionD
 from jax_galsim.transform import Transformation
 from jax_galsim.utilities import convert_interpolant
-from jax_galsim.wcs import PixelScale
+from jax_galsim.wcs import BaseWCS, PixelScale
 
 
 @_wraps(
@@ -89,7 +89,7 @@ class InterpolatedImage(Transformation):
         gsparams=None,
         _force_stepk=0.0,
         _force_maxk=0.0,
-        _recenter_image=True,
+        _recenter_image=True,  # this option is used by _InterpolatedImage below
         hdu=None,
     ):
         self._jax_children = (
@@ -192,13 +192,85 @@ class InterpolatedImage(Transformation):
         return self._original._image
 
     def __hash__(self):
-        return hash(self._original)
+        # Definitely want to cache this, since the size of the image could be large.
+        if not hasattr(self, "_hash"):
+            self._hash = hash(
+                ("galsim.InterpolatedImage", self.x_interpolant, self.k_interpolant)
+            )
+            self._hash ^= hash(
+                (
+                    ensure_hashable(self.flux),
+                    ensure_hashable(self._stepk),
+                    ensure_hashable(self._maxk),
+                    ensure_hashable(self._original._pad_factor),
+                )
+            )
+            self._hash ^= hash(
+                (
+                    self._original._xim.bounds,
+                    self._original._image.bounds,
+                    self._original._pad_image.bounds,
+                )
+            )
+            # A common offset is 0.5,0.5, and *sometimes* this produces the same hash as 0,0
+            # (which is also common).  I guess because they are only different in 2 bits.
+            # This mucking of the numbers seems to help make the hash more reliably different for
+            # these two cases.  Note: "sometiems" because of this:
+            # https://stackoverflow.com/questions/27522626/hash-function-in-python-3-3-returns-different-results-between-sessions
+            self._hash ^= hash(
+                (
+                    ensure_hashable(self._original._offset.x * 1.234),
+                    ensure_hashable(self._original._offset.y * 0.23424),
+                )
+            )
+            self._hash ^= hash(self.gsparams)
+            self._hash ^= hash(self._original._wcs)
+            # Just hash the diagonal.  Much faster, and usually is unique enough.
+            # (Let python handle collisions as needed if multiple similar IIs are used as keys.)
+            self._hash ^= hash(ensure_hashable(self._original._pad_image.array))
+        return self._hash
 
     def __repr__(self):
-        return repr(self._original)
+        s = "galsim.InterpolatedImage(%r, %r, %r, wcs=%r" % (
+            self._original.image,
+            self.x_interpolant,
+            self.k_interpolant,
+            self._original._wcs,
+        )
+        # Most things we keep even if not required, but the pad_image is large, so skip it
+        # if it's really just the same as the main image.
+        if self._original._pad_image.bounds != self._original.image.bounds:
+            s += ", pad_image=%r" % (self._pad_image)
+        s += ", pad_factor=%f, flux=%r, offset=%r" % (
+            ensure_hashable(self._original._pad_factor),
+            ensure_hashable(self.flux),
+            self._original._offset,
+        )
+        s += (
+            ", use_true_center=False, gsparams=%r, _force_stepk=%r, _force_maxk=%r)"
+            % (
+                self.gsparams,
+                ensure_hashable(self._stepk),
+                ensure_hashable(self._maxk),
+            )
+        )
+        return s
 
     def __str__(self):
-        return str(self._original)
+        return "galsim.InterpolatedImage(image=%s, flux=%s)" % (self.image, self.flux)
+
+    def __eq__(self, other):
+        return self is other or (
+            isinstance(other, InterpolatedImage)
+            and self._xim == other._xim
+            and self.x_interpolant == other.x_interpolant
+            and self.k_interpolant == other.k_interpolant
+            and self.flux == other.flux
+            and self._original._offset == other._original._offset
+            and self.gsparams == other.gsparams
+            and self._stepk == other._stepk
+            and self._maxk == other._maxk
+        )
 
     def tree_flatten(self):
         """This function flattens the InterpolatedImage into a list of children
@@ -294,12 +366,12 @@ class InterpolatedImageImpl(GSObject):
             _recenter_image=_recenter_image,
             hdu=hdu,
         )
-        self._params = {}
+        self._params = {
+            "image": image,
+        }
+        self._params.update(self._jax_aux_data)
+        self._params.update(self._jax_children[1])
 
-        from .wcs import BaseWCS, PixelScale
-
-        # FIXME: no BaseDeviate in jax_galsim
-        # from .random import BaseDeviate
         # If the "image" is not actually an image, try to read the image as a file.
         if isinstance(image, str):
             image = fits.read(image, hdu=hdu)
@@ -378,9 +450,7 @@ class InterpolatedImageImpl(GSObject):
             self._image.bounds, offset, None, use_true_center
         )
 
-        im_cen = image.true_center if use_true_center else image.center
-        self._jac_arr = self._image.wcs.jacobian(image_pos=im_cen).getMatrix().ravel()
-        self._wcs = self._image.wcs.local(image_pos=im_cen)
+        self._jac_arr, self._wcs = _get_image_jac_arr_wcs(self._image, use_true_center)
 
         # Build the fully padded real-space image according to the various pad options.
         self._buildImages(
@@ -405,11 +475,10 @@ class InterpolatedImageImpl(GSObject):
                 image,
             )
 
-        # Process the different options for flux, stepk, maxk
-        self._calculate_stepk = calculate_stepk
-        self._calculate_maxk = calculate_maxk
-        self._stepk = self._getStepK(calculate_stepk, _force_stepk)
-        self._maxk = self._getMaxK(calculate_maxk, _force_maxk)
+        major, minor = compute_major_minor_from_jacobian(self._jac_arr.reshape((2, 2)))
+
+        self._maxk = self._getMaxK(calculate_maxk, _force_maxk * minor)
+        self._stepk = self._getStepK(calculate_stepk, _force_stepk * major)
 
     @doc_inherit
     def withGSParams(self, gsparams=None, **kwargs):
@@ -534,6 +603,7 @@ class InterpolatedImageImpl(GSObject):
         # Now place the given image in the center of the padding image:
         # assert self._xim.bounds.includes(self._image.bounds)
         self._xim[self._image.bounds] = self._image
+        self._xim.wcs = self._image.wcs
 
         # And update the _image to be that portion of the full real image rather than the
         # input image.
@@ -542,7 +612,6 @@ class InterpolatedImageImpl(GSObject):
         # These next two allow for easy pickling/repring.  We don't need to serialize all the
         # zeros around the edge.  But we do need to keep any non-zero padding as a pad_image.
         self._pad_image = self._xim[nz_bounds]
-        # self._pad_factor = (max(self._xim.array.shape)-1.e-6) / max(self._image.array.shape)
         self._pad_factor = pad_factor
 
         # we always make this
@@ -623,7 +692,6 @@ class InterpolatedImageImpl(GSObject):
         # images (see the ._adjust_offset step below) leads to automatic reduction of stepK slightly
         # below what is provided here, while maxK is preserved.
         if _force_stepk > 0.0:
-            print("Forcing stepk to be %f" % _force_stepk)
             return _force_stepk
         elif calculate_stepk:
             if calculate_stepk is True:
@@ -652,15 +720,14 @@ class InterpolatedImageImpl(GSObject):
     def _getMaxK(self, calculate_maxk, _force_maxk):
         max_scale = 1.0
         if _force_maxk > 0.0:
-            print("Forcing maxk to be %f" % _force_maxk)
             return _force_maxk
         elif calculate_maxk:
             _uscale = 1 / (2 * jnp.pi)
-            self._maxk = self._x_interpolant.urange() / _uscale / max_scale
+            _maxk = self._x_interpolant.urange() / _uscale / max_scale
 
             if calculate_maxk is True:
                 maxk = _find_maxk(
-                    self._kim, self._maxk, self._gsparams.maxk_threshold * self.flux
+                    self._kim, _maxk, self._gsparams.maxk_threshold * self.flux
                 )
             else:
                 maxk = _find_maxk(
@@ -670,66 +737,6 @@ class InterpolatedImageImpl(GSObject):
             return maxk / max_scale
         else:
             return self._x_interpolant.krange / max_scale
-
-    def __hash__(self):
-        # Definitely want to cache this, since the size of the image could be large.
-        if not hasattr(self, "_hash"):
-            self._hash = hash(
-                ("galsim.InterpolatedImage", self.x_interpolant, self.k_interpolant)
-            )
-            self._hash ^= hash(
-                (
-                    ensure_hashable(self.flux),
-                    ensure_hashable(self._stepk),
-                    ensure_hashable(self._maxk),
-                    ensure_hashable(self._pad_factor),
-                )
-            )
-            self._hash ^= hash(
-                (self._xim.bounds, self._image.bounds, self._pad_image.bounds)
-            )
-            # A common offset is 0.5,0.5, and *sometimes* this produces the same hash as 0,0
-            # (which is also common).  I guess because they are only different in 2 bits.
-            # This mucking of the numbers seems to help make the hash more reliably different for
-            # these two cases.  Note: "sometiems" because of this:
-            # https://stackoverflow.com/questions/27522626/hash-function-in-python-3-3-returns-different-results-between-sessions
-            self._hash ^= hash(
-                (
-                    ensure_hashable(self._offset.x * 1.234),
-                    ensure_hashable(self._offset.y * 0.23424),
-                )
-            )
-            self._hash ^= hash(self._gsparams)
-            self._hash ^= hash(self._wcs)
-            # Just hash the diagonal.  Much faster, and usually is unique enough.
-            # (Let python handle collisions as needed if multiple similar IIs are used as keys.)
-            self._hash ^= hash(ensure_hashable(self._pad_image.array))
-        return self._hash
-
-    def __repr__(self):
-        s = "galsim.InterpolatedImage(%r" % self._jax_children[0]
-
-        for k, v in self._jax_children[1].items():
-            if v is not None:
-                _v = ensure_hashable(v)
-                s += ", %s=%r" % (k, _v)
-
-        for k, v in self._jax_aux_data.items():
-            if (
-                v is not None
-            ):  # and k not in ["gsparams", "_force_stepk", "_force_maxk"]:
-                _v = ensure_hashable(v)
-                s += ", %s=%r" % (k, _v)
-
-        s += ")"
-        # s += (
-        #     ", gsparams=%r, _force_stepk=%r, _force_maxk=%r)"
-        #     % (self.gsparams, ensure_hashable(self._stepk), ensure_hashable(self._maxk))
-        # )
-        return s
-
-    def __str__(self):
-        return "galsim.InterpolatedImage(image=%s, flux=%s)" % (self.image, self.flux)
 
     def __getstate__(self):
         d = self.__dict__.copy()
@@ -768,7 +775,6 @@ class InterpolatedImageImpl(GSObject):
 
     @property
     def _flux(self):
-        """By default, the flux is contained in the parameters dictionay."""
         return self._image_flux
 
     @property
@@ -874,6 +880,13 @@ def _InterpolatedImage(
         _force_maxk=force_maxk,
         _recenter_image=False,
     )
+
+
+def _get_image_jac_arr_wcs(image, use_true_center):
+    im_cen = image.true_center if use_true_center else image.center
+    _jac_arr = image.wcs.jacobian(image_pos=im_cen).getMatrix().ravel()
+    _wcs = image.wcs.local(image_pos=im_cen)
+    return _jac_arr, _wcs
 
 
 @partial(jax.jit, static_argnums=(5,))
