@@ -72,7 +72,7 @@ def is_equal_with_arrays(x, y):
             return False
     elif isinstance(x, set):
         if isinstance(y, set) and len(x) == len(y):
-            for vx, vy in zip(x, y):
+            for vx, vy in zip(sorted(x), sorted(y)):
                 if not is_equal_with_arrays(vx, vy):
                     return False
             return True
