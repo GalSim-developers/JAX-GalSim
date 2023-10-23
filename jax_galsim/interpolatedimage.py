@@ -617,6 +617,7 @@ class _InterpolatedImageImpl(GSObject):
         val.update(children[1])
         ret = cls(children[0], **val)
         ret._cached_comps.update(children[2])
+        return ret
 
     @property
     def _xim(self):
