@@ -77,7 +77,7 @@ class Transformation(GSObject):
     ##############################################################
     # The internal code of the methods of the Transform class
     # should only aceess _offset, _flux_ratio, and _jac. It
-    # should pull these direct from _params
+    # should not pull these directly from _params.
     # Things are structured this way since the interpolated image
     # class inherits and overrides these methods.
 

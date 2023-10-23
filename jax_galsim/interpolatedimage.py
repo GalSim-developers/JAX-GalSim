@@ -29,6 +29,11 @@ from jax_galsim.transform import Transformation
 from jax_galsim.utilities import convert_interpolant
 from jax_galsim.wcs import BaseWCS, PixelScale
 
+# These keys are removed from the public API of
+# InterpolatedImage so that it matches the galsim
+# one.
+# The DirMeta class does this along with the changes to
+# __getattribute__ and __dir__ below.
 _KEYS_TO_REMOVE = [
     "flux_ratio",
     "jac",
