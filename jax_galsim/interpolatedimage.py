@@ -645,14 +645,9 @@ class _InterpolatedImageImpl(GSObject):
             xim.setCenter(0, 0)
             xim.wcs = PixelScale(1.0)
 
-            nz_bounds = self._image.bounds
-
             # Now place the given image in the center of the padding image:
             # assert self._xim.bounds.includes(self._image.bounds)
             xim[self._image.bounds] = self._image
-
-            self._pad_factor = pad_factor
-            self._nz_bounds = nz_bounds
 
             self._cached_comps["_xim"] = xim
 
@@ -663,7 +658,8 @@ class _InterpolatedImageImpl(GSObject):
         # These next two allow for easy pickling/repring.  We don't need to serialize all the
         # zeros around the edge.  But we do need to keep any non-zero padding as a pad_image.
         xim = self._xim
-        return xim[self._nz_bounds]
+        nz_bounds = self._image.bounds
+        return xim[nz_bounds]
 
     @property
     def _kim(self):
