@@ -29,6 +29,21 @@ from jax_galsim.transform import Transformation
 from jax_galsim.utilities import convert_interpolant
 from jax_galsim.wcs import BaseWCS, PixelScale
 
+_KEYS_TO_REMOVE = [
+    "flux_ratio",
+    "jac",
+    "offset",
+    "original",
+]
+
+
+# magic from https://stackoverflow.com/questions/46120462/how-to-override-the-dir-method-for-a-class
+class DirMeta(type):
+    def __dir__(cls):
+        keys = set(list(cls.__dict__.keys()) + dir(cls.__base__))
+        keys -= set(_KEYS_TO_REMOVE)
+        return list(keys)
+
 
 @_wraps(
     _galsim.InterpolatedImage,
@@ -37,6 +52,7 @@ from jax_galsim.wcs import BaseWCS, PixelScale
 
             - noise padding
             - depixelize
+            - most of the type checks and dtype casts done by galsim
 
         Further, it always computes the FFT of the image as opposed to galsim
         where this is done as needed. One almost always needs the FFT and JAX
@@ -45,7 +61,7 @@ from jax_galsim.wcs import BaseWCS, PixelScale
     ),
 )
 @register_pytree_node_class
-class InterpolatedImage(Transformation):
+class InterpolatedImage(Transformation, metaclass=DirMeta):
     _req_params = {"image": str}
     _opt_params = {
         "x_interpolant": str,
@@ -91,7 +107,14 @@ class InterpolatedImage(Transformation):
         _force_maxk=0.0,
         _recenter_image=True,  # this option is used by _InterpolatedImage below
         hdu=None,
+        _obj=None,
     ):
+        # If the "image" is not actually an image, try to read the image as a file.
+        if isinstance(image, str):
+            image = fits.read(image, hdu=hdu)
+        elif not isinstance(image, Image):
+            raise TypeError("Supplied image must be an Image or file name")
+
         self._jax_children = (
             image,
             dict(
@@ -122,39 +145,64 @@ class InterpolatedImage(Transformation):
             hdu=hdu,
         )
 
-        obj = InterpolatedImageImpl(
-            image,
-            x_interpolant=x_interpolant,
-            k_interpolant=k_interpolant,
-            normalization=normalization,
-            scale=scale,
-            wcs=wcs,
-            flux=flux,
-            pad_factor=pad_factor,
-            noise_pad_size=noise_pad_size,
-            noise_pad=noise_pad,
-            rng=rng,
-            pad_image=pad_image,
-            calculate_stepk=calculate_stepk,
-            calculate_maxk=calculate_maxk,
-            use_cache=use_cache,
-            use_true_center=use_true_center,
-            depixelize=depixelize,
-            offset=offset,
-            gsparams=GSParams.check(gsparams),
-            _force_stepk=_force_stepk,
-            _force_maxk=_force_maxk,
-            hdu=hdu,
-            _recenter_image=_recenter_image,
-        )
-        super().__init__(
-            obj,
-            jac=obj._jac_arr,
-            flux_ratio=obj._flux_ratio / obj._wcs.pixelArea(),
-            offset=PositionD(0.0, 0.0),
-            gsparams=GSParams.check(gsparams),
-            propagate_gsparams=True,
-        )
+        if _obj is not None:
+            obj = _obj
+        else:
+            obj = _InterpolatedImageImpl(
+                image,
+                x_interpolant=x_interpolant,
+                k_interpolant=k_interpolant,
+                normalization=normalization,
+                scale=scale,
+                wcs=wcs,
+                flux=flux,
+                pad_factor=pad_factor,
+                noise_pad_size=noise_pad_size,
+                noise_pad=noise_pad,
+                rng=rng,
+                pad_image=pad_image,
+                calculate_stepk=calculate_stepk,
+                calculate_maxk=calculate_maxk,
+                use_cache=use_cache,
+                use_true_center=use_true_center,
+                depixelize=depixelize,
+                offset=offset,
+                gsparams=GSParams.check(gsparams),
+                _force_stepk=_force_stepk,
+                _force_maxk=_force_maxk,
+                hdu=hdu,
+                _recenter_image=_recenter_image,
+            )
+
+        # we don't use the parent init but instead set things by hand to
+        # avoid computations upon init
+        self._gsparams = GSParams.check(gsparams, obj.gsparams)
+        self._propagate_gsparams = True
+        if self._propagate_gsparams:
+            obj = obj.withGSParams(self._gsparams)
+        self._original = obj
+        self._params = {
+            "offset": PositionD(0.0, 0.0),
+        }
+        self._jax_children[1]["_obj"] = obj
+
+    @property
+    def _flux_ratio(self):
+        return self._original._flux_ratio / self._original._wcs.pixelArea()
+
+    @property
+    def _jac(self):
+        return self._original._jac_arr.reshape((2, 2))
+
+    def __getattribute__(self, name):
+        if name in _KEYS_TO_REMOVE:
+            raise AttributeError(f"{self.__class__} has no attribute '{name}'")
+        return super().__getattribute__(name)
+
+    def __dir__(self):
+        allattrs = set(self.__dict__.keys() + dir(self.__class__))
+        allattrs -= set(_KEYS_TO_REMOVE)
+        return list(allattrs)
 
     # the galsim tests use this internal attribute
     # so we add it here
@@ -285,7 +333,7 @@ class InterpolatedImage(Transformation):
         val.update(children[1])
         return cls(children[0], **val)
 
-    @doc_inherit
+    @_wraps(_galsim.InterpolatedImage.withGSParams)
     def withGSParams(self, gsparams=None, **kwargs):
         if gsparams == self.gsparams:
             return self
@@ -299,8 +347,13 @@ class InterpolatedImage(Transformation):
         return ret
 
 
+@partial(jax.jit, static_argnums=(1,))
+def _zeropad_image(arr, npad):
+    return jnp.pad(arr, npad, mode="constant", constant_values=0.0)
+
+
 @register_pytree_node_class
-class InterpolatedImageImpl(GSObject):
+class _InterpolatedImageImpl(GSObject):
     _cache_noise_pad = {}
 
     _has_hard_edges = False
@@ -337,6 +390,7 @@ class InterpolatedImageImpl(GSObject):
         # this class does a ton of munging of the inputs that I don't want to reconstruct when
         # flattening and unflattening the class.
         # thus I am going to make some refs here so we have it when we need it
+        self._cached_comps = {}
         self._jax_children = (
             image,
             dict(
@@ -346,6 +400,7 @@ class InterpolatedImageImpl(GSObject):
                 pad_image=pad_image,
                 offset=offset,
             ),
+            self._cached_comps,
         )
         self._jax_aux_data = dict(
             x_interpolant=x_interpolant,
@@ -366,17 +421,6 @@ class InterpolatedImageImpl(GSObject):
             _recenter_image=_recenter_image,
             hdu=hdu,
         )
-        self._params = {
-            "image": image,
-        }
-        self._params.update(self._jax_aux_data)
-        self._params.update(self._jax_children[1])
-
-        # If the "image" is not actually an image, try to read the image as a file.
-        if isinstance(image, str):
-            image = fits.read(image, hdu=hdu)
-        elif not isinstance(image, Image):
-            raise TypeError("Supplied image must be an Image or file name")
 
         # it must have well-defined bounds, otherwise seg fault in SBInterpolatedImage constructor
         if not image.bounds.isDefined():
@@ -409,76 +453,143 @@ class InterpolatedImageImpl(GSObject):
                 self._gsparams
             )
 
+        if pad_image is not None:
+            raise NotImplementedError("pad_image not implemented in jax_galsim.")
+
+        if pad_factor <= 0.0:
+            raise GalSimRangeError(
+                "Invalid pad_factor <= 0 in InterpolatedImage", pad_factor, 0.0
+            )
+
+        if noise_pad_size:
+            raise NotImplementedError(
+                "InterpolatedImages do not support noise padding in jax_galsim."
+            )
+        else:
+            if noise_pad:
+                raise NotImplementedError(
+                    "InterpolatedImages do not support noise padding in jax_galsim."
+                )
+
+        if scale is not None:
+            if wcs is not None:
+                raise GalSimIncompatibleValuesError(
+                    "Cannot provide both scale and wcs to InterpolatedImage",
+                    scale=self._jax_children[1]["scale"],
+                    wcs=self._jax_children[1]["wcs"],
+                )
+        elif wcs is not None:
+            if not isinstance(wcs, BaseWCS):
+                raise TypeError("wcs parameter is not a galsim.BaseWCS instance")
+        else:
+            if self._jax_children[0].wcs is None:
+                raise GalSimIncompatibleValuesError(
+                    "No information given with Image or keywords about pixel scale!",
+                    scale=self._jax_children[1]["scale"],
+                    wcs=self._jax_children[1]["wcs"],
+                    image=self._jax_children[0],
+                )
+
+    @property
+    def _flux_ratio(self):
+        if self._jax_children[1]["flux"] is None:
+            flux = self._image_flux
+            if self._jax_aux_data["normalization"].lower() in (
+                "surface brightness",
+                "sb",
+            ):
+                flux *= self._wcs.pixelArea()
+        else:
+            flux = self._jax_children[1]["flux"]
+
+        # If the user specified a flux, then set the flux ratio for the transform that wraps
+        # this class
+        return flux / self._image_flux
+
+    @property
+    def _image_flux(self):
+        return jnp.sum(self._image.array, dtype=float)
+
+    @property
+    def _offset(self):
+        # Figure out the offset to apply based on the original image (not the padded one).
+        # We will apply this below in _sbp.
+        offset = self._parse_offset(self._jax_children[1]["offset"])
+        return self._adjust_offset(
+            self._image.bounds, offset, None, self._jax_aux_data["use_true_center"]
+        )
+
+    @property
+    def _image(self):
         # Store the image as an attribute and make sure we don't change the original image
         # in anything we do here.  (e.g. set scale, etc.)
-        if depixelize:
+        if self._jax_aux_data["depixelize"]:
             # FIXME: no depixelize in jax_galsim
             # self._image = image.view(dtype=np.float64).depixelize(self._x_interpolant)
             raise NotImplementedError(
                 "InterpolatedImages do not support 'depixelize' in jax_galsim."
             )
         else:
-            self._image = image.view(dtype=jnp.float64, contiguous=True)
-        if _recenter_image:
-            self._image.setCenter(0, 0)
+            image = self._jax_children[0].view(dtype=float)
 
-        # Set the wcs if necessary
-        if scale is not None:
-            if wcs is not None:
-                raise GalSimIncompatibleValuesError(
-                    "Cannot provide both scale and wcs to InterpolatedImage",
-                    scale=scale,
-                    wcs=wcs,
+        if self._jax_aux_data["_recenter_image"]:
+            image.setCenter(0, 0)
+
+        return image
+
+    @property
+    def _wcs(self):
+        im_cen = (
+            self._jax_children[0].true_center
+            if self._jax_aux_data["use_true_center"]
+            else self._jax_children[0].center
+        )
+
+        # error checking was done on init
+        if self._jax_children[1]["scale"] is not None:
+            wcs = PixelScale(self._jax_children[1]["scale"])
+        elif self._jax_children[1]["wcs"] is not None:
+            wcs = self._jax_children[1]["wcs"]
+        else:
+            wcs = self._jax_children[0].wcs
+
+        return wcs.local(image_pos=im_cen)
+
+    @property
+    def _jac_arr(self):
+        image = self._jax_children[0]
+        im_cen = (
+            image.true_center if self._jax_aux_data["use_true_center"] else image.center
+        )
+        return self._wcs.jacobian(image_pos=im_cen).getMatrix().ravel()
+
+    @property
+    def _maxk(self):
+        if self._jax_aux_data["_force_maxk"]:
+            major, minor = compute_major_minor_from_jacobian(
+                self._jac_arr.reshape((2, 2))
+            )
+            return self._jax_aux_data["_force_maxk"] * minor
+        else:
+            if "_maxk" not in self._cached_comps:
+                self._cached_comps["_maxk"] = self._getMaxK(
+                    self._jax_aux_data["calculate_maxk"]
                 )
-            self._image.wcs = PixelScale(scale)
-        elif wcs is not None:
-            if not isinstance(wcs, BaseWCS):
-                raise TypeError("wcs parameter is not a galsim.BaseWCS instance")
-            self._image.wcs = wcs
-        elif self._image.wcs is None:
-            raise GalSimIncompatibleValuesError(
-                "No information given with Image or keywords about pixel scale!",
-                scale=scale,
-                wcs=wcs,
-                image=image,
+            return self._cached_comps["_maxk"]
+
+    @property
+    def _stepk(self):
+        if self._jax_aux_data["_force_stepk"]:
+            major, minor = compute_major_minor_from_jacobian(
+                self._jac_arr.reshape((2, 2))
             )
-
-        # Figure out the offset to apply based on the original image (not the padded one).
-        # We will apply this below in _sbp.
-        offset = self._parse_offset(offset)
-        self._offset = self._adjust_offset(
-            self._image.bounds, offset, None, use_true_center
-        )
-
-        self._jac_arr, self._wcs = _get_image_jac_arr_wcs(self._image, use_true_center)
-
-        # Build the fully padded real-space image according to the various pad options.
-        self._buildImages(
-            pad_factor,
-            pad_image,
-            noise_pad_size,
-            noise_pad,
-            rng,
-            use_cache,
-            flux,
-            normalization,
-        )
-
-        # I think the only things that will mess up if flux == 0 are the
-        # calculateStepK and calculateMaxK functions, and rescaling the flux to some value.
-        if (
-            calculate_stepk or calculate_maxk or flux is not None
-        ) and self._image_flux == 0.0:
-            raise GalSimValueError(
-                "This input image has zero total flux. It does not define a "
-                "valid surface brightness profile.",
-                image,
-            )
-
-        major, minor = compute_major_minor_from_jacobian(self._jac_arr.reshape((2, 2)))
-
-        self._maxk = self._getMaxK(calculate_maxk, _force_maxk * minor)
-        self._stepk = self._getStepK(calculate_stepk, _force_stepk * major)
+            return self._jax_aux_data["_force_stepk"] * minor
+        else:
+            if "_stepk" not in self._cached_comps:
+                self._cached_comps["_stepk"] = self._getStepK(
+                    self._jax_aux_data["calculate_stepk"]
+                )
+            return self._cached_comps["_stepk"]
 
     @doc_inherit
     def withGSParams(self, gsparams=None, **kwargs):
@@ -504,183 +615,76 @@ class InterpolatedImageImpl(GSObject):
         val = {}
         val.update(aux_data)
         val.update(children[1])
-        return cls(children[0], **val)
+        ret = cls(children[0], **val)
+        ret._cached_comps.update(children[2])
 
-    def _buildImages(
-        self,
-        pad_factor,
-        pad_image,
-        noise_pad_size,
-        noise_pad,
-        rng,
-        use_cache,
-        flux,
-        normalization,
-    ):
-        # If the user specified a surface brightness normalization for the input Image, then
-        # need to rescale flux by the pixel area to get proper normalization.
-        self._image_flux = jnp.sum(self._image.array, dtype=float)
-        if flux is None:
-            flux = self._image_flux
-            if normalization.lower() in ("surface brightness", "sb"):
-                flux *= self._wcs.pixelArea()
-        _flux = flux
+    @property
+    def _xim(self):
+        if "_xim" not in self._cached_comps:
+            pad_factor = self._jax_aux_data["pad_factor"]
 
-        # If the user specified a flux, then set the flux ratio for the transform that wraps
-        # this class
-        self._flux_ratio = _flux / self._image_flux
+            # The size of the final padded image is the largest of the various size specifications
+            pad_size = max(self._image.array.shape)
+            if pad_factor > 1.0:
+                pad_size = int(math.ceil(pad_factor * pad_size))
+            # And round up to a good fft size
+            pad_size = Image.good_fft_size(pad_size)
 
-        # Check that given pad_image is valid:
-        if pad_image is not None:
-            if isinstance(pad_image, str):
-                pad_image = fits.read(pad_image).view(dtype=jnp.float64)
-            elif isinstance(pad_image, Image):
-                pad_image = pad_image.view(dtype=jnp.float64, contiguous=True)
-            else:
-                raise TypeError("Supplied pad_image must be an Image.", pad_image)
-
-        if pad_factor <= 0.0:
-            raise GalSimRangeError(
-                "Invalid pad_factor <= 0 in InterpolatedImage", pad_factor, 0.0
+            xim = Image(
+                _zeropad_image(
+                    self._image.array, (pad_size - max(self._image.array.shape)) // 2
+                ),
+                wcs=PixelScale(1.0),
             )
+            xim.setCenter(0, 0)
+            xim.wcs = PixelScale(1.0)
 
-        # Convert noise_pad_size from arcsec to pixels according to the local wcs.
-        # Use the minimum scale, since we want to make sure noise_pad_size is
-        # as large as we need in any direction.
-        if noise_pad_size:
-            # FIXME: no BaseDeviate in jax_galsim so no noise padding
-            # if noise_pad_size < 0:
-            #     raise GalSimValueError("noise_pad_size may not be negative", noise_pad_size)
-            # if not noise_pad:
-            #     raise GalSimIncompatibleValuesError(
-            #             "Must provide noise_pad if noise_pad_size > 0",
-            #             noise_pad=noise_pad, noise_pad_size=noise_pad_size)
-            # noise_pad_size = int(math.ceil(noise_pad_size / self._wcs._minScale()))
-            # noise_pad_size = Image.good_fft_size(noise_pad_size)
-            raise NotImplementedError(
-                "InterpolatedImages do not support noise padding in jax_galsim."
-            )
-        else:
-            if noise_pad:
-                # FIXME: no BaseDeviate in jax_galsim so no noise padding
-                # raise GalSimIncompatibleValuesError(
-                #         "Must provide noise_pad_size if noise_pad != 0",
-                #         noise_pad=noise_pad, noise_pad_size=noise_pad_size)
-                raise NotImplementedError(
-                    "InterpolatedImages do not support noise padding in jax_galsim."
-                )
+            nz_bounds = self._image.bounds
 
-        # The size of the final padded image is the largest of the various size specifications
-        pad_size = max(self._image.array.shape)
-        if pad_factor > 1.0:
-            pad_size = int(math.ceil(pad_factor * pad_size))
-        if noise_pad_size:
-            pad_size = max(pad_size, noise_pad_size)
-        if pad_image:
-            pad_image.setCenter(0, 0)
-            pad_size = max(pad_size, *pad_image.array.shape)
-        # And round up to a good fft size
-        pad_size = Image.good_fft_size(pad_size)
+            # Now place the given image in the center of the padding image:
+            # assert self._xim.bounds.includes(self._image.bounds)
+            xim[self._image.bounds] = self._image
 
-        self._xim = Image(pad_size, pad_size, dtype=jnp.float64, wcs=PixelScale(1.0))
-        self._xim.setCenter(0, 0)
-        self._image.wcs = PixelScale(1.0)
+            self._pad_factor = pad_factor
+            self._nz_bounds = nz_bounds
 
-        # If requested, fill (some of) this image with noise padding.
-        nz_bounds = self._image.bounds
-        # FIXME: no BaseDeviate in jax_galsim so no noise padding
-        # if noise_pad:
-        #     # This is a bit involved, so pass this off to another helper function.
-        #     b = self._buildNoisePadImage(noise_pad_size, noise_pad, rng, use_cache)
-        #     nz_bounds += b
+            self._cached_comps["_xim"] = xim
 
-        # The the user gives us a pad image to use, fill the relevant portion with that.
-        if pad_image:
-            # assert self._xim.bounds.includes(pad_image.bounds)
-            self._xim[pad_image.bounds] = pad_image
-            nz_bounds += pad_image.bounds
+        return self._cached_comps["_xim"]
 
-        # Now place the given image in the center of the padding image:
-        # assert self._xim.bounds.includes(self._image.bounds)
-        self._xim[self._image.bounds] = self._image
-        self._xim.wcs = self._image.wcs
-
-        # And update the _image to be that portion of the full real image rather than the
-        # input image.
-        self._image = self._xim[self._image.bounds]
-
+    @property
+    def _pad_image(self):
         # These next two allow for easy pickling/repring.  We don't need to serialize all the
         # zeros around the edge.  But we do need to keep any non-zero padding as a pad_image.
-        self._pad_image = self._xim[nz_bounds]
-        self._pad_factor = pad_factor
+        xim = self._xim
+        return xim[self._nz_bounds]
 
-        # we always make this
-        self._kim = self._xim.calculate_fft()
+    @property
+    def _kim(self):
+        if "_kim" in self._cached_comps:
+            return self._cached_comps["_kim"]
+        else:
+            kim = self._xim.calculate_fft()
+            self._cached_comps["_kim"] = kim
+            return kim
 
+    @property
+    def _pos_neg_fluxes(self):
         # record pos and neg fluxes now too
         pflux = jnp.sum(jnp.where(self._pad_image.array > 0, self._pad_image.array, 0))
-        nflux = jnp.sum(jnp.where(self._pad_image.array < 0, self._pad_image.array, 0))
+        nflux = jnp.abs(
+            jnp.sum(jnp.where(self._pad_image.array < 0, self._pad_image.array, 0))
+        )
         pint = self._x_interpolant.positive_flux
         nint = self._x_interpolant.negative_flux
         pint2d = pint * pint + nint * nint
         nint2d = 2 * pint * nint
-        self._pos_neg_fluxes = [
+        return [
             pint2d * pflux + nint2d * nflux,
             pint2d * nflux + nint2d * pflux,
         ]
 
-    # FIXME: no BaseDeviate in jax_galsim so no noise padding
-    # def _buildNoisePadImage(self, noise_pad_size, noise_pad, rng, use_cache):
-    #     """A helper function that builds the ``pad_image`` from the given ``noise_pad``
-    #     specification.
-    #     """
-    #     from .random import BaseDeviate
-    #     from .noise import GaussianNoise
-    #     from .correlatednoise import BaseCorrelatedNoise, CorrelatedNoise
-
-    #     # Make sure we make rng a BaseDeviate if rng is None
-    #     rng1 = BaseDeviate(rng)
-
-    #     # Figure out what kind of noise to apply to the image
-    #     try:
-    #         noise_pad = float(noise_pad)
-    #     except (TypeError, ValueError):
-    #         if isinstance(noise_pad, BaseCorrelatedNoise):
-    #             noise = noise_pad.copy(rng=rng1)
-    #         elif isinstance(noise_pad, Image):
-    #             noise = CorrelatedNoise(noise_pad, rng1)
-    #         elif use_cache and noise_pad in InterpolatedImage._cache_noise_pad:
-    #             noise = InterpolatedImage._cache_noise_pad[noise_pad]
-    #             if rng:
-    #                 # Make sure that we are using a specified RNG by resetting that in this cached
-    #                 # CorrelatedNoise instance, otherwise preserve the cached RNG
-    #                 noise = noise.copy(rng=rng1)
-    #         elif isinstance(noise_pad, basestring):
-    #             noise = CorrelatedNoise(fits.read(noise_pad), rng1)
-    #             if use_cache:
-    #                 InterpolatedImage._cache_noise_pad[noise_pad] = noise
-    #         else:
-    #             raise GalSimValueError(
-    #                 "Input noise_pad must be a float/int, a CorrelatedNoise, Image, or filename "
-    #                 "containing an image to use to make a CorrelatedNoise.", noise_pad)
-
-    #     else:
-    #         if noise_pad < 0.:
-    #             raise GalSimRangeError("Noise variance may not be negative.", noise_pad, 0.)
-    #         noise = GaussianNoise(rng1, sigma = np.sqrt(noise_pad))
-
-    #     # Find the portion of xim to fill with noise.
-    #     # It's allowed for the noise padding to not cover the whole pad image
-    #     half_size = noise_pad_size // 2
-    #     b = _BoundsI(-half_size, -half_size + noise_pad_size-1,
-    #                  -half_size, -half_size + noise_pad_size-1)
-    #     #assert self._xim.bounds.includes(b)
-    #     noise_image = self._xim[b]
-    #     # Add the noise
-    #     noise_image.addNoise(noise)
-    #     return b
-
-    def _getStepK(self, calculate_stepk, _force_stepk):
+    def _getStepK(self, calculate_stepk):
         # GalSim cannot automatically know what stepK and maxK are appropriate for the
         # input image.  So it is usually worth it to do a manual calculation (below).
         #
@@ -691,39 +695,33 @@ class InterpolatedImageImpl(GSObject):
         # units required by the C++ layer below.  Also note that profile recentering for even-sized
         # images (see the ._adjust_offset step below) leads to automatic reduction of stepK slightly
         # below what is provided here, while maxK is preserved.
-        if _force_stepk > 0.0:
-            return _force_stepk
-        elif calculate_stepk:
+        if calculate_stepk:
             if calculate_stepk is True:
-                im = self._image
+                im = self.image
             else:
                 # If not a bool, then value is max_stepk
                 R = (jnp.ceil(jnp.pi / calculate_stepk)).astype(int)
                 b = BoundsI(-R, R, -R, R)
-                b = self._image.bounds & b
-                im = self._image[b]
+                b = self.image.bounds & b
+                im = self.image[b]
             thresh = (1.0 - self.gsparams.folding_threshold) * self._image_flux
             # this line appears buggy in galsim - I expect they meant to use im
             R = _calculate_size_containing_flux(im, thresh)
         else:
-            R = max(*self._image.array.shape) / 2.0 - 0.5
+            R = max(*self.image.array.shape) / 2.0 - 0.5
         return self._getSimpleStepK(R)
 
     def _getSimpleStepK(self, R):
-        min_scale = 1.0
         # Add xInterp range in quadrature just like convolution:
         R2 = self._x_interpolant.xrange
         R = jnp.hypot(R, R2)
-        stepk = jnp.pi / (R * min_scale)
+        stepk = jnp.pi / R
         return stepk
 
-    def _getMaxK(self, calculate_maxk, _force_maxk):
-        max_scale = 1.0
-        if _force_maxk > 0.0:
-            return _force_maxk
-        elif calculate_maxk:
+    def _getMaxK(self, calculate_maxk):
+        if calculate_maxk:
             _uscale = 1 / (2 * jnp.pi)
-            _maxk = self._x_interpolant.urange() / _uscale / max_scale
+            _maxk = self._x_interpolant.urange() / _uscale
 
             if calculate_maxk is True:
                 maxk = _find_maxk(
@@ -734,29 +732,9 @@ class InterpolatedImageImpl(GSObject):
                     self._kim, calculate_maxk, self._gsparams.maxk_threshold * self.flux
                 )
 
-            return maxk / max_scale
+            return maxk
         else:
-            return self._x_interpolant.krange / max_scale
-
-    def __getstate__(self):
-        d = self.__dict__.copy()
-        # Only pickle _pad_image.  Not _xim or _image
-        d["_xim_bounds"] = self._xim.bounds
-        d["_image_bounds"] = self._image.bounds
-        d.pop("_xim", None)
-        d.pop("_image", None)
-        return d
-
-    def __setstate__(self, d):
-        xim_bounds = d.pop("_xim_bounds")
-        image_bounds = d.pop("_image_bounds")
-        self.__dict__ = d
-        if self._pad_image.bounds == xim_bounds:
-            self._xim = self._pad_image
-        else:
-            self._xim = Image(xim_bounds, wcs=PixelScale(1.0), dtype=jnp.float64)
-            self._xim[self._pad_image.bounds] = self._pad_image
-        self._image = self._xim[image_bounds]
+            return self._x_interpolant.krange
 
     @property
     def x_interpolant(self):
@@ -771,7 +749,7 @@ class InterpolatedImageImpl(GSObject):
     @property
     def image(self):
         """The underlying `Image` being interpolated."""
-        return self._image
+        return self._xim[self._image.bounds]
 
     @property
     def _flux(self):
@@ -821,25 +799,26 @@ class InterpolatedImageImpl(GSObject):
         pkx += pky
         pfac = jnp.exp(pkx)
 
-        kx = jnp.array([kpos.x / self._kim.scale], dtype=float)
-        ky = jnp.array([kpos.y / self._kim.scale], dtype=float)
+        _kim = self._kim
+        kx = jnp.array([kpos.x / _kim.scale], dtype=float)
+        ky = jnp.array([kpos.y / _kim.scale], dtype=float)
 
         _uscale = 1.0 / (2.0 * jnp.pi)
-        _maxk_xint = self._x_interpolant.urange() / _uscale / self._kim.scale
+        _maxk_xint = self._x_interpolant.urange() / _uscale / _kim.scale
 
         val = _draw_with_interpolant_kval(
             kx,
             ky,
-            self._kim.bounds.ymin,
-            self._kim.bounds.ymin,
-            self._kim.array,
+            _kim.bounds.ymin,
+            _kim.bounds.ymin,
+            _kim.array,
             self._k_interpolant,
         )
 
         msk = (jnp.abs(kx) <= _maxk_xint) & (jnp.abs(ky) <= _maxk_xint)
         xint_val = self._x_interpolant._kval_noraise(
-            kx * self._kim.scale
-        ) * self._x_interpolant._kval_noraise(ky * self._kim.scale)
+            kx * _kim.scale
+        ) * self._x_interpolant._kval_noraise(ky * _kim.scale)
         return jnp.where(msk, val * xint_val * pfac, 0.0)[0]
 
     def _shoot(self, photons, rng):
@@ -931,7 +910,7 @@ def _draw_with_interpolant_xval(x, y, xmin, ymin, zp, interp):
         -interp.xrange,
         interp.xrange + 1,
         _body,
-        [jnp.zeros(x.shape, dtype=zp.dtype), xi, yi, xp, yp, zp],
+        [jnp.zeros(x.shape, dtype=float), xi, yi, xp, yp, zp],
     )[0]
     return z.reshape(orig_shape)
 
@@ -983,7 +962,7 @@ def _draw_with_interpolant_kval(kx, ky, kxmin, kymin, zp, interp):
         -interp.xrange,
         interp.xrange + 1,
         _body,
-        [jnp.zeros(kx.shape, dtype=zp.dtype), kxi, kyi, nky, nkx, nkx_2, kxp, kyp, zp],
+        [jnp.zeros(kx.shape, dtype=complex), kxi, kyi, nky, nkx, nkx_2, kxp, kyp, zp],
     )[0]
     return z.reshape(orig_shape)
 

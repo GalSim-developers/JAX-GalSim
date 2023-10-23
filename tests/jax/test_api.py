@@ -76,6 +76,19 @@ def _attempt_init(cls, kwargs):
             else:
                 raise e
 
+    if cls in [jax_galsim.InterpolatedImage]:
+        try:
+            return cls(
+                jax_galsim.ImageD(jnp.arange(100).reshape((10, 10))),
+                scale=1.3,
+                **kwargs
+            )
+        except Exception as e:
+            if any(estr in repr(e) for estr in OK_ERRORS):
+                pass
+            else:
+                raise e
+
     return None
 
 
@@ -101,6 +114,8 @@ _kgradfun_vmap = jax.jit(jax.vmap(_kgradfun, in_axes=(0, None)))
 
 def _run_object_checks(obj, cls, kind):
     if kind == "pickle-eval-repr":
+        from numpy import array  # noqa: F401
+
         # eval repr is identity mapping
         assert eval(repr(obj)) == obj
 
@@ -352,6 +367,7 @@ def test_api_gsobject(kind):
     assert "Moffat" in cls_tested
     assert "Box" in cls_tested
     assert "Pixel" in cls_tested
+    assert "InterpolatedImage" in cls_tested
 
 
 @pytest.mark.parametrize(

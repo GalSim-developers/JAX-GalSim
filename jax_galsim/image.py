@@ -659,12 +659,12 @@ class Image(object):
                 "calculate_fft requires that the image has a PixelScale wcs."
             )
 
-        No2 = jnp.maximum(
-            jnp.maximum(
+        No2 = max(
+            max(
                 -self.bounds.xmin,
                 self.bounds.xmax + 1,
             ),
-            jnp.maximum(
+            max(
                 -self.bounds.ymin,
                 self.bounds.ymax + 1,
             ),
@@ -713,8 +713,8 @@ class Image(object):
                 self.bounds,
             )
 
-        No2 = jnp.maximum(
-            jnp.maximum(self.bounds.xmax, -self.bounds.ymin),
+        No2 = max(
+            max(self.bounds.xmax, -self.bounds.ymin),
             self.bounds.ymax,
         )
 
@@ -755,6 +755,8 @@ class Image(object):
         going to be performing FFTs on an image, these will tend to be faster at performing
         the FFT.
         """
+        import math
+
         # Reference from GalSim C++
         # https://github.com/GalSim-developers/GalSim/blob/ece3bd32c1ae6ed771f2b489c5ab1b25729e0ea4/src/Image.cpp#L1009
         input_size = int(input_size)
@@ -762,12 +764,12 @@ class Image(object):
             return 2
         # Reduce slightly to eliminate potential rounding errors:
         insize = (1.0 - 1.0e-5) * input_size
-        log2n = jnp.log(2.0) * jnp.ceil(jnp.log(insize) / jnp.log(2.0))
-        log2n3 = jnp.log(3.0) + jnp.log(2.0) * jnp.ceil(
-            (jnp.log(insize) - jnp.log(3.0)) / jnp.log(2.0)
+        log2n = math.log(2.0) * math.ceil(math.log(insize) / math.log(2.0))
+        log2n3 = math.log(3.0) + math.log(2.0) * math.ceil(
+            (math.log(insize) - math.log(3.0)) / math.log(2.0)
         )
-        log2n3 = max(log2n3, jnp.log(6.0))  # must be even number
-        Nk = int(jnp.ceil(jnp.exp(min(log2n, log2n3)) - 1.0e-5))
+        log2n3 = max(log2n3, math.log(6.0))  # must be even number
+        Nk = int(math.ceil(math.exp(min(log2n, log2n3)) - 1.0e-5))
         return Nk
 
     def copyFrom(self, rhs):

@@ -131,6 +131,36 @@ def test_interpolatedimage_utils_stepk_maxk():
     np.testing.assert_allclose(gii.maxk, jgii.maxk, rtol=0.2, atol=0)
 
 
+@pytest.mark.parametrize("normalization", ["sb", "flux"])
+@pytest.mark.parametrize("use_true_center", [True, False])
+@pytest.mark.parametrize(
+    "wcs",
+    [
+        _galsim.PixelScale(2.0),
+        _galsim.JacobianWCS(2.1, 0.3, -0.4, 2.3),
+        _galsim.AffineTransform(-0.3, 2.1, 1.8, 0.1, _galsim.PositionD(0.3, -0.4)),
+    ],
+)
+@pytest.mark.parametrize(
+    "offset_x",
+    [
+        -4.35,
+        -0.45,
+        0.0,
+        0.67,
+        3.78,
+    ],
+)
+@pytest.mark.parametrize(
+    "offset_y",
+    [
+        -2.12,
+        -0.33,
+        0.0,
+        0.12,
+        1.45,
+    ],
+)
 @pytest.mark.parametrize(
     "ref_array",
     [
@@ -156,51 +186,58 @@ def test_interpolatedimage_utils_stepk_maxk():
     ],
 )
 @pytest.mark.parametrize("method", ["xValue", "kValue"])
-def test_interpolatedimage_utils_comp_to_galsim(method, ref_array):
+def test_interpolatedimage_utils_comp_to_galsim(
+    method, ref_array, offset_x, offset_y, wcs, use_true_center, normalization
+):
     gimage_in = _galsim.Image(ref_array, scale=1)
     jgimage_in = jax_galsim.Image(ref_array, scale=1)
 
-    for wcs in [
-        _galsim.PixelScale(2.0),
-        _galsim.JacobianWCS(2.1, 0.3, -0.4, 2.3),
-        _galsim.AffineTransform(-0.3, 2.1, 1.8, 0.1, _galsim.PositionD(0.3, -0.4)),
-    ]:
-        gii = _galsim.InterpolatedImage(gimage_in, wcs=wcs)
-        jgii = jax_galsim.InterpolatedImage(
-            jgimage_in, wcs=jax_galsim.BaseWCS.from_galsim(wcs)
-        )
+    gii = _galsim.InterpolatedImage(
+        gimage_in,
+        wcs=wcs,
+        offset=_galsim.PositionD(offset_x, offset_y),
+        use_true_center=use_true_center,
+        normalization=normalization,
+    )
+    jgii = jax_galsim.InterpolatedImage(
+        jgimage_in,
+        wcs=jax_galsim.BaseWCS.from_galsim(wcs),
+        offset=jax_galsim.PositionD(offset_x, offset_y),
+        use_true_center=use_true_center,
+        normalization=normalization,
+    )
 
-        np.testing.assert_allclose(gii.stepk, jgii.stepk, rtol=0.5, atol=0)
-        np.testing.assert_allclose(gii.maxk, jgii.maxk, rtol=0.5, atol=0)
-        kxvals = [
-            (0, 0),
-            (-5, -5),
-            (-10, 10),
-            (1, 1),
-            (1, -2),
-            (-1, 0),
-            (0, -1),
-            (-1, -1),
-            (-2, 2),
-            (-5, 0),
-            (3, -4),
-            (-3, 4),
-        ]
-        for x, y in kxvals:
-            if method == "kValue":
-                dk = jgii._original._kim.scale
-                np.testing.assert_allclose(
-                    gii.kValue(x * dk, y * dk),
-                    jgii.kValue(x * dk, y * dk),
-                    err_msg=f"kValue mismatch: wcs={wcs}, x={x}, y={y}",
-                )
-            else:
-                dx = jnp.sqrt(jgii._original._wcs.pixelArea())
-                np.testing.assert_allclose(
-                    gii.xValue(x * dx, y * dx),
-                    jgii.xValue(x * dx, y * dx),
-                    err_msg=f"xValue mismatch: wcs={wcs}, x={x}, y={y}",
-                )
+    np.testing.assert_allclose(gii.stepk, jgii.stepk, rtol=0.5, atol=0)
+    np.testing.assert_allclose(gii.maxk, jgii.maxk, rtol=0.5, atol=0)
+    kxvals = [
+        (0, 0),
+        (-5, -5),
+        (-10, 10),
+        (1, 1),
+        (1, -2),
+        (-1, 0),
+        (0, -1),
+        (-1, -1),
+        (-2, 2),
+        (-5, 0),
+        (3, -4),
+        (-3, 4),
+    ]
+    for x, y in kxvals:
+        if method == "kValue":
+            dk = jgii._original._kim.scale
+            np.testing.assert_allclose(
+                gii.kValue(x * dk, y * dk),
+                jgii.kValue(x * dk, y * dk),
+                err_msg=f"kValue mismatch: wcs={wcs}, x={x}, y={y}",
+            )
+        else:
+            dx = jnp.sqrt(jgii._original._wcs.pixelArea())
+            np.testing.assert_allclose(
+                gii.xValue(x * dx, y * dx),
+                jgii.xValue(x * dx, y * dx),
+                err_msg=f"xValue mismatch: wcs={wcs}, x={x}, y={y}",
+            )
 
 
 def _compute_fft_with_numpy_jax_galsim(im):
