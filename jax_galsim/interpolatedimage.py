@@ -867,13 +867,6 @@ def _InterpolatedImage(
     )
 
 
-def _get_image_jac_arr_wcs(image, use_true_center):
-    im_cen = image.true_center if use_true_center else image.center
-    _jac_arr = image.wcs.jacobian(image_pos=im_cen).getMatrix().ravel()
-    _wcs = image.wcs.local(image_pos=im_cen)
-    return _jac_arr, _wcs
-
-
 @partial(jax.jit, static_argnums=(5,))
 def _draw_with_interpolant_xval(x, y, xmin, ymin, zp, interp):
     orig_shape = x.shape
