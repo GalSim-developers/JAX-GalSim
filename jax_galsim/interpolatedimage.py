@@ -986,6 +986,7 @@ def _flux_frac(a, x, y, cenx, ceny):
     )[0]
 
 
+@jax.jit
 def _calculate_size_containing_flux(image, thresh):
     cenx, ceny = image.center.x, image.center.y
     x, y = image.get_pixel_centers()
@@ -1030,8 +1031,9 @@ def _inner_comp_find_maxk(arr, thresh, kx, ky):
     return jnp.maximum(max_kx, max_ky)
 
 
+@jax.jit
 def _find_maxk(kim, max_maxk, thresh):
     kx, ky = kim.get_pixel_centers()
     kx *= kim.scale
     ky *= kim.scale
-    return _inner_comp_find_maxk(kim.array, thresh, kx, ky) * 1.15
+    return _inner_comp_find_maxk(kim.array, thresh, kx, ky)

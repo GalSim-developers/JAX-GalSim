@@ -113,22 +113,31 @@ def test_interpolatedimage_utils_draw_with_interpolant_kval(interp):
 
 
 def test_interpolatedimage_utils_stepk_maxk():
-    ref_array = np.array(
-        [
-            [0.01, 0.08, 0.07, 0.02],
-            [0.13, 0.38, 0.52, 0.06],
-            [0.09, 0.41, 0.44, 0.09],
-            [0.04, 0.11, 0.10, 0.01],
-        ]
+    hlr = 0.5
+    fwhm = 0.9
+    scale = 0.2
+
+    ref_array = (
+        _galsim.Convolve(
+            _galsim.Exponential(half_light_radius=hlr),
+            _galsim.Gaussian(fwhm=fwhm),
+        )
+        .drawImage(
+            nx=53,
+            ny=53,
+            scale=scale,
+        )
+        .array.astype(np.float64)
     )
-    test_scale = 2.0
+
     gimage_in = _galsim.Image(ref_array)
     jgimage_in = jax_galsim.Image(ref_array)
-    gii = _galsim.InterpolatedImage(gimage_in, scale=test_scale)
-    jgii = jax_galsim.InterpolatedImage(jgimage_in, scale=test_scale)
+    gii = _galsim.InterpolatedImage(gimage_in, scale=scale)
+    jgii = jax_galsim.InterpolatedImage(jgimage_in, scale=scale)
 
-    np.testing.assert_allclose(gii.stepk, jgii.stepk, rtol=0.2, atol=0)
-    np.testing.assert_allclose(gii.maxk, jgii.maxk, rtol=0.2, atol=0)
+    rtol = 1e-1
+    np.testing.assert_allclose(gii.maxk, jgii.maxk, rtol=rtol, atol=0)
+    np.testing.assert_allclose(gii.stepk, jgii.stepk, rtol=rtol, atol=0)
 
 
 @pytest.mark.parametrize("normalization", ["sb", "flux"])
