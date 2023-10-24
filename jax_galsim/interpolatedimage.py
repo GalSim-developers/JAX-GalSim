@@ -255,7 +255,7 @@ class InterpolatedImage(Transformation, metaclass=DirMeta):
                     ensure_hashable(self.flux),
                     ensure_hashable(self._stepk),
                     ensure_hashable(self._maxk),
-                    ensure_hashable(self._original._pad_factor),
+                    ensure_hashable(self._original._jax_aux_data["pad_factor"]),
                 )
             )
             self._hash ^= hash(
@@ -295,7 +295,7 @@ class InterpolatedImage(Transformation, metaclass=DirMeta):
         if self._original._pad_image.bounds != self._original.image.bounds:
             s += ", pad_image=%r" % (self._pad_image)
         s += ", pad_factor=%f, flux=%r, offset=%r" % (
-            ensure_hashable(self._original._pad_factor),
+            ensure_hashable(self._original._jax_aux_data["pad_factor"]),
             ensure_hashable(self.flux),
             self._original._offset,
         )
