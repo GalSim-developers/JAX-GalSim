@@ -1330,66 +1330,52 @@ class Lanczos(Interpolant):
         conserve_dc=True,
         tol=None,
         gsparams=None,
-        _K=None,
-        _C=None,
-        _umax=None,
-        _du=None,
     ):
         if tol is not None:
             from galsim.deprecated import depr
 
             depr("tol", 2.2, "gsparams=GSParams(kvalue_accuracy=tol)")
             gsparams = GSParams(kvalue_accuracy=tol)
-        self._n = int(n)
-        self._conserve_dc = bool(conserve_dc)
+        self._n = n
+        self._conserve_dc = conserve_dc
         self._gsparams = GSParams.check(gsparams)
+        self._workspace = {}
 
-        if _C is None or _K is None:
-            _K = [0.0] + [Lanczos._raw_uval(i + 1.0, n).item() for i in range(5)]
-            _C = [0.0] * 6
-            _C[0] = 1.0 + 2.0 * (
-                _K[1] * (1.0 + 3.0 * _K[1] + _K[2] + _K[3])
-                + _K[2]
-                + _K[3]
-                + _K[4]
-                + _K[5]
-            )
-            _C[1] = -_K[1] * (1.0 + 4.0 * _K[1] + _K[2] + 2.0 * _K[3])
-            _C[2] = _K[1] * (_K[1] - 2.0 * _K[2] + _K[3]) - _K[2]
-            _C[3] = _K[1] * (_K[1] - 2.0 * _K[3]) - _K[3]
-            _C[4] = _K[1] * _K[3] - _K[4]
-            _C[5] = -_K[5]
-            _K = tuple(_K)
-            _C = tuple(_C)
-            self._K = _K
-            self._C = _C
-        else:
-            self._K = _K
-            self._C = _C
+    @property
+    def _K_arr(self):
+        if "_K_arr" not in self._workspace:
+            _C_arr, _K_arr = _compute_C_K_lanczos(self._n)
+            self._workspace["_K_arr"] = _K_arr
+            self._workspace["_C_arr"] = _C_arr
+        return self._workspace["_K_arr"]
 
-        self._K_arr = jnp.array(self._K, dtype=float)
-        self._C_arr = jnp.array(self._C, dtype=float)
+    @property
+    def _C_arr(self):
+        if "_C_arr" not in self._workspace:
+            _C_arr, _K_arr = _compute_C_K_lanczos(self._n)
+            self._workspace["_K_arr"] = _K_arr
+            self._workspace["_C_arr"] = _C_arr
+        return self._workspace["_C_arr"]
 
-        if _du is None:
-            _du = (
-                self._gsparams.table_spacing
-                * jnp.power(self._gsparams.kvalue_accuracy / 200.0, 0.25)
-                / self._n
-            ).item()
-            self._du = _du
-        else:
-            self._du = _du
+    @property
+    def _du(self):
+        return (
+            self._gsparams.table_spacing
+            * jnp.power(self._gsparams.kvalue_accuracy / 200.0, 0.25)
+            / self._n
+        )
 
-        if _umax is None:
-            self._umax = _find_umax_lanczos(
+    @property
+    def _umax(self):
+        if "_umax" not in self._workspace:
+            self._workspace["_umax"] = _find_umax_lanczos(
                 self._du,
                 self._n,
                 self._conserve_dc,
-                self._C,
+                self._C_arr,
                 self._gsparams.kvalue_accuracy,
-            ).item()
-        else:
-            self._umax = _umax
+            )
+        return self._workspace["_umax"]
 
     def tree_flatten(self):
         """This function flattens the Interpolant into a list of children
@@ -1402,20 +1388,14 @@ class Lanczos(Interpolant):
             "n": self._n,
             "conserve_dc": self._conserve_dc,
         }
-        if hasattr(self, "_du"):
-            aux_data["_du"] = self._du
-        if hasattr(self, "_umax"):
-            aux_data["_umax"] = self._umax
-        if hasattr(self, "_K"):
-            aux_data["_K"] = self._K
-            aux_data["_C"] = self._C
         return (children, aux_data)
 
     @classmethod
     def tree_unflatten(cls, aux_data, children):
         """Recreates an instance of the class from flattened representation"""
         n = aux_data.pop("n")
-        return cls(n, **aux_data)
+        ret = cls(n, **aux_data)
+        return ret
 
     def __repr__(self):
         return "galsim.Lanczos(%r, %r, gsparams=%r)" % (
@@ -1647,3 +1627,23 @@ def _find_umax_lanczos(_du, n, conserve_dc, _C, kva):
         _body,
         [0.0, 0.0],
     )[0]
+
+
+@jax.jit
+def _compute_C_K_lanczos(n):
+    _K = jnp.concatenate(
+        (jnp.zeros(1), Lanczos._raw_uval(jnp.arange(5) + 1.0, n)), axis=0
+    )
+    _C = jnp.zeros(6)
+    _C = _C.at[0].set(
+        1.0
+        + 2.0
+        * (_K[1] * (1.0 + 3.0 * _K[1] + _K[2] + _K[3]) + _K[2] + _K[3] + _K[4] + _K[5])
+    )
+    _C = _C.at[1].set(-_K[1] * (1.0 + 4.0 * _K[1] + _K[2] + 2.0 * _K[3]))
+    _C = _C.at[2].set(_K[1] * (_K[1] - 2.0 * _K[2] + _K[3]) - _K[2])
+    _C = _C.at[3].set(_K[1] * (_K[1] - 2.0 * _K[3]) - _K[3])
+    _C = _C.at[4].set(_K[1] * _K[3] - _K[4])
+    _C = _C.at[5].set(-_K[5])
+
+    return _C, _K

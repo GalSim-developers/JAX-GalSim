@@ -759,9 +759,6 @@ class Image(object):
 
         # Reference from GalSim C++
         # https://github.com/GalSim-developers/GalSim/blob/ece3bd32c1ae6ed771f2b489c5ab1b25729e0ea4/src/Image.cpp#L1009
-        input_size = int(input_size)
-        if input_size <= 2:
-            return 2
         # Reduce slightly to eliminate potential rounding errors:
         insize = (1.0 - 1.0e-5) * input_size
         log2n = math.log(2.0) * math.ceil(math.log(insize) / math.log(2.0))
@@ -769,7 +766,7 @@ class Image(object):
             (math.log(insize) - math.log(3.0)) / math.log(2.0)
         )
         log2n3 = max(log2n3, math.log(6.0))  # must be even number
-        Nk = int(math.ceil(math.exp(min(log2n, log2n3)) - 1.0e-5))
+        Nk = max(int(math.ceil(math.exp(min(log2n, log2n3)) - 1.0e-5)), 2)
         return Nk
 
     def copyFrom(self, rhs):
