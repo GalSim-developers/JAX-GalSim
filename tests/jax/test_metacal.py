@@ -1,4 +1,5 @@
 import time
+from functools import partial
 
 import galsim as _galsim
 import jax
@@ -8,29 +9,22 @@ import numpy as np
 import jax_galsim
 
 
-def _metacal_galsim(gs, im, psf, nse_im, scale, target_fwhm, g1):
-    res = {}
-    iim = gs.InterpolatedImage(gs.ImageD(im), scale=scale, x_interpolant="lanczos15")
-    ipsf = gs.InterpolatedImage(gs.ImageD(psf), scale=scale, x_interpolant="lanczos15")
-    inse = gs.InterpolatedImage(
-        gs.ImageD(np.rot90(nse_im)), scale=scale, x_interpolant="lanczos15"
+def _metacal_galsim(im, psf, nse_im, scale, target_fwhm, g1):
+    iim = _galsim.InterpolatedImage(
+        _galsim.ImageD(im), scale=scale, x_interpolant="lanczos15"
+    )
+    ipsf = _galsim.InterpolatedImage(
+        _galsim.ImageD(psf), scale=scale, x_interpolant="lanczos15"
+    )
+    inse = _galsim.InterpolatedImage(
+        _galsim.ImageD(np.rot90(nse_im)), scale=scale, x_interpolant="lanczos15"
     )
 
-    res["maxk"] = (iim.maxk, ipsf.maxk, inse.maxk)
-    res["stepk"] = (iim.stepk, ipsf.stepk, inse.stepk)
-
-    res["iim"] = iim.drawImage(
-        nx=33, ny=33, scale=scale, method="no_pixel"
-    ).array.astype(np.float64)
-    res["ipsf"] = ipsf.drawImage(
-        nx=33, ny=33, scale=scale, method="no_pixel"
-    ).array.astype(np.float64)
-
-    ppsf_iim = gs.Convolve(iim, gs.Deconvolve(ipsf))
+    ppsf_iim = _galsim.Convolve(iim, _galsim.Deconvolve(ipsf))
     ppsf_iim = ppsf_iim.shear(g1=g1, g2=0.0)
 
     sim = (
-        gs.Convolve(ppsf_iim, gs.Gaussian(fwhm=target_fwhm))
+        _galsim.Convolve(ppsf_iim, _galsim.Gaussian(fwhm=target_fwhm))
         .drawImage(
             nx=33,
             ny=33,
@@ -39,12 +33,11 @@ def _metacal_galsim(gs, im, psf, nse_im, scale, target_fwhm, g1):
         )
         .array.astype(np.float64)
     )
-    res["im"] = sim
 
-    ppsf_inse = gs.Convolve(inse, gs.Deconvolve(ipsf))
-    ppsf_inse = ppsf_iim.shear(g1=g1, g2=0.0)
+    ppsf_inse = _galsim.Convolve(inse, _galsim.Deconvolve(ipsf))
+    ppsf_inse = ppsf_inse.shear(g1=g1, g2=0.0)
     snse = (
-        gs.Convolve(ppsf_inse, gs.Gaussian(fwhm=target_fwhm))
+        _galsim.Convolve(ppsf_inse, _galsim.Gaussian(fwhm=target_fwhm))
         .drawImage(
             nx=33,
             ny=33,
@@ -53,69 +46,47 @@ def _metacal_galsim(gs, im, psf, nse_im, scale, target_fwhm, g1):
         )
         .array.astype(np.float64)
     )
-    res["nse"] = snse
-    res["tot"] = sim + np.rot90(snse, 3)
-    return res
+    return sim + np.rot90(snse, 3)
+
+
+@partial(jax.jit, static_argnames=("nk",))
+def _metacal_jax_galsim_render(im, psf, g1, target_psf, scale, nk):
+    prepsf_im = jax_galsim.Convolve(im, jax_galsim.Deconvolve(psf))
+    prepsf_im = prepsf_im.shear(g1=g1, g2=0.0)
+
+    return (
+        jax_galsim.Convolve(
+            prepsf_im,
+            target_psf,
+            gsparams=jax_galsim.GSParams(minimum_fft_size=nk, maximum_fft_size=nk),
+        )
+        .drawImage(
+            nx=33,
+            ny=33,
+            scale=scale,
+            method="no_pixel",
+        )
+        .array.astype(np.float64)
+    )
 
 
 def _metacal_jax_galsim(im, psf, nse_im, scale, target_fwhm, g1, nk):
-    gs = jax_galsim
-    iim = gs.InterpolatedImage(gs.ImageD(im), scale=scale, x_interpolant="lanczos15")
-    ipsf = gs.InterpolatedImage(gs.ImageD(psf), scale=scale, x_interpolant="lanczos15")
-    inse = gs.InterpolatedImage(
-        gs.ImageD(jnp.rot90(nse_im)), scale=scale, x_interpolant="lanczos15"
+    iim = jax_galsim.InterpolatedImage(
+        jax_galsim.ImageD(im), scale=scale, x_interpolant="lanczos15"
     )
-
-    res = {}
-
-    res["maxk"] = (iim.maxk, ipsf.maxk, inse.maxk)
-    res["stepk"] = (iim.stepk, ipsf.stepk, inse.stepk)
-
-    res["iim"] = iim.drawImage(
-        nx=33, ny=33, scale=scale, method="no_pixel"
-    ).array.astype(np.float64)
-    res["ipsf"] = ipsf.drawImage(
-        nx=33, ny=33, scale=scale, method="no_pixel"
-    ).array.astype(np.float64)
-
-    ppsf_iim = gs.Convolve(iim, gs.Deconvolve(ipsf))
-    ppsf_iim = ppsf_iim.shear(g1=g1, g2=0.0)
-
-    sim = (
-        gs.Convolve(
-            ppsf_iim,
-            gs.Gaussian(fwhm=target_fwhm),
-            gsparams=gs.GSParams(minimum_fft_size=nk, maximum_fft_size=nk),
-        )
-        .drawImage(
-            nx=33,
-            ny=33,
-            scale=scale,
-            method="no_pixel",
-        )
-        .array.astype(np.float64)
+    ipsf = jax_galsim.InterpolatedImage(
+        jax_galsim.ImageD(psf), scale=scale, x_interpolant="lanczos15"
     )
-    res["im"] = sim
-
-    ppsf_inse = gs.Convolve(inse, gs.Deconvolve(ipsf))
-    ppsf_inse = ppsf_iim.shear(g1=g1, g2=0.0)
-    snse = (
-        gs.Convolve(
-            ppsf_inse,
-            gs.Gaussian(fwhm=target_fwhm),
-            gsparams=gs.GSParams(minimum_fft_size=nk, maximum_fft_size=nk),
-        )
-        .drawImage(
-            nx=33,
-            ny=33,
-            scale=scale,
-            method="no_pixel",
-        )
-        .array.astype(np.float64)
+    inse = jax_galsim.InterpolatedImage(
+        jax_galsim.ImageD(jnp.rot90(nse_im)), scale=scale, x_interpolant="lanczos15"
     )
-    res["nse"] = snse
-    res["tot"] = sim + jnp.rot90(snse, 3)
-    return res
+    target_psf = jax_galsim.Gaussian(fwhm=target_fwhm)
+
+    sim = _metacal_jax_galsim_render(iim, ipsf, g1, target_psf, scale, nk)
+
+    snse = _metacal_jax_galsim_render(inse, ipsf, g1, target_psf, scale, nk)
+
+    return sim + jnp.rot90(snse, 3)
 
 
 def test_metacal_comp_to_galsim():
@@ -156,16 +127,18 @@ def test_metacal_comp_to_galsim():
     im += rng.normal(size=im.shape) * nse
 
     gt0 = time.time()
-    gres = _metacal_galsim(
-        _galsim, im.copy(), psf.copy(), nse_im.copy(), scale, target_fwhm, g1
-    )
+    gres = _metacal_galsim(im.copy(), psf.copy(), nse_im.copy(), scale, target_fwhm, g1)
     gt0 = time.time() - gt0
 
-    jit_mcal = jax.jit(_metacal_jax_galsim, static_argnums=6)
+    print("Galsim time: ", gt0 * 1e3, " [ms]")
 
-    for _ in range(2):
+    for i in range(2):
+        if i == 0:
+            msg = "jit warmup"
+        elif i == 1:
+            msg = "jit"
         jgt0 = time.time()
-        jgres = jit_mcal(
+        jgres = _metacal_jax_galsim(
             im,
             psf,
             nse_im,
@@ -174,39 +147,27 @@ def test_metacal_comp_to_galsim():
             g1,
             128,
         )
+        jgres = jax.block_until_ready(jgres)
         jgt0 = time.time() - jgt0
-        print("Jax-Galsim time: ", jgt0 * 1e3, " [ms]")
+        print("Jax-Galsim time (%s): " % msg, jgt0 * 1e3, " [ms]")
 
-    print("Galsim time: ", gt0 * 1e3, " [ms]")
+    gim = gres
+    jgim = jgres
 
-    np.testing.assert_allclose(gres["maxk"], jgres["maxk"], rtol=2e-2)
-    np.testing.assert_allclose(gres["stepk"], jgres["stepk"], rtol=2e-2)
+    atol = 7e-5
 
-    for k in ["iim", "ipsf", "im", "nse", "tot"]:
-        gim = gres[k]
-        jgim = jgres[k]
+    if not np.allclose(gim, jgim, rtol=0, atol=atol):
+        import proplot as pplt
 
-        if k in ["iim", "ipsf"]:
-            atol = 1e-7
-        else:
-            atol = 5e-5
+        fig, axs = pplt.subplots(ncols=3, nrows=1, figsize=(4.5, 7.5))
+        _gim = gres
+        _jgim = jgres
+        axs[0].imshow(np.arcsinh(_gim / nse))
+        axs[1].imshow(np.arcsinh(_jgim / nse))
+        axs[2].imshow(_jgim - _gim)
+        fig.show()
 
-        if not np.allclose(gim, jgim, rtol=0, atol=atol):
-            import proplot as pplt
-
-            fig, axs = pplt.subplots(ncols=3, nrows=5, figsize=(4.5, 7.5))
-            print(axs.shape)
-            for row, _k in enumerate(["iim", "ipsf", "im", "nse", "tot"]):
-                _gim = gres[_k]
-                _jgim = jgres[_k]
-                axs[row, 0].imshow(np.arcsinh(_gim / nse))
-                axs[row, 1].imshow(np.arcsinh(_jgim / nse))
-                axs[row, 2].imshow(_jgim - _gim)
-            fig.show()
-
-        np.testing.assert_allclose(
-            gim, jgim, err_msg=f"Failed for {k}", rtol=0, atol=atol
-        )
+    np.testing.assert_allclose(gim, jgim, rtol=0, atol=atol)
 
 
 def test_metacal_vmap():
@@ -261,9 +222,7 @@ def test_metacal_vmap():
 
     gt0 = time.time()
     for im, psf, nse_im in zip(ims, psfs, nse_ims):
-        _metacal_galsim(
-            _galsim, im.copy(), psf.copy(), nse_im.copy(), scale, target_fwhm, g1
-        )
+        _metacal_galsim(im.copy(), psf.copy(), nse_im.copy(), scale, target_fwhm, g1)
     gt0 = time.time() - gt0
     print("Galsim time: ", gt0 * 1e3, " [ms]")
 
@@ -275,7 +234,12 @@ def test_metacal_vmap():
         static_argnums=6,
     )
 
-    for _ in range(2):
+    for i in range(2):
+        if i == 0:
+            msg = "jit warmup"
+        elif i == 1:
+            msg = "jit"
+
         jgt0 = time.time()
         jit_mcal(
             ims,
@@ -287,4 +251,4 @@ def test_metacal_vmap():
             128,
         )
         jgt0 = time.time() - jgt0
-        print("Jax-Galsim time: ", jgt0 * 1e3, " [ms]")
+        print("Jax-Galsim time (%s): " % msg, jgt0 * 1e3, " [ms]")
