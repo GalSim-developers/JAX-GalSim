@@ -207,3 +207,84 @@ def test_metacal_comp_to_galsim():
         np.testing.assert_allclose(
             gim, jgim, err_msg=f"Failed for {k}", rtol=0, atol=atol
         )
+
+
+def test_metacal_vmap():
+    start_seed = 42
+    hlr = 0.5
+    fwhm = 0.9
+    scale = 0.2
+    nse = 1e-3
+    g1 = 0.01
+    target_fwhm = 1.0
+
+    ims = []
+    nse_ims = []
+    psfs = []
+    for _seed in range(1000):
+        seed = _seed + start_seed
+        rng = np.random.RandomState(seed)
+
+        im = (
+            _galsim.Convolve(
+                _galsim.Exponential(half_light_radius=hlr),
+                _galsim.Gaussian(fwhm=fwhm),
+            )
+            .drawImage(
+                nx=33,
+                ny=33,
+                scale=scale,
+            )
+            .array.astype(np.float64)
+        )
+
+        psf = (
+            _galsim.Gaussian(fwhm=fwhm)
+            .drawImage(
+                nx=33,
+                ny=33,
+                scale=scale,
+            )
+            .array.astype(np.float64)
+        )
+
+        nse_im = rng.normal(size=im.shape) * nse
+        im += rng.normal(size=im.shape) * nse
+
+        ims.append(im)
+        psfs.append(psf)
+        nse_ims.append(nse_im)
+
+    ims = np.stack(ims)
+    psfs = np.stack(psfs)
+    nse_ims = np.stack(nse_ims)
+
+    gt0 = time.time()
+    for im, psf, nse_im in zip(ims, psfs, nse_ims):
+        _metacal_galsim(
+            _galsim, im.copy(), psf.copy(), nse_im.copy(), scale, target_fwhm, g1
+        )
+    gt0 = time.time() - gt0
+    print("Galsim time: ", gt0 * 1e3, " [ms]")
+
+    jit_mcal = jax.jit(
+        jax.vmap(
+            _metacal_jax_galsim,
+            in_axes=(0, 0, 0, None, None, None, None),
+        ),
+        static_argnums=6,
+    )
+
+    for _ in range(2):
+        jgt0 = time.time()
+        jit_mcal(
+            ims,
+            psfs,
+            nse_ims,
+            scale,
+            target_fwhm,
+            g1,
+            128,
+        )
+        jgt0 = time.time() - jgt0
+        print("Jax-Galsim time: ", jgt0 * 1e3, " [ms]")

@@ -138,7 +138,7 @@ class Interpolant:
     def __eq__(self, other):
         return (self is other) or (
             type(other) is self.__class__
-            and is_equal_with_arrays(self.tree_flatten(), other.tree_flatten())
+            and is_equal_with_arrays(self.tree_flatten()[1], other.tree_flatten()[1])
         )
 
     def __ne__(self, other):
@@ -1339,23 +1339,14 @@ class Lanczos(Interpolant):
         self._n = n
         self._conserve_dc = conserve_dc
         self._gsparams = GSParams.check(gsparams)
-        self._workspace = {}
 
     @property
     def _K_arr(self):
-        if "_K_arr" not in self._workspace:
-            _C_arr, _K_arr = _compute_C_K_lanczos(self._n)
-            self._workspace["_K_arr"] = _K_arr
-            self._workspace["_C_arr"] = _C_arr
-        return self._workspace["_K_arr"]
+        return self._K_arrs[self._n]
 
     @property
     def _C_arr(self):
-        if "_C_arr" not in self._workspace:
-            _C_arr, _K_arr = _compute_C_K_lanczos(self._n)
-            self._workspace["_K_arr"] = _K_arr
-            self._workspace["_C_arr"] = _C_arr
-        return self._workspace["_C_arr"]
+        return self._C_arrs[self._n]
 
     @property
     def _du(self):
@@ -1367,15 +1358,13 @@ class Lanczos(Interpolant):
 
     @property
     def _umax(self):
-        if "_umax" not in self._workspace:
-            self._workspace["_umax"] = _find_umax_lanczos(
-                self._du,
-                self._n,
-                self._conserve_dc,
-                self._C_arr,
-                self._gsparams.kvalue_accuracy,
-            )
-        return self._workspace["_umax"]
+        return _find_umax_lanczos(
+            self._du,
+            self._n,
+            self._conserve_dc,
+            self._C_arr,
+            self._gsparams.kvalue_accuracy,
+        )
 
     def tree_flatten(self):
         """This function flattens the Interpolant into a list of children
@@ -1394,8 +1383,7 @@ class Lanczos(Interpolant):
     def tree_unflatten(cls, aux_data, children):
         """Recreates an instance of the class from flattened representation"""
         n = aux_data.pop("n")
-        ret = cls(n, **aux_data)
-        return ret
+        return cls(n, **aux_data)
 
     def __repr__(self):
         return "galsim.Lanczos(%r, %r, gsparams=%r)" % (
@@ -1647,3 +1635,11 @@ def _compute_C_K_lanczos(n):
     _C = _C.at[5].set(-_K[5])
 
     return _C, _K
+
+
+Lanczos._K_arrs = {}
+Lanczos._C_arrs = {}
+for n in range(1, 31):
+    _C_arr, _K_arr = _compute_C_K_lanczos(n)
+    Lanczos._K_arrs[n] = _K_arr
+    Lanczos._C_arrs[n] = _C_arr

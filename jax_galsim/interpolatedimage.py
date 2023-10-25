@@ -395,7 +395,6 @@ class _InterpolatedImageImpl(GSObject):
         # this class does a ton of munging of the inputs that I don't want to reconstruct when
         # flattening and unflattening the class.
         # thus I am going to make some refs here so we have it when we need it
-        self._cached_comps = {}
         self._jax_children = (
             image,
             dict(
@@ -405,7 +404,6 @@ class _InterpolatedImageImpl(GSObject):
                 pad_image=pad_image,
                 offset=offset,
             ),
-            self._cached_comps,
         )
         self._jax_aux_data = dict(
             x_interpolant=x_interpolant,
@@ -576,11 +574,7 @@ class _InterpolatedImageImpl(GSObject):
             )
             return self._jax_aux_data["_force_maxk"] * minor
         else:
-            if "_maxk" not in self._cached_comps:
-                self._cached_comps["_maxk"] = self._getMaxK(
-                    self._jax_aux_data["calculate_maxk"]
-                )
-            return self._cached_comps["_maxk"]
+            return self._getMaxK(self._jax_aux_data["calculate_maxk"])
 
     @property
     def _stepk(self):
@@ -590,11 +584,7 @@ class _InterpolatedImageImpl(GSObject):
             )
             return self._jax_aux_data["_force_stepk"] * minor
         else:
-            if "_stepk" not in self._cached_comps:
-                self._cached_comps["_stepk"] = self._getStepK(
-                    self._jax_aux_data["calculate_stepk"]
-                )
-            return self._cached_comps["_stepk"]
+            return self._getStepK(self._jax_aux_data["calculate_stepk"])
 
     @doc_inherit
     def withGSParams(self, gsparams=None, **kwargs):
@@ -621,37 +611,33 @@ class _InterpolatedImageImpl(GSObject):
         val.update(aux_data)
         val.update(children[1])
         ret = cls(children[0], **val)
-        ret._cached_comps.update(children[2])
         return ret
 
     @property
     def _xim(self):
-        if "_xim" not in self._cached_comps:
-            pad_factor = self._jax_aux_data["pad_factor"]
+        pad_factor = self._jax_aux_data["pad_factor"]
 
-            # The size of the final padded image is the largest of the various size specifications
-            pad_size = max(self._image.array.shape)
-            if pad_factor > 1.0:
-                pad_size = int(math.ceil(pad_factor * pad_size))
-            # And round up to a good fft size
-            pad_size = Image.good_fft_size(pad_size)
+        # The size of the final padded image is the largest of the various size specifications
+        pad_size = max(self._image.array.shape)
+        if pad_factor > 1.0:
+            pad_size = int(math.ceil(pad_factor * pad_size))
+        # And round up to a good fft size
+        pad_size = Image.good_fft_size(pad_size)
 
-            xim = Image(
-                _zeropad_image(
-                    self._image.array, (pad_size - max(self._image.array.shape)) // 2
-                ),
-                wcs=PixelScale(1.0),
-            )
-            xim.setCenter(0, 0)
-            xim.wcs = PixelScale(1.0)
+        xim = Image(
+            _zeropad_image(
+                self._image.array, (pad_size - max(self._image.array.shape)) // 2
+            ),
+            wcs=PixelScale(1.0),
+        )
+        xim.setCenter(0, 0)
+        xim.wcs = PixelScale(1.0)
 
-            # Now place the given image in the center of the padding image:
-            # assert self._xim.bounds.includes(self._image.bounds)
-            xim[self._image.bounds] = self._image
+        # Now place the given image in the center of the padding image:
+        # assert self._xim.bounds.includes(self._image.bounds)
+        xim[self._image.bounds] = self._image
 
-            self._cached_comps["_xim"] = xim
-
-        return self._cached_comps["_xim"]
+        return xim
 
     @property
     def _pad_image(self):
@@ -663,12 +649,7 @@ class _InterpolatedImageImpl(GSObject):
 
     @property
     def _kim(self):
-        if "_kim" in self._cached_comps:
-            return self._cached_comps["_kim"]
-        else:
-            kim = self._xim.calculate_fft()
-            self._cached_comps["_kim"] = kim
-            return kim
+        return self._xim.calculate_fft()
 
     @property
     def _pos_neg_fluxes(self):
