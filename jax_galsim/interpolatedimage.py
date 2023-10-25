@@ -18,7 +18,6 @@ from jax.tree_util import register_pytree_node_class
 
 from jax_galsim import fits
 from jax_galsim.bounds import BoundsI
-from jax_galsim.core.draw import draw_by_kValue, draw_by_xValue
 from jax_galsim.core.utils import compute_major_minor_from_jacobian, ensure_hashable
 from jax_galsim.gsobject import GSObject
 from jax_galsim.gsparams import GSParams
@@ -761,59 +760,145 @@ class _InterpolatedImageImpl(GSObject):
     def _flux_per_photon(self):
         return self._calculate_flux_per_photon()
 
-    def _xValue(self, pos):
-        pos += self._offset
+    @jax.jit
+    def _xValue_arr(x, y, x_offset, y_offset, xmin, ymin, arr, x_interpolant):
         vals = _draw_with_interpolant_xval(
-            jnp.array([pos.x], dtype=float),
-            jnp.array([pos.y], dtype=float),
+            x + x_offset,
+            y + y_offset,
+            xmin,
+            ymin,
+            arr,
+            x_interpolant,
+        )
+        return vals
+
+    def _xValue(self, pos):
+        x = jnp.array([pos.x], dtype=float)
+        y = jnp.array([pos.y], dtype=float)
+        return _InterpolatedImageImpl._xValue_arr(
+            x,
+            y,
+            self._offset.x,
+            self._offset.y,
             self._pad_image.bounds.xmin,
             self._pad_image.bounds.ymin,
             self._pad_image.array,
             self._x_interpolant,
-        )
-        return vals[0]
+        )[0]
 
-    def _kValue(self, kpos):
+    @jax.jit
+    def _kValue_arr(
+        kx,
+        ky,
+        x_offset,
+        y_offset,
+        kxmin,
+        kymin,
+        arr,
+        scale,
+        x_interpolant,
+        k_interpolant,
+    ):
         # phase factor due to offset
-        # not we shift by -offset which explains the signs
-        # in pkx, pky
-        pkx = kpos.x * 1j * self._offset.x
-        pky = kpos.y * 1j * self._offset.y
-        pkx += pky
-        pfac = jnp.exp(pkx)
+        # not we shift by -offset which explains the sign
+        # in the exponent
+        pfac = jnp.exp(1j * (kx * x_offset + ky * y_offset))
 
-        _kim = self._kim
-        kx = jnp.array([kpos.x / _kim.scale], dtype=float)
-        ky = jnp.array([kpos.y / _kim.scale], dtype=float)
+        kxi = kx / scale
+        kyi = ky / scale
 
         _uscale = 1.0 / (2.0 * jnp.pi)
-        _maxk_xint = self._x_interpolant.urange() / _uscale / _kim.scale
+        _maxk_xint = x_interpolant.urange() / _uscale / scale
 
         val = _draw_with_interpolant_kval(
-            kx,
-            ky,
-            _kim.bounds.ymin,
-            _kim.bounds.ymin,
-            _kim.array,
-            self._k_interpolant,
+            kxi,
+            kyi,
+            kymin,  # this is not a bug! we need the minimum for the full periodic space
+            kymin,
+            arr,
+            k_interpolant,
         )
 
-        msk = (jnp.abs(kx) <= _maxk_xint) & (jnp.abs(ky) <= _maxk_xint)
-        xint_val = self._x_interpolant._kval_noraise(
-            kx * _kim.scale
-        ) * self._x_interpolant._kval_noraise(ky * _kim.scale)
-        return jnp.where(msk, val * xint_val * pfac, 0.0)[0]
+        msk = (jnp.abs(kxi) <= _maxk_xint) & (jnp.abs(kyi) <= _maxk_xint)
+        xint_val = x_interpolant._kval_noraise(kx) * x_interpolant._kval_noraise(ky)
+        return jnp.where(msk, val * xint_val * pfac, 0.0)
+
+    def _kValue(self, kpos):
+        kx = jnp.array([kpos.x], dtype=float)
+        ky = jnp.array([kpos.y], dtype=float)
+        return _InterpolatedImageImpl._kValue_arr(
+            kx,
+            ky,
+            self._offset.x,
+            self._offset.y,
+            self._kim.bounds.xmin,
+            self._kim.bounds.ymin,
+            self._kim.array,
+            self._kim.scale,
+            self._x_interpolant,
+            self._k_interpolant,
+        )[0]
 
     def _shoot(self, photons, rng):
         raise NotImplementedError("Photon shooting not implemented.")
 
     def _drawReal(self, image, jac=None, offset=(0.0, 0.0), flux_scaling=1.0):
-        _jac = jnp.eye(2) if jac is None else jac
-        return draw_by_xValue(self, image, _jac, jnp.asarray(offset), flux_scaling)
+        jacobian = jnp.eye(2) if jac is None else jac
+
+        flux_scaling *= image.scale**2
+
+        # Create an array of coordinates
+        coords = jnp.stack(image.get_pixel_centers(), axis=-1)
+        coords = coords * image.scale  # Scale by the image pixel scale
+        coords = coords - jnp.asarray(offset)  # Add the offset
+
+        # Apply the jacobian transformation
+        inv_jacobian = jnp.linalg.inv(jacobian)
+        _, logdet = jnp.linalg.slogdet(inv_jacobian)
+        coords = jnp.dot(coords, inv_jacobian.T)
+        flux_scaling *= jnp.exp(logdet)
+
+        im = _InterpolatedImageImpl._xValue_arr(
+            coords[..., 0],
+            coords[..., 1],
+            self._offset.x,
+            self._offset.y,
+            self._pad_image.bounds.xmin,
+            self._pad_image.bounds.ymin,
+            self._pad_image.array,
+            self._x_interpolant,
+        )
+
+        # Apply the flux scaling
+        im = (im * flux_scaling).astype(image.dtype)
+
+        # Return an image
+        return Image(array=im, bounds=image.bounds, wcs=image.wcs, check_bounds=False)
 
     def _drawKImage(self, image, jac=None):
-        _jac = jnp.eye(2) if jac is None else jac
-        return draw_by_kValue(self, image, _jac)
+        jacobian = jnp.eye(2) if jac is None else jac
+
+        # Create an array of coordinates
+        coords = jnp.stack(image.get_pixel_centers(), axis=-1)
+        coords = coords * image.scale  # Scale by the image pixel scale
+        coords = jnp.dot(coords, jacobian)
+
+        im = _InterpolatedImageImpl._kValue_arr(
+            coords[..., 0],
+            coords[..., 1],
+            self._offset.x,
+            self._offset.y,
+            self._kim.bounds.xmin,
+            self._kim.bounds.ymin,
+            self._kim.array,
+            self._kim.scale,
+            self._x_interpolant,
+            self._k_interpolant,
+        )
+        im = (im).astype(image.dtype)
+
+        # Return an image
+        return Image(array=im, bounds=image.bounds, wcs=image.wcs, check_bounds=False)
 
 
 @_wraps(_galsim._InterpolatedImage)

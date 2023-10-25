@@ -194,7 +194,7 @@ def test_interpolatedimage_utils_stepk_maxk():
         ),
     ],
 )
-@pytest.mark.parametrize("method", ["xValue", "kValue"])
+@pytest.mark.parametrize("method", ["kValue", "xValue"])
 def test_interpolatedimage_utils_comp_to_galsim(
     method, ref_array, offset_x, offset_y, wcs, use_true_center, normalization
 ):
