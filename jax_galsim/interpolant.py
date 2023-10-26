@@ -8,6 +8,7 @@ import galsim as _galsim
 import jax
 import jax.numpy as jnp
 from galsim.errors import GalSimValueError
+from galsim.utilities import lazy_property
 from jax._src.numpy.util import _wraps
 from jax.tree_util import register_pytree_node_class
 
@@ -1340,15 +1341,15 @@ class Lanczos(Interpolant):
         self._conserve_dc = conserve_dc
         self._gsparams = GSParams.check(gsparams)
 
-    @property
+    @lazy_property
     def _K_arr(self):
-        return self._K_arrs[self._n]
+        return _compute_C_K_lanczos(self._n)[1]
 
-    @property
+    @lazy_property
     def _C_arr(self):
-        return self._C_arrs[self._n]
+        return _compute_C_K_lanczos(self._n)[0]
 
-    @property
+    @lazy_property
     def _du(self):
         return (
             self._gsparams.table_spacing
@@ -1356,7 +1357,7 @@ class Lanczos(Interpolant):
             / self._n
         )
 
-    @property
+    @lazy_property
     def _umax(self):
         return _find_umax_lanczos(
             self._du,
@@ -1635,11 +1636,3 @@ def _compute_C_K_lanczos(n):
     _C = _C.at[5].set(-_K[5])
 
     return _C, _K
-
-
-Lanczos._K_arrs = {}
-Lanczos._C_arrs = {}
-for n in range(1, 31):
-    _C_arr, _K_arr = _compute_C_K_lanczos(n)
-    Lanczos._K_arrs[n] = _K_arr
-    Lanczos._C_arrs[n] = _C_arr
