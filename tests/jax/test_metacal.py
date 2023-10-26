@@ -132,13 +132,15 @@ def test_metacal_comp_to_galsim():
 
     print("Galsim time: ", gt0 * 1e3, " [ms]")
 
+    _func = jax.jit(_metacal_jax_galsim, static_argnames=("nk",))
+
     for i in range(2):
         if i == 0:
             msg = "jit warmup"
         elif i == 1:
             msg = "jit"
         jgt0 = time.time()
-        jgres = _metacal_jax_galsim(
+        jgres = _func(
             im,
             psf,
             nse_im,
