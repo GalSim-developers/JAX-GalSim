@@ -728,9 +728,7 @@ class _InterpolatedImageImpl(GSObject):
     @property
     def image(self):
         """The underlying `Image` being interpolated."""
-        if not hasattr(self, "_image_val"):
-            self._image_val = self._xim[self._image.bounds]
-        return self._image_val
+        return self._xim[self._image.bounds]
 
     @property
     def _flux(self):
@@ -738,13 +736,11 @@ class _InterpolatedImageImpl(GSObject):
 
     @property
     def _centroid(self):
-        if not hasattr(self, "_centroid_val"):
-            x, y = self._pad_image.get_pixel_centers()
-            tot = jnp.sum(self._pad_image.array)
-            xpos = jnp.sum(x * self._pad_image.array) / tot
-            ypos = jnp.sum(y * self._pad_image.array) / tot
-            self._centroid_val = PositionD(xpos, ypos)
-        return self._centroid_val
+        x, y = self._pad_image.get_pixel_centers()
+        tot = jnp.sum(self._pad_image.array)
+        xpos = jnp.sum(x * self._pad_image.array) / tot
+        ypos = jnp.sum(y * self._pad_image.array) / tot
+        return PositionD(xpos, ypos)
 
     @property
     def _positive_flux(self):
@@ -756,9 +752,7 @@ class _InterpolatedImageImpl(GSObject):
 
     @property
     def _max_sb(self):
-        if not hasattr(self, "_max_sb_val"):
-            self._max_sb_val = jnp.max(jnp.abs(self._pad_image.array))
-        return self._max_sb_val
+        return jnp.max(jnp.abs(self._pad_image.array))
 
     def _flux_per_photon(self):
         return self._calculate_flux_per_photon()

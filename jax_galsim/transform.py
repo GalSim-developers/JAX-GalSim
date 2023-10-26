@@ -273,19 +273,15 @@ class Transformation(GSObject):
         kx += ky
         return self._flux_scaling * jnp.exp(kx)
 
-    def _major_minor(self):
-        if not hasattr(self, "_major"):
-            self._major, self._minor = compute_major_minor_from_jacobian(self._jac)
-
     @property
     def _maxk(self):
-        self._major_minor()
-        return self._original.maxk / self._minor
+        _, minor = compute_major_minor_from_jacobian(self._jac)
+        return self._original.maxk / minor
 
     @property
     def _stepk(self):
-        self._major_minor()
-        stepk = self._original.stepk / self._major
+        major, _ = compute_major_minor_from_jacobian(self._jac)
+        stepk = self._original.stepk / major
         # If we have a shift, we need to further modify stepk
         #     stepk = Pi/R
         #     R <- R + |shift|
