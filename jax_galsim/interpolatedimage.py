@@ -25,7 +25,7 @@ from jax_galsim.image import Image
 from jax_galsim.interpolant import Quintic
 from jax_galsim.position import PositionD
 from jax_galsim.transform import Transformation
-from jax_galsim.utilities import convert_interpolant
+from jax_galsim.utilities import convert_interpolant, lazy_property
 from jax_galsim.wcs import BaseWCS, PixelScale
 
 # These keys are removed from the public API of
@@ -391,6 +391,7 @@ class _InterpolatedImageImpl(GSObject):
         # this class does a ton of munging of the inputs that I don't want to reconstruct when
         # flattening and unflattening the class.
         # thus I am going to make some refs here so we have it when we need it
+        self._workspace = {}
         self._jax_children = (
             image,
             dict(
@@ -609,6 +610,15 @@ class _InterpolatedImageImpl(GSObject):
         ret = cls(children[0], **val)
         return ret
 
+    def __getstate__(self):
+        d = self.__dict__.copy()
+        d.pop("_workspace")
+        return d
+
+    def __setstate__(self, d):
+        self.__dict__ = d
+        self._workspace = {}
+
     @property
     def _xim(self):
         pad_factor = self._jax_aux_data["pad_factor"]
@@ -643,7 +653,7 @@ class _InterpolatedImageImpl(GSObject):
         nz_bounds = self._image.bounds
         return xim[nz_bounds]
 
-    @property
+    @lazy_property
     def _kim(self):
         return self._xim.calculate_fft()
 

@@ -9,7 +9,7 @@ import numpy as np
 import jax_galsim
 
 
-def _metacal_galsim(im, psf, nse_im, scale, target_fwhm, g1):
+def _metacal_galsim(im, psf, nse_im, scale, target_fwhm, g1, nk):
     iim = _galsim.InterpolatedImage(
         _galsim.ImageD(im), scale=scale, x_interpolant="lanczos15"
     )
@@ -24,7 +24,11 @@ def _metacal_galsim(im, psf, nse_im, scale, target_fwhm, g1):
     ppsf_iim = ppsf_iim.shear(g1=g1, g2=0.0)
 
     sim = (
-        _galsim.Convolve(ppsf_iim, _galsim.Gaussian(fwhm=target_fwhm))
+        _galsim.Convolve(
+            ppsf_iim,
+            _galsim.Gaussian(fwhm=target_fwhm),
+            gsparams=_galsim.GSParams(minimum_fft_size=nk, maximum_fft_size=nk),
+        )
         .drawImage(
             nx=33,
             ny=33,
@@ -37,7 +41,11 @@ def _metacal_galsim(im, psf, nse_im, scale, target_fwhm, g1):
     ppsf_inse = _galsim.Convolve(inse, _galsim.Deconvolve(ipsf))
     ppsf_inse = ppsf_inse.shear(g1=g1, g2=0.0)
     snse = (
-        _galsim.Convolve(ppsf_inse, _galsim.Gaussian(fwhm=target_fwhm))
+        _galsim.Convolve(
+            ppsf_inse,
+            _galsim.Gaussian(fwhm=target_fwhm),
+            gsparams=_galsim.GSParams(minimum_fft_size=nk, maximum_fft_size=nk),
+        )
         .drawImage(
             nx=33,
             ny=33,
@@ -127,7 +135,9 @@ def test_metacal_comp_to_galsim():
     im += rng.normal(size=im.shape) * nse
 
     gt0 = time.time()
-    gres = _metacal_galsim(im.copy(), psf.copy(), nse_im.copy(), scale, target_fwhm, g1)
+    gres = _metacal_galsim(
+        im.copy(), psf.copy(), nse_im.copy(), scale, target_fwhm, g1, 128
+    )
     gt0 = time.time() - gt0
 
     print("Galsim time: ", gt0 * 1e3, " [ms]")
@@ -161,12 +171,73 @@ def test_metacal_comp_to_galsim():
     if not np.allclose(gim, jgim, rtol=0, atol=atol):
         import proplot as pplt
 
-        fig, axs = pplt.subplots(ncols=3, nrows=1, figsize=(4.5, 7.5))
+        fig, axs = pplt.subplots(ncols=3, nrows=3)
         _gim = gres
         _jgim = jgres
-        axs[0].imshow(np.arcsinh(_gim / nse))
-        axs[1].imshow(np.arcsinh(_jgim / nse))
-        axs[2].imshow(_jgim - _gim)
+
+        gpsf = (
+            _galsim.InterpolatedImage(
+                _galsim.Image(psf, scale=scale), x_interpolant="lanczos15"
+            )
+            .drawImage(
+                nx=33,
+                ny=33,
+                scale=scale,
+            )
+            .array
+        )
+        jgpsf = (
+            jax_galsim.InterpolatedImage(
+                jax_galsim.Image(psf, scale=scale), x_interpolant="lanczos15"
+            )
+            .drawImage(
+                nx=33,
+                ny=33,
+                scale=scale,
+            )
+            .array
+        )
+
+        axs[0, 0].imshow(gpsf)
+        axs[0, 1].imshow(jgpsf)
+        m = axs[0, 2].imshow((jgpsf - gpsf) / 1e-5)
+        axs[0, 2].colorbar(m, loc="r")
+
+        gpsf = (
+            _galsim.InterpolatedImage(
+                _galsim.Image(psf, scale=scale), x_interpolant="lanczos15"
+            )
+            .drawImage(
+                nx=33,
+                ny=33,
+                scale=scale,
+                method="no_pixel",
+            )
+            .array
+        )
+        jgpsf = (
+            jax_galsim.InterpolatedImage(
+                jax_galsim.Image(psf, scale=scale), x_interpolant="lanczos15"
+            )
+            .drawImage(
+                nx=33,
+                ny=33,
+                scale=scale,
+                method="no_pixel",
+            )
+            .array
+        )
+
+        axs[1, 0].imshow(gpsf)
+        axs[1, 1].imshow(jgpsf)
+        m = axs[1, 2].imshow((jgpsf - gpsf) / 1e-5)
+        axs[1, 2].colorbar(m, loc="r")
+
+        axs[2, 0].imshow(np.arcsinh(_gim / nse))
+        axs[2, 1].imshow(np.arcsinh(_jgim / nse))
+        m = axs[2, 2].imshow((_jgim - _gim) / 1e-5)
+        axs[2, 2].colorbar(m, loc="r")
+
         fig.show()
 
     np.testing.assert_allclose(gim, jgim, rtol=0, atol=atol)
@@ -224,7 +295,9 @@ def test_metacal_vmap():
 
     gt0 = time.time()
     for im, psf, nse_im in zip(ims, psfs, nse_ims):
-        _metacal_galsim(im.copy(), psf.copy(), nse_im.copy(), scale, target_fwhm, g1)
+        _metacal_galsim(
+            im.copy(), psf.copy(), nse_im.copy(), scale, target_fwhm, g1, 128
+        )
     gt0 = time.time() - gt0
     print("Galsim time: ", gt0 * 1e3, " [ms]")
 

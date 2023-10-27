@@ -140,14 +140,15 @@ def test_interpolatedimage_utils_stepk_maxk():
     np.testing.assert_allclose(gii.stepk, jgii.stepk, rtol=rtol, atol=0)
 
 
+@pytest.mark.parametrize("x_interp", ["lanczos15", "quintic"])
 @pytest.mark.parametrize("normalization", ["sb", "flux"])
 @pytest.mark.parametrize("use_true_center", [True, False])
 @pytest.mark.parametrize(
     "wcs",
     [
-        _galsim.PixelScale(2.0),
-        _galsim.JacobianWCS(2.1, 0.3, -0.4, 2.3),
-        _galsim.AffineTransform(-0.3, 2.1, 1.8, 0.1, _galsim.PositionD(0.3, -0.4)),
+        _galsim.PixelScale(0.2),
+        _galsim.JacobianWCS(0.21, 0.03, -0.04, 0.23),
+        _galsim.AffineTransform(-0.03, 0.21, 0.18, 0.01, _galsim.PositionD(0.3, -0.4)),
     ],
 )
 @pytest.mark.parametrize(
@@ -173,30 +174,20 @@ def test_interpolatedimage_utils_stepk_maxk():
 @pytest.mark.parametrize(
     "ref_array",
     [
-        np.array(
-            [
-                [0.01, 0.08, 0.07, 0.02, 0.0, 0.0],
-                [0.13, 0.38, 0.52, 0.06, 0.0, 0.05],
-                [0.09, 0.41, 0.44, 0.09, 0.0, 0.2],
-                [0.04, 0.11, 0.10, 0.01, 0.0, 0.5],
-                [0.04, 0.11, 0.10, 0.01, 0.0, 0.3],
-                [0.04, 0.11, 0.10, 0.01, 0.0, 0.1],
-            ]
-        ),
-        np.array(
-            [
-                [0.01, 0.08, 0.07, 0.02, 0.0],
-                [0.13, 0.38, 0.52, 0.06, 0.0],
-                [0.09, 0.41, 0.44, 0.09, 0.0],
-                [0.04, 0.11, 0.10, 0.01, 0.0],
-                [0.04, 0.11, 0.10, 0.01, 0.0],
-            ]
-        ),
+        _galsim.Gaussian(fwhm=0.9).drawImage(nx=33, ny=33, scale=0.2).array,
+        _galsim.Gaussian(fwhm=0.9).drawImage(nx=32, ny=32, scale=0.2).array,
     ],
 )
 @pytest.mark.parametrize("method", ["kValue", "xValue"])
 def test_interpolatedimage_utils_comp_to_galsim(
-    method, ref_array, offset_x, offset_y, wcs, use_true_center, normalization
+    method,
+    ref_array,
+    offset_x,
+    offset_y,
+    wcs,
+    use_true_center,
+    normalization,
+    x_interp,
 ):
     gimage_in = _galsim.Image(ref_array, scale=1)
     jgimage_in = jax_galsim.Image(ref_array, scale=1)
@@ -207,6 +198,7 @@ def test_interpolatedimage_utils_comp_to_galsim(
         offset=_galsim.PositionD(offset_x, offset_y),
         use_true_center=use_true_center,
         normalization=normalization,
+        x_interpolant=x_interp,
     )
     jgii = jax_galsim.InterpolatedImage(
         jgimage_in,
@@ -214,7 +206,10 @@ def test_interpolatedimage_utils_comp_to_galsim(
         offset=jax_galsim.PositionD(offset_x, offset_y),
         use_true_center=use_true_center,
         normalization=normalization,
+        x_interpolant=x_interp,
     )
+
+    rng = np.random.RandomState(seed=42)
 
     np.testing.assert_allclose(gii.stepk, jgii.stepk, rtol=0.5, atol=0)
     np.testing.assert_allclose(gii.maxk, jgii.maxk, rtol=0.5, atol=0)
@@ -234,14 +229,16 @@ def test_interpolatedimage_utils_comp_to_galsim(
     ]
     for x, y in kxvals:
         if method == "kValue":
-            dk = jgii._original._kim.scale
+            dk = jgii._original._kim.scale * rng.uniform(low=0.5, high=1.5)
             np.testing.assert_allclose(
                 gii.kValue(x * dk, y * dk),
                 jgii.kValue(x * dk, y * dk),
                 err_msg=f"kValue mismatch: wcs={wcs}, x={x}, y={y}",
             )
         else:
-            dx = jnp.sqrt(jgii._original._wcs.pixelArea())
+            dx = jnp.sqrt(jgii._original._wcs.pixelArea()) * rng.uniform(
+                low=0.5, high=1.5
+            )
             np.testing.assert_allclose(
                 gii.xValue(x * dx, y * dx),
                 jgii.xValue(x * dx, y * dx),

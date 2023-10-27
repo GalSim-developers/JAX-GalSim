@@ -8,13 +8,13 @@ import galsim as _galsim
 import jax
 import jax.numpy as jnp
 from galsim.errors import GalSimValueError
-from galsim.utilities import lazy_property
 from jax._src.numpy.util import _wraps
 from jax.tree_util import register_pytree_node_class
 
 from jax_galsim.bessel import si
 from jax_galsim.core.utils import is_equal_with_arrays
 from jax_galsim.gsparams import GSParams
+from jax_galsim.utilities import lazy_property
 
 
 @_wraps(_galsim.interpolant.Interpolant)
@@ -1340,6 +1340,7 @@ class Lanczos(Interpolant):
         self._n = n
         self._conserve_dc = conserve_dc
         self._gsparams = GSParams.check(gsparams)
+        self._workspace = {}
 
     @lazy_property
     def _K_arr(self):
@@ -1384,7 +1385,8 @@ class Lanczos(Interpolant):
     def tree_unflatten(cls, aux_data, children):
         """Recreates an instance of the class from flattened representation"""
         n = aux_data.pop("n")
-        return cls(n, **aux_data)
+        ret = cls(n, **aux_data)
+        return ret
 
     def __repr__(self):
         return "galsim.Lanczos(%r, %r, gsparams=%r)" % (
@@ -1395,6 +1397,15 @@ class Lanczos(Interpolant):
 
     def __str__(self):
         return "galsim.Lanczos(%s)" % (self._n)
+
+    def __getstate__(self):
+        d = self.__dict__.copy()
+        d.pop("_workspace")
+        return d
+
+    def __setstate__(self, d):
+        self.__dict__ = d
+        self._workspace = {}
 
     # this is a pure function and we apply JIT ahead of time since this
     # one is pretty slow
