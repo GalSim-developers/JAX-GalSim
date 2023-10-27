@@ -490,99 +490,6 @@ class _InterpolatedImageImpl(GSObject):
                     image=self._jax_children[0],
                 )
 
-    @property
-    def _flux_ratio(self):
-        if self._jax_children[1]["flux"] is None:
-            flux = self._image_flux
-            if self._jax_aux_data["normalization"].lower() in (
-                "surface brightness",
-                "sb",
-            ):
-                flux *= self._wcs.pixelArea()
-        else:
-            flux = self._jax_children[1]["flux"]
-
-        # If the user specified a flux, then set the flux ratio for the transform that wraps
-        # this class
-        return flux / self._image_flux
-
-    @property
-    def _image_flux(self):
-        return jnp.sum(self._image.array, dtype=float)
-
-    @property
-    def _offset(self):
-        # Figure out the offset to apply based on the original image (not the padded one).
-        # We will apply this below in _sbp.
-        offset = self._parse_offset(self._jax_children[1]["offset"])
-        return self._adjust_offset(
-            self._image.bounds, offset, None, self._jax_aux_data["use_true_center"]
-        )
-
-    @property
-    def _image(self):
-        # Store the image as an attribute and make sure we don't change the original image
-        # in anything we do here.  (e.g. set scale, etc.)
-        if self._jax_aux_data["depixelize"]:
-            # FIXME: no depixelize in jax_galsim
-            # self._image = image.view(dtype=np.float64).depixelize(self._x_interpolant)
-            raise NotImplementedError(
-                "InterpolatedImages do not support 'depixelize' in jax_galsim."
-            )
-        else:
-            image = self._jax_children[0].view(dtype=float)
-
-        if self._jax_aux_data["_recenter_image"]:
-            image.setCenter(0, 0)
-
-        return image
-
-    @property
-    def _wcs(self):
-        im_cen = (
-            self._jax_children[0].true_center
-            if self._jax_aux_data["use_true_center"]
-            else self._jax_children[0].center
-        )
-
-        # error checking was done on init
-        if self._jax_children[1]["scale"] is not None:
-            wcs = PixelScale(self._jax_children[1]["scale"])
-        elif self._jax_children[1]["wcs"] is not None:
-            wcs = self._jax_children[1]["wcs"]
-        else:
-            wcs = self._jax_children[0].wcs
-
-        return wcs.local(image_pos=im_cen)
-
-    @property
-    def _jac_arr(self):
-        image = self._jax_children[0]
-        im_cen = (
-            image.true_center if self._jax_aux_data["use_true_center"] else image.center
-        )
-        return self._wcs.jacobian(image_pos=im_cen).getMatrix().ravel()
-
-    @property
-    def _maxk(self):
-        if self._jax_aux_data["_force_maxk"]:
-            major, minor = compute_major_minor_from_jacobian(
-                self._jac_arr.reshape((2, 2))
-            )
-            return self._jax_aux_data["_force_maxk"] * minor
-        else:
-            return self._getMaxK(self._jax_aux_data["calculate_maxk"])
-
-    @property
-    def _stepk(self):
-        if self._jax_aux_data["_force_stepk"]:
-            major, minor = compute_major_minor_from_jacobian(
-                self._jac_arr.reshape((2, 2))
-            )
-            return self._jax_aux_data["_force_stepk"] * minor
-        else:
-            return self._getStepK(self._jax_aux_data["calculate_stepk"])
-
     @doc_inherit
     def withGSParams(self, gsparams=None, **kwargs):
         if gsparams == self.gsparams:
@@ -620,6 +527,110 @@ class _InterpolatedImageImpl(GSObject):
         self._workspace = {}
 
     @property
+    def x_interpolant(self):
+        """The real-space `Interpolant` for this profile."""
+        return self._x_interpolant
+
+    @property
+    def k_interpolant(self):
+        """The Fourier-space `Interpolant` for this profile."""
+        return self._k_interpolant
+
+    @lazy_property
+    def image(self):
+        """The underlying `Image` being interpolated."""
+        return self._xim[self._image.bounds]
+
+    @property
+    def _flux(self):
+        return self._image_flux
+
+    @lazy_property
+    def _centroid(self):
+        x, y = self._pad_image.get_pixel_centers()
+        tot = jnp.sum(self._pad_image.array)
+        xpos = jnp.sum(x * self._pad_image.array) / tot
+        ypos = jnp.sum(y * self._pad_image.array) / tot
+        return PositionD(xpos, ypos)
+
+    @lazy_property
+    def _max_sb(self):
+        return jnp.max(jnp.abs(self._pad_image.array))
+
+    @lazy_property
+    def _flux_ratio(self):
+        if self._jax_children[1]["flux"] is None:
+            flux = self._image_flux
+            if self._jax_aux_data["normalization"].lower() in (
+                "surface brightness",
+                "sb",
+            ):
+                flux *= self._wcs.pixelArea()
+        else:
+            flux = self._jax_children[1]["flux"]
+
+        # If the user specified a flux, then set the flux ratio for the transform that wraps
+        # this class
+        return flux / self._image_flux
+
+    @lazy_property
+    def _image_flux(self):
+        return jnp.sum(self._image.array, dtype=float)
+
+    @lazy_property
+    def _offset(self):
+        # Figure out the offset to apply based on the original image (not the padded one).
+        # We will apply this below in _sbp.
+        offset = self._parse_offset(self._jax_children[1]["offset"])
+        return self._adjust_offset(
+            self._image.bounds, offset, None, self._jax_aux_data["use_true_center"]
+        )
+
+    @lazy_property
+    def _image(self):
+        # Store the image as an attribute and make sure we don't change the original image
+        # in anything we do here.  (e.g. set scale, etc.)
+        if self._jax_aux_data["depixelize"]:
+            # FIXME: no depixelize in jax_galsim
+            # self._image = image.view(dtype=np.float64).depixelize(self._x_interpolant)
+            raise NotImplementedError(
+                "InterpolatedImages do not support 'depixelize' in jax_galsim."
+            )
+        else:
+            image = self._jax_children[0].view(dtype=float)
+
+        if self._jax_aux_data["_recenter_image"]:
+            image.setCenter(0, 0)
+
+        return image
+
+    @lazy_property
+    def _wcs(self):
+        im_cen = (
+            self._jax_children[0].true_center
+            if self._jax_aux_data["use_true_center"]
+            else self._jax_children[0].center
+        )
+
+        # error checking was done on init
+        if self._jax_children[1]["scale"] is not None:
+            wcs = PixelScale(self._jax_children[1]["scale"])
+        elif self._jax_children[1]["wcs"] is not None:
+            wcs = self._jax_children[1]["wcs"]
+        else:
+            wcs = self._jax_children[0].wcs
+
+        return wcs.local(image_pos=im_cen)
+
+    @lazy_property
+    def _jac_arr(self):
+        image = self._jax_children[0]
+        im_cen = (
+            image.true_center if self._jax_aux_data["use_true_center"] else image.center
+        )
+        return self._wcs.jacobian(image_pos=im_cen).getMatrix().ravel()
+
+    @lazy_property
     def _xim(self):
         pad_factor = self._jax_aux_data["pad_factor"]
 
@@ -645,7 +656,7 @@ class _InterpolatedImageImpl(GSObject):
 
         return xim
 
-    @property
+    @lazy_property
     def _pad_image(self):
         # These next two allow for easy pickling/repring.  We don't need to serialize all the
         # zeros around the edge.  But we do need to keep any non-zero padding as a pad_image.
@@ -657,7 +668,7 @@ class _InterpolatedImageImpl(GSObject):
     def _kim(self):
         return self._xim.calculate_fft()
 
-    @property
+    @lazy_property
     def _pos_neg_fluxes(self):
         # record pos and neg fluxes now too
         pflux = jnp.sum(jnp.where(self._pad_image.array > 0, self._pad_image.array, 0))
@@ -672,6 +683,37 @@ class _InterpolatedImageImpl(GSObject):
             pint2d * pflux + nint2d * nflux,
             pint2d * nflux + nint2d * pflux,
         ]
+
+    @property
+    def _positive_flux(self):
+        return self._pos_neg_fluxes[0]
+
+    @property
+    def _negative_flux(self):
+        return self._pos_neg_fluxes[1]
+
+    def _flux_per_photon(self):
+        return self._calculate_flux_per_photon()
+
+    @lazy_property
+    def _maxk(self):
+        if self._jax_aux_data["_force_maxk"]:
+            major, minor = compute_major_minor_from_jacobian(
+                self._jac_arr.reshape((2, 2))
+            )
+            return self._jax_aux_data["_force_maxk"] * minor
+        else:
+            return self._getMaxK(self._jax_aux_data["calculate_maxk"])
+
+    @lazy_property
+    def _stepk(self):
+        if self._jax_aux_data["_force_stepk"]:
+            major, minor = compute_major_minor_from_jacobian(
+                self._jac_arr.reshape((2, 2))
+            )
+            return self._jax_aux_data["_force_stepk"] * minor
+        else:
+            return self._getStepK(self._jax_aux_data["calculate_stepk"])
 
     def _getStepK(self, calculate_stepk):
         # GalSim cannot automatically know what stepK and maxK are appropriate for the
@@ -724,48 +766,6 @@ class _InterpolatedImageImpl(GSObject):
             return maxk
         else:
             return self._x_interpolant.krange
-
-    @property
-    def x_interpolant(self):
-        """The real-space `Interpolant` for this profile."""
-        return self._x_interpolant
-
-    @property
-    def k_interpolant(self):
-        """The Fourier-space `Interpolant` for this profile."""
-        return self._k_interpolant
-
-    @property
-    def image(self):
-        """The underlying `Image` being interpolated."""
-        return self._xim[self._image.bounds]
-
-    @property
-    def _flux(self):
-        return self._image_flux
-
-    @property
-    def _centroid(self):
-        x, y = self._pad_image.get_pixel_centers()
-        tot = jnp.sum(self._pad_image.array)
-        xpos = jnp.sum(x * self._pad_image.array) / tot
-        ypos = jnp.sum(y * self._pad_image.array) / tot
-        return PositionD(xpos, ypos)
-
-    @property
-    def _positive_flux(self):
-        return self._pos_neg_fluxes[0]
-
-    @property
-    def _negative_flux(self):
-        return self._pos_neg_fluxes[1]
-
-    @property
-    def _max_sb(self):
-        return jnp.max(jnp.abs(self._pad_image.array))
-
-    def _flux_per_photon(self):
-        return self._calculate_flux_per_photon()
 
     @jax.jit
     def _xValue_arr(x, y, x_offset, y_offset, xmin, ymin, arr, x_interpolant):

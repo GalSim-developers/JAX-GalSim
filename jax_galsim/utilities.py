@@ -23,6 +23,8 @@ def lazy_property(func):
     @property
     @functools.wraps(func)
     def _func(self):
+        if not hasattr(self, "_workspace"):
+            self._workspace = {}
         if attname not in self._workspace:
             self._workspace[attname] = func(self)
         return self._workspace[attname]

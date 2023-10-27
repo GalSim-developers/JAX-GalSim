@@ -97,6 +97,145 @@ def _metacal_jax_galsim(im, psf, nse_im, scale, target_fwhm, g1, nk):
     return sim + jnp.rot90(snse, 3)
 
 
+def test_metacal_jit_timing():
+    seed = 42
+    hlr = 0.5
+    fwhm = 0.9
+    scale = 0.2
+    nse = 1e-3
+    g1 = 0.01
+    target_fwhm = 1.0
+
+    rng = np.random.RandomState(seed)
+
+    im = (
+        _galsim.Convolve(
+            _galsim.Exponential(half_light_radius=hlr),
+            _galsim.Gaussian(fwhm=fwhm),
+        )
+        .drawImage(
+            nx=33,
+            ny=33,
+            scale=scale,
+        )
+        .array.astype(np.float64)
+    )
+
+    psf = (
+        _galsim.Gaussian(fwhm=fwhm)
+        .drawImage(
+            nx=33,
+            ny=33,
+            scale=scale,
+        )
+        .array.astype(np.float64)
+    )
+
+    # nse_im = rng.normal(size=im.shape) * nse
+    im += rng.normal(size=im.shape) * nse
+
+    def _f1(im, psf, g1, target_fwhm, scale, nk):
+        iim = jax_galsim.InterpolatedImage(
+            jax_galsim.ImageD(im),
+            scale=scale,
+            x_interpolant="lanczos15",
+            gsparams=jax_galsim.GSParams(minimum_fft_size=nk, maximum_fft_size=nk),
+        )
+        return iim.drawImage(
+            nx=33,
+            ny=33,
+            scale=scale,
+        ).array
+
+    def _f2(im, psf, g1, target_fwhm, scale, nk):
+        iim = jax_galsim.InterpolatedImage(
+            jax_galsim.ImageD(im),
+            scale=scale,
+            x_interpolant="lanczos15",
+            gsparams=jax_galsim.GSParams(minimum_fft_size=nk, maximum_fft_size=nk),
+        )
+        return (
+            iim.drawImage(
+                nx=33,
+                ny=33,
+                scale=scale,
+            ).array,
+            iim.drawImage(
+                nx=33,
+                ny=33,
+                scale=scale * 1.1,
+            ).array,
+        )
+
+    def _f3(im, psf, g1, target_fwhm, scale, nk):
+        iim = jax_galsim.InterpolatedImage(
+            jax_galsim.ImageD(im),
+            scale=scale,
+            x_interpolant="lanczos15",
+            gsparams=jax_galsim.GSParams(minimum_fft_size=nk, maximum_fft_size=nk),
+        )
+        ipsf = jax_galsim.InterpolatedImage(
+            jax_galsim.ImageD(psf), scale=scale, x_interpolant="lanczos15"
+        )
+        prepsf_im = jax_galsim.Convolve(iim, jax_galsim.Deconvolve(ipsf))
+        prepsf_im = prepsf_im.shear(g1=g1, g2=0.0)
+
+        return prepsf_im
+
+    def _f4(im, psf, g1, target_fwhm, scale, nk):
+        iim = jax_galsim.InterpolatedImage(
+            jax_galsim.ImageD(im),
+            scale=scale,
+            x_interpolant="lanczos15",
+            gsparams=jax_galsim.GSParams(minimum_fft_size=nk, maximum_fft_size=nk),
+        )
+        ipsf = jax_galsim.InterpolatedImage(
+            jax_galsim.ImageD(psf), scale=scale, x_interpolant="lanczos15"
+        )
+        prepsf_im = jax_galsim.Convolve(iim, jax_galsim.Deconvolve(ipsf))
+        prepsf_im = prepsf_im.shear(g1=g1, g2=0.0)
+        target_psf = jax_galsim.Gaussian(fwhm=target_fwhm)
+
+        return (
+            jax_galsim.Convolve(
+                prepsf_im,
+                target_psf,
+                gsparams=jax_galsim.GSParams(minimum_fft_size=nk, maximum_fft_size=nk),
+            )
+            .drawImage(
+                nx=33,
+                ny=33,
+                scale=scale,
+                method="no_pixel",
+            )
+            .array.astype(np.float64)
+        )
+
+    for k, func in enumerate([_f4, _f2, _f1, _f2, _f3, _f4, _f2, _f4]):
+        print("Timing: ", func.__name__)
+        for i in range(3):
+            if i == 0:
+                msg = "no jit"
+                _func = func
+            elif i == 1:
+                msg = "jit warmup"
+                _func = jax.jit(func, static_argnames=["nk"])
+            elif i == 2:
+                msg = "jit"
+            jgt0 = time.time()
+            jgres = _func(im, psf, g1, target_fwhm, scale, 128)
+            jgres = jax.block_until_ready(jgres)
+            jgt0 = time.time() - jgt0
+            print("Jax-Galsim time (%s): " % msg, jgt0 * 1e3, " [ms]")
+            if k == 0 and i == 0:
+                first_time = jgt0
+            if k == 0 and i == 2:
+                jit_time = jgt0
+
+    assert first_time > jgt0
+    np.testing.assert_allclose(jit_time, jgt0, rtol=0.2)
+
+
 def test_metacal_comp_to_galsim():
     seed = 42
     hlr = 0.5
