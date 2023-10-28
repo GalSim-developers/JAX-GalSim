@@ -767,22 +767,10 @@ class _InterpolatedImageImpl(GSObject):
         else:
             return self._x_interpolant.krange
 
-    @jax.jit
-    def _xValue_arr(x, y, x_offset, y_offset, xmin, ymin, arr, x_interpolant):
-        vals = _draw_with_interpolant_xval(
-            x + x_offset,
-            y + y_offset,
-            xmin,
-            ymin,
-            arr,
-            x_interpolant,
-        )
-        return vals
-
     def _xValue(self, pos):
         x = jnp.array([pos.x], dtype=float)
         y = jnp.array([pos.y], dtype=float)
-        return _InterpolatedImageImpl._xValue_arr(
+        return _xValue_arr(
             x,
             y,
             self._offset.x,
@@ -793,47 +781,10 @@ class _InterpolatedImageImpl(GSObject):
             self._x_interpolant,
         )[0]
 
-    @jax.jit
-    def _kValue_arr(
-        kx,
-        ky,
-        x_offset,
-        y_offset,
-        kxmin,
-        kymin,
-        arr,
-        scale,
-        x_interpolant,
-        k_interpolant,
-    ):
-        # phase factor due to offset
-        # not we shift by -offset which explains the sign
-        # in the exponent
-        pfac = jnp.exp(1j * (kx * x_offset + ky * y_offset))
-
-        kxi = kx / scale
-        kyi = ky / scale
-
-        _uscale = 1.0 / (2.0 * jnp.pi)
-        _maxk_xint = x_interpolant.urange() / _uscale / scale
-
-        val = _draw_with_interpolant_kval(
-            kxi,
-            kyi,
-            kymin,  # this is not a bug! we need the minimum for the full periodic space
-            kymin,
-            arr,
-            k_interpolant,
-        )
-
-        msk = (jnp.abs(kxi) <= _maxk_xint) & (jnp.abs(kyi) <= _maxk_xint)
-        xint_val = x_interpolant._kval_noraise(kx) * x_interpolant._kval_noraise(ky)
-        return jnp.where(msk, val * xint_val * pfac, 0.0)
-
     def _kValue(self, kpos):
         kx = jnp.array([kpos.x], dtype=float)
         ky = jnp.array([kpos.y], dtype=float)
-        return _InterpolatedImageImpl._kValue_arr(
+        return _kValue_arr(
             kx,
             ky,
             self._offset.x,
@@ -865,7 +816,7 @@ class _InterpolatedImageImpl(GSObject):
         coords = jnp.dot(coords, inv_jacobian.T)
         flux_scaling *= jnp.exp(logdet)
 
-        im = _InterpolatedImageImpl._xValue_arr(
+        im = _xValue_arr(
             coords[..., 0],
             coords[..., 1],
             self._offset.x,
@@ -890,7 +841,7 @@ class _InterpolatedImageImpl(GSObject):
         coords = coords * image.scale  # Scale by the image pixel scale
         coords = jnp.dot(coords, jacobian)
 
-        im = _InterpolatedImageImpl._kValue_arr(
+        im = _kValue_arr(
             coords[..., 0],
             coords[..., 1],
             self._offset.x,
@@ -936,7 +887,19 @@ def _InterpolatedImage(
     )
 
 
-@partial(jax.jit, static_argnums=(5,))
+def _xValue_arr(x, y, x_offset, y_offset, xmin, ymin, arr, x_interpolant):
+    vals = _draw_with_interpolant_xval(
+        x + x_offset,
+        y + y_offset,
+        xmin,
+        ymin,
+        arr,
+        x_interpolant,
+    )
+    return vals
+
+
+@partial(jax.jit, static_argnames=("interp",))
 def _draw_with_interpolant_xval(x, y, xmin, ymin, zp, interp):
     orig_shape = x.shape
     x = x.ravel()
@@ -983,7 +946,44 @@ def _draw_with_interpolant_xval(x, y, xmin, ymin, zp, interp):
     return z.reshape(orig_shape)
 
 
-@partial(jax.jit, static_argnums=(5,))
+def _kValue_arr(
+    kx,
+    ky,
+    x_offset,
+    y_offset,
+    kxmin,
+    kymin,
+    arr,
+    scale,
+    x_interpolant,
+    k_interpolant,
+):
+    # phase factor due to offset
+    # not we shift by -offset which explains the sign
+    # in the exponent
+    pfac = jnp.exp(1j * (kx * x_offset + ky * y_offset))
+
+    kxi = kx / scale
+    kyi = ky / scale
+
+    _uscale = 1.0 / (2.0 * jnp.pi)
+    _maxk_xint = x_interpolant.urange() / _uscale / scale
+
+    val = _draw_with_interpolant_kval(
+        kxi,
+        kyi,
+        kymin,  # this is not a bug! we need the minimum for the full periodic space
+        kymin,
+        arr,
+        k_interpolant,
+    )
+
+    msk = (jnp.abs(kxi) <= _maxk_xint) & (jnp.abs(kyi) <= _maxk_xint)
+    xint_val = x_interpolant._kval_noraise(kx) * x_interpolant._kval_noraise(ky)
+    return jnp.where(msk, val * xint_val * pfac, 0.0)
+
+
+@partial(jax.jit, static_argnames=("interp",))
 def _draw_with_interpolant_kval(kx, ky, kxmin, kymin, zp, interp):
     orig_shape = kx.shape
     kx = kx.ravel()

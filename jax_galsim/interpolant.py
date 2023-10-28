@@ -14,7 +14,6 @@ from jax.tree_util import register_pytree_node_class
 from jax_galsim.bessel import si
 from jax_galsim.core.utils import is_equal_with_arrays
 from jax_galsim.gsparams import GSParams
-from jax_galsim.utilities import lazy_property
 
 
 @_wraps(_galsim.interpolant.Interpolant)
@@ -1340,17 +1339,16 @@ class Lanczos(Interpolant):
         self._n = n
         self._conserve_dc = conserve_dc
         self._gsparams = GSParams.check(gsparams)
-        self._workspace = {}
 
-    @lazy_property
-    def _K_arr(self):
-        return _compute_C_K_lanczos(self._n)[1]
-
-    @lazy_property
+    @property
     def _C_arr(self):
-        return _compute_C_K_lanczos(self._n)[0]
+        return self._C_arr_vals[self._n]
 
-    @lazy_property
+    @property
+    def _K_arr(self):
+        return self._K_arr_vals[self._n]
+
+    @property
     def _du(self):
         return (
             self._gsparams.table_spacing
@@ -1358,7 +1356,7 @@ class Lanczos(Interpolant):
             / self._n
         )
 
-    @lazy_property
+    @property
     def _umax(self):
         return _find_umax_lanczos(
             self._du,
@@ -1397,15 +1395,6 @@ class Lanczos(Interpolant):
 
     def __str__(self):
         return "galsim.Lanczos(%s)" % (self._n)
-
-    def __getstate__(self):
-        d = self.__dict__.copy()
-        d.pop("_workspace")
-        return d
-
-    def __setstate__(self, d):
-        self.__dict__ = d
-        self._workspace = {}
 
     # this is a pure function and we apply JIT ahead of time since this
     # one is pretty slow
@@ -1647,3 +1636,10 @@ def _compute_C_K_lanczos(n):
     _C = _C.at[5].set(-_K[5])
 
     return _C, _K
+
+
+Lanczos._C_arr_vals = {}
+Lanczos._K_arr_vals = {}
+for n in range(1, 31):
+    Lanczos._C_arr_vals[n] = _compute_C_K_lanczos(n)[0]
+    Lanczos._K_arr_vals[n] = _compute_C_K_lanczos(n)[1]
