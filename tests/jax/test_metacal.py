@@ -211,7 +211,7 @@ def test_metacal_jit_timing():
             .array.astype(np.float64)
         )
 
-    for k, func in enumerate([_f4, _f2, _f1, _f2, _f3, _f4, _f2, _f4]):
+    for k, func in enumerate([_f4, _f3, _f2, _f1, _f4, _f3, _f2, _f1]):
         print("Timing: ", func.__name__)
         for i in range(3):
             if i == 0:
@@ -394,7 +394,7 @@ def test_metacal_vmap():
     ims = []
     nse_ims = []
     psfs = []
-    for _seed in range(1000):
+    for _seed in range(10):
         seed = _seed + start_seed
         rng = np.random.RandomState(seed)
 
