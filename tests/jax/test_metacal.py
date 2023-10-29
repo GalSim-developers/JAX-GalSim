@@ -97,8 +97,6 @@ def _metacal_jax_galsim(im, psf, nse_im, scale, target_fwhm, g1, nk):
     return sim + jnp.rot90(snse, 3)
 
 
-
-
 def test_metacal_comp_to_galsim():
     seed = 42
     hlr = 0.5
