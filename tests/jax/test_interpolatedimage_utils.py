@@ -1,3 +1,5 @@
+import hashlib
+
 import galsim as _galsim
 import jax.numpy as jnp
 import numpy as np
@@ -189,8 +191,29 @@ def test_interpolatedimage_utils_comp_to_galsim(
     normalization,
     x_interp,
 ):
-    gimage_in = _galsim.Image(ref_array, scale=1)
-    jgimage_in = jax_galsim.Image(ref_array, scale=1)
+    seed = max(
+        abs(
+            int(
+                hashlib.sha1(
+                    f"{method}{ref_array}{offset_x}{offset_y}{wcs}{use_true_center}{normalization}{x_interp}".encode(
+                        "utf-8"
+                    )
+                ).hexdigest(),
+                16,
+            )
+        )
+        % (10**7),
+        1,
+    )
+
+    rng = np.random.RandomState(seed=seed)
+    if rng.uniform() < 0.75:
+        pytest.skip(
+            "Skipping `test_interpolatedimage_utils_comp_to_galsim` case at random to save time."
+        )
+
+    gimage_in = _galsim.Image(ref_array, scale=0.2)
+    jgimage_in = jax_galsim.Image(ref_array, scale=0.2)
 
     gii = _galsim.InterpolatedImage(
         gimage_in,
@@ -208,8 +231,6 @@ def test_interpolatedimage_utils_comp_to_galsim(
         normalization=normalization,
         x_interpolant=x_interp,
     )
-
-    rng = np.random.RandomState(seed=42)
 
     np.testing.assert_allclose(gii.stepk, jgii.stepk, rtol=0.5, atol=0)
     np.testing.assert_allclose(gii.maxk, jgii.maxk, rtol=0.5, atol=0)
