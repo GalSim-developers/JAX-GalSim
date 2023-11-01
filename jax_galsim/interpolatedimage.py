@@ -1086,7 +1086,7 @@ def _calculate_size_containing_flux(image, thresh):
 
 @jax.jit
 def _inner_comp_find_maxk(arr, thresh, kx, ky):
-    msk = arr * arr.conjugate() > thresh * thresh
+    msk = (arr * arr.conjugate()).real > thresh * thresh
     max_kx = jnp.max(
         jnp.where(
             msk,
@@ -1109,4 +1109,7 @@ def _find_maxk(kim, max_maxk, thresh):
     kx, ky = kim.get_pixel_centers()
     kx *= kim.scale
     ky *= kim.scale
-    return _inner_comp_find_maxk(kim.array, thresh, kx, ky)
+    return jnp.minimum(
+        _inner_comp_find_maxk(kim.array, thresh, kx, ky),
+        max_maxk,
+    )

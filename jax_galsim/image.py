@@ -631,9 +631,9 @@ class Image(object):
         Equivalent to ``image.wrap(bounds, hermitian=='x', hermitian=='y')``.
         """
         if not hermx and not hermy:
-            from jax_galsim.core.wrap_image import wrap_nonhermition
+            from jax_galsim.core.wrap_image import wrap_nonhermitian
 
-            self._array = wrap_nonhermition(
+            self._array = wrap_nonhermitian(
                 self._array,
                 # zero indexed location of subimage
                 bounds.xmin - self.xmin,
@@ -641,6 +641,30 @@ class Image(object):
                 # we include pixels on the edges so +1 here
                 bounds.xmax - bounds.xmin + 1,
                 bounds.ymax - bounds.ymin + 1,
+            )
+        elif hermx and not hermy:
+            from jax_galsim.core.wrap_image import wrap_hermitian_x
+
+            self._array = wrap_hermitian_x(
+                self._array,
+                -self.xmax,
+                self.ymin,
+                -bounds.xmax + 1,
+                bounds.ymin,
+                2 * bounds.xmax,
+                bounds.ymax - bounds.ymin + 1,
+            )
+        elif not hermx and hermy:
+            from jax_galsim.core.wrap_image import wrap_hermitian_y
+
+            self._array = wrap_hermitian_y(
+                self._array,
+                self.xmin,
+                -self.ymax,
+                bounds.xmin,
+                -bounds.ymax + 1,
+                bounds.xmax - bounds.xmin + 1,
+                2 * bounds.ymax,
             )
 
         # FIXME: Wrapping not yet implemented for hermitian images
