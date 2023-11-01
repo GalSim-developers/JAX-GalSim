@@ -667,7 +667,6 @@ class Image(object):
                 2 * bounds.ymax,
             )
 
-        # FIXME: Wrapping not yet implemented for hermitian images
         return self.subImage(bounds)
 
     @_wraps(_galsim.Image.calculate_fft)
