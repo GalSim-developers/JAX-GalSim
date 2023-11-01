@@ -17,8 +17,6 @@ def test_image_wrapping_expand_contract():
     # Hermitian, so we only need to keep around half of it.
     M = 38
     N = 25
-    K = 8
-    L = 5
     im = galsim.ImageCD(2 * M + 1, 2 * N + 1, xmin=-M, ymin=-N)  # Explicitly Hermitian
     im2 = galsim.ImageCD(
         2 * M + 1, N + 1, xmin=-M, ymin=0
@@ -29,8 +27,6 @@ def test_image_wrapping_expand_contract():
     # print('im = ',im)
     # print('im2 = ',im2)
     # print('im3 = ',im3)
-    b = galsim.BoundsI(-K + 1, K, -L + 1, L)
-    im_test = galsim.ImageCD(b, init_value=0)
     for i in range(-M, M + 1):
         for j in range(-N, N + 1):
             # An arbitrary, complicated Hermitian function.
@@ -46,9 +42,6 @@ def test_image_wrapping_expand_contract():
             if i >= 0:
                 im3[i, j] = val
 
-            ii = (i - b.xmin) % (b.xmax - b.xmin + 1) + b.xmin
-            jj = (j - b.ymin) % (b.ymax - b.ymin + 1) + b.ymin
-            im_test.addValue(ii, jj, val)
     # print("im = ",im.array)
 
     # Confirm that the image is Hermitian.
@@ -137,9 +130,9 @@ def test_image_wrapping_autodiff():
 
     # make sure this runs
     p, grad = jax.vjp(_wrapit, im3)
-
     grad = jax.jit(grad)
     grad(p)
+    jax.jvp(_wrapit, (im3,), (im3 * 2,))
 
     def _wrapit(im):
         b3 = galsim.BoundsI(0, K, -L + 1, L)
@@ -148,3 +141,4 @@ def test_image_wrapping_autodiff():
     # make sure this runs
     p, grad = jax.vjp(_wrapit, im3)
     grad(p)
+    jax.jvp(_wrapit, (im3,), (im3 * 2,))
