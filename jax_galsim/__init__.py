@@ -44,16 +44,14 @@ from .exponential import Exponential
 from .gaussian import Gaussian
 from .box import Box, Pixel
 from .gsobject import GSObject
-
-# Interpolation
 from .moffat import Moffat
-
 from .sum import Add, Sum
 from .transform import Transform, Transformation
 from .convolve import Convolve, Convolution, Deconvolution, Deconvolve
 
 # WCS
 from .wcs import (
+    BaseWCS,
     AffineTransform,
     JacobianWCS,
     OffsetWCS,
@@ -78,7 +76,11 @@ from .interpolant import (
     Quintic,
     Lanczos,
 )
+from .interpolatedimage import InterpolatedImage, _InterpolatedImage
 
 # packages kept separate
 from . import bessel
 from . import fits
+
+# this one is specific to jax_galsim
+from . import core

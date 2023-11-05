@@ -642,9 +642,9 @@ class Image(object):
         Equivalent to ``image.wrap(bounds, hermitian=='x', hermitian=='y')``.
         """
         if not hermx and not hermy:
-            from jax_galsim.core.wrap_image import wrap_nonhermition
+            from jax_galsim.core.wrap_image import wrap_nonhermitian
 
-            self._array = wrap_nonhermition(
+            self._array = wrap_nonhermitian(
                 self._array,
                 # zero indexed location of subimage
                 bounds.xmin - self.xmin,
@@ -653,8 +653,31 @@ class Image(object):
                 bounds.xmax - bounds.xmin + 1,
                 bounds.ymax - bounds.ymin + 1,
             )
+        elif hermx and not hermy:
+            from jax_galsim.core.wrap_image import wrap_hermitian_x
 
-        # FIXME: Wrapping not yet implemented for hermitian images
+            self._array = wrap_hermitian_x(
+                self._array,
+                -self.xmax,
+                self.ymin,
+                -bounds.xmax + 1,
+                bounds.ymin,
+                2 * bounds.xmax,
+                bounds.ymax - bounds.ymin + 1,
+            )
+        elif not hermx and hermy:
+            from jax_galsim.core.wrap_image import wrap_hermitian_y
+
+            self._array = wrap_hermitian_y(
+                self._array,
+                self.xmin,
+                -self.ymax,
+                bounds.xmin,
+                -bounds.ymax + 1,
+                bounds.xmax - bounds.xmin + 1,
+                2 * bounds.ymax,
+            )
+
         return self.subImage(bounds)
 
     @_wraps(_galsim.Image.calculate_fft)
@@ -670,12 +693,12 @@ class Image(object):
                 "calculate_fft requires that the image has a PixelScale wcs."
             )
 
-        No2 = jnp.maximum(
-            jnp.maximum(
+        No2 = max(
+            max(
                 -self.bounds.xmin,
                 self.bounds.xmax + 1,
             ),
-            jnp.maximum(
+            max(
                 -self.bounds.ymin,
                 self.bounds.ymax + 1,
             ),
@@ -724,11 +747,8 @@ class Image(object):
                 self.bounds,
             )
 
-        No2 = jnp.maximum(
-            jnp.maximum(
-                self.bounds.xmax,
-                -self.bounds.ymin,
-            ),
+        No2 = max(
+            max(self.bounds.xmax, -self.bounds.ymin),
             self.bounds.ymax,
         )
 
@@ -769,19 +789,18 @@ class Image(object):
         going to be performing FFTs on an image, these will tend to be faster at performing
         the FFT.
         """
+        import math
+
         # Reference from GalSim C++
         # https://github.com/GalSim-developers/GalSim/blob/ece3bd32c1ae6ed771f2b489c5ab1b25729e0ea4/src/Image.cpp#L1009
-        input_size = int(input_size)
-        if input_size <= 2:
-            return 2
         # Reduce slightly to eliminate potential rounding errors:
         insize = (1.0 - 1.0e-5) * input_size
-        log2n = jnp.log(2.0) * jnp.ceil(jnp.log(insize) / jnp.log(2.0))
-        log2n3 = jnp.log(3.0) + jnp.log(2.0) * jnp.ceil(
-            (jnp.log(insize) - jnp.log(3.0)) / jnp.log(2.0)
+        log2n = math.log(2.0) * math.ceil(math.log(insize) / math.log(2.0))
+        log2n3 = math.log(3.0) + math.log(2.0) * math.ceil(
+            (math.log(insize) - math.log(3.0)) / math.log(2.0)
         )
-        log2n3 = max(log2n3, jnp.log(6.0))  # must be even number
-        Nk = int(jnp.ceil(jnp.exp(min(log2n, log2n3)) - 1.0e-5))
+        log2n3 = max(log2n3, math.log(6.0))  # must be even number
+        Nk = max(int(math.ceil(math.exp(min(log2n, log2n3)) - 1.0e-5)), 2)
         return Nk
 
     def copyFrom(self, rhs):

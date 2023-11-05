@@ -4504,59 +4504,57 @@ def test_wrap():
         im_wrap.bounds, b, "image.wrap(%s) does not have the correct bounds"
     )
 
-    # FIXME: turn on when hermitian wrapping is implemented
-    if False:
-        im2_wrap = im2.wrap(b2, hermitian="y")
-        # print('im_test = ',im_test[b2].array)
-        # print('im2_wrap = ',im2_wrap.array)
-        # print('diff = ',im2_wrap.array-im_test[b2].array)
-        np.testing.assert_array_almost_equal(
-            im2_wrap.array,
-            im_test[b2].array,
-            12,
-            "image.wrap(%s) did not match expectation" % b,
-        )
-        np.testing.assert_array_equal(
-            im2_wrap.array,
-            im2[b2].array,
-            "image.wrap(%s) did not return the right subimage",
-        )
-        np.testing.assert_equal(
-            im2_wrap.bounds, b2, "image.wrap(%s) does not have the correct bounds"
-        )
+    im2_wrap = im2.wrap(b2, hermitian="y")
+    # print('im_test = ',im_test[b2].array)
+    # print('im2_wrap = ',im2_wrap.array)
+    # print('diff = ',im2_wrap.array-im_test[b2].array)
+    np.testing.assert_array_almost_equal(
+        im2_wrap.array,
+        im_test[b2].array,
+        12,
+        "image.wrap(%s) did not match expectation" % b,
+    )
+    np.testing.assert_array_equal(
+        im2_wrap.array,
+        im2[b2].array,
+        "image.wrap(%s) did not return the right subimage",
+    )
+    np.testing.assert_equal(
+        im2_wrap.bounds, b2, "image.wrap(%s) does not have the correct bounds"
+    )
 
-        im3_wrap = im3.wrap(b3, hermitian="x")
-        # print('im_test = ',im_test[b3].array)
-        # print('im3_wrap = ',im3_wrap.array)
-        # print('diff = ',im3_wrap.array-im_test[b3].array)
-        np.testing.assert_array_almost_equal(
-            im3_wrap.array,
-            im_test[b3].array,
-            12,
-            "image.wrap(%s) did not match expectation" % b,
-        )
-        np.testing.assert_array_equal(
-            im3_wrap.array,
-            im3[b3].array,
-            "image.wrap(%s) did not return the right subimage",
-        )
-        np.testing.assert_equal(
-            im3_wrap.bounds, b3, "image.wrap(%s) does not have the correct bounds"
-        )
+    im3_wrap = im3.wrap(b3, hermitian="x")
+    # print('im_test = ',im_test[b3].array)
+    # print('im3_wrap = ',im3_wrap.array)
+    # print('diff = ',im3_wrap.array-im_test[b3].array)
+    np.testing.assert_array_almost_equal(
+        im3_wrap.array,
+        im_test[b3].array,
+        12,
+        "image.wrap(%s) did not match expectation" % b,
+    )
+    np.testing.assert_array_equal(
+        im3_wrap.array,
+        im3[b3].array,
+        "image.wrap(%s) did not return the right subimage",
+    )
+    np.testing.assert_equal(
+        im3_wrap.bounds, b3, "image.wrap(%s) does not have the correct bounds"
+    )
 
-        b = galsim.BoundsI(-K + 1, K, -L + 1, L)
-        b2 = galsim.BoundsI(-K + 1, K, 0, L)
-        b3 = galsim.BoundsI(0, K, -L + 1, L)
-        assert_raises(TypeError, im.wrap, bounds=None)
-        assert_raises(ValueError, im3.wrap, b, hermitian="x")
-        assert_raises(ValueError, im3.wrap, b2, hermitian="x")
-        assert_raises(ValueError, im.wrap, b3, hermitian="x")
-        assert_raises(ValueError, im2.wrap, b, hermitian="y")
-        assert_raises(ValueError, im2.wrap, b3, hermitian="y")
-        assert_raises(ValueError, im.wrap, b2, hermitian="y")
-        assert_raises(ValueError, im.wrap, b, hermitian="invalid")
-        assert_raises(ValueError, im2.wrap, b2, hermitian="invalid")
-        assert_raises(ValueError, im3.wrap, b3, hermitian="invalid")
+    b = galsim.BoundsI(-K + 1, K, -L + 1, L)
+    b2 = galsim.BoundsI(-K + 1, K, 0, L)
+    b3 = galsim.BoundsI(0, K, -L + 1, L)
+    assert_raises(TypeError, im.wrap, bounds=None)
+    assert_raises(ValueError, im3.wrap, b, hermitian="x")
+    assert_raises(ValueError, im3.wrap, b2, hermitian="x")
+    assert_raises(ValueError, im.wrap, b3, hermitian="x")
+    assert_raises(ValueError, im2.wrap, b, hermitian="y")
+    assert_raises(ValueError, im2.wrap, b3, hermitian="y")
+    assert_raises(ValueError, im.wrap, b2, hermitian="y")
+    assert_raises(ValueError, im.wrap, b, hermitian="invalid")
+    assert_raises(ValueError, im2.wrap, b2, hermitian="invalid")
+    assert_raises(ValueError, im3.wrap, b3, hermitian="invalid")
 
 
 @timer

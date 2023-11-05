@@ -1,11 +1,11 @@
+import galsim as _galsim
+import jax.numpy as jnp
 from jax._src.numpy.util import _wraps
 from jax.tree_util import register_pytree_node_class
-import jax.numpy as jnp
-import galsim as _galsim
 
 from jax_galsim.core.utils import ensure_hashable
-from jax_galsim.image import Image  # , ImageD
 from jax_galsim.errors import GalSimError  # , GalSimIncompatibleValuesError
+from jax_galsim.image import Image  # , ImageD
 from jax_galsim.random import BaseDeviate, GaussianDeviate  # , PoissonDeviate
 
 
@@ -50,8 +50,7 @@ class BaseNoise:
 
     @property
     def rng(self):
-        """The `BaseDeviate` of this noise object.
-        """
+        """The `BaseDeviate` of this noise object."""
         return self._rng
 
     def getVariance(self):
@@ -91,7 +90,9 @@ class BaseNoise:
         return self._withScaledVariance(variance_ratio)
 
     def _withScaledVariance(self, variance_ratio):
-        raise NotImplementedError("Cannot call withScaledVariance on a pure BaseNoise object")
+        raise NotImplementedError(
+            "Cannot call withScaledVariance on a pure BaseNoise object"
+        )
 
     def __mul__(self, variance_ratio):
         """Multiply the variance of the noise by ``variance_ratio``.
@@ -107,7 +108,7 @@ class BaseNoise:
 
     def __div__(self, variance_ratio):
         """Equivalent to self * (1/variance_ratio)"""
-        return self.withScaledVariance(1. / variance_ratio)
+        return self.withScaledVariance(1.0 / variance_ratio)
 
     __rmul__ = __mul__
     __truediv__ = __div__
@@ -162,18 +163,19 @@ class BaseNoise:
 @_wraps(_galsim.noise.GaussianNoise)
 @register_pytree_node_class
 class GaussianNoise(BaseNoise):
-    def __init__(self, rng=None, sigma=1.):
+    def __init__(self, rng=None, sigma=1.0):
         super().__init__(GaussianDeviate(rng, sigma=sigma))
         self._sigma = sigma
 
     @property
     def sigma(self):
-        """The input sigma value.
-        """
+        """The input sigma value."""
         return self._sigma
 
     def _applyTo(self, image):
-        image._array = (image._array + self._rng.generate(image._array)).astype(image.dtype)
+        image._array = (image._array + self._rng.generate(image._array)).astype(
+            image.dtype
+        )
 
     def _getVariance(self):
         return self.sigma**2
@@ -194,10 +196,13 @@ class GaussianNoise(BaseNoise):
         return GaussianNoise(rng=rng, sigma=self.sigma)
 
     def __repr__(self):
-        return 'galsim.GaussianNoise(rng=%r, sigma=%r)' % (self.rng, ensure_hashable(self.sigma))
+        return "galsim.GaussianNoise(rng=%r, sigma=%r)" % (
+            self.rng,
+            ensure_hashable(self.sigma),
+        )
 
     def __str__(self):
-        return 'galsim.GaussianNoise(sigma=%s)' % (ensure_hashable(self.sigma))
+        return "galsim.GaussianNoise(sigma=%s)" % (ensure_hashable(self.sigma))
 
     def tree_flatten(self):
         """This function flattens the GaussianNoise into a list of children
@@ -461,7 +466,9 @@ class DeviateNoise(BaseNoise):
         super().__init__(dev)
 
     def _applyTo(self, image):
-        image._array = (image._array + self._rng.generate(image._array)).astype(image.dtype)
+        image._array = (image._array + self._rng.generate(image._array)).astype(
+            image.dtype
+        )
 
     def _getVariance(self):
         raise GalSimError("No single variance value for DeviateNoise")
@@ -487,10 +494,10 @@ class DeviateNoise(BaseNoise):
         return DeviateNoise(dev)
 
     def __repr__(self):
-        return 'galsim.DeviateNoise(dev=%r)' % self.rng
+        return "galsim.DeviateNoise(dev=%r)" % self.rng
 
     def __str__(self):
-        return 'galsim.DeviateNoise(dev=%s)' % self.rng
+        return "galsim.DeviateNoise(dev=%s)" % self.rng
 
     def tree_flatten(self):
         """This function flattens the DeviateNoise into a list of children

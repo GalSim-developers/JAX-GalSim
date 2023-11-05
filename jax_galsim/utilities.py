@@ -1,3 +1,5 @@
+import functools
+
 import galsim as _galsim
 import jax.numpy as jnp
 from jax._src.numpy.util import _wraps
@@ -5,6 +7,29 @@ from jax._src.numpy.util import _wraps
 from jax_galsim.position import PositionD, PositionI
 
 printoptions = _galsim.utilities.printoptions
+
+
+@_wraps(
+    _galsim.utilities.lazy_property,
+    lax_description=(
+        "The LAX version of this decorator uses an `_workspace` attribute "
+        "attached to the object so that the cache can easily be discarded "
+        "for certain operations."
+    ),
+)
+def lazy_property(func):
+    attname = func.__name__ + "_cached"
+
+    @property
+    @functools.wraps(func)
+    def _func(self):
+        if not hasattr(self, "_workspace"):
+            self._workspace = {}
+        if attname not in self._workspace:
+            self._workspace[attname] = func(self)
+        return self._workspace[attname]
+
+    return _func
 
 
 @_wraps(_galsim.utilities.parse_pos_args)
@@ -90,6 +115,17 @@ def g1g2_to_e1e2(g1, g2):
         e1 = g1 * (e / g)
         e2 = g2 * (e / g)
         return e1, e2
+
+
+@_wraps(_galsim.utilities.convert_interpolant)
+def convert_interpolant(interpolant):
+    from jax_galsim.interpolant import Interpolant
+
+    if isinstance(interpolant, Interpolant):
+        return interpolant
+    else:
+        # Will raise an appropriate exception if this is invalid.
+        return Interpolant.from_name(interpolant)
 
 
 @_wraps(_galsim.utilities.unweighted_moments)

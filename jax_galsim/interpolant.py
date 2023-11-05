@@ -12,6 +12,7 @@ from jax._src.numpy.util import _wraps
 from jax.tree_util import register_pytree_node_class
 
 from jax_galsim.bessel import si
+from jax_galsim.core.utils import is_equal_with_arrays
 from jax_galsim.gsparams import GSParams
 
 
@@ -137,7 +138,7 @@ class Interpolant:
     def __eq__(self, other):
         return (self is other) or (
             type(other) is self.__class__
-            and self.tree_flatten() == other.tree_flatten()
+            and is_equal_with_arrays(self.tree_flatten()[1], other.tree_flatten()[1])
         )
 
     def __ne__(self, other):
@@ -158,8 +159,11 @@ class Interpolant:
                     an array.
         """
         if jnp.ndim(x) > 1:
-            raise GalSimValueError("kval only takes scalar or 1D array values", x)
+            raise GalSimValueError("xval only takes scalar or 1D array values", x)
 
+        return self._xval_noraise(x)
+
+    def _xval_noraise(self, x):
         return self.__class__._xval(x)
 
     def kval(self, k):
@@ -176,6 +180,9 @@ class Interpolant:
         if jnp.ndim(k) > 1:
             raise GalSimValueError("kval only takes scalar or 1D array values", k)
 
+        return self._kval_noraise(k)
+
+    def _kval_noraise(self, k):
         return self.__class__._uval(k / 2.0 / jnp.pi)
 
     def unit_integrals(self, max_len=None):
@@ -267,20 +274,7 @@ class Delta(Interpolant):
             gsparams = GSParams(kvalue_accuracy=tol)
         self._gsparams = GSParams.check(gsparams)
 
-    def xval(self, x):
-        """Calculate the value of the interpolant kernel at one or more x values
-
-        Parameters:
-            x:      The value (as a float) or values (as a np.array) at which to compute the
-                    amplitude of the Interpolant kernel.
-
-        Returns:
-            xval:   The value(s) at the x location(s).  If x was an array, then this is also
-                    an array.
-        """
-        if jnp.ndim(x) > 1:
-            raise GalSimValueError("kval only takes scalar or 1D array values", x)
-
+    def _xval_noraise(self, x):
         return Delta._xval(x, self._gsparams.kvalue_accuracy)
 
     @jax.jit
@@ -1336,66 +1330,41 @@ class Lanczos(Interpolant):
         conserve_dc=True,
         tol=None,
         gsparams=None,
-        _K=None,
-        _C=None,
-        _umax=None,
-        _du=None,
     ):
         if tol is not None:
             from galsim.deprecated import depr
 
             depr("tol", 2.2, "gsparams=GSParams(kvalue_accuracy=tol)")
             gsparams = GSParams(kvalue_accuracy=tol)
-        self._n = int(n)
-        self._conserve_dc = bool(conserve_dc)
+        self._n = n
+        self._conserve_dc = conserve_dc
         self._gsparams = GSParams.check(gsparams)
 
-        if _C is None or _K is None:
-            _K = [0.0] + [Lanczos._raw_uval(i + 1.0, n).item() for i in range(5)]
-            _C = [0.0] * 6
-            _C[0] = 1.0 + 2.0 * (
-                _K[1] * (1.0 + 3.0 * _K[1] + _K[2] + _K[3])
-                + _K[2]
-                + _K[3]
-                + _K[4]
-                + _K[5]
-            )
-            _C[1] = -_K[1] * (1.0 + 4.0 * _K[1] + _K[2] + 2.0 * _K[3])
-            _C[2] = _K[1] * (_K[1] - 2.0 * _K[2] + _K[3]) - _K[2]
-            _C[3] = _K[1] * (_K[1] - 2.0 * _K[3]) - _K[3]
-            _C[4] = _K[1] * _K[3] - _K[4]
-            _C[5] = -_K[5]
-            _K = tuple(_K)
-            _C = tuple(_C)
-            self._K = _K
-            self._C = _C
-        else:
-            self._K = _K
-            self._C = _C
+    @property
+    def _C_arr(self):
+        return self._C_arr_vals[self._n]
 
-        self._K_arr = jnp.array(self._K, dtype=float)
-        self._C_arr = jnp.array(self._C, dtype=float)
+    @property
+    def _K_arr(self):
+        return self._K_arr_vals[self._n]
 
-        if _du is None:
-            _du = (
-                self._gsparams.table_spacing
-                * jnp.power(self._gsparams.kvalue_accuracy / 200.0, 0.25)
-                / self._n
-            ).item()
-            self._du = _du
-        else:
-            self._du = _du
+    @property
+    def _du(self):
+        return (
+            self._gsparams.table_spacing
+            * jnp.power(self._gsparams.kvalue_accuracy / 200.0, 0.25)
+            / self._n
+        )
 
-        if _umax is None:
-            self._umax = _find_umax_lanczos(
-                self._du,
-                self._n,
-                self._conserve_dc,
-                self._C,
-                self._gsparams.kvalue_accuracy,
-            ).item()
-        else:
-            self._umax = _umax
+    @property
+    def _umax(self):
+        return _find_umax_lanczos(
+            self._du,
+            self._n,
+            self._conserve_dc,
+            self._C_arr,
+            self._gsparams.kvalue_accuracy,
+        )
 
     def tree_flatten(self):
         """This function flattens the Interpolant into a list of children
@@ -1408,20 +1377,14 @@ class Lanczos(Interpolant):
             "n": self._n,
             "conserve_dc": self._conserve_dc,
         }
-        if hasattr(self, "_du"):
-            aux_data["_du"] = self._du
-        if hasattr(self, "_umax"):
-            aux_data["_umax"] = self._umax
-        if hasattr(self, "_K"):
-            aux_data["_K"] = self._K
-            aux_data["_C"] = self._C
         return (children, aux_data)
 
     @classmethod
     def tree_unflatten(cls, aux_data, children):
         """Recreates an instance of the class from flattened representation"""
         n = aux_data.pop("n")
-        return cls(n, **aux_data)
+        ret = cls(n, **aux_data)
+        return ret
 
     def __repr__(self):
         return "galsim.Lanczos(%r, %r, gsparams=%r)" % (
@@ -1508,20 +1471,7 @@ class Lanczos(Interpolant):
             _K,
         )
 
-    def xval(self, x):
-        """Calculate the value of the interpolant kernel at one or more x values
-
-        Parameters:
-            x:      The value (as a float) or values (as a np.array) at which to compute the
-                    amplitude of the Interpolant kernel.
-
-        Returns:
-            xval:   The value(s) at the x location(s).  If x was an array, then this is also
-                    an array.
-        """
-        if jnp.ndim(x) > 1:
-            raise GalSimValueError("kval only takes scalar or 1D array values", x)
-
+    def _xval_noraise(self, x):
         return Lanczos._xval(x, self._n, self._conserve_dc, self._K_arr)
 
     def _raw_uval(u, n):
@@ -1578,20 +1528,7 @@ class Lanczos(Interpolant):
             _C,
         )
 
-    def kval(self, k):
-        """Calculate the value of the interpolant kernel in Fourier space at one or more k values.
-
-        Parameters:
-            k:      The value (as a float) or values (as a np.array) at which to compute the
-                    amplitude of the Interpolant kernel in Fourier space.
-
-        Returns:
-            kval:   The k-value(s) at the k location(s).  If k was an array, then this is also
-                    an array.
-        """
-        if jnp.ndim(k) > 1:
-            raise GalSimValueError("kval only takes scalar or 1D array values", k)
-
+    def _kval_noraise(self, k):
         return Lanczos._uval(k / 2.0 / jnp.pi, self._n, self._conserve_dc, self._C_arr)
 
     def urange(self):
@@ -1679,3 +1616,30 @@ def _find_umax_lanczos(_du, n, conserve_dc, _C, kva):
         _body,
         [0.0, 0.0],
     )[0]
+
+
+@jax.jit
+def _compute_C_K_lanczos(n):
+    _K = jnp.concatenate(
+        (jnp.zeros(1), Lanczos._raw_uval(jnp.arange(5) + 1.0, n)), axis=0
+    )
+    _C = jnp.zeros(6)
+    _C = _C.at[0].set(
+        1.0
+        + 2.0
+        * (_K[1] * (1.0 + 3.0 * _K[1] + _K[2] + _K[3]) + _K[2] + _K[3] + _K[4] + _K[5])
+    )
+    _C = _C.at[1].set(-_K[1] * (1.0 + 4.0 * _K[1] + _K[2] + 2.0 * _K[3]))
+    _C = _C.at[2].set(_K[1] * (_K[1] - 2.0 * _K[2] + _K[3]) - _K[2])
+    _C = _C.at[3].set(_K[1] * (_K[1] - 2.0 * _K[3]) - _K[3])
+    _C = _C.at[4].set(_K[1] * _K[3] - _K[4])
+    _C = _C.at[5].set(-_K[5])
+
+    return _C, _K
+
+
+Lanczos._C_arr_vals = {}
+Lanczos._K_arr_vals = {}
+for n in range(1, 31):
+    Lanczos._C_arr_vals[n] = _compute_C_K_lanczos(n)[0]
+    Lanczos._K_arr_vals[n] = _compute_C_K_lanczos(n)[1]

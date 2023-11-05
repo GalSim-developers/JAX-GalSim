@@ -147,12 +147,12 @@ class Moffat(GSObject):
     @property
     def beta(self):
         """The beta parameter of this `Moffat` profile."""
-        return self.params["beta"]
+        return self._params["beta"]
 
     @property
     def trunc(self):
         """The truncation radius (if any) of this `Moffat` profile."""
-        return self.params["trunc"]
+        return self._params["trunc"]
 
     @property
     def scale_radius(self):
