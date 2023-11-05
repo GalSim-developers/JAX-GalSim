@@ -194,7 +194,7 @@ class BaseDeviate:
         return cls(children[0], **(children[1]))
 
     def __repr__(self):
-        return "galsim.BaseDeviate(seed=%r) " % (
+        return "galsim.BaseDeviate(seed=%r)" % (
             ensure_hashable(jrandom.key_data(self._key)),
         )
 
@@ -222,7 +222,7 @@ class UniformDeviate(BaseDeviate):
         return _key, jrandom.uniform(subkey, dtype=float)
 
     def __repr__(self):
-        return "galsim.UniformDeviate(seed=%r) " % (
+        return "galsim.UniformDeviate(seed=%r)" % (
             ensure_hashable(jrandom.key_data(self._key)),
         )
 

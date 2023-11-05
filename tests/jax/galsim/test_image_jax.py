@@ -3461,14 +3461,15 @@ def test_copy():
     im3.setValue(3, 8, 11.0)
     assert im(3, 8) != 11.0
 
-    # If copy=False is specified, then it shares the same array
-    im3b = galsim.Image(im, copy=False)
-    assert im3b.wcs == im.wcs
-    assert im3b.bounds == im.bounds
-    np.testing.assert_array_equal(im3b.array, im.array)
-    im3b.setValue(2, 3, 2.0)
-    assert im3b(2, 3) == 2.0
-    assert im(2, 3) == 2.0
+    # JAX always copies so remove this test
+    # # If copy=False is specified, then it shares the same array
+    # im3b = galsim.Image(im, copy=False)
+    # assert im3b.wcs == im.wcs
+    # assert im3b.bounds == im.bounds
+    # np.testing.assert_array_equal(im3b.array, im.array)
+    # im3b.setValue(2, 3, 2.0)
+    # assert im3b(2, 3) == 2.0
+    # assert im(2, 3) == 2.0
 
     # Constructor can change the wcs
     im4 = galsim.Image(im, scale=0.6)
@@ -3518,14 +3519,15 @@ def test_copy():
     assert im9(2, 3) == 11.0
     assert im_slice(2, 3) != 11.0
 
-    # Can also copy by giving the array and specify copy=True
-    im10 = galsim.Image(im.array, bounds=im.bounds, wcs=im.wcs, copy=False)
-    assert im10.wcs == im.wcs
-    assert im10.bounds == im.bounds
-    np.testing.assert_array_equal(im10.array, im.array)
-    im10[2, 3] = 17
-    assert im10(2, 3) == 17.0
-    assert im(2, 3) == 17.0
+    # JAX always copies so remove this test
+    # # Can also copy by giving the array and specify copy=True
+    # im10 = galsim.Image(im.array, bounds=im.bounds, wcs=im.wcs, copy=False)
+    # assert im10.wcs == im.wcs
+    # assert im10.bounds == im.bounds
+    # np.testing.assert_array_equal(im10.array, im.array)
+    # im10[2, 3] = 17
+    # assert im10(2, 3) == 17.0
+    # assert im(2, 3) == 17.0
 
     im10b = galsim.Image(im.array, bounds=im.bounds, wcs=im.wcs, copy=True)
     assert im10b.wcs == im.wcs

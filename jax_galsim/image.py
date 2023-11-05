@@ -110,20 +110,23 @@ class Image(object):
 
         # Check that we got them all
         if kwargs:
-            if "copy" in kwargs.keys():
+            if "copy" in kwargs.keys() and not kwargs["copy"]:
                 raise TypeError(
-                    "'copy' is not a valid keyword argument for the JAX-GalSim version of the Image constructor"
+                    "'copy=False' is not a valid keyword argument for the JAX-GalSim version of the Image constructor"
                 )
+            else:
+                # remove it since we used it
+                kwargs.pop("copy", None)
+
             if "make_const" in kwargs.keys():
                 raise TypeError(
                     "'make_const' is not a valid keyword argument for the JAX-GalSim version of the Image constructor"
                 )
-            raise TypeError(
-                "Image constructor got unexpected keyword arguments: %s", kwargs
-            )
-            raise TypeError(
-                "Image constructor got unexpected keyword arguments: %s", kwargs
-            )
+
+            if kwargs:
+                raise TypeError(
+                    "Image constructor got unexpected keyword arguments: %s", kwargs
+                )
 
         # Figure out what dtype we want:
         dtype = self._alias_dtypes.get(dtype, dtype)
@@ -150,6 +153,14 @@ class Image(object):
             if not array.dtype.isnative:
                 array = array.astype(array.dtype.newbyteorder("="))
             self._dtype = array.dtype.type
+        elif image is not None:
+            if not isinstance(image, Image):
+                raise TypeError("image must be an Image")
+            # we do less checking here since we already have a valid image
+            if dtype is None:
+                self._dtype = image.dtype
+            else:
+                self._dtype = dtype
         elif dtype is not None:
             self._dtype = dtype
         else:
@@ -660,10 +671,14 @@ class Image(object):
             )
 
         No2 = jnp.maximum(
-            -self.bounds.xmin,
-            self.bounds.xmax + 1,
-            -self.bounds.ymin,
-            self.bounds.ymax + 1,
+            jnp.maximum(
+                -self.bounds.xmin,
+                self.bounds.xmax + 1,
+            ),
+            jnp.maximum(
+                -self.bounds.ymin,
+                self.bounds.ymax + 1,
+            ),
         )
 
         full_bounds = BoundsI(-No2, No2 - 1, -No2, No2 - 1)
@@ -680,7 +695,9 @@ class Image(object):
         dk = jnp.pi / (No2 * dx)
 
         out = Image(BoundsI(0, No2, -No2, No2 - 1), dtype=np.complex128, scale=dk)
-        out._image = jnp.fft.rfft2(ximage._image)
+        out._array = jnp.fft.fftshift(
+            jnp.fft.rfft2(jnp.fft.fftshift(ximage.array)), axes=0
+        )
 
         out *= dx * dx
         out.setOrigin(0, -No2)
@@ -707,7 +724,13 @@ class Image(object):
                 self.bounds,
             )
 
-        No2 = jnp.maximum(self.bounds.xmax, -self.bounds.ymin, self.bounds.ymax)
+        No2 = jnp.maximum(
+            jnp.maximum(
+                self.bounds.xmax,
+                -self.bounds.ymin,
+            ),
+            self.bounds.ymax,
+        )
 
         target_bounds = BoundsI(0, No2, -No2, No2 - 1)
         if self.bounds == target_bounds:
@@ -729,7 +752,9 @@ class Image(object):
 
         # For the inverse, we need a bit of extra space for the fft.
         out_extra = Image(BoundsI(-No2, No2 + 1, -No2, No2 - 1), dtype=float, scale=dx)
-        out_extra._image = jnp.fft.irfft2(kimage._image)
+        out_extra._array = jnp.fft.fftshift(
+            jnp.fft.irfft2(jnp.fft.fftshift(kimage.array, axes=0))
+        )
         # Now cut off the bit we don't need.
         out = out_extra.subImage(BoundsI(-No2, No2 - 1, -No2, No2 - 1))
         out *= (dk * No2 / jnp.pi) ** 2

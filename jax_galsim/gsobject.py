@@ -593,13 +593,23 @@ class GSObject:
             wcs = image.wcs
 
         # If the input scale <= 0, or wcs is still None at this point, then use the Nyquist scale:
-        # TODO: we will need to remove this test of scale for jitting
-        # if wcs is None or (wcs.isPixelScale and wcs.scale <= 0):
         if wcs is None:
             if default_wcs is None:
                 wcs = PixelScale(self.nyquist_scale)
             else:
                 wcs = default_wcs
+
+        if wcs.isPixelScale() and wcs.isLocal():
+            wcs = jax.lax.cond(
+                wcs.scale <= 0,
+                lambda wcs, nqs: PixelScale(jnp.float_(nqs))
+                if default_wcs is None
+                else default_wcs,
+                lambda wcs, nqs: PixelScale(jnp.float_(wcs.scale)),
+                wcs,
+                self.nyquist_scale,
+            )
+
         return wcs
 
     @_wraps(_galsim.GSObject.drawImage)
@@ -635,7 +645,11 @@ class GSObject:
     ):
         from jax_galsim.box import Pixel
         from jax_galsim.convolve import Convolve
+        from jax_galsim.image import Image
         from jax_galsim.wcs import PixelScale
+
+        if image is not None and not isinstance(image, Image):
+            raise TypeError("image is not an Image instance", image)
 
         # Figure out what wcs we are going to use.
         wcs = self._determine_wcs(scale, wcs, image)
@@ -709,9 +723,9 @@ class GSObject:
         image.wcs = PixelScale(1.0)
 
         if prof.is_analytic_x:
-            added_photons, image = prof.drawReal(image, add_to_image)
+            added_photons = prof.drawReal(image, add_to_image)
         else:
-            added_photons, image = prof.drawFFT(image, add_to_image)
+            added_photons = prof.drawFFT(image, add_to_image)
 
         image.added_flux = added_photons / flux_scale
         # Restore the original center and wcs
@@ -721,21 +735,25 @@ class GSObject:
         # Update image_in to satisfy GalSim API
         image_in._array = image._array
         image_in.added_flux = image.added_flux
-        image_in._bounds = image.bounds
+        image_in._bounds = image._bounds
         image_in.wcs = image.wcs
+        image_in._dtype = image._dtype
         return image
 
     @_wraps(_galsim.GSObject.drawReal)
     def drawReal(self, image, add_to_image=False):
-        if image.wcs is None or not image.wcs.isPixelScale:
+        if image.wcs is None or not image.wcs.isPixelScale():
             raise _galsim.GalSimValueError(
                 "drawReal requires an image with a PixelScale wcs", image
             )
         im1 = self._drawReal(image)
+        temp = im1.subImage(image.bounds)
         if add_to_image:
-            return im1.array.sum(dtype=float), image + im1
+            image._array = image._array + temp._array
         else:
-            return im1.array.sum(dtype=float), im1
+            image._array = temp._array
+
+        return temp.array.sum(dtype=float)
 
     def _drawReal(self, image, jac=None, offset=(0.0, 0.0), flux_scaling=1.0):
         """A version of `drawReal` without the sanity checks or some options.
@@ -855,11 +873,11 @@ class GSObject:
         # Add (a portion of) this to the original image.
         temp = real_image.subImage(image.bounds)
         if add_to_image:
-            image += temp
+            image._array = image._array + temp._array
         else:
-            image = temp
-        added_photons = temp.array.sum(dtype=float)
-        return added_photons, image
+            image._array = temp._array
+
+        return temp.array.sum(dtype=float)
 
     def drawFFT(self, image, add_to_image=False):
         """
@@ -887,7 +905,7 @@ class GSObject:
         Returns:
             The total flux drawn inside the image bounds.
         """
-        if image.wcs is None or not image.wcs.isPixelScale:
+        if image.wcs is None or not image.wcs.isPixelScale():
             raise _galsim.GalSimValueError(
                 "drawFFT requires an image with a PixelScale wcs", image
             )
@@ -984,16 +1002,22 @@ class GSObject:
 
         if setup_only:
             return image
+
         # For GalSim compatibility, we will attempt to update the input image
         image_in = image
-        if not add_to_image and image.iscontiguous:
-            image = self._drawKImage(image)
+        im2 = Image(bounds=image.bounds, dtype=image.dtype, scale=image.scale)
+        im2 = self._drawKImage(im2)
+
+        if not add_to_image:
+            image._array = im2._array
         else:
-            im2 = Image(bounds=image.bounds, dtype=image.dtype, scale=image.scale)
-            im2 = self._drawKImage(im2)
-            image += im2
+            image._array = im2._array + image._array
+
         image_in._array = image._array
-        image_in._bounds = image.bounds
+        image_in._bounds = image._bounds
+        image_in.wcs = image.wcs
+        image_in._dtype = image._dtype
+
         return image
 
     @_wraps(_galsim.GSObject._drawKImage)
