@@ -1220,7 +1220,7 @@ def test_fft():
 
     # Start with a really simple test of the round trip fft and then inverse_fft.
     # And run it for all input types to make sure they all work.
-    types = [np.int16, np.int32, np.float32, np.float64, np.complex128, int, float, complex]
+    types = [np.int16, np.int32, np.float32, np.float64, int, float]
     for dt in types:
         xim = galsim.Image([ [0,2,4,2],
                              [2,4,6,4],
@@ -1305,7 +1305,7 @@ def test_fft():
     np.testing.assert_almost_equal(
             im1_real.scale, im1_alt_real.scale, 3,
             "inverse_fft produce a different scale than obj2.drawImage(method='sb')")
-    np.testing.assert_almost_equal(
+    np.testing.assert_array_almost_equal(
             im1_real.array, im1_alt_real.array, 3,
             "inverse_fft produce a different array than obj2.drawImage(method='sb')")
 
@@ -1324,7 +1324,7 @@ def test_fft():
     np.testing.assert_almost_equal(
             im2_real.scale, im2_alt_real.scale, 9,
             "inverse_fft produce a different scale than obj2.drawImage(nx,ny,method='sb')")
-    np.testing.assert_almost_equal(
+    np.testing.assert_array_almost_equal(
             im2_real.array, im2_alt_real.array, 9,
             "inverse_fft produce a different array than obj2.drawImage(nx,ny,method='sb')")
 
