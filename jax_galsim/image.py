@@ -685,10 +685,6 @@ class Image(object):
         lax_description="JAX-GalSim does not support forward FFTs of complex dtypes.",
     )
     def calculate_fft(self):
-        if self.dtype in [np.complex64, np.complex128, complex]:
-            raise _galsim.GalSimNotImplementedError(
-                "JAX-GalSim does not support forward FFTs of complex dtypes."
-            )
         if not self.bounds.isDefined():
             raise _galsim.GalSimUndefinedBoundsError(
                 "calculate_fft requires that the image have defined bounds."
@@ -698,6 +694,10 @@ class Image(object):
         if not self.wcs._isPixelScale:
             raise _galsim.GalSimError(
                 "calculate_fft requires that the image has a PixelScale wcs."
+            )
+        if self.dtype in [np.complex64, np.complex128, complex]:
+            raise _galsim.GalSimNotImplementedError(
+                "JAX-GalSim does not support forward FFTs of complex dtypes."
             )
 
         No2 = max(

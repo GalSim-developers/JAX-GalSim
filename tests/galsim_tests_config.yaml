@@ -73,3 +73,5 @@ allowed_failures:
   - "Transform does not support callable arguments."
   - "The JAX galsim.BaseDeviate does not support being used as a numpy PRNG."
   - "jax_galsim does not support the galsim WCS class GSFitsWCS"
+  - "pad_image not implemented in jax_galsim."
+  - "InterpolatedImages do not support noise padding in jax_galsim."
