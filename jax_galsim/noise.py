@@ -266,8 +266,8 @@ class PoissonNoise(BaseNoise):
         image._array = noise_array.astype(image.dtype)
         image._array = jax.lax.cond(
             int_sky != 0.0,
-            lambda na, ints, dt: (na - ints).astype(float),
-            lambda na, ints, dt: na.astype(float),
+            lambda na, ints: (na - ints).astype(float),
+            lambda na, ints: na.astype(float),
             image._array,
             int_sky,
         ).astype(image.dtype)
