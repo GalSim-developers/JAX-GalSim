@@ -357,165 +357,168 @@ def test_gaussian_noise():
 #     assert_raises(galsim.GalSimError, vgn.withScaledVariance, 23)
 
 
-# @timer
-# def test_poisson_noise():
-#     """Test Poisson random number generator
-#     """
-#     pMean = 17
-#     p = galsim.PoissonDeviate(testseed, mean=pMean)
-#     pResult = np.empty((10,10))
-#     p.generate(pResult)
-#     noise = galsim.DeviateNoise(p)
+@timer
+def test_poisson_noise():
+    """Test Poisson random number generator
+    """
+    pMean = 17
+    p = galsim.PoissonDeviate(testseed, mean=pMean)
+    pResult = np.empty((10, 10))
+    pResult = p.generate(pResult)
+    noise = galsim.DeviateNoise(p)
 
-#     # Test filling an image
-#     noise.rng.seed(testseed)
-#     testimage = galsim.ImageI(10, 10)
-#     testimage.addNoise(galsim.DeviateNoise(p))
-#     np.testing.assert_array_equal(
-#             testimage.array, pResult,
-#             err_msg='Wrong poisson random number sequence generated when applied to image.')
+    # Test filling an image
+    noise.rng.seed(testseed)
+    testimage = galsim.ImageI(10, 10)
+    # NOTE - this line changed since it appeared to be buggy in galsim
+    testimage.addNoise(noise)
+    np.testing.assert_array_equal(
+        testimage.array, pResult,
+        err_msg='Wrong poisson random number sequence generated when applied to image.')
 
-#     # The PoissonNoise version also subtracts off the mean value
-#     pn = galsim.PoissonNoise(galsim.BaseDeviate(testseed), sky_level=pMean)
-#     testimage.fill(0)
-#     testimage.addNoise(pn)
-#     np.testing.assert_array_equal(
-#             testimage.array, pResult-pMean,
-#             err_msg='Wrong poisson random number sequence generated using PoissonNoise')
+    # The PoissonNoise version also subtracts off the mean value
+    pn = galsim.PoissonNoise(galsim.BaseDeviate(testseed), sky_level=pMean)
+    testimage.fill(0)
+    testimage.addNoise(pn)
+    np.testing.assert_array_equal(
+        testimage.array, pResult - pMean,
+        err_msg='Wrong poisson random number sequence generated using PoissonNoise')
 
-#     # Test filling a single-precision image
-#     pn.rng.seed(testseed)
-#     testimage = galsim.ImageF(10,10)
-#     testimage.addNoise(pn)
-#     np.testing.assert_array_almost_equal(
-#             testimage.array, pResult-pMean, precisionF,
-#             err_msg='Wrong Poisson random number sequence generated when applied to ImageF.')
+    # Test filling a single-precision image
+    pn.rng.seed(testseed)
+    testimage = galsim.ImageF(10, 10)
+    testimage.addNoise(pn)
+    np.testing.assert_array_almost_equal(
+        testimage.array, pResult - pMean, precisionF,
+        err_msg='Wrong Poisson random number sequence generated when applied to ImageF.')
 
-#     # Test filling an image with Fortran ordering
-#     pn.rng.seed(testseed)
-#     testimage = galsim.ImageD(10,10)
-#     testimage.addNoise(pn)
-#     np.testing.assert_array_almost_equal(
-#             testimage.array, pResult-pMean,
-#             err_msg="Wrong Poisson noise generated for Fortran-ordered Image")
+    # Test filling an image with Fortran ordering
+    pn.rng.seed(testseed)
+    testimage = galsim.ImageD(10, 10)
+    testimage.addNoise(pn)
+    np.testing.assert_array_almost_equal(
+        testimage.array, pResult - pMean,
+        err_msg="Wrong Poisson noise generated for Fortran-ordered Image")
 
-#     # Check PoissonNoise variance:
-#     np.testing.assert_almost_equal(
-#             pn.getVariance(), pMean, precision,
-#             err_msg="PoissonNoise getVariance returns wrong variance")
-#     np.testing.assert_almost_equal(
-#             pn.sky_level, pMean, precision,
-#             err_msg="PoissonNoise sky_level returns wrong value")
+    # Check PoissonNoise variance:
+    np.testing.assert_almost_equal(
+        pn.getVariance(), pMean, precision,
+        err_msg="PoissonNoise getVariance returns wrong variance")
+    np.testing.assert_almost_equal(
+        pn.sky_level, pMean, precision,
+        err_msg="PoissonNoise sky_level returns wrong value")
 
-#     # Check that the noise model really does produce this variance.
-#     big_im = galsim.Image(2048,2048,dtype=float)
-#     big_im.addNoise(pn)
-#     var = np.var(big_im.array)
-#     print('variance = ',var)
-#     print('getVar = ',pn.getVariance())
-#     np.testing.assert_almost_equal(
-#             var, pn.getVariance(), 1,
-#             err_msg='Realized variance for PoissonNoise did not match getVariance()')
+    # Check that the noise model really does produce this variance.
+    big_im = galsim.Image(2048, 2048, dtype=float)
+    big_im.addNoise(pn)
+    var = np.var(big_im.array)
+    print('variance = ', var)
+    print('getVar = ', pn.getVariance())
+    np.testing.assert_almost_equal(
+        var, pn.getVariance(), 1,
+        err_msg='Realized variance for PoissonNoise did not match getVariance()')
 
-#     # Check that PoissonNoise adds to the image, not overwrites the image.
-#     gal = galsim.Exponential(half_light_radius=2.3, flux=0.3)
-#     # Note: in this case, flux/size^2 needs to be << sky_level or it will mess up the statistics.
-#     gal.drawImage(image=big_im)
-#     big_im.addNoise(pn)
-#     gal.withFlux(-0.3).drawImage(image=big_im, add_to_image=True)
-#     var = np.var(big_im.array)
-#     np.testing.assert_almost_equal(
-#             var, pn.getVariance(), 1,
-#             err_msg='PoissonNoise wrong when already an object drawn on the image')
+    # Check that PoissonNoise adds to the image, not overwrites the image.
+    gal = galsim.Exponential(half_light_radius=2.3, flux=0.3)
+    # Note: in this case, flux/size^2 needs to be << sky_level or it will mess up the statistics.
+    gal.drawImage(image=big_im)
+    big_im.addNoise(pn)
+    gal.withFlux(-0.3).drawImage(image=big_im, add_to_image=True)
+    var = np.var(big_im.array)
+    np.testing.assert_almost_equal(
+            var, pn.getVariance(), 1,
+            err_msg='PoissonNoise wrong when already an object drawn on the image')
 
-#     # Check withVariance
-#     pn = pn.withVariance(9.)
-#     np.testing.assert_almost_equal(
-#             pn.getVariance(), 9., precision,
-#             err_msg="PoissonNoise withVariance results in wrong variance")
-#     np.testing.assert_almost_equal(
-#             pn.sky_level, 9., precision,
-#             err_msg="PoissonNoise withVariance results in wrong sky_level")
+    # Check withVariance
+    pn = pn.withVariance(9.)
+    np.testing.assert_almost_equal(
+            pn.getVariance(), 9., precision,
+            err_msg="PoissonNoise withVariance results in wrong variance")
+    np.testing.assert_almost_equal(
+            pn.sky_level, 9., precision,
+            err_msg="PoissonNoise withVariance results in wrong sky_level")
 
-#     # Check withScaledVariance
-#     pn = pn.withScaledVariance(4.)
-#     np.testing.assert_almost_equal(
-#             pn.getVariance(), 36, precision,
-#             err_msg="PoissonNoise withScaledVariance results in wrong variance")
-#     np.testing.assert_almost_equal(
-#             pn.sky_level, 36., precision,
-#             err_msg="PoissonNoise withScaledVariance results in wrong sky_level")
+    # Check withScaledVariance
+    pn = pn.withScaledVariance(4.)
+    np.testing.assert_almost_equal(
+            pn.getVariance(), 36, precision,
+            err_msg="PoissonNoise withScaledVariance results in wrong variance")
+    np.testing.assert_almost_equal(
+            pn.sky_level, 36., precision,
+            err_msg="PoissonNoise withScaledVariance results in wrong sky_level")
 
-#     # Check arithmetic
-#     pn = pn.withVariance(0.5)
-#     pn2 = pn * 3
-#     np.testing.assert_almost_equal(
-#             pn2.getVariance(), 1.5, precision,
-#             err_msg="PoissonNoise pn*3 results in wrong variance")
-#     np.testing.assert_almost_equal(
-#             pn.getVariance(), 0.5, precision,
-#             err_msg="PoissonNoise pn*3 results in wrong variance for original pn")
-#     pn2 = 5 * pn
-#     np.testing.assert_almost_equal(
-#             pn2.getVariance(), 2.5, precision,
-#             err_msg="PoissonNoise 5*pn results in wrong variance")
-#     np.testing.assert_almost_equal(
-#             pn.getVariance(), 0.5, precision,
-#             err_msg="PoissonNoise 5*pn results in wrong variance for original pn")
-#     pn2 = pn/2
-#     np.testing.assert_almost_equal(
-#             pn2.getVariance(), 0.25, precision,
-#             err_msg="PoissonNoise pn/2 results in wrong variance")
-#     np.testing.assert_almost_equal(
-#             pn.getVariance(), 0.5, precision,
-#             err_msg="PoissonNoise 5*pn results in wrong variance for original pn")
-#     pn *= 3
-#     np.testing.assert_almost_equal(
-#             pn.getVariance(), 1.5, precision,
-#             err_msg="PoissonNoise pn*=3 results in wrong variance")
-#     pn /= 2
-#     np.testing.assert_almost_equal(
-#             pn.getVariance(), 0.75, precision,
-#             err_msg="PoissonNoise pn/=2 results in wrong variance")
+    # Check arithmetic
+    pn = pn.withVariance(0.5)
+    pn2 = pn * 3
+    np.testing.assert_almost_equal(
+            pn2.getVariance(), 1.5, precision,
+            err_msg="PoissonNoise pn*3 results in wrong variance")
+    np.testing.assert_almost_equal(
+            pn.getVariance(), 0.5, precision,
+            err_msg="PoissonNoise pn*3 results in wrong variance for original pn")
+    pn2 = 5 * pn
+    np.testing.assert_almost_equal(
+            pn2.getVariance(), 2.5, precision,
+            err_msg="PoissonNoise 5*pn results in wrong variance")
+    np.testing.assert_almost_equal(
+            pn.getVariance(), 0.5, precision,
+            err_msg="PoissonNoise 5*pn results in wrong variance for original pn")
+    pn2 = pn/2
+    np.testing.assert_almost_equal(
+            pn2.getVariance(), 0.25, precision,
+            err_msg="PoissonNoise pn/2 results in wrong variance")
+    np.testing.assert_almost_equal(
+            pn.getVariance(), 0.5, precision,
+            err_msg="PoissonNoise 5*pn results in wrong variance for original pn")
+    pn *= 3
+    np.testing.assert_almost_equal(
+            pn.getVariance(), 1.5, precision,
+            err_msg="PoissonNoise pn*=3 results in wrong variance")
+    pn /= 2
+    np.testing.assert_almost_equal(
+            pn.getVariance(), 0.75, precision,
+            err_msg="PoissonNoise pn/=2 results in wrong variance")
 
-#     # Check starting with PoissonNoise()
-#     pn = galsim.PoissonNoise()
-#     pn = pn.withVariance(9.)
-#     np.testing.assert_almost_equal(
-#             pn.getVariance(), 9., precision,
-#             err_msg="PoissonNoise().withVariance results in wrong variance")
-#     np.testing.assert_almost_equal(
-#             pn.sky_level, 9., precision,
-#             err_msg="PoissonNoise().withVariance results in wrong sky_level")
-#     pn = pn.withScaledVariance(4.)
-#     np.testing.assert_almost_equal(
-#             pn.getVariance(), 36, precision,
-#             err_msg="PoissonNoise().withScaledVariance results in wrong variance")
-#     np.testing.assert_almost_equal(
-#             pn.sky_level, 36., precision,
-#             err_msg="PoissonNoise().withScaledVariance results in wrong sky_level")
+    # Check starting with PoissonNoise()
+    pn = galsim.PoissonNoise()
+    pn = pn.withVariance(9.)
+    np.testing.assert_almost_equal(
+            pn.getVariance(), 9., precision,
+            err_msg="PoissonNoise().withVariance results in wrong variance")
+    np.testing.assert_almost_equal(
+            pn.sky_level, 9., precision,
+            err_msg="PoissonNoise().withVariance results in wrong sky_level")
+    pn = pn.withScaledVariance(4.)
+    np.testing.assert_almost_equal(
+            pn.getVariance(), 36, precision,
+            err_msg="PoissonNoise().withScaledVariance results in wrong variance")
+    np.testing.assert_almost_equal(
+            pn.sky_level, 36., precision,
+            err_msg="PoissonNoise().withScaledVariance results in wrong sky_level")
 
-#     # Check picklability
-#     check_pickle(pn, lambda x: (x.rng.serialize(), x.sky_level))
-#     check_pickle(pn, drawNoise)
-#     check_pickle(pn)
+    # Check picklability
+    check_pickle(pn, lambda x: (x.rng.serialize(), x.sky_level))
+    check_pickle(pn, drawNoise)
+    check_pickle(pn)
 
-#     # Check copy, eq and ne
-#     pn = pn.withVariance(pMean)
-#     pn2 = galsim.PoissonNoise(pn.rng.duplicate(), pMean)
-#     pn3 = pn.copy()
-#     pn4 = pn.copy(rng=galsim.BaseDeviate(11))
-#     pn5 = galsim.PoissonNoise(pn.rng, 2*pMean)
-#     assert pn == pn2
-#     assert pn == pn3
-#     assert pn != pn4
-#     assert pn != pn5
-#     assert pn.rng.raw() == pn2.rng.raw()
-#     assert pn == pn2
-#     assert pn == pn3
-#     pn.rng.raw()
-#     assert pn != pn2
-#     assert pn == pn3
+    # Check copy, eq and ne
+    pn = pn.withVariance(pMean)
+    pn2 = galsim.PoissonNoise(pn.rng.duplicate(), pMean)
+    pn3 = pn.copy()
+    pn4 = pn.copy(rng=galsim.BaseDeviate(11))
+    pn5 = galsim.PoissonNoise(pn.rng, 2*pMean)
+    assert pn == pn2
+    assert pn == pn3
+    assert pn != pn4
+    assert pn != pn5
+    assert pn.rng.raw() == pn2.rng.raw()
+    assert pn == pn2
+    # jax does not link RNGs
+    assert pn != pn3
+    pn.rng.raw()
+    assert pn != pn2
+    # jax does not link RNGs
+    assert pn != pn3
 
 
 # @timer

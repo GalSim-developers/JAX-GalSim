@@ -18,7 +18,12 @@ from .random import (
     WeibullDeviate,
     BinomialDeviate,
 )
-from .noise import BaseNoise, GaussianNoise, DeviateNoise
+from .noise import (
+    BaseNoise,
+    GaussianNoise,
+    DeviateNoise,
+    PoissonNoise,
+)
 
 # Basic building blocks
 from .bounds import Bounds, BoundsD, BoundsI

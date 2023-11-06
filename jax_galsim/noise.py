@@ -1,4 +1,5 @@
 import galsim as _galsim
+import jax
 import jax.numpy as jnp
 from jax._src.numpy.util import _wraps
 from jax.tree_util import register_pytree_node_class
@@ -6,7 +7,7 @@ from jax.tree_util import register_pytree_node_class
 from jax_galsim.core.utils import ensure_hashable
 from jax_galsim.errors import GalSimError  # , GalSimIncompatibleValuesError
 from jax_galsim.image import Image  # , ImageD
-from jax_galsim.random import BaseDeviate, GaussianDeviate  # , PoissonDeviate
+from jax_galsim.random import BaseDeviate, GaussianDeviate, PoissonDeviate
 
 
 @_wraps(_galsim.noise.addNoise)
@@ -219,96 +220,95 @@ class GaussianNoise(BaseNoise):
         return cls(sigma=children[0], rng=children[1])
 
 
-# class PoissonNoise(BaseNoise):
-#     """Class implementing Poisson noise according to the flux (and sky level) present in the image.
+@_wraps(_galsim.noise.PoissonNoise)
+@register_pytree_node_class
+class PoissonNoise(BaseNoise):
+    def __init__(self, rng=None, sky_level=0.0):
+        super().__init__(PoissonDeviate(rng))
+        self._sky_level = sky_level
 
-#     The PoissonNoise class encapsulates a simple version of the noise model of a normal CCD image
-#     where each pixel has Poisson noise corresponding to the number of electrons in each pixel
-#     (including an optional extra sky level).
+    @property
+    def sky_level(self):
+        """The input sky_level."""
+        return self._sky_level
 
-#     Note that if the image to which you are adding noise already has a sky level on it,
-#     then you should not provide the sky level here as well.  The sky level here corresponds
-#     to a level that is taken to be already subtracted from the image, but that originally
-#     contributed to the addition of Poisson noise.
+    def _applyTo(self, image):
+        noise_array = image.array.copy().astype(float)
 
-#     Example:
+        # Minor subtlety for integer images.  It's a bit more consistent to convert to an
+        # integer with the sky still added and then subtract off the sky.  But this isn't quite
+        # right if the sky has a fractional part.  So only subtract off the integer part of the
+        # sky at the end.  For float images, you get the same answer either way, so it doesn't
+        # matter.
+        frac_sky = self.sky_level - image.dtype(self.sky_level)
+        int_sky = self.sky_level - frac_sky
 
-#     The following will add Poisson noise to every element of an image::
+        noise_array = jax.lax.cond(
+            self.sky_level != 0.0,
+            lambda na, sl: na + sl,
+            lambda na, sl: na,
+            noise_array,
+            self.sky_level,
+        )
+        # Make sure no negative values
+        noise_array = jnp.clip(noise_array, 0.0)
+        # The noise_image now has the expectation values for each pixel with the sky added.
+        noise_array = self._rng.generate_from_expectation(noise_array)
+        # Subtract off the sky, since we don't want it in the final image.
+        noise_array = jax.lax.cond(
+            frac_sky != 0.0,
+            lambda na, fs: na - fs,
+            lambda na, fs: na,
+            noise_array,
+            frac_sky,
+        )
+        # Noise array is now the correct value for each pixel.
+        image._array = noise_array.astype(image.dtype)
+        image._array = jax.lax.cond(
+            int_sky != 0.0,
+            lambda na, ints: na - ints,
+            lambda na, ints: na,
+            image._array,
+            int_sky,
+        )
 
-#         >>> poisson_noise = galsim.PoissonNoise(rng, sky_level=0.)
-#         >>> image.addNoise(poisson_noise)
+    def _getVariance(self):
+        return self.sky_level
 
-#     Parameters:
-#         rng:        A `BaseDeviate` instance to use for generating the random numbers.
-#         sky_level:  The sky level in electrons per pixel that was originally in the input image,
-#                     but which is taken to have already been subtracted off. [default: 0.]
+    def _withVariance(self, variance):
+        return PoissonNoise(self.rng, variance)
 
-#     Attributes:
-#         rng:        The internal random number generator (read-only)
-#         sky_level:  The value of the constructor parameter sky_level (read-only)
-#     """
-#     def __init__(self, rng=None, sky_level=0.):
-#         BaseNoise.__init__(self, rng)
-#         self._sky_level = sky_level
-#         self._pd = PoissonDeviate(self.rng)
+    def _withScaledVariance(self, variance_ratio):
+        return PoissonNoise(self.rng, self.sky_level * variance_ratio)
 
-#     @property
-#     def sky_level(self):
-#         """The input sky_level.
-#         """
-#         return self._sky_level
+    @_wraps(
+        _galsim.noise.PoissonNoise.copy,
+        lax_description="JAX-GalSim RNGs cannot be shared so a copy is made if None is given.",
+    )
+    def copy(self, rng=None):
+        if rng is None:
+            rng = self.rng
+        return PoissonNoise(rng=rng, sky_level=self.sky_level)
 
-#     def _applyTo(self, image):
-#         noise_array = np.empty(np.prod(image.array.shape), dtype=float)
-#         noise_array.reshape(image.array.shape)[:,:] = image.array
+    def __repr__(self):
+        return "galsim.PoissonNoise(rng=%r, sky_level=%r)" % (self.rng, self.sky_level)
 
-#         # Minor subtlety for integer images.  It's a bit more consistent to convert to an
-#         # integer with the sky still added and then subtract off the sky.  But this isn't quite
-#         # right if the sky has a fractional part.  So only subtract off the integer part of the
-#         # sky at the end.  For float images, you get the same answer either way, so it doesn't
-#         # matter.
-#         frac_sky = self.sky_level - image.dtype(self.sky_level)
-#         int_sky = self.sky_level - frac_sky
+    def __str__(self):
+        return "galsim.PoissonNoise(sky_level=%s)" % (self.sky_level)
 
-#         if self.sky_level != 0.:
-#             noise_array += self.sky_level
-#         # Make sure no negative values
-#         noise_array = noise_array.clip(0.)
-#         # The noise_image now has the expectation values for each pixel with the sky added.
-#         self._pd.generate_from_expectation(noise_array)
-#         # Subtract off the sky, since we don't want it in the final image.
-#         if frac_sky != 0.:
-#             noise_array -= frac_sky
-#         # Noise array is now the correct value for each pixel.
-#         np.copyto(image.array, noise_array.reshape(image.array.shape), casting='unsafe')
-#         if int_sky != 0.:
-#             image -= int_sky
+    def tree_flatten(self):
+        """This function flattens the PoissonNoise into a list of children
+        nodes that will be traced by JAX and auxiliary static data."""
+        # Define the children nodes of the PyTree that need tracing
+        children = (self._sky_level, self._rng)
+        # Define auxiliary static data that doesn’t need to be traced
+        aux_data = None
+        return (children, aux_data)
 
-#     def _getVariance(self):
-#         return self.sky_level
-
-#     def _withVariance(self, variance):
-#         return PoissonNoise(self.rng, variance)
-
-#     def _withScaledVariance(self, variance_ratio):
-#         return PoissonNoise(self.rng, self.sky_level * variance_ratio)
-
-#     def copy(self, rng=None):
-#         """Returns a copy of the Poisson noise model.
-
-#         By default, the copy will share the `BaseDeviate` random number generator with the parent
-#         instance.  However, you can provide a new rng to use in the copy if you want with::
-
-#             >>> noise_copy = noise.copy(rng=new_rng)
-#         """
-#         if rng is None: rng = self.rng
-#         return PoissonNoise(rng, self.sky_level)
-
-#     def __repr__(self):
-#         return 'galsim.PoissonNoise(rng=%r, sky_level=%r)'%(self.rng, self.sky_level)
-
-#     def __str__(self):
-#         return 'galsim.PoissonNoise(sky_level=%s)'%(self.sky_level)
+    @classmethod
+    def tree_unflatten(cls, aux_data, children):
+        """Recreates an instance of the class from flatten representation"""
+        return cls(sky_level=children[0], rng=children[1])
 
 
 # class CCDNoise(BaseNoise):
