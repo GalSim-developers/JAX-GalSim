@@ -255,106 +255,110 @@ def test_gaussian_noise():
     assert gn != gn3
 
 
-# @timer
-# def test_variable_gaussian_noise():
-#     """Test VariableGaussian random number generator
-#     """
-#     # Make a checkerboard image with two values for the variance
-#     gSigma1 = 17.23
-#     gSigma2 = 28.55
-#     var_image = galsim.ImageD(galsim.BoundsI(0,9,0,9))
-#     coords = np.ogrid[0:10, 0:10]
-#     var_image.array[ (coords[0] + coords[1]) % 2 == 1 ] = gSigma1**2
-#     var_image.array[ (coords[0] + coords[1]) % 2 == 0 ] = gSigma2**2
-#     print('var_image.array = ',var_image.array)
+@timer
+def test_variable_gaussian_noise():
+    """Test VariableGaussian random number generator
+    """
+    # Make a checkerboard image with two values for the variance
+    gSigma1 = 17.23
+    gSigma2 = 28.55
+    var_image = galsim.ImageD(galsim.BoundsI(0, 9, 0, 9))
+    coords = np.ogrid[0:10, 0:10]
+    var_image._array = var_image.array.at[(coords[0] + coords[1]) % 2 == 1].set(gSigma1**2)
+    var_image._array = var_image.array.at[(coords[0] + coords[1]) % 2 == 0].set(gSigma2**2)
+    print('var_image.array = ', var_image.array)
 
-#     g = galsim.GaussianDeviate(testseed, sigma=1.)
-#     vgResult = np.empty((10,10))
-#     g.generate(vgResult)
-#     vgResult *= np.sqrt(var_image.array)
+    g = galsim.GaussianDeviate(testseed, sigma=1.)
+    vgResult = np.empty((10, 10))
+    vgResult = g.generate(vgResult)
+    vgResult *= np.sqrt(var_image.array)
 
-#     # Test filling an image
-#     vgn = galsim.VariableGaussianNoise(galsim.BaseDeviate(testseed), var_image)
-#     testimage = galsim.ImageD(10,10)
-#     testimage.addNoise(vgn)
-#     np.testing.assert_array_almost_equal(
-#             testimage.array, vgResult, precision,
-#             err_msg="VariableGaussianNoise applied to Images does not reproduce expected sequence")
+    # Test filling an image
+    vgn = galsim.VariableGaussianNoise(galsim.BaseDeviate(testseed), var_image)
+    testimage = galsim.ImageD(10, 10)
+    testimage.addNoise(vgn)
+    np.testing.assert_array_almost_equal(
+        testimage.array, vgResult, precision,
+        err_msg="VariableGaussianNoise applied to Images does not reproduce expected sequence")
 
-#     # Test filling an image with Fortran ordering
-#     vgn.rng.seed(testseed)
-#     testimage = galsim.ImageD(np.zeros((10,10)).T)
-#     testimage.addNoise(vgn)
-#     np.testing.assert_array_almost_equal(
-#             testimage.array, vgResult, precision,
-#             err_msg="Wrong VariableGaussian noise generated for Fortran-ordered Image")
+    # Test filling an image with Fortran ordering
+    vgn.rng.seed(testseed)
+    testimage = galsim.ImageD(np.zeros((10, 10)).T)
+    testimage.addNoise(vgn)
+    np.testing.assert_array_almost_equal(
+        testimage.array, vgResult, precision,
+        err_msg="Wrong VariableGaussian noise generated for Fortran-ordered Image")
 
-#     # Check var_image property
-#     np.testing.assert_almost_equal(
-#             vgn.var_image.array, var_image.array, precision,
-#             err_msg="VariableGaussianNoise var_image returns wrong var_image")
+    # Check var_image property
+    np.testing.assert_array_almost_equal(
+        vgn.var_image.array, var_image.array, precision,
+        err_msg="VariableGaussianNoise var_image returns wrong var_image")
 
-#     # Check that the noise model really does produce this variance.
-#     big_var_image = galsim.ImageD(galsim.BoundsI(0,2047,0,2047))
-#     big_coords = np.ogrid[0:2048, 0:2048]
-#     mask1 = (big_coords[0] + big_coords[1]) % 2 == 0
-#     mask2 = (big_coords[0] + big_coords[1]) % 2 == 1
-#     big_var_image.array[mask1] = gSigma1**2
-#     big_var_image.array[mask2] = gSigma2**2
-#     big_vgn = galsim.VariableGaussianNoise(galsim.BaseDeviate(testseed), big_var_image)
+    # Check that the noise model really does produce this variance.
+    big_var_image = galsim.ImageD(galsim.BoundsI(0, 2047, 0, 2047))
+    big_coords = np.ogrid[0:2048, 0:2048]
+    mask1 = (big_coords[0] + big_coords[1]) % 2 == 0
+    mask2 = (big_coords[0] + big_coords[1]) % 2 == 1
+    big_var_image._array = big_var_image.array.at[mask1].set(gSigma1**2)
+    big_var_image._array = big_var_image.array.at[mask2].set(gSigma2**2)
+    big_vgn = galsim.VariableGaussianNoise(galsim.BaseDeviate(testseed), big_var_image)
 
-#     big_im = galsim.Image(2048,2048,dtype=float)
-#     big_im.addNoise(big_vgn)
-#     var = np.var(big_im.array)
-#     print('variance = ',var)
-#     print('getVar = ',big_vgn.var_image.array.mean())
-#     np.testing.assert_almost_equal(
-#             var, big_vgn.var_image.array.mean(), 1,
-#             err_msg='Realized variance for VariableGaussianNoise did not match var_image')
+    big_im = galsim.Image(2048, 2048, dtype=float)
+    big_im.addNoise(big_vgn)
+    var = np.var(big_im.array)
+    print('variance = ', var)
+    print('getVar = ', big_vgn.var_image.array.mean())
+    # NOTE had to turn down precision to 0 due to different RNG
+    np.testing.assert_almost_equal(
+        var, big_vgn.var_image.array.mean(), 0,
+        err_msg='Realized variance for VariableGaussianNoise did not match var_image')
 
-#     # Check realized variance in each mask
-#     print('rms1 = ',np.std(big_im.array[mask1]))
-#     print('rms2 = ',np.std(big_im.array[mask2]))
-#     np.testing.assert_almost_equal(np.std(big_im.array[mask1]), gSigma1, decimal=1)
-#     np.testing.assert_almost_equal(np.std(big_im.array[mask2]), gSigma2, decimal=1)
+    # Check realized variance in each mask
+    print('rms1 = ', np.std(big_im.array[mask1]))
+    print('rms2 = ', np.std(big_im.array[mask2]))
+    np.testing.assert_almost_equal(np.std(big_im.array[mask1]), gSigma1, decimal=1)
+    np.testing.assert_almost_equal(np.std(big_im.array[mask2]), gSigma2, decimal=1)
 
-#     # Check that VariableGaussianNoise adds to the image, not overwrites the image.
-#     gal = galsim.Exponential(half_light_radius=2.3, flux=1.e4)
-#     gal.drawImage(image=big_im)
-#     big_vgn.rng.seed(testseed)
-#     big_im.addNoise(big_vgn)
-#     gal.withFlux(-1.e4).drawImage(image=big_im, add_to_image=True)
-#     var = np.var(big_im.array)
-#     np.testing.assert_almost_equal(
-#             var, big_vgn.var_image.array.mean(), 1,
-#             err_msg='VariableGaussianNoise wrong when already an object drawn on the image')
+    # Check that VariableGaussianNoise adds to the image, not overwrites the image.
+    gal = galsim.Exponential(half_light_radius=2.3, flux=1.e4)
+    gal.drawImage(image=big_im)
+    big_vgn.rng.seed(testseed)
+    big_im.addNoise(big_vgn)
+    gal.withFlux(-1.e4).drawImage(image=big_im, add_to_image=True)
+    var = np.var(big_im.array)
+    # NOTE had to turn down precision to 0 due to different RNG
+    np.testing.assert_almost_equal(
+        var, big_vgn.var_image.array.mean(), 0,
+        err_msg='VariableGaussianNoise wrong when already an object drawn on the image')
 
-#     # Check picklability
-#     check_pickle(vgn, lambda x: (x.rng.serialize(), x.var_image))
-#     check_pickle(vgn, drawNoise)
-#     check_pickle(vgn)
+    # Check picklability
+    check_pickle(vgn, lambda x: (x.rng.serialize(), x.var_image))
+    check_pickle(vgn, drawNoise)
+    check_pickle(vgn)
 
-#     # Check copy, eq and ne
-#     vgn2 = galsim.VariableGaussianNoise(vgn.rng.duplicate(), var_image)
-#     vgn3 = vgn.copy()
-#     vgn4 = vgn.copy(rng=galsim.BaseDeviate(11))
-#     vgn5 = galsim.VariableGaussianNoise(vgn.rng, 2.*var_image)
-#     assert vgn == vgn2
-#     assert vgn == vgn3
-#     assert vgn != vgn4
-#     assert vgn != vgn5
-#     assert vgn.rng.raw() == vgn2.rng.raw()
-#     assert vgn == vgn2
-#     assert vgn == vgn3
-#     vgn.rng.raw()
-#     assert vgn != vgn2
-#     assert vgn == vgn3
+    # Check copy, eq and ne
+    vgn2 = galsim.VariableGaussianNoise(vgn.rng.duplicate(), var_image)
+    vgn3 = vgn.copy()
+    vgn4 = vgn.copy(rng=galsim.BaseDeviate(11))
+    vgn5 = galsim.VariableGaussianNoise(vgn.rng, 2. * var_image)
+    assert vgn == vgn2
+    assert vgn == vgn3
+    assert vgn != vgn4
+    assert vgn != vgn5
+    assert vgn.rng.raw() == vgn2.rng.raw()
+    assert vgn == vgn2
+    # jax does not link RNGs
+    assert vgn != vgn3
+    vgn.rng.raw()
+    assert vgn != vgn2
+    # jax does not link RNGs
+    assert vgn != vgn3
 
-#     assert_raises(TypeError, vgn.applyTo, 23)
-#     assert_raises(ValueError, vgn.applyTo, galsim.ImageF(3,3))
-#     assert_raises(galsim.GalSimError, vgn.getVariance)
-#     assert_raises(galsim.GalSimError, vgn.withVariance, 23)
-#     assert_raises(galsim.GalSimError, vgn.withScaledVariance, 23)
+    assert_raises(TypeError, vgn.applyTo, 23)
+    assert_raises(ValueError, vgn.applyTo, galsim.ImageF(3, 3))
+    assert_raises(galsim.GalSimError, vgn.getVariance)
+    assert_raises(galsim.GalSimError, vgn.withVariance, 23)
+    assert_raises(galsim.GalSimError, vgn.withScaledVariance, 23)
 
 
 @timer
@@ -426,75 +430,75 @@ def test_poisson_noise():
     gal.withFlux(-0.3).drawImage(image=big_im, add_to_image=True)
     var = np.var(big_im.array)
     np.testing.assert_almost_equal(
-            var, pn.getVariance(), 1,
-            err_msg='PoissonNoise wrong when already an object drawn on the image')
+        var, pn.getVariance(), 1,
+        err_msg='PoissonNoise wrong when already an object drawn on the image')
 
     # Check withVariance
     pn = pn.withVariance(9.)
     np.testing.assert_almost_equal(
-            pn.getVariance(), 9., precision,
-            err_msg="PoissonNoise withVariance results in wrong variance")
+        pn.getVariance(), 9., precision,
+        err_msg="PoissonNoise withVariance results in wrong variance")
     np.testing.assert_almost_equal(
-            pn.sky_level, 9., precision,
-            err_msg="PoissonNoise withVariance results in wrong sky_level")
+        pn.sky_level, 9., precision,
+        err_msg="PoissonNoise withVariance results in wrong sky_level")
 
     # Check withScaledVariance
     pn = pn.withScaledVariance(4.)
     np.testing.assert_almost_equal(
-            pn.getVariance(), 36, precision,
-            err_msg="PoissonNoise withScaledVariance results in wrong variance")
+        pn.getVariance(), 36, precision,
+        err_msg="PoissonNoise withScaledVariance results in wrong variance")
     np.testing.assert_almost_equal(
-            pn.sky_level, 36., precision,
-            err_msg="PoissonNoise withScaledVariance results in wrong sky_level")
+        pn.sky_level, 36., precision,
+        err_msg="PoissonNoise withScaledVariance results in wrong sky_level")
 
     # Check arithmetic
     pn = pn.withVariance(0.5)
     pn2 = pn * 3
     np.testing.assert_almost_equal(
-            pn2.getVariance(), 1.5, precision,
-            err_msg="PoissonNoise pn*3 results in wrong variance")
+        pn2.getVariance(), 1.5, precision,
+        err_msg="PoissonNoise pn*3 results in wrong variance")
     np.testing.assert_almost_equal(
-            pn.getVariance(), 0.5, precision,
-            err_msg="PoissonNoise pn*3 results in wrong variance for original pn")
+        pn.getVariance(), 0.5, precision,
+        err_msg="PoissonNoise pn*3 results in wrong variance for original pn")
     pn2 = 5 * pn
     np.testing.assert_almost_equal(
-            pn2.getVariance(), 2.5, precision,
-            err_msg="PoissonNoise 5*pn results in wrong variance")
+        pn2.getVariance(), 2.5, precision,
+        err_msg="PoissonNoise 5*pn results in wrong variance")
     np.testing.assert_almost_equal(
-            pn.getVariance(), 0.5, precision,
-            err_msg="PoissonNoise 5*pn results in wrong variance for original pn")
-    pn2 = pn/2
+        pn.getVariance(), 0.5, precision,
+        err_msg="PoissonNoise 5*pn results in wrong variance for original pn")
+    pn2 = pn / 2
     np.testing.assert_almost_equal(
-            pn2.getVariance(), 0.25, precision,
-            err_msg="PoissonNoise pn/2 results in wrong variance")
+        pn2.getVariance(), 0.25, precision,
+        err_msg="PoissonNoise pn/2 results in wrong variance")
     np.testing.assert_almost_equal(
-            pn.getVariance(), 0.5, precision,
-            err_msg="PoissonNoise 5*pn results in wrong variance for original pn")
+        pn.getVariance(), 0.5, precision,
+        err_msg="PoissonNoise 5*pn results in wrong variance for original pn")
     pn *= 3
     np.testing.assert_almost_equal(
-            pn.getVariance(), 1.5, precision,
-            err_msg="PoissonNoise pn*=3 results in wrong variance")
+        pn.getVariance(), 1.5, precision,
+        err_msg="PoissonNoise pn*=3 results in wrong variance")
     pn /= 2
     np.testing.assert_almost_equal(
-            pn.getVariance(), 0.75, precision,
-            err_msg="PoissonNoise pn/=2 results in wrong variance")
+        pn.getVariance(), 0.75, precision,
+        err_msg="PoissonNoise pn/=2 results in wrong variance")
 
     # Check starting with PoissonNoise()
     pn = galsim.PoissonNoise()
     pn = pn.withVariance(9.)
     np.testing.assert_almost_equal(
-            pn.getVariance(), 9., precision,
-            err_msg="PoissonNoise().withVariance results in wrong variance")
+        pn.getVariance(), 9., precision,
+        err_msg="PoissonNoise().withVariance results in wrong variance")
     np.testing.assert_almost_equal(
-            pn.sky_level, 9., precision,
-            err_msg="PoissonNoise().withVariance results in wrong sky_level")
+        pn.sky_level, 9., precision,
+        err_msg="PoissonNoise().withVariance results in wrong sky_level")
     pn = pn.withScaledVariance(4.)
     np.testing.assert_almost_equal(
-            pn.getVariance(), 36, precision,
-            err_msg="PoissonNoise().withScaledVariance results in wrong variance")
+        pn.getVariance(), 36, precision,
+        err_msg="PoissonNoise().withScaledVariance results in wrong variance")
     np.testing.assert_almost_equal(
-            pn.sky_level, 36., precision,
-            err_msg="PoissonNoise().withScaledVariance results in wrong sky_level")
+        pn.sky_level, 36., precision,
+        err_msg="PoissonNoise().withScaledVariance results in wrong sky_level")
 
     # Check picklability
     check_pickle(pn, lambda x: (x.rng.serialize(), x.sky_level))
@@ -506,7 +510,7 @@ def test_poisson_noise():
     pn2 = galsim.PoissonNoise(pn.rng.duplicate(), pMean)
     pn3 = pn.copy()
     pn4 = pn.copy(rng=galsim.BaseDeviate(11))
-    pn5 = galsim.PoissonNoise(pn.rng, 2*pMean)
+    pn5 = galsim.PoissonNoise(pn.rng, 2 * pMean)
     assert pn == pn2
     assert pn == pn3
     assert pn != pn4

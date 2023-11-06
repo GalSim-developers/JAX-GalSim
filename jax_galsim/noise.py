@@ -5,8 +5,8 @@ from jax._src.numpy.util import _wraps
 from jax.tree_util import register_pytree_node_class
 
 from jax_galsim.core.utils import ensure_hashable
-from jax_galsim.errors import GalSimError  # , GalSimIncompatibleValuesError
-from jax_galsim.image import Image  # , ImageD
+from jax_galsim.errors import GalSimError, GalSimIncompatibleValuesError
+from jax_galsim.image import Image, ImageD
 from jax_galsim.random import BaseDeviate, GaussianDeviate, PoissonDeviate
 
 
@@ -514,78 +514,82 @@ class DeviateNoise(BaseNoise):
         return cls(rng=children[0])
 
 
-# class VariableGaussianNoise(BaseNoise):
-#     """
-#     Class implementing Gaussian noise that has a different variance in each pixel.
+@_wraps(_galsim.noise.VariableGaussianNoise)
+@register_pytree_node_class
+class VariableGaussianNoise(BaseNoise):
+    def __init__(self, rng, var_image):
+        super().__init__(GaussianDeviate(rng))
 
-#     The following will add variable Gaussian noise to every element of an image::
+        # Make sure var_image is an ImageD, converting dtype if necessary
+        self._var_image = ImageD(var_image)
 
-#         >>> variable_noise = galsim.VariableGaussianNoise(rng, var_image)
-#         >>> image.addNoise(variable_noise)
+    @property
+    def var_image(self):
+        """The input var_image."""
+        return self._var_image
 
-#     Parameters:
-#         rng:        A `BaseDeviate` instance to use for generating the random numbers.
-#         var_image:  The variance of the noise to apply to each pixel.  This image must be the
-#                     same shape as the image for which you eventually call addNoise().
+    # Repeat this here, since we want to add an extra sanity check, which should go in the
+    # non-underscore version.
+    @_wraps(_galsim.noise.VariableGaussianNoise.applyTo)
+    def applyTo(self, image):
+        if not isinstance(image, Image):
+            raise TypeError("Provided image must be a galsim.Image")
+        if image.array.shape != self.var_image.array.shape:
+            raise GalSimIncompatibleValuesError(
+                "Provided image shape does not match the shape of var_image",
+                image=image,
+                var_image=self.var_image,
+            )
+        return self._applyTo(image)
 
-#     Attributes:
-#         rng:        The internal random number generator (read-only)
-#         var_image:  The value of the constructor parameter var_image (read-only)
-#     """
-#     def __init__(self, rng, var_image):
-#         BaseNoise.__init__(self, rng)
-#         self._gd = GaussianDeviate(rng)
+    def _applyTo(self, image):
+        # jax galsim never fills an image so this is safe
+        noise_array = self._rng.generate_from_variance(self.var_image.array)
+        image._array = image._array + noise_array.astype(image.dtype)
 
-#         # Make sure var_image is an ImageD, converting dtype if necessary
-#         self._var_image = ImageD(var_image)
+    @_wraps(
+        _galsim.noise.VariableGaussianNoise.copy,
+        lax_description="JAX-GalSim RNGs cannot be shared so a copy is made if None is given.",
+    )
+    def copy(self, rng=None):
+        if rng is None:
+            rng = self.rng
+        return VariableGaussianNoise(rng, self.var_image)
 
-#     @property
-#     def var_image(self):
-#         """The input var_image.
-#         """
-#         return self._var_image
+    def _getVariance(self):
+        raise GalSimError("No single variance value for VariableGaussianNoise")
 
-#     # Repeat this here, since we want to add an extra sanity check, which should go in the
-#     # non-underscore version.
-#     @doc_inherit
-#     def applyTo(self, image):
-#         if not isinstance(image, Image):
-#             raise TypeError("Provided image must be a galsim.Image")
-#         if image.array.shape != self.var_image.array.shape:
-#             raise GalSimIncompatibleValuesError(
-#                 "Provided image shape does not match the shape of var_image",
-#                 image=image, var_image=self.var_image)
-#         return self._applyTo(image)
+    def _withVariance(self, variance):
+        raise GalSimError(
+            "Changing the variance is not allowed for VariableGaussianNoise"
+        )
 
-#     def _applyTo(self, image):
-#         noise_array = self.var_image.array.flatten()  # NB. Makes a copy! (which is what we want)
-#         self._gd.generate_from_variance(noise_array)
-#         image.array[:,:] += noise_array.reshape(image.array.shape).astype(image.dtype)
+    def _withScaledVariance(self, variance):
+        # This one isn't undefined like withVariance, but it's inefficient.  Better to
+        # scale the values in the image before constructing VariableGaussianNoise.
+        raise GalSimError(
+            "Changing the variance is not allowed for VariableGaussianNoise"
+        )
 
-#     def copy(self, rng=None):
-#         """Returns a copy of the variable Gaussian noise model.
+    def __repr__(self):
+        return "galsim.VariableGaussianNoise(rng=%r, var_image%r)" % (
+            self.rng,
+            self.var_image,
+        )
 
-#         By default, the copy will share the `BaseDeviate` random number generator with the parent
-#         instance.  However, you can provide a new rng to use in the copy if you want with::
+    def __str__(self):
+        return "galsim.VariableGaussianNoise(var_image%s)" % (self.var_image)
 
-#             >>> noise_copy = noise.copy(rng=new_rng)
-#         """
-#         if rng is None: rng = self.rng
-#         return VariableGaussianNoise(rng, self.var_image)
+    def tree_flatten(self):
+        """This function flattens the VariableGaussianNoise into a list of children
+        nodes that will be traced by JAX and auxiliary static data."""
+        # Define the children nodes of the PyTree that need tracing
+        children = (self._rng, self._var_image)
+        # Define auxiliary static data that doesn’t need to be traced
+        aux_data = None
+        return (children, aux_data)
 
-#     def _getVariance(self):
-#         raise GalSimError("No single variance value for VariableGaussianNoise")
-
-#     def _withVariance(self, variance):
-#         raise GalSimError("Changing the variance is not allowed for VariableGaussianNoise")
-
-#     def _withScaledVariance(self, variance):
-#         # This one isn't undefined like withVariance, but it's inefficient.  Better to
-#         # scale the values in the image before constructing VariableGaussianNoise.
-#         raise GalSimError("Changing the variance is not allowed for VariableGaussianNoise")
-
-#     def __repr__(self):
-#         return 'galsim.VariableGaussianNoise(rng=%r, var_image%r)'%(self.rng, self.var_image)
-
-#     def __str__(self):
-#         return 'galsim.VariableGaussianNoise(var_image%s)'%(self.var_image)
+    @classmethod
+    def tree_unflatten(cls, aux_data, children):
+        """Recreates an instance of the class from flatten representation"""
+        return cls(children[0], children[1])

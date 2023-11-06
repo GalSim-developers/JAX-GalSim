@@ -23,6 +23,7 @@ from .noise import (
     GaussianNoise,
     DeviateNoise,
     PoissonNoise,
+    VariableGaussianNoise,
 )
 
 # Basic building blocks
