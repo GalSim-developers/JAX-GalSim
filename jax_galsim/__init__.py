@@ -24,6 +24,7 @@ from .noise import (
     DeviateNoise,
     PoissonNoise,
     VariableGaussianNoise,
+    CCDNoise,
 )
 
 # Basic building blocks

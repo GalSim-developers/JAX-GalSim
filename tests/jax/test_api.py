@@ -768,3 +768,57 @@ def test_api_random():
         "GammaDeviate",
         "Chi2Deviate",
     } <= tested
+
+
+def _init_noise(cls):
+    try:
+        obj = cls(jax_galsim.random.GaussianDeviate(seed=42))
+    except Exception as e:
+        if (
+            "VariableGaussianNoise.__init__() missing 1 required positional argument: 'var_image'"
+            in str(e)
+        ):
+            pass
+        else:
+            raise e
+    else:
+        return obj
+
+    try:
+        obj = cls(
+            jax_galsim.random.GaussianDeviate(seed=42),
+            jax_galsim.ImageD(jnp.ones((10, 10)) * 2.0),
+        )
+    except Exception as e:
+        raise e
+    else:
+        return obj
+
+
+def test_api_noise():
+    classes = []
+    for item in sorted(dir(jax_galsim.noise)):
+        cls = getattr(jax_galsim.noise, item)
+        if (
+            inspect.isclass(cls)
+            and issubclass(cls, jax_galsim.noise.BaseNoise)
+            and cls is not jax_galsim.noise.BaseNoise
+        ):
+            classes.append(getattr(jax_galsim.noise, item))
+
+    tested = set()
+    for cls in classes:
+        obj = _init_noise(cls)
+        print(obj)
+        tested.add(cls.__name__)
+        _run_object_checks(obj, cls, "docs-methods")
+        _run_object_checks(obj, cls, "pickle-eval-repr-img")
+        # _run_object_checks(obj, cls, "vmap-jit-grad-random")
+
+    assert {
+        "GaussianNoise",
+        "PoissonNoise",
+        "DeviateNoise",
+        "VariableGaussianNoise",
+        "CCDNoise",
+    } <= tested

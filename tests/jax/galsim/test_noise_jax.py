@@ -525,273 +525,292 @@ def test_poisson_noise():
     assert pn != pn3
 
 
-# @timer
-# def test_ccdnoise():
-#     """Test CCD Noise generator
-#     """
-#     # Start with some regression tests where we have known values that we expect to generate:
+@timer
+def test_ccdnoise():
+    """Test CCD Noise generator
+    """
+    # Start with some regression tests where we have known values that we expect to generate:
 
-#     types = (np.int16, np.int32, np.float32, np.float64)
-#     typestrings = ("S", "I", "F", "D")
+    types = (jnp.int16, jnp.int32, jnp.float32, jnp.float64)
+    typestrings = ("S", "I", "F", "D")
 
-#     testseed = 1000
-#     gain = 3.
-#     read_noise = 5.
-#     sky = 50
+    testseed = 1000
+    gain = 3.
+    read_noise = 5.
+    sky = 50
 
-#     # Tabulated results for the above settings and testseed value.
-#     cResultS = np.array([[44, 47], [50, 49]], dtype=np.int16)
-#     cResultI = np.array([[44, 47], [50, 49]], dtype=np.int32)
-#     cResultF = np.array([[44.45332718, 47.79725266], [50.67744064, 49.58272934]], dtype=np.float32)
-#     cResultD = np.array([[44.453328440057618, 47.797254142519577],
-#                         [50.677442088335162, 49.582730949808081]],dtype=np.float64)
+    # Tabulated results for the above settings and testseed value.
+    cResultS = np.array([[42, 52], [49, 45]], dtype=np.int16)  # noqa: F841
+    cResultI = np.array([[42, 52], [49, 45]], dtype=np.int32)  # noqa: F841
+    cResultF = np.array([  # noqa: F841
+        [42.4286994934082, 52.42875671386719],
+        [49.016048431396484, 45.61003875732422]
+    ], dtype=np.float32)
+    cResultD = np.array([  # noqa: F841
+        [42.42870031326479, 52.42875718917211],
+        [49.016050296441094, 45.61003745208172]
+    ], dtype=np.float64)
 
-#     for i in range(4):
-#         prec = eval("precision"+typestrings[i])
-#         cResult = eval("cResult"+typestrings[i])
+    for i in range(4):
+        prec = eval("precision" + typestrings[i])
+        cResult = eval("cResult" + typestrings[i])
 
-#         rng = galsim.BaseDeviate(testseed)
-#         ccdnoise = galsim.CCDNoise(rng, gain=gain, read_noise=read_noise)
-#         testImage = galsim.Image((np.zeros((2, 2))+sky).astype(types[i]))
-#         ccdnoise.applyTo(testImage)
-#         np.testing.assert_array_almost_equal(
-#                 testImage.array, cResult, prec,
-#                 err_msg="Wrong CCD noise random sequence generated for Image"+typestrings[i]+".")
+        rng = galsim.BaseDeviate(testseed)
+        ccdnoise = galsim.CCDNoise(rng, gain=gain, read_noise=read_noise)
+        testImage = galsim.Image((np.zeros((2, 2)) + sky).astype(types[i]))
+        ccdnoise.applyTo(testImage)
+        np.testing.assert_array_almost_equal(
+            testImage.array, cResult, prec,
+            err_msg="Wrong CCD noise random sequence generated for Image" + typestrings[i] + ".")
 
-#         # Check that reseeding the rng reseeds the internal deviate in CCDNoise
-#         rng.seed(testseed)
-#         testImage.fill(sky)
-#         ccdnoise.applyTo(testImage)
-#         np.testing.assert_array_almost_equal(
-#                 testImage.array, cResult, prec,
-#                 err_msg="Wrong CCD noise random sequence generated for Image"+typestrings[i]+
-#                 " after seed")
+        # Check that reseeding the rng reseeds the internal deviate in CCDNoise
+        rng.seed(testseed)
+        testImage.fill(sky)
+        ccdnoise.applyTo(testImage)
+        np.testing.assert_array_almost_equal(
+            testImage.array, cResult, prec,
+            err_msg=(
+                "Wrong CCD noise random sequence generated for Image" + typestrings[i]
+                + " after seed"
+            ),
+        )
 
-#         # Check using addNoise
-#         rng.seed(testseed)
-#         testImage.fill(sky)
-#         testImage.addNoise(ccdnoise)
-#         np.testing.assert_array_almost_equal(
-#                 testImage.array, cResult, prec,
-#                 err_msg="Wrong CCD noise random sequence generated for Image"+typestrings[i]+
-#                 " using addNoise")
+        # Check using addNoise
+        rng.seed(testseed)
+        testImage.fill(sky)
+        testImage.addNoise(ccdnoise)
+        np.testing.assert_array_almost_equal(
+            testImage.array, cResult, prec,
+            err_msg=(
+                "Wrong CCD noise random sequence generated for Image" + typestrings[i]
+                + " using addNoise"
+            ),
+        )
 
-#         # Test filling an image with Fortran ordering
-#         rng.seed(testseed)
-#         testImageF = galsim.Image(np.zeros((2, 2)).T, dtype=types[i])
-#         testImageF.fill(sky)
-#         testImageF.addNoise(ccdnoise)
-#         np.testing.assert_array_almost_equal(
-#                 testImageF.array, cResult, prec,
-#                 err_msg="Wrong CCD noise generated for Fortran-ordered Image"+typestrings[i])
+        # Test filling an image with Fortran ordering
+        rng.seed(testseed)
+        testImageF = galsim.Image(np.zeros((2, 2)).T, dtype=types[i])
+        testImageF.fill(sky)
+        testImageF.addNoise(ccdnoise)
+        np.testing.assert_array_almost_equal(
+            testImageF.array, cResult, prec,
+            err_msg="Wrong CCD noise generated for Fortran-ordered Image" + typestrings[i])
 
-#         # Now include sky_level in ccdnoise
-#         rng.seed(testseed)
-#         ccdnoise = galsim.CCDNoise(rng, sky_level=sky, gain=gain, read_noise=read_noise)
-#         testImage.fill(0)
-#         ccdnoise.applyTo(testImage)
-#         np.testing.assert_array_almost_equal(
-#                 testImage.array, cResult-sky, prec,
-#                 err_msg="Wrong CCD noise random sequence generated for Image"+typestrings[i]+
-#                 " with sky_level included in noise")
+        # Now include sky_level in ccdnoise
+        rng.seed(testseed)
+        ccdnoise = galsim.CCDNoise(rng, sky_level=sky, gain=gain, read_noise=read_noise)
+        testImage.fill(0)
+        ccdnoise.applyTo(testImage)
+        np.testing.assert_array_almost_equal(
+            testImage.array, cResult - sky, prec,
+            err_msg=(
+                "Wrong CCD noise random sequence generated for Image" + typestrings[i]
+                + " with sky_level included in noise"
+            ),
+        )
 
-#         rng.seed(testseed)
-#         testImage.fill(0)
-#         testImage.addNoise(ccdnoise)
-#         np.testing.assert_array_almost_equal(
-#                 testImage.array, cResult-sky, prec,
-#                 err_msg="Wrong CCD noise random sequence generated for Image"+typestrings[i]+
-#                 " using addNoise with sky_level included in noise")
+        rng.seed(testseed)
+        testImage.fill(0)
+        testImage.addNoise(ccdnoise)
+        np.testing.assert_array_almost_equal(
+            testImage.array, cResult - sky, prec,
+            err_msg=(
+                "Wrong CCD noise random sequence generated for Image" + typestrings[i]
+                + " using addNoise with sky_level included in noise"
+            ),
+        )
 
-#     # Check CCDNoise variance:
-#     var1 = sky/gain + (read_noise/gain)**2
-#     np.testing.assert_almost_equal(
-#             ccdnoise.getVariance(), var1, precision,
-#             err_msg="CCDNoise getVariance returns wrong variance")
-#     np.testing.assert_almost_equal(
-#             ccdnoise.sky_level, sky, precision,
-#             err_msg="CCDNoise sky_level returns wrong value")
-#     np.testing.assert_almost_equal(
-#             ccdnoise.gain, gain, precision,
-#             err_msg="CCDNoise gain returns wrong value")
-#     np.testing.assert_almost_equal(
-#             ccdnoise.read_noise, read_noise, precision,
-#             err_msg="CCDNoise read_noise returns wrong value")
+    # Check CCDNoise variance:
+    var1 = sky / gain + (read_noise / gain)**2
+    np.testing.assert_almost_equal(
+        ccdnoise.getVariance(), var1, precision,
+        err_msg="CCDNoise getVariance returns wrong variance")
+    np.testing.assert_almost_equal(
+        ccdnoise.sky_level, sky, precision,
+        err_msg="CCDNoise sky_level returns wrong value")
+    np.testing.assert_almost_equal(
+        ccdnoise.gain, gain, precision,
+        err_msg="CCDNoise gain returns wrong value")
+    np.testing.assert_almost_equal(
+        ccdnoise.read_noise, read_noise, precision,
+        err_msg="CCDNoise read_noise returns wrong value")
 
-#     # Check that the noise model really does produce this variance.
-#     # NB. If default float32 is used here, older versions of numpy will compute the variance
-#     # in single precision, and with 2048^2 values, the final answer comes out significantly
-#     # wrong (19.33 instead of 19.42, which gets compared to the nominal value of 19.44).
-#     big_im = galsim.Image(2048,2048,dtype=float)
-#     big_im.addNoise(ccdnoise)
-#     var = np.var(big_im.array)
-#     print('variance = ',var)
-#     print('getVar = ',ccdnoise.getVariance())
-#     np.testing.assert_almost_equal(
-#             var, ccdnoise.getVariance(), 1,
-#             err_msg='Realized variance for CCDNoise did not match getVariance()')
+    # Check that the noise model really does produce this variance.
+    # NB. If default float32 is used here, older versions of numpy will compute the variance
+    # in single precision, and with 2048^2 values, the final answer comes out significantly
+    # wrong (19.33 instead of 19.42, which gets compared to the nominal value of 19.44).
+    big_im = galsim.Image(2048, 2048, dtype=float)
+    big_im.addNoise(ccdnoise)
+    var = np.var(big_im.array)
+    print('variance = ', var)
+    print('getVar = ', ccdnoise.getVariance())
+    np.testing.assert_almost_equal(
+        var, ccdnoise.getVariance(), 1,
+        err_msg='Realized variance for CCDNoise did not match getVariance()')
 
-#     # Check that CCDNoise adds to the image, not overwrites the image.
-#     gal = galsim.Exponential(half_light_radius=2.3, flux=0.3)
-#     # Note: again, flux/size^2 needs to be << sky_level or it will mess up the statistics.
-#     gal.drawImage(image=big_im)
-#     big_im.addNoise(ccdnoise)
-#     gal.withFlux(-0.3).drawImage(image=big_im, add_to_image=True)
-#     var = np.var(big_im.array)
-#     np.testing.assert_almost_equal(
-#             var, ccdnoise.getVariance(), 1,
-#             err_msg='CCDNoise wrong when already an object drawn on the image')
+    # Check that CCDNoise adds to the image, not overwrites the image.
+    gal = galsim.Exponential(half_light_radius=2.3, flux=0.3)
+    # Note: again, flux/size^2 needs to be << sky_level or it will mess up the statistics.
+    gal.drawImage(image=big_im)
+    big_im.addNoise(ccdnoise)
+    gal.withFlux(-0.3).drawImage(image=big_im, add_to_image=True)
+    var = np.var(big_im.array)
+    np.testing.assert_almost_equal(
+        var, ccdnoise.getVariance(), 1,
+        err_msg='CCDNoise wrong when already an object drawn on the image')
 
-#     # Check using a non-integer sky level which does some slightly different calculations.
-#     rng.seed(testseed)
-#     big_im_int = galsim.Image(2048,2048,dtype=int)
-#     ccdnoise = galsim.CCDNoise(rng, sky_level=34.42, gain=1.6, read_noise=11.2)
-#     big_im_int.fill(0)
-#     big_im_int.addNoise(ccdnoise)
-#     var = np.var(big_im_int.array)
-#     np.testing.assert_almost_equal(var/ccdnoise.getVariance(), 1., decimal=2,
-#                                    err_msg='CCDNoise wrong when sky_level is not an integer')
+    # Check using a non-integer sky level which does some slightly different calculations.
+    rng.seed(testseed)
+    big_im_int = galsim.Image(2048, 2048, dtype=int)
+    ccdnoise = galsim.CCDNoise(rng, sky_level=34.42, gain=1.6, read_noise=11.2)
+    big_im_int.fill(0)
+    big_im_int.addNoise(ccdnoise)
+    var = np.var(big_im_int.array)
+    np.testing.assert_almost_equal(var / ccdnoise.getVariance(), 1., decimal=2,
+                                   err_msg='CCDNoise wrong when sky_level is not an integer')
 
-#     # Using gain=0 means the read_noise is in ADU, not e-
-#     rng.seed(testseed)
-#     ccdnoise = galsim.CCDNoise(rng, gain=0., read_noise=read_noise)
-#     var2 = read_noise**2
-#     np.testing.assert_almost_equal(
-#             ccdnoise.getVariance(), var2, precision,
-#             err_msg="CCDNoise getVariance returns wrong variance with gain=0")
-#     np.testing.assert_almost_equal(
-#             ccdnoise.sky_level, 0., precision,
-#             err_msg="CCDNoise sky_level returns wrong value with gain=0")
-#     np.testing.assert_almost_equal(
-#             ccdnoise.gain, 0., precision,
-#             err_msg="CCDNoise gain returns wrong value with gain=0")
-#     np.testing.assert_almost_equal(
-#             ccdnoise.read_noise, read_noise, precision,
-#             err_msg="CCDNoise read_noise returns wrong value with gain=0")
-#     big_im.fill(0)
-#     big_im.addNoise(ccdnoise)
-#     var = np.var(big_im.array)
-#     np.testing.assert_almost_equal(var, ccdnoise.getVariance(), 1,
-#                                    err_msg='CCDNoise wrong when gain=0')
+    # Using gain=0 means the read_noise is in ADU, not e-
+    rng.seed(testseed)
+    ccdnoise = galsim.CCDNoise(rng, gain=0., read_noise=read_noise)
+    var2 = read_noise**2
+    np.testing.assert_almost_equal(
+        ccdnoise.getVariance(), var2, precision,
+        err_msg="CCDNoise getVariance returns wrong variance with gain=0")
+    np.testing.assert_almost_equal(
+        ccdnoise.sky_level, 0., precision,
+        err_msg="CCDNoise sky_level returns wrong value with gain=0")
+    np.testing.assert_almost_equal(
+        ccdnoise.gain, 0., precision,
+        err_msg="CCDNoise gain returns wrong value with gain=0")
+    np.testing.assert_almost_equal(
+        ccdnoise.read_noise, read_noise, precision,
+        err_msg="CCDNoise read_noise returns wrong value with gain=0")
+    big_im.fill(0)
+    big_im.addNoise(ccdnoise)
+    var = np.var(big_im.array)
+    np.testing.assert_almost_equal(var, ccdnoise.getVariance(), 1,
+                                   err_msg='CCDNoise wrong when gain=0')
 
-#     # Check withVariance
-#     ccdnoise = galsim.CCDNoise(rng, sky_level=sky, gain=gain, read_noise=read_noise)
-#     ccdnoise = ccdnoise.withVariance(9.)
-#     np.testing.assert_almost_equal(
-#             ccdnoise.getVariance(), 9., precision,
-#             err_msg="CCDNoise withVariance results in wrong variance")
-#     np.testing.assert_almost_equal(
-#             ccdnoise.sky_level, (9./var1)*sky, precision,
-#             err_msg="CCDNoise withVariance results in wrong sky_level")
-#     np.testing.assert_almost_equal(
-#             ccdnoise.gain, gain, precision,
-#             err_msg="CCDNoise withVariance results in wrong gain")
-#     np.testing.assert_almost_equal(
-#             ccdnoise.read_noise, np.sqrt(9./var1) * read_noise, precision,
-#             err_msg="CCDNoise withVariance results in wrong ReadNoise")
+    # Check withVariance
+    ccdnoise = galsim.CCDNoise(rng, sky_level=sky, gain=gain, read_noise=read_noise)
+    ccdnoise = ccdnoise.withVariance(9.)
+    np.testing.assert_almost_equal(
+        ccdnoise.getVariance(), 9., precision,
+        err_msg="CCDNoise withVariance results in wrong variance")
+    np.testing.assert_almost_equal(
+        ccdnoise.sky_level, (9. / var1) * sky, precision,
+        err_msg="CCDNoise withVariance results in wrong sky_level")
+    np.testing.assert_almost_equal(
+        ccdnoise.gain, gain, precision,
+        err_msg="CCDNoise withVariance results in wrong gain")
+    np.testing.assert_almost_equal(
+        ccdnoise.read_noise, np.sqrt(9. / var1) * read_noise, precision,
+        err_msg="CCDNoise withVariance results in wrong ReadNoise")
 
-#     # Check withScaledVariance
-#     ccdnoise = ccdnoise.withScaledVariance(4.)
-#     np.testing.assert_almost_equal(
-#             ccdnoise.getVariance(), 36., precision,
-#             err_msg="CCDNoise withVariance results in wrong variance")
-#     np.testing.assert_almost_equal(
-#             ccdnoise.sky_level, (36./var1)*sky, precision,
-#             err_msg="CCDNoise withVariance results in wrong sky_level")
-#     np.testing.assert_almost_equal(
-#             ccdnoise.gain, gain, precision,
-#             err_msg="CCDNoise withVariance results in wrong gain")
-#     np.testing.assert_almost_equal(
-#             ccdnoise.read_noise, np.sqrt(36./var1) * read_noise, precision,
-#             err_msg="CCDNoise withVariance results in wrong ReadNoise")
+    # Check withScaledVariance
+    ccdnoise = ccdnoise.withScaledVariance(4.)
+    np.testing.assert_almost_equal(
+        ccdnoise.getVariance(), 36., precision,
+        err_msg="CCDNoise withVariance results in wrong variance")
+    np.testing.assert_almost_equal(
+        ccdnoise.sky_level, (36. / var1) * sky, precision,
+        err_msg="CCDNoise withVariance results in wrong sky_level")
+    np.testing.assert_almost_equal(
+        ccdnoise.gain, gain, precision,
+        err_msg="CCDNoise withVariance results in wrong gain")
+    np.testing.assert_almost_equal(
+        ccdnoise.read_noise, np.sqrt(36. / var1) * read_noise, precision,
+        err_msg="CCDNoise withVariance results in wrong ReadNoise")
 
-#     # Check arithmetic
-#     ccdnoise = ccdnoise.withVariance(0.5)
-#     ccdnoise2 = ccdnoise * 3
-#     np.testing.assert_almost_equal(
-#             ccdnoise2.getVariance(), 1.5, precision,
-#             err_msg="CCDNoise ccdnoise*3 results in wrong variance")
-#     np.testing.assert_almost_equal(
-#             ccdnoise.getVariance(), 0.5, precision,
-#             err_msg="CCDNoise ccdnoise*3 results in wrong variance for original ccdnoise")
-#     ccdnoise2 = 5 * ccdnoise
-#     np.testing.assert_almost_equal(
-#             ccdnoise2.getVariance(), 2.5, precision,
-#             err_msg="CCDNoise 5*ccdnoise results in wrong variance")
-#     np.testing.assert_almost_equal(
-#             ccdnoise.getVariance(), 0.5, precision,
-#             err_msg="CCDNoise 5*ccdnoise results in wrong variance for original ccdnoise")
-#     ccdnoise2 = ccdnoise/2
-#     np.testing.assert_almost_equal(
-#             ccdnoise2.getVariance(), 0.25, precision,
-#             err_msg="CCDNoise ccdnoise/2 results in wrong variance")
-#     np.testing.assert_almost_equal(
-#             ccdnoise.getVariance(), 0.5, precision,
-#             err_msg="CCDNoise 5*ccdnoise results in wrong variance for original ccdnoise")
-#     ccdnoise *= 3
-#     np.testing.assert_almost_equal(
-#             ccdnoise.getVariance(), 1.5, precision,
-#             err_msg="CCDNoise ccdnoise*=3 results in wrong variance")
-#     ccdnoise /= 2
-#     np.testing.assert_almost_equal(
-#             ccdnoise.getVariance(), 0.75, precision,
-#             err_msg="CCDNoise ccdnoise/=2 results in wrong variance")
+    # Check arithmetic
+    ccdnoise = ccdnoise.withVariance(0.5)
+    ccdnoise2 = ccdnoise * 3
+    np.testing.assert_almost_equal(
+        ccdnoise2.getVariance(), 1.5, precision,
+        err_msg="CCDNoise ccdnoise*3 results in wrong variance")
+    np.testing.assert_almost_equal(
+        ccdnoise.getVariance(), 0.5, precision,
+        err_msg="CCDNoise ccdnoise*3 results in wrong variance for original ccdnoise")
+    ccdnoise2 = 5 * ccdnoise
+    np.testing.assert_almost_equal(
+        ccdnoise2.getVariance(), 2.5, precision,
+        err_msg="CCDNoise 5*ccdnoise results in wrong variance")
+    np.testing.assert_almost_equal(
+        ccdnoise.getVariance(), 0.5, precision,
+        err_msg="CCDNoise 5*ccdnoise results in wrong variance for original ccdnoise")
+    ccdnoise2 = ccdnoise / 2
+    np.testing.assert_almost_equal(
+        ccdnoise2.getVariance(), 0.25, precision,
+        err_msg="CCDNoise ccdnoise/2 results in wrong variance")
+    np.testing.assert_almost_equal(
+        ccdnoise.getVariance(), 0.5, precision,
+        err_msg="CCDNoise 5*ccdnoise results in wrong variance for original ccdnoise")
+    ccdnoise *= 3
+    np.testing.assert_almost_equal(
+        ccdnoise.getVariance(), 1.5, precision,
+        err_msg="CCDNoise ccdnoise*=3 results in wrong variance")
+    ccdnoise /= 2
+    np.testing.assert_almost_equal(
+        ccdnoise.getVariance(), 0.75, precision,
+        err_msg="CCDNoise ccdnoise/=2 results in wrong variance")
 
-#     # Check starting with CCDNoise()
-#     ccdnoise = galsim.CCDNoise()
-#     ccdnoise = ccdnoise.withVariance(9.)
-#     np.testing.assert_almost_equal(
-#             ccdnoise.getVariance(), 9., precision,
-#             err_msg="CCDNoise().withVariance results in wrong variance")
-#     np.testing.assert_almost_equal(
-#             ccdnoise.sky_level, 9., precision,
-#             err_msg="CCDNoise().withVariance results in wrong sky_level")
-#     np.testing.assert_almost_equal(
-#             ccdnoise.gain, 1., precision,
-#             err_msg="CCDNoise().withVariance results in wrong gain")
-#     np.testing.assert_almost_equal(
-#             ccdnoise.read_noise, 0., precision,
-#             err_msg="CCDNoise().withVariance results in wrong ReadNoise")
-#     ccdnoise = ccdnoise.withScaledVariance(4.)
-#     np.testing.assert_almost_equal(
-#             ccdnoise.getVariance(), 36., precision,
-#             err_msg="CCDNoise().withScaledVariance results in wrong variance")
-#     np.testing.assert_almost_equal(
-#             ccdnoise.sky_level, 36., precision,
-#             err_msg="CCDNoise().withScaledVariance results in wrong sky_level")
-#     np.testing.assert_almost_equal(
-#             ccdnoise.gain, 1., precision,
-#             err_msg="CCDNoise().withScaledVariance results in wrong gain")
-#     np.testing.assert_almost_equal(
-#             ccdnoise.read_noise, 0., precision,
-#             err_msg="CCDNoise().withScaledVariance results in wrong ReadNoise")
+    # Check starting with CCDNoise()
+    ccdnoise = galsim.CCDNoise()
+    ccdnoise = ccdnoise.withVariance(9.)
+    np.testing.assert_almost_equal(
+        ccdnoise.getVariance(), 9., precision,
+        err_msg="CCDNoise().withVariance results in wrong variance")
+    np.testing.assert_almost_equal(
+        ccdnoise.sky_level, 9., precision,
+        err_msg="CCDNoise().withVariance results in wrong sky_level")
+    np.testing.assert_almost_equal(
+        ccdnoise.gain, 1., precision,
+        err_msg="CCDNoise().withVariance results in wrong gain")
+    np.testing.assert_almost_equal(
+        ccdnoise.read_noise, 0., precision,
+        err_msg="CCDNoise().withVariance results in wrong ReadNoise")
+    ccdnoise = ccdnoise.withScaledVariance(4.)
+    np.testing.assert_almost_equal(
+        ccdnoise.getVariance(), 36., precision,
+        err_msg="CCDNoise().withScaledVariance results in wrong variance")
+    np.testing.assert_almost_equal(
+        ccdnoise.sky_level, 36., precision,
+        err_msg="CCDNoise().withScaledVariance results in wrong sky_level")
+    np.testing.assert_almost_equal(
+        ccdnoise.gain, 1., precision,
+        err_msg="CCDNoise().withScaledVariance results in wrong gain")
+    np.testing.assert_almost_equal(
+        ccdnoise.read_noise, 0., precision,
+        err_msg="CCDNoise().withScaledVariance results in wrong ReadNoise")
 
-#     # Check picklability
-#     check_pickle(ccdnoise, lambda x: (x.rng.serialize(), x.sky_level, x.gain, x.read_noise))
-#     check_pickle(ccdnoise, drawNoise)
-#     check_pickle(ccdnoise)
+    # Check picklability
+    check_pickle(ccdnoise, lambda x: (x.rng.serialize(), x.sky_level, x.gain, x.read_noise))
+    check_pickle(ccdnoise, drawNoise)
+    check_pickle(ccdnoise)
 
-#     # Check copy, eq and ne
-#     ccdnoise = galsim.CCDNoise(rng, sky, gain, read_noise)
-#     ccdnoise2 = galsim.CCDNoise(ccdnoise.rng.duplicate(), gain=gain, read_noise=read_noise,
-#                                 sky_level=sky)
-#     ccdnoise3 = ccdnoise.copy()
-#     ccdnoise4 = ccdnoise.copy(rng=galsim.BaseDeviate(11))
-#     ccdnoise5 = galsim.CCDNoise(ccdnoise.rng, gain=2*gain, read_noise=read_noise, sky_level=sky)
-#     ccdnoise6 = galsim.CCDNoise(ccdnoise.rng, gain=gain, read_noise=2*read_noise, sky_level=sky)
-#     ccdnoise7 = galsim.CCDNoise(ccdnoise.rng, gain=gain, read_noise=read_noise, sky_level=2*sky)
-#     assert ccdnoise == ccdnoise2
-#     assert ccdnoise == ccdnoise3
-#     assert ccdnoise != ccdnoise4
-#     assert ccdnoise != ccdnoise5
-#     assert ccdnoise != ccdnoise6
-#     assert ccdnoise != ccdnoise7
-#     assert ccdnoise.rng.raw() == ccdnoise2.rng.raw()
-#     assert ccdnoise == ccdnoise2
-#     assert ccdnoise == ccdnoise3
-#     ccdnoise.rng.raw()
-#     assert ccdnoise != ccdnoise2
-#     assert ccdnoise == ccdnoise3
+    # Check copy, eq and ne
+    ccdnoise = galsim.CCDNoise(rng, sky, gain, read_noise)
+    ccdnoise2 = galsim.CCDNoise(ccdnoise.rng.duplicate(), gain=gain, read_noise=read_noise,
+                                sky_level=sky)
+    ccdnoise3 = ccdnoise.copy()
+    ccdnoise4 = ccdnoise.copy(rng=galsim.BaseDeviate(11))
+    ccdnoise5 = galsim.CCDNoise(ccdnoise.rng, gain=2 * gain, read_noise=read_noise, sky_level=sky)
+    ccdnoise6 = galsim.CCDNoise(ccdnoise.rng, gain=gain, read_noise=2 * read_noise, sky_level=sky)
+    ccdnoise7 = galsim.CCDNoise(ccdnoise.rng, gain=gain, read_noise=read_noise, sky_level=2 * sky)
+    assert ccdnoise == ccdnoise2
+    assert ccdnoise == ccdnoise3
+    assert ccdnoise != ccdnoise4
+    assert ccdnoise != ccdnoise5
+    assert ccdnoise != ccdnoise6
+    assert ccdnoise != ccdnoise7
+    assert ccdnoise.rng.raw() == ccdnoise2.rng.raw()
+    assert ccdnoise == ccdnoise2
+    # jax does not link RNGs
+    assert ccdnoise != ccdnoise3
+    ccdnoise.rng.raw()
+    assert ccdnoise != ccdnoise2
+    # jax does not link RNGs
+    assert ccdnoise != ccdnoise3
 
 
 @timer
