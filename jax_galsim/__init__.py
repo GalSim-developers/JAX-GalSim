@@ -65,9 +65,11 @@ from .wcs import (
     PixelScale,
     ShearWCS,
     OffsetShearWCS,
+    CelestialWCS,
 )
 from .fits import FitsHeader
 from .celestial import CelestialCoord
+from .fitswcs import TanWCS, FitsWCS, GSFitsWCS
 
 # Shear
 from .shear import Shear, _Shear
