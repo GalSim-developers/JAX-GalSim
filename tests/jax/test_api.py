@@ -235,7 +235,8 @@ def _run_object_checks(obj, cls, kind):
 
             def _reg_fun(p):
                 kwargs = {key: p}
-                return cls(seed=10, **kwargs)().astype(float)
+                arr = jnp.zeros(100)
+                return jnp.sum(cls(seed=10, **kwargs).generate(arr).astype(float))
 
             _fun = jax.jit(_reg_fun)
             _gradfun = jax.jit(jax.grad(_fun))
