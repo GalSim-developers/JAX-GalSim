@@ -10,6 +10,7 @@
     * `Transformation`
     * `Shear`
     * `Convolve`
+    * `InterpolatedImage` and `Interpolant`
   * Added implementation of fundamental operations:
     * `drawImage`
     * `drawReal`
