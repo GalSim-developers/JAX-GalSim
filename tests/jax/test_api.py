@@ -775,10 +775,7 @@ def _init_noise(cls):
     try:
         obj = cls(jax_galsim.random.GaussianDeviate(seed=42))
     except Exception as e:
-        if (
-            "VariableGaussianNoise.__init__() missing 1 required positional argument: 'var_image'"
-            in str(e)
-        ):
+        if "__init__() missing 1 required positional argument: 'var_image'" in str(e):
             pass
         else:
             raise e
