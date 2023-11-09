@@ -1013,6 +1013,7 @@ def _kValue_arr(
     _uscale = 1.0 / (2.0 * jnp.pi)
     _maxk_xint = x_interpolant.urange() / _uscale / scale
 
+    # here we do the actual inteprolation in k space
     val = _draw_with_interpolant_kval(
         kxi,
         kyi,
@@ -1022,6 +1023,9 @@ def _kValue_arr(
         k_interpolant,
     )
 
+    # finally we multiply by the FFT of the real-space interpolation function
+    # and mask any values that are outside the range of the real-space interpolation
+    # FFT
     msk = (jnp.abs(kxi) <= _maxk_xint) & (jnp.abs(kyi) <= _maxk_xint)
     xint_val = x_interpolant._kval_noraise(kx) * x_interpolant._kval_noraise(ky)
     return jnp.where(msk, val * xint_val * pfac, 0.0)
