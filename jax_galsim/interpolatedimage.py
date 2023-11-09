@@ -1142,7 +1142,7 @@ def _calculate_size_containing_flux(image, thresh):
     # in pixels that contains a given flux (called thresh here)
     # expfac controls how much we oversample the interpolation table
     # in order to return a more accurate result
-    # we have it harded at 4 to compromise between speed and accuracy
+    # we have it hard coded at 4 to compromise between speed and accuracy
     expfac = 4.0
     dint = jnp.arange(image.array.shape[0] * expfac) / expfac + 1.0
     fluxes = jnp.interp(dint, d, fluxes)
