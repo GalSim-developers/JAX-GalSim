@@ -61,8 +61,6 @@ allowed_failures:
   - "TypeError not raised by __mul__"
   - "ValueError not raised by CelestialCoord"
   - "has no attribute 'drawPhot'"
-  - "'jax_galsim.utilities' has no attribute 'horner'"
-  - "module 'jax_galsim.utilities' has no attribute 'horner2d'"
   - "'Image' object has no attribute 'FindAdaptiveMom'"
   - "module 'jax_galsim' has no attribute 'BaseCorrelatedNoise'"
   - " module 'jax_galsim' has no attribute 'fft'"
@@ -71,3 +69,4 @@ allowed_failures:
   - "The JAX galsim.BaseDeviate does not support being used as a numpy PRNG."
   - "pad_image not implemented in jax_galsim."
   - "InterpolatedImages do not support noise padding in jax_galsim."
+  - "module 'jax_galsim' has no attribute 'FittedSIPWCS'"

@@ -2,14 +2,16 @@ import copy
 import os
 
 import galsim as _galsim
+import jax
 import jax.numpy as jnp
 import numpy as np
 from jax._src.numpy.util import _wraps
+from jax.tree_util import register_pytree_node_class
 
 from jax_galsim import fits
 from jax_galsim.angle import AngleUnit, arcsec, degrees, radians
 from jax_galsim.celestial import CelestialCoord
-from jax_galsim.core.utils import ensure_hashable
+from jax_galsim.core.utils import cast_to_float, cast_to_python_float, ensure_hashable
 from jax_galsim.errors import (
     GalSimError,
     GalSimIncompatibleValuesError,
@@ -18,8 +20,7 @@ from jax_galsim.errors import (
     galsim_warn,
 )
 from jax_galsim.position import PositionD
-
-# from jax_galsim.utilities import horner2d
+from jax_galsim.utilities import horner2d
 from jax_galsim.wcs import (
     AffineTransform,
     CelestialWCS,
@@ -46,47 +47,15 @@ from jax_galsim.wcs import (
 #########################################################################################
 
 
+@_wraps(
+    _galsim.fitswcs.GSFitsWCS,
+    lax_description=(
+        "The JAX-GalSim version of this class does not raise errors if inverting the WCS to "
+        "map ra,dec to (x,y) fails. Instead it returns NaNs.",
+    ),
+)
+@register_pytree_node_class
 class GSFitsWCS(CelestialWCS):
-    """This WCS uses a GalSim implementation to read a WCS from a FITS file.
-
-    It doesn't do nearly as many WCS types as the other options, and it does not try to be
-    as rigorous about supporting all possible valid variations in the FITS parameters.
-    However, it does several popular WCS types properly, and it doesn't require any additional
-    python modules to be installed, which can be helpful.
-
-    Currrently, it is able to parse the following WCS types: TAN, STG, ZEA, ARC, TPV, TNX
-
-    A GSFitsWCS is initialized with one of the following commands::
-
-        >>> wcs = galsim.GSFitsWCS(file_name=file_name)  # Open a file on disk
-        >>> wcs = galsim.GSFitsWCS(header=header)        # Use an existing pyfits header
-
-    Also, since the most common usage will probably be the first, you can also give a file name
-    without it being named::
-
-        >>> wcs = galsim.GSFitsWCS(file_name)
-
-    In addition to reading from a FITS file, there is also a factory function that builds
-    a GSFitsWCS object implementing a TAN projection.  See the docstring of `TanWCS` for
-    more details.
-
-    Parameters:
-        file_name:        The FITS file from which to read the WCS information.  This is probably
-                          the usual parameter to provide.  [default: None]
-        dir:              Optional directory to prepend to ``file_name``. [default: None]
-        hdu:              Optionally, the number of the HDU to use if reading from a file.
-                          The default is to use either the primary or first extension as
-                          appropriate for the given compression.  (e.g. for rice, the first
-                          extension is the one you normally want.) [default: None]
-        header:           The header of an open pyfits (or astropy.io) hdu.  Or, it can be
-                          a FitsHeader object.  [default: None]
-        compression:      Which decompression scheme to use (if any). See galsim.fits.read()
-                          for the available options.  [default: 'auto']
-        origin:           Optional origin position for the image coordinate system.
-                          If provided, it should be a PositionD or PositionI.
-                          [default: None]
-    """
-
     _req_params = {"file_name": str}
     _opt_params = {"dir": str, "hdu": int, "origin": PositionD, "compression": str}
 
@@ -99,7 +68,6 @@ class GSFitsWCS(CelestialWCS):
         compression="auto",
         origin=None,
         _data=None,
-        _doiter=True,
     ):
         # Note: _data is not intended for end-user use.  It enables the equivalent of a
         #       private constructor of GSFitsWCS by the function TanWCS.  The details of its
@@ -107,7 +75,6 @@ class GSFitsWCS(CelestialWCS):
 
         self._color = None
         self._tag = None  # Write something useful here (see below). This is just used for the str.
-        self._doiter = _doiter
 
         # If _data is given, copy the data and we're done.
         if _data is not None:
@@ -132,9 +99,12 @@ class GSFitsWCS(CelestialWCS):
             # set cdinv and convert to jax
             self.cd = jnp.array(self.cd)
             self.crpix = jnp.array(self.crpix)
-            self.pv = jnp.array(self.pv)
-            self.ab = jnp.array(self.ab)
-            self.abp = jnp.array(self.abp)
+            if self.pv is not None:
+                self.pv = jnp.array(self.pv)
+            if self.ab is not None:
+                self.ab = jnp.array(self.ab)
+            if self.abp is not None:
+                self.abp = jnp.array(self.abp)
             self.cdinv = jnp.linalg.inv(self.cd)
             return
 
@@ -176,6 +146,27 @@ class GSFitsWCS(CelestialWCS):
 
         if origin is not None:
             self.crpix += jnp.array([origin.x, origin.y])
+
+    def tree_flatten(self):
+        """This function flattens the WCS into a list of children
+        nodes that will be traced by JAX and auxiliary static data."""
+        # Define the children nodes of the PyTree that need tracing
+        children = (
+            self.crpix,
+            self.cd,
+            self.center,
+            self.pv,
+            self.ab,
+            self.abp,
+        )
+        # Define auxiliary static data that doesn’t need to be traced
+        aux_data = (self.wcs_type,)
+        return (children, aux_data)
+
+    @classmethod
+    def tree_unflatten(cls, aux_data, children):
+        """Recreates an instance of the class from flatten representation"""
+        return cls(_data=aux_data + children)
 
     # The origin is a required attribute/property, since it is used by some functions like
     # shiftOrigin to get the current origin value.  We don't use it in this class, though, so
@@ -587,19 +578,18 @@ class GSFitsWCS(CelestialWCS):
             return pv2
 
     def _apply_ab(self, x, y, ab):
-        raise NotImplementedError("apply ab is not done in JAX yet")
-        # # Note: this is used for both pv and ab, since the action is the same.
-        # # They just occur at two different places in the calculation.
-        # x1 = horner2d(x, y, ab[0], triangle=True)
-        # y1 = horner2d(x, y, ab[1], triangle=True)
-        # return x1, y1
+        # Note: this is used for both pv and ab, since the action is the same.
+        # They just occur at two different places in the calculation.
+        x1 = horner2d(x, y, ab[0], triangle=True)
+        y1 = horner2d(x, y, ab[1], triangle=True)
+        return x1, y1
 
     def _uv(self, x, y):
         # Most of the work for _radec.  But stop at (u,v).
 
         # Start with (u,v) = the image position
-        x = x.astype(float)
-        y = y.astype(float)
+        x = cast_to_float(x)
+        y = cast_to_float(y)
 
         x -= self.crpix[0]
         y -= self.crpix[1]
@@ -632,43 +622,6 @@ class GSFitsWCS(CelestialWCS):
 
         return ra, dec
 
-    def _invert_ab(self, u, v, ab, abp=None):
-        raise NotImplementedError("invert ab is not done in JAX yet")
-        # # This is used both for inverting (u,v) = PV (u',v')
-        # # and for inverting (x,y) = AB (x',y')
-        # # Here (and in C++) the notation is (u,v) = AB(x,y), even though both (u,v) and (x,y)
-        # # in this context are either in CCD coordinates (normally called x,y) or tangent plane
-        # # coordinates (normally called u,v).
-        # # abp is an optional set of coefficients to make a good guess for x,y
-
-        # uu = np.ascontiguousarray(
-        #     u
-        # )  # Don't overwrite the given u,v, since we need it at the end
-        # vv = np.ascontiguousarray(v)  # to check it we were provided scalars or arrays.
-
-        # x = np.atleast_1d(u.copy())  # Start with x,y = u,v.
-        # y = np.atleast_1d(v.copy())  # This may be updated below if abp is provided.
-
-        # nab = ab.shape[1]
-        # nabp = abp.shape[1] if abp is not None else 0
-        # nx = len(x.ravel())
-        # _uu = uu.__array_interface__["data"][0]
-        # _vv = vv.__array_interface__["data"][0]
-        # _x = x.__array_interface__["data"][0]
-        # _y = y.__array_interface__["data"][0]
-        # _ab = ab.__array_interface__["data"][0]
-        # _abp = 0 if abp is None else abp.__array_interface__["data"][0]
-        # with convert_cpp_errors():
-        #     _galsim.InvertAB(nx, nab, _uu, _vv, _ab, _x, _y, self._doiter, nabp, _abp)
-
-        # # Return the right type for u,v
-        # try:
-        #     len(u)
-        # except TypeError:
-        #     return x[0], y[0]
-        # else:
-        #     return x, y
-
     def _xy(self, ra, dec, color=None):
         u, v = self.center.project_rad(ra, dec, projection=self.projection)
 
@@ -678,14 +631,14 @@ class GSFitsWCS(CelestialWCS):
         v *= factor
 
         if self.pv is not None:
-            u, v = self._invert_ab(u, v, self.pv)
+            u, v = _invert_ab_noraise(u, v, self.pv)
 
         # This is a bit faster than using np.dot for 2x2 matrix.
         x = self.cdinv[0, 0] * u + self.cdinv[0, 1] * v
         y = self.cdinv[1, 0] * u + self.cdinv[1, 1] * v
 
         if self.ab is not None:
-            x, y = self._invert_ab(x, y, self.ab, abp=self.abp)
+            x, y = _invert_ab_noraise(x, y, self.ab, abp=self.abp)
 
         x += self.crpix[0]
         y += self.crpix[1]
@@ -713,7 +666,7 @@ class GSFitsWCS(CelestialWCS):
         p1 = jnp.array([image_pos.x, image_pos.y], dtype=float)
 
         # Start with unit jacobian
-        jac = jnp.diag([1, 1])
+        jac = jnp.eye(2)
 
         # No effect on the jacobian from this step.
         p1 -= self.crpix
@@ -731,10 +684,12 @@ class GSFitsWCS(CelestialWCS):
             dxpow = dxpow.at[1:].set((jnp.arange(order) + 1.0) * xpow[:-1])
             dypow = dypow.at[1:].set((jnp.arange(order) + 1.0) * ypow[:-1])
             j1 = jnp.transpose(
-                [
-                    jnp.dot(jnp.dot(self.ab, ypow), dxpow),
-                    jnp.dot(jnp.dot(self.ab, dypow), xpow),
-                ]
+                jnp.array(
+                    [
+                        jnp.dot(jnp.dot(self.ab, ypow), dxpow),
+                        jnp.dot(jnp.dot(self.ab, dypow), xpow),
+                    ]
+                )
             )
             jac = jnp.dot(j1, jac)
 
@@ -760,18 +715,20 @@ class GSFitsWCS(CelestialWCS):
             dupow = dupow.at[1:].set((jnp.arange(order) + 1.0) * upow[:-1])
             dvpow = dvpow.at[1:].set((jnp.arange(order) + 1.0) * vpow[:-1])
             j1 = jnp.transpose(
-                [
-                    jnp.dot(jnp.dot(self.pv, vpow), dupow),
-                    jnp.dot(jnp.dot(self.pv, dvpow), upow),
-                ]
+                jnp.array(
+                    [
+                        jnp.dot(jnp.dot(self.pv, vpow), dupow),
+                        jnp.dot(jnp.dot(self.pv, dvpow), upow),
+                    ]
+                )
             )
             jac = jnp.dot(j1, jac)
 
-        unit_convert = [-1 * degrees / radians, 1 * degrees / radians]
+        unit_convert = jnp.array([-1 * degrees / radians, 1 * degrees / radians])
         p2 *= unit_convert
         # Subtle point: Don't use jac *= ..., because jac might currently be self.cd, and
         #               that would change self.cd!
-        jac = jac * jnp.transpose([unit_convert])
+        jac = jac * jnp.transpose(jnp.array([unit_convert]))
 
         # Finally convert from (u,v) to (ra, dec).  We have a special function that computes
         # the jacobian of this step in the CelestialCoord class.
@@ -792,16 +749,16 @@ class GSFitsWCS(CelestialWCS):
         header["GS_WCS"] = ("GSFitsWCS", "GalSim WCS name")
         header["CTYPE1"] = "RA---" + self.wcs_type
         header["CTYPE2"] = "DEC--" + self.wcs_type
-        header["CRPIX1"] = self.crpix[0]
-        header["CRPIX2"] = self.crpix[1]
-        header["CD1_1"] = self.cd[0][0]
-        header["CD1_2"] = self.cd[0][1]
-        header["CD2_1"] = self.cd[1][0]
-        header["CD2_2"] = self.cd[1][1]
+        header["CRPIX1"] = cast_to_python_float(self.crpix[0])
+        header["CRPIX2"] = cast_to_python_float(self.crpix[1])
+        header["CD1_1"] = cast_to_python_float(self.cd[0][0])
+        header["CD1_2"] = cast_to_python_float(self.cd[0][1])
+        header["CD2_1"] = cast_to_python_float(self.cd[1][0])
+        header["CD2_2"] = cast_to_python_float(self.cd[1][1])
         header["CUNIT1"] = "deg"
         header["CUNIT2"] = "deg"
-        header["CRVAL1"] = self.center.ra / degrees
-        header["CRVAL2"] = self.center.dec / degrees
+        header["CRVAL1"] = cast_to_python_float(self.center.ra / degrees)
+        header["CRVAL2"] = cast_to_python_float(self.center.dec / degrees)
         if self.pv is not None:
             order = len(self.pv[0]) - 1
             k = 0
@@ -809,8 +766,8 @@ class GSFitsWCS(CelestialWCS):
             for n in range(order + 1):
                 for j in range(n + 1):
                     i = n - j
-                    header["PV1_" + str(k)] = self.pv[0, i, j]
-                    header["PV2_" + str(k)] = self.pv[1, j, i]
+                    header["PV1_" + str(k)] = cast_to_python_float(self.pv[0, i, j])
+                    header["PV2_" + str(k)] = cast_to_python_float(self.pv[1, j, i])
                     k = k + 1
                     if k in odd_indices:
                         k = k + 1
@@ -823,7 +780,7 @@ class GSFitsWCS(CelestialWCS):
                     if i == 1 and j == 0:
                         aij -= 1  # Turn back into standard form.
                     if aij != 0.0:
-                        header["A_" + str(i) + "_" + str(j)] = aij
+                        header["A_" + str(i) + "_" + str(j)] = cast_to_python_float(aij)
             header["B_ORDER"] = order
             for i in range(order + 1):
                 for j in range(order + 1):
@@ -831,7 +788,7 @@ class GSFitsWCS(CelestialWCS):
                     if i == 0 and j == 1:
                         bij -= 1
                     if bij != 0.0:
-                        header["B_" + str(i) + "_" + str(j)] = bij
+                        header["B_" + str(i) + "_" + str(j)] = cast_to_python_float(bij)
         if self.abp is not None:
             order = len(self.abp[0]) - 1
             header["AP_ORDER"] = order
@@ -841,7 +798,9 @@ class GSFitsWCS(CelestialWCS):
                     if i == 1 and j == 0:
                         apij -= 1
                     if apij != 0.0:
-                        header["AP_" + str(i) + "_" + str(j)] = apij
+                        header["AP_" + str(i) + "_" + str(j)] = cast_to_python_float(
+                            apij
+                        )
             header["BP_ORDER"] = order
             for i in range(order + 1):
                 for j in range(order + 1):
@@ -849,7 +808,9 @@ class GSFitsWCS(CelestialWCS):
                     if i == 0 and j == 1:
                         bpij -= 1
                     if bpij != 0.0:
-                        header["BP_" + str(i) + "_" + str(j)] = bpij
+                        header["BP_" + str(i) + "_" + str(j)] = cast_to_python_float(
+                            bpij
+                        )
         return header
 
     @staticmethod
@@ -867,9 +828,18 @@ class GSFitsWCS(CelestialWCS):
             and jnp.array_equal(self.crpix, other.crpix)
             and jnp.array_equal(self.cd, other.cd)
             and self.center == other.center
-            and jnp.array_equal(self.pv, other.pv)
-            and jnp.array_equal(self.ab, other.ab)
-            and jnp.array_equal(self.abp, other.abp)
+            and (
+                jnp.array_equal(self.pv, other.pv)
+                or (self.pv is None and other.pv is None)
+            )
+            and (
+                jnp.array_equal(self.ab, other.ab)
+                or (self.ab is None and other.ab is None)
+            )
+            and (
+                jnp.array_equal(self.abp, other.abp)
+                or (self.abp is None and other.abp is None)
+            )
         )
 
     def __repr__(self):
@@ -942,7 +912,7 @@ fits_wcs_types = [
 
 
 @_wraps(
-    _galsim.fitswc.FitsWCS,
+    _galsim.fitswcs.FitsWCS,
     lax_description="JAX-GalSim only supports the GSFitsWCS class for celestial WCS types.",
 )
 def FitsWCS(
@@ -992,6 +962,7 @@ def FitsWCS(
     if header.get("CTYPE1", "LINEAR") == "LINEAR":
         wcs = AffineTransform._readHeader(header)
         # Convert to PixelScale if possible.
+        # TODO: Should we do this check in JAX-GalSim or maybe always return AffineTransform?
         if wcs.dudx == wcs.dvdy and wcs.dudy == wcs.dvdx == 0:
             if wcs.x0 == wcs.y0 == wcs.u0 == wcs.v0 == 0:
                 wcs = PixelScale(wcs.dudx)
@@ -1030,3 +1001,75 @@ def FitsWCS(
 # Let this function work like a class in config.
 FitsWCS._req_params = {"file_name": str}
 FitsWCS._opt_params = {"dir": str, "hdu": int, "compression": str, "text_file": bool}
+
+
+@jax.jit
+def _invert_ab_noraise(u, v, ab, abp=None):
+    # get guess from abp if we have it
+    if abp is None:
+        x = u.copy()
+        y = v.copy()
+    else:
+        x = horner2d(u, v, abp[0])
+        y = horner2d(u, v, abp[1])
+
+    # Code below from galsim C++ layer and written by Josh Meyers
+    # Matt Becker translated into jax
+
+    # Assemble horner2d coefs for derivatives
+    nab = ab.shape[1]
+    dudxcoef = (jnp.arange(nab)[:, None] * ab[0])[1:, :-1]
+    dudycoef = (jnp.arange(nab) * ab[0])[:-1, 1:]
+    dvdxcoef = (jnp.arange(nab)[:, None] * ab[1])[1:, :-1]
+    dvdycoef = (jnp.arange(nab) * ab[1])[:-1, 1:]
+
+    def _step(i, args):
+        x, y, _, _, u, v, ab, dudxcoef, dudycoef, dvdxcoef, dvdycoef = args
+
+        # Want Jac^-1 . du
+        # du
+        du = horner2d(x, y, ab[0], triangle=True) - u
+        dv = horner2d(x, y, ab[1], triangle=True) - v
+        # J
+        dudx = horner2d(x, y, dudxcoef, triangle=True)
+        dudy = horner2d(x, y, dudycoef, triangle=True)
+        dvdx = horner2d(x, y, dvdxcoef, triangle=True)
+        dvdy = horner2d(x, y, dvdycoef, triangle=True)
+        # J^-1 . du
+        det = dudx * dvdy - dudy * dvdx
+        duu = -(du * dvdy - dv * dudy) / det
+        dvv = -(-du * dvdx + dv * dudx) / det
+
+        x += duu
+        y += dvv
+
+        return x, y, duu, dvv, u, v, ab, dudxcoef, dudycoef, dvdxcoef, dvdycoef
+
+    x, y, dx, dy = jax.lax.fori_loop(
+        0,
+        10,
+        _step,
+        (
+            x,
+            y,
+            jnp.zeros_like(x),
+            jnp.zeros_like(y),
+            u,
+            v,
+            ab,
+            dudxcoef,
+            dudycoef,
+            dvdxcoef,
+            dvdycoef,
+        ),
+    )[0:4]
+
+    x, y = jax.lax.cond(
+        jnp.maximum(jnp.max(jnp.abs(dx)), jnp.max(jnp.abs(dy))) > 2e-12,
+        lambda x, y: (x * jnp.nan, y * jnp.nan),
+        lambda x, y: (x, y),
+        x,
+        y,
+    )
+
+    return x, y

@@ -483,7 +483,7 @@ class GSObject:
     def _local_wcs(self, wcs, image, offset, center, use_true_center, new_bounds):
         # Get the local WCS at the location of the object.
 
-        if wcs.isUniform:
+        if wcs.isUniform():
             return wcs.local()
         elif image is None:
             bounds = new_bounds
@@ -613,7 +613,10 @@ class GSObject:
 
         return wcs
 
-    @_wraps(_galsim.GSObject.drawImage)
+    @_wraps(
+        _galsim.GSObject.drawImage,
+        lax_description="The JAX-GalSim version of `drawImage` does not do extensive (any?) checking of the input settings.",
+    )
     def drawImage(
         self,
         image=None,

@@ -4,11 +4,7 @@ import jax.numpy as jnp
 from jax._src.numpy.util import _wraps
 from jax.tree_util import register_pytree_node_class
 
-from jax_galsim.core.utils import (
-    cast_scalar_to_float,
-    cast_scalar_to_int,
-    ensure_hashable,
-)
+from jax_galsim.core.utils import cast_to_float, cast_to_int, ensure_hashable
 from jax_galsim.position import Position, PositionD, PositionI
 
 
@@ -264,10 +260,10 @@ class BoundsD(Bounds):
 
     def __init__(self, *args, **kwargs):
         self._parse_args(*args, **kwargs)
-        self.xmin = cast_scalar_to_float(self.xmin)
-        self.xmax = cast_scalar_to_float(self.xmax)
-        self.ymin = cast_scalar_to_float(self.ymin)
-        self.ymax = cast_scalar_to_float(self.ymax)
+        self.xmin = cast_to_float(self.xmin)
+        self.xmax = cast_to_float(self.xmax)
+        self.ymin = cast_to_float(self.ymin)
+        self.ymax = cast_to_float(self.ymax)
 
     def _check_scalar(self, x, name):
         try:
@@ -298,10 +294,10 @@ class BoundsI(Bounds):
 
     def __init__(self, *args, **kwargs):
         self._parse_args(*args, **kwargs)
-        self.xmin = cast_scalar_to_int(self.xmin)
-        self.xmax = cast_scalar_to_int(self.xmax)
-        self.ymin = cast_scalar_to_int(self.ymin)
-        self.ymax = cast_scalar_to_int(self.ymax)
+        self.xmin = cast_to_int(self.xmin)
+        self.xmax = cast_to_int(self.xmax)
+        self.ymin = cast_to_int(self.ymin)
+        self.ymax = cast_to_int(self.ymax)
 
     def _check_scalar(self, x, name):
         try:

@@ -5,7 +5,7 @@ from jax.tree_util import register_pytree_node_class
 
 from jax_galsim.angle import AngleUnit, arcsec, radians
 from jax_galsim.celestial import CelestialCoord
-from jax_galsim.core.utils import convert_to_float, ensure_hashable
+from jax_galsim.core.utils import cast_to_python_float, ensure_hashable
 from jax_galsim.errors import GalSimValueError
 from jax_galsim.gsobject import GSObject
 from jax_galsim.position import Position, PositionD, PositionI
@@ -84,8 +84,7 @@ class BaseWCS(_galsim.BaseWCS):
     def posToImage(self, world_pos, color=None):
         if color is None:
             color = self._color
-        # TODO: update this to jax version of CelestialCoord when available
-        if self.isCelestial() and not isinstance(world_pos, _galsim.CelestialCoord):
+        if self.isCelestial() and not isinstance(world_pos, CelestialCoord):
             raise TypeError("world_pos must be a CelestialCoord argument")
         elif not self.isCelestial() and not isinstance(world_pos, Position):
             raise TypeError("world_pos must be a PositionD or PositionI argument")
@@ -178,7 +177,7 @@ class BaseWCS(_galsim.BaseWCS):
             self._world_origin = world_origin
 
     def tree_flatten(self):
-        """This function flattens the GSObject into a list of children
+        """This function flattens the WCS into a list of children
         nodes that will be traced by JAX and auxiliary static data."""
         # Define the children nodes of the PyTree that need tracing
         children = (self._params,)
@@ -199,7 +198,10 @@ class BaseWCS(_galsim.BaseWCS):
                 "galsim_wcs must be a galsim BaseWCS object or subclass thereof."
             )
 
-        if galsim_wcs.__class__.__name__ not in globals():
+        if (
+            galsim_wcs.__class__.__name__ not in globals()
+            and galsim_wcs.__class__.__name__ != "GSFitsWCS"
+        ):
             raise NotImplementedError(
                 "jax_galsim does not support the galsim WCS class %s"
                 % galsim_wcs.__class__.__name__
@@ -234,6 +236,26 @@ class BaseWCS(_galsim.BaseWCS):
                 galsim_wcs.dvdy,
                 origin=Position.from_galsim(galsim_wcs.origin),
                 world_origin=Position.from_galsim(galsim_wcs.world_origin),
+            )
+        elif isinstance(galsim_wcs, _galsim.GSFitsWCS):
+            # this import goes here to avoid circular imports
+            from jax_galsim.angle import radians
+            from jax_galsim.celestial import CelestialCoord
+            from jax_galsim.fitswcs import GSFitsWCS
+
+            return GSFitsWCS(
+                _data=[
+                    galsim_wcs.wcs_type,
+                    galsim_wcs.crpix,
+                    galsim_wcs.cd,
+                    CelestialCoord(
+                        ra=galsim_wcs.center.ra.rad * radians,
+                        dec=galsim_wcs.center.dec.rad * radians,
+                    ),
+                    galsim_wcs.pv,
+                    galsim_wcs.ab,
+                    galsim_wcs.abp,
+                ],
             )
 
 
@@ -880,7 +902,7 @@ class PixelScale(LocalWCS):
 
     def _writeHeader(self, header, bounds):
         header["GS_WCS"] = ("PixelScale", "GalSim WCS name")
-        header["GS_SCALE"] = (self.scale, "GalSim image scale")
+        header["GS_SCALE"] = (cast_to_python_float(self.scale), "GalSim image scale")
         return self.affine()._writeLinearWCS(header, bounds)
 
     @staticmethod
@@ -1002,9 +1024,9 @@ class ShearWCS(LocalWCS):
 
     def _writeHeader(self, header, bounds):
         header["GS_WCS"] = ("ShearWCS", "GalSim WCS name")
-        header["GS_SCALE"] = (self.scale, "GalSim image scale")
-        header["GS_G1"] = (self.shear.g1, "GalSim image shear g1")
-        header["GS_G2"] = (self.shear.g2, "GalSim image shear g2")
+        header["GS_SCALE"] = (cast_to_python_float(self.scale), "GalSim image scale")
+        header["GS_G1"] = (cast_to_python_float(self.shear.g1), "GalSim image shear g1")
+        header["GS_G2"] = (cast_to_python_float(self.shear.g2), "GalSim image shear g2")
         return self.affine()._writeLinearWCS(header, bounds)
 
     def copy(self):
@@ -1299,11 +1321,17 @@ class OffsetWCS(UniformWCS):
 
     def _writeHeader(self, header, bounds):
         header["GS_WCS"] = ("OffsetWCS", "GalSim WCS name")
-        header["GS_SCALE"] = (self.scale, "GalSim image scale")
-        header["GS_X0"] = (self.origin.x, "GalSim image origin x")
-        header["GS_Y0"] = (self.origin.y, "GalSim image origin y")
-        header["GS_U0"] = (self.world_origin.x, "GalSim world origin u")
-        header["GS_V0"] = (self.world_origin.y, "GalSim world origin v")
+        header["GS_SCALE"] = (cast_to_python_float(self.scale), "GalSim image scale")
+        header["GS_X0"] = (cast_to_python_float(self.origin.x), "GalSim image origin x")
+        header["GS_Y0"] = (cast_to_python_float(self.origin.y), "GalSim image origin y")
+        header["GS_U0"] = (
+            cast_to_python_float(self.world_origin.x),
+            "GalSim world origin u",
+        )
+        header["GS_V0"] = (
+            cast_to_python_float(self.world_origin.y),
+            "GalSim world origin v",
+        )
         return self.affine()._writeLinearWCS(header, bounds)
 
     @staticmethod
@@ -1371,13 +1399,25 @@ class OffsetShearWCS(UniformWCS):
 
     def _writeHeader(self, header, bounds):
         header["GS_WCS"] = ("OffsetShearWCS", "GalSim WCS name")
-        header["GS_SCALE"] = (self.scale, "GalSim image scale")
-        header["GS_G1"] = (self.shear.g1, "GalSim image shear g1")
-        header["GS_G2"] = (self.shear.g2, "GalSim image shear g2")
-        header["GS_X0"] = (self.origin.x, "GalSim image origin x coordinate")
-        header["GS_Y0"] = (self.origin.y, "GalSim image origin y coordinate")
-        header["GS_U0"] = (self.world_origin.x, "GalSim world origin u coordinate")
-        header["GS_V0"] = (self.world_origin.y, "GalSim world origin v coordinate")
+        header["GS_SCALE"] = (cast_to_python_float(self.scale), "GalSim image scale")
+        header["GS_G1"] = (cast_to_python_float(self.shear.g1), "GalSim image shear g1")
+        header["GS_G2"] = (cast_to_python_float(self.shear.g2), "GalSim image shear g2")
+        header["GS_X0"] = (
+            cast_to_python_float(self.origin.x),
+            "GalSim image origin x coordinate",
+        )
+        header["GS_Y0"] = (
+            cast_to_python_float(self.origin.y),
+            "GalSim image origin y coordinate",
+        )
+        header["GS_U0"] = (
+            cast_to_python_float(self.world_origin.x),
+            "GalSim world origin u coordinate",
+        )
+        header["GS_V0"] = (
+            cast_to_python_float(self.world_origin.y),
+            "GalSim world origin v coordinate",
+        )
         return self.affine()._writeLinearWCS(header, bounds)
 
     def copy(self):
@@ -1458,25 +1498,25 @@ class AffineTransform(UniformWCS):
         header["CTYPE1"] = ("LINEAR", "name of the world coordinate axis")
         header["CTYPE2"] = ("LINEAR", "name of the world coordinate axis")
         header["CRVAL1"] = (
-            convert_to_float(self.u0),
+            cast_to_python_float(self.u0),
             "world coordinate at reference pixel = u0",
         )
         header["CRVAL2"] = (
-            convert_to_float(self.v0),
+            cast_to_python_float(self.v0),
             "world coordinate at reference pixel = v0",
         )
         header["CRPIX1"] = (
-            convert_to_float(self.x0),
+            cast_to_python_float(self.x0),
             "image coordinate of reference pixel = x0",
         )
         header["CRPIX2"] = (
-            convert_to_float(self.y0),
+            cast_to_python_float(self.y0),
             "image coordinate of reference pixel = y0",
         )
-        header["CD1_1"] = (convert_to_float(self.dudx), "CD1_1 = dudx")
-        header["CD1_2"] = (convert_to_float(self.dudy), "CD1_2 = dudy")
-        header["CD2_1"] = (convert_to_float(self.dvdx), "CD2_1 = dvdx")
-        header["CD2_2"] = (convert_to_float(self.dvdy), "CD2_2 = dvdy")
+        header["CD1_1"] = (cast_to_python_float(self.dudx), "CD1_1 = dudx")
+        header["CD1_2"] = (cast_to_python_float(self.dudy), "CD1_2 = dudy")
+        header["CD2_1"] = (cast_to_python_float(self.dvdx), "CD2_1 = dvdx")
+        header["CD2_2"] = (cast_to_python_float(self.dvdy), "CD2_2 = dvdy")
         return header
 
     @staticmethod

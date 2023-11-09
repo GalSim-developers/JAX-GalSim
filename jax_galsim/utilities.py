@@ -1,9 +1,11 @@
 import functools
 
 import galsim as _galsim
+import jax
 import jax.numpy as jnp
 from jax._src.numpy.util import _wraps
 
+from jax_galsim.errors import GalSimIncompatibleValuesError, GalSimValueError
 from jax_galsim.position import PositionD, PositionI
 
 printoptions = _galsim.utilities.printoptions
@@ -159,3 +161,88 @@ def unweighted_shape(arg):
     return dict(
         rsqr=rsqr, e1=(arg["Mxx"] - arg["Myy"]) / rsqr, e2=2 * arg["Mxy"] / rsqr
     )
+
+
+@_wraps(_galsim.utilities.horner)
+def horner(x, coef, dtype=None):
+    x = jnp.array(x)
+    coef = jnp.atleast_1d(coef)
+    res = jnp.zeros_like(x, dtype=dtype)
+
+    if len(coef.shape) != 1:
+        raise GalSimValueError("coef must be 1-dimensional", coef)
+
+    # TODO: we cannot trim zerosin jax galsim because then for all zeros
+    # jax attempts to index an array with shape = (0,) which throws an
+    # error.
+    # coef = jnp.trim_zeros(coef, trim="b")  # trim only from the back
+
+    return jax.lax.cond(
+        coef.shape[0] == 0,
+        lambda x, coef, res: res,
+        lambda x, coef, res: jax.lax.fori_loop(
+            0,
+            coef.shape[0],
+            lambda i, args: (args[0] * x + args[1][i], args[1]),
+            (res, coef[::-1]),
+        )[0],
+        x,
+        coef,
+        res,
+    )
+
+
+@_wraps(_galsim.utilities.horner2d)
+def horner2d(x, y, coefs, dtype=None, triangle=False):
+    x = jnp.array(x)
+    y = jnp.array(y)
+    coefs = jnp.atleast_1d(coefs)
+    res = jnp.zeros_like(x, dtype=dtype)
+
+    if x.shape != y.shape:
+        raise GalSimIncompatibleValuesError("x and y are not the same shape", x=x, y=y)
+
+    if len(coefs.shape) != 2:
+        raise GalSimValueError("coefs must be 2-dimensional", coefs)
+
+    if triangle and coefs.shape[0] != coefs.shape[1]:
+        raise GalSimIncompatibleValuesError(
+            "coefs must be square if triangle is True", coefs=coefs, triangle=triangle
+        )
+
+    def _sub(arr, i):
+        return arr[:i]
+
+    if triangle:
+        res = jax.lax.fori_loop(
+            0,
+            coefs.shape[0],
+            lambda i, args: (
+                args[0] * x
+                + horner(
+                    args[2],
+                    jnp.where(
+                        jnp.arange(args[1].shape[1]) < i + 1,
+                        args[1][i, :],
+                        jnp.zeros_like(args[1][i, :]),
+                    ),
+                    dtype=dtype,
+                ),
+                args[1],
+                args[2],
+            ),
+            (res, coefs[::-1, :], y),
+        )[0]
+    else:
+        res = jax.lax.fori_loop(
+            0,
+            coefs.shape[0],
+            lambda i, args: (
+                args[0] * x + horner(args[2], args[1][i], dtype=dtype),
+                args[1],
+                args[2],
+            ),
+            (res, coefs[::-1, :], y),
+        )[0]
+
+    return res

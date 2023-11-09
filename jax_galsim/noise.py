@@ -4,7 +4,7 @@ import jax.numpy as jnp
 from jax._src.numpy.util import _wraps
 from jax.tree_util import register_pytree_node_class
 
-from jax_galsim.core.utils import cast_scalar_to_float, ensure_hashable
+from jax_galsim.core.utils import cast_to_float, ensure_hashable
 from jax_galsim.errors import GalSimError, GalSimIncompatibleValuesError
 from jax_galsim.image import Image, ImageD
 from jax_galsim.random import BaseDeviate, GaussianDeviate, PoissonDeviate
@@ -166,7 +166,7 @@ class BaseNoise:
 class GaussianNoise(BaseNoise):
     def __init__(self, rng=None, sigma=1.0):
         super().__init__(GaussianDeviate(rng, sigma=sigma))
-        self._sigma = sigma
+        self._sigma = cast_to_float(sigma)
 
     @property
     def sigma(self):
@@ -225,7 +225,7 @@ class GaussianNoise(BaseNoise):
 class PoissonNoise(BaseNoise):
     def __init__(self, rng=None, sky_level=0.0):
         super().__init__(PoissonDeviate(rng))
-        self._sky_level = sky_level
+        self._sky_level = cast_to_float(sky_level)
 
     @property
     def sky_level(self):
@@ -316,9 +316,9 @@ class PoissonNoise(BaseNoise):
 class CCDNoise(BaseNoise):
     def __init__(self, rng=None, sky_level=0.0, gain=1.0, read_noise=0.0):
         super().__init__(rng)
-        self._sky_level = cast_scalar_to_float(sky_level)
-        self._gain = cast_scalar_to_float(gain)
-        self._read_noise = cast_scalar_to_float(read_noise)
+        self._sky_level = cast_to_float(sky_level)
+        self._gain = cast_to_float(gain)
+        self._read_noise = cast_to_float(read_noise)
 
     @property
     def _pd(self):

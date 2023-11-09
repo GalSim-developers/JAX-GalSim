@@ -65,7 +65,6 @@ from .wcs import (
     PixelScale,
     ShearWCS,
     OffsetShearWCS,
-    CelestialWCS,
 )
 from .fits import FitsHeader
 from .celestial import CelestialCoord
