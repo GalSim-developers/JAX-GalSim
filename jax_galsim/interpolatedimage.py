@@ -648,6 +648,8 @@ class _InterpolatedImageImpl(GSObject):
             wcs=PixelScale(1.0),
         )
         xim.setCenter(0, 0)
+        # after the call to setCenter you get a WCS with an offset in
+        # it instead of a pure pixel scale
         xim.wcs = PixelScale(1.0)
 
         # Now place the given image in the center of the padding image:
@@ -671,6 +673,7 @@ class _InterpolatedImageImpl(GSObject):
     @lazy_property
     def _pos_neg_fluxes(self):
         # record pos and neg fluxes now too
+        # see code here: https://github.com/GalSim-developers/GalSim/blob/releases/2.5/src/SBInterpolatedImage.cpp#L1225
         pflux = jnp.sum(jnp.where(self._pad_image.array > 0, self._pad_image.array, 0))
         nflux = jnp.abs(
             jnp.sum(jnp.where(self._pad_image.array < 0, self._pad_image.array, 0))
@@ -698,9 +701,7 @@ class _InterpolatedImageImpl(GSObject):
     @lazy_property
     def _maxk(self):
         if self._jax_aux_data["_force_maxk"]:
-            major, minor = compute_major_minor_from_jacobian(
-                self._jac_arr.reshape((2, 2))
-            )
+            _, minor = compute_major_minor_from_jacobian(self._jac_arr.reshape((2, 2)))
             return self._jax_aux_data["_force_maxk"] * minor
         else:
             return self._getMaxK(self._jax_aux_data["calculate_maxk"])
@@ -708,9 +709,7 @@ class _InterpolatedImageImpl(GSObject):
     @lazy_property
     def _stepk(self):
         if self._jax_aux_data["_force_stepk"]:
-            major, minor = compute_major_minor_from_jacobian(
-                self._jac_arr.reshape((2, 2))
-            )
+            _, minor = compute_major_minor_from_jacobian(self._jac_arr.reshape((2, 2)))
             return self._jax_aux_data["_force_stepk"] * minor
         else:
             return self._getStepK(self._jax_aux_data["calculate_stepk"])
