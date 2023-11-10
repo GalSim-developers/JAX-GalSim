@@ -4,11 +4,12 @@ import jax
 import jax.numpy as jnp
 
 
+@jax.jit
 def compute_major_minor_from_jacobian(jac):
     h1 = jnp.hypot(jac[0, 0] + jac[1, 1], jac[0, 1] - jac[1, 0])
     h2 = jnp.hypot(jac[0, 0] - jac[1, 1], jac[0, 1] + jac[1, 0])
-    major = 0.5 * abs(h1 + h2)
-    minor = 0.5 * abs(h1 - h2)
+    major = 0.5 * jnp.abs(h1 + h2)
+    minor = 0.5 * jnp.abs(h1 - h2)
     return major, minor
 
 
@@ -104,6 +105,7 @@ def is_equal_with_arrays(x, y):
     elif (isinstance(x, jax.Array) and jnp.ndim(x) == 0) or (
         isinstance(y, jax.Array) and jnp.ndim(y) == 0
     ):
+        # this case covers comparing an array scalar to a python scalar or vice versa
         return jnp.array_equal(x, y)
     else:
         return x == y

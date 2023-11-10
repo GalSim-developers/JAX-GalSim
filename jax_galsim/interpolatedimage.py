@@ -648,10 +648,11 @@ class _InterpolatedImageImpl(GSObject):
             wcs=PixelScale(1.0),
         )
         xim.setCenter(0, 0)
+        # after the call to setCenter you get a WCS with an offset in
+        # it instead of a pure pixel scale
         xim.wcs = PixelScale(1.0)
 
         # Now place the given image in the center of the padding image:
-        # assert self._xim.bounds.includes(self._image.bounds)
         xim[self._image.bounds] = self._image
 
         return xim
@@ -671,6 +672,7 @@ class _InterpolatedImageImpl(GSObject):
     @lazy_property
     def _pos_neg_fluxes(self):
         # record pos and neg fluxes now too
+        # see code here: https://github.com/GalSim-developers/GalSim/blob/releases/2.5/src/SBInterpolatedImage.cpp#L1225
         pflux = jnp.sum(jnp.where(self._pad_image.array > 0, self._pad_image.array, 0))
         nflux = jnp.abs(
             jnp.sum(jnp.where(self._pad_image.array < 0, self._pad_image.array, 0))
@@ -698,9 +700,7 @@ class _InterpolatedImageImpl(GSObject):
     @lazy_property
     def _maxk(self):
         if self._jax_aux_data["_force_maxk"]:
-            major, minor = compute_major_minor_from_jacobian(
-                self._jac_arr.reshape((2, 2))
-            )
+            _, minor = compute_major_minor_from_jacobian(self._jac_arr.reshape((2, 2)))
             return self._jax_aux_data["_force_maxk"] * minor
         else:
             return self._getMaxK(self._jax_aux_data["calculate_maxk"])
@@ -708,9 +708,7 @@ class _InterpolatedImageImpl(GSObject):
     @lazy_property
     def _stepk(self):
         if self._jax_aux_data["_force_stepk"]:
-            major, minor = compute_major_minor_from_jacobian(
-                self._jac_arr.reshape((2, 2))
-            )
+            _, minor = compute_major_minor_from_jacobian(self._jac_arr.reshape((2, 2)))
             return self._jax_aux_data["_force_stepk"] * minor
         else:
             return self._getStepK(self._jax_aux_data["calculate_stepk"])
@@ -901,7 +899,27 @@ def _xValue_arr(x, y, x_offset, y_offset, xmin, ymin, arr, x_interpolant):
 
 @partial(jax.jit, static_argnames=("interp",))
 def _draw_with_interpolant_xval(x, y, xmin, ymin, zp, interp):
+    """This helper function interpolates an image (`zp`) with an interpolant `interp`
+    at the pixel locations given by `x`, `y`. The lower-left corner of the image is
+    `xmin` / `ymin`.
+
+    A more standard C/C++ code would have a set of nested for loops that iterates over each
+    location to interpolate and then over the nterpolation kernel.
+
+    In JAX, we instead write things such that the loop over the points to be interpolated
+    is vectorized in the code. We represent the loops over the interpolation kernel as explicit
+    for loops.
+    """
+    # the vectorization over the interpolation points is easier to think about
+    # if they are in a 1D array. So we use ravel to flatten them and then reshape
+    # at the end.
     orig_shape = x.shape
+
+    # the variables here are
+    #  x/y: the x/y coordinates of the points to be interpolated
+    #  xi/yi: the index of the nerest pixel below the point
+    #  xp/yp: the x/y coordinate of the nearest pixel below the point
+    #  nx/ny: the size of the x/y arrays
     x = x.ravel()
     xi = jnp.floor(x - xmin).astype(jnp.int32)
     xp = xi + xmin
@@ -912,37 +930,63 @@ def _draw_with_interpolant_xval(x, y, xmin, ymin, zp, interp):
     yp = yi + ymin
     ny = zp.shape[0]
 
+    # this function is the inner loop over the x direction
+    # the variables are
+    #  i: the index of the location in the interpolation kernel
+    #  z: the final interpolated values
+    #  wy: the weight of the interpolation kernel in the y direction
+    #  msky: a mask that is true if the y index is in bounds
+    #  yind: the y index of the interpolation point needed by the kernel
     def _body_1d(i, args):
         z, wy, msky, yind, xi, xp, zp = args
 
+        # this block computes the x weight using the
+        # offset in the interpolation kernel i
         xind = xi + i
         mskx = (xind >= 0) & (xind < nx)
         _x = x - (xp + i)
         wx = interp._xval_noraise(_x)
 
+        # the actual interpolation is done here.
+        # we use jnp.where to only do the interpolation
+        # where the x and y indices are in bounds.
+        # the total weight is the product of the x and y weights.
         w = wx * wy
         msk = msky & mskx
         z += jnp.where(msk, zp[yind, xind] * w, 0)
 
         return [z, wy, msky, yind, xi, xp, zp]
 
+    # this function is the outer loop over the y direction
+    # the variables are
+    #  i: the index of the location in the interpolation kernel
+    #  z: the final interpolated values
     def _body(i, args):
         z, xi, yi, xp, yp, zp = args
+
+        # this block computes the x weight using the
+        # offset in the interpolation kernel i
         yind = yi + i
         msk = (yind >= 0) & (yind < ny)
         _y = y - (yp + i)
         wy = interp._xval_noraise(_y)
+
+        # this call computes the interpolant for each x locatoon that gets
+        # paired with this y location
         z = jax.lax.fori_loop(
             -interp.xrange, interp.xrange + 1, _body_1d, [z, wy, msk, yind, xi, xp, zp]
         )[0]
         return [z, xi, yi, xp, yp, zp]
 
+    # the actual loop call for y is here
     z = jax.lax.fori_loop(
         -interp.xrange,
         interp.xrange + 1,
         _body,
         [jnp.zeros(x.shape, dtype=float), xi, yi, xp, yp, zp],
     )[0]
+
+    # we reshape on the way out to match the input shape
     return z.reshape(orig_shape)
 
 
@@ -969,6 +1013,7 @@ def _kValue_arr(
     _uscale = 1.0 / (2.0 * jnp.pi)
     _maxk_xint = x_interpolant.urange() / _uscale / scale
 
+    # here we do the actual inteprolation in k space
     val = _draw_with_interpolant_kval(
         kxi,
         kyi,
@@ -978,6 +1023,9 @@ def _kValue_arr(
         k_interpolant,
     )
 
+    # finally we multiply by the FFT of the real-space interpolation function
+    # and mask any values that are outside the range of the real-space interpolation
+    # FFT
     msk = (jnp.abs(kxi) <= _maxk_xint) & (jnp.abs(kyi) <= _maxk_xint)
     xint_val = x_interpolant._kval_noraise(kx) * x_interpolant._kval_noraise(ky)
     return jnp.where(msk, val * xint_val * pfac, 0.0)
@@ -985,10 +1033,23 @@ def _kValue_arr(
 
 @partial(jax.jit, static_argnames=("interp",))
 def _draw_with_interpolant_kval(kx, ky, kxmin, kymin, zp, interp):
+    """This function interpolates complex k-space images and follows the
+    same basic structure as _draw_with_interpolant_xval above.
+
+    The key difference is that the k-space images are Hermitian and so
+    only half of the data is actually in memory. We account for this by
+    computing all of the interpolation weights and indicies as if we had
+    the full image. Then finally, if we need a value that is not in memory,
+    we get it from the values we have via the Hermitian symmetry.
+    """
+    # all of the code below is almost line-for-line the same as the
+    # _draw_with_interpolant_xval function above.
     orig_shape = kx.shape
     kx = kx.ravel()
     kxi = jnp.floor(kx - kxmin).astype(jnp.int32)
     kxp = kxi + kxmin
+    # this is the number of pixels in the half image and is needed
+    # for computing values via Hermition symmetry below
     nkx_2 = zp.shape[1] - 1
     nkx = nkx_2 * 2
 
@@ -1004,6 +1065,16 @@ def _draw_with_interpolant_kval(kx, ky, kxmin, kymin, zp, interp):
         _kx = kx - (kxp + i)
         wkx = interp._xval_noraise(_kx)
 
+        # this is the key difference from the xval function
+        # we need to use the Hermitian symmetry to get the
+        # values that are not in memory
+        # in memory we have the values at nkx_2 to nkx - 1
+        # the Hermitian symmetry is that
+        #   f(ky, kx) = conjugate(f(-kx, -ky))
+        # In indices this is a symmetric flip about the central
+        # pixels at kx = ky = 0.
+        # we do not need to mask any values that run off the edge of the image
+        # since we rewrap them using the periodicity of the image.
         val = jnp.where(
             kxind < nkx_2,
             zp[(nky - kyind) % nky, nkx - kxind - nkx_2].conjugate(),
@@ -1067,6 +1138,11 @@ def _calculate_size_containing_flux(image, thresh):
     msk = fluxes >= -jnp.inf
     fluxes = jnp.where(msk, fluxes, jnp.max(fluxes))
     d = jnp.arange(image.array.shape[0]) + 1.0
+    # below we use a linear interpolation table to find the maximum size
+    # in pixels that contains a given flux (called thresh here)
+    # expfac controls how much we oversample the interpolation table
+    # in order to return a more accurate result
+    # we have it hard coded at 4 to compromise between speed and accuracy
     expfac = 4.0
     dint = jnp.arange(image.array.shape[0] * expfac) / expfac + 1.0
     fluxes = jnp.interp(dint, d, fluxes)
@@ -1109,6 +1185,9 @@ def _find_maxk(kim, max_maxk, thresh):
     kx, ky = kim.get_pixel_centers()
     kx *= kim.scale
     ky *= kim.scale
+    # this minimum bounds the empirically determined
+    # maxk from the image (computed by _inner_comp_find_maxk)
+    # by max_maxk from above
     return jnp.minimum(
         _inner_comp_find_maxk(kim.array, thresh, kx, ky),
         max_maxk,
