@@ -1,19 +1,19 @@
-import inspect
-import os
-import sys
-from functools import lru_cache
-from unittest.mock import patch
-
-import galsim
-import pytest
-import yaml
-
 # Define the accuracy for running the tests
 from jax.config import config
 
-import jax_galsim
-
 config.update("jax_enable_x64", True)
+
+import inspect  # noqa: E402
+import os  # noqa: E402
+import sys  # noqa: E402
+from functools import lru_cache  # noqa: E402
+from unittest.mock import patch  # noqa: E402
+
+import galsim  # noqa: E402
+import pytest  # noqa: E402
+import yaml  # noqa: E402
+
+import jax_galsim  # noqa: E402
 
 # Identify the path to this current file
 test_directory = os.path.dirname(os.path.abspath(__file__))

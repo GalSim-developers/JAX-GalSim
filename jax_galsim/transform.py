@@ -4,7 +4,7 @@ import jax.numpy as jnp
 from jax._src.numpy.util import _wraps
 from jax.tree_util import register_pytree_node_class
 
-from jax_galsim.core.utils import ensure_hashable
+from jax_galsim.core.utils import compute_major_minor_from_jacobian, ensure_hashable
 from jax_galsim.gsobject import GSObject
 from jax_galsim.gsparams import GSParams
 from jax_galsim.position import PositionD
@@ -59,16 +59,37 @@ class Transformation(GSObject):
             "flux_ratio": flux_ratio,
         }
 
-        if isinstance(obj, Transformation):
+        # this import is here to avoid circular imports
+        # we do not want to mess with the transform properties of the interpolated image
+        from .interpolatedimage import InterpolatedImage
+
+        if isinstance(obj, Transformation) and not isinstance(obj, InterpolatedImage):
             # Combine the two affine transformations into one.
-            dx, dy = self._fwd(obj.offset.x, obj.offset.y)
-            self._params["offset"].x += dx
-            self._params["offset"].y += dy
-            self._params["jac"] = self._jac.dot(obj.jac)
-            self._params["flux_ratio"] *= obj._params["flux_ratio"]
-            self._original = obj.original
+            dx, dy = self._fwd(obj._params["offset"].x, obj._params["offset"].y)
+            self._offset.x += dx
+            self._offset.y += dy
+            self._params["jac"] = self._jac.dot(obj._jac)
+            self._params["flux_ratio"] *= obj._flux_ratio
+            self._original = obj._original
         else:
             self._original = obj
+
+    ##############################################################
+    # The internal code of the methods of the Transform class
+    # should only aceess _offset, _flux_ratio, and _jac. It
+    # should not pull these directly from _params.
+    # Things are structured this way since the interpolated image
+    # class inherits and overrides these methods.
+
+    @property
+    def _offset(self):
+        return self._params["offset"]
+
+    # we use this property so that the interpolated image can override
+    # how flux ratio is computer / stored
+    @property
+    def _flux_ratio(self):
+        return self._params["flux_ratio"]
 
     @property
     def _jac(self):
@@ -79,7 +100,7 @@ class Transformation(GSObject):
             lambda jax: jnp.array([1.0, 0.0, 0.0, 1.0]),
             jac,
         )
-        return jnp.asarray(jac, dtype=float).reshape(2, 2)
+        return jnp.asarray(jac, dtype=float).reshape((2, 2))
 
     @property
     def original(self):
@@ -94,17 +115,18 @@ class Transformation(GSObject):
     @property
     def offset(self):
         """The offset of the transformation."""
-        return self._params["offset"]
+        return self._offset
 
     @property
     def flux_ratio(self):
         """The flux ratio of the transformation."""
-        return self._params["flux_ratio"]
+        return self._flux_ratio
 
     @property
     def _flux(self):
         return self._flux_scaling * self._original.flux
 
+    @_wraps(_galsim.Transformation.withGSParams)
     def withGSParams(self, gsparams=None, **kwargs):
         """Create a version of the current object with the given gsparams
 
@@ -113,11 +135,11 @@ class Transformation(GSObject):
             Unless you set ``propagate_gsparams=False``, this method will also update the gsparams
             of the wrapped component object.
         """
-        if gsparams == self.gsparams:
+        if gsparams == self._gsparams:
             return self
 
         chld, aux = self.tree_flatten()
-        aux["gsparams"] = GSParams.check(gsparams, self.gsparams, **kwargs)
+        aux["gsparams"] = GSParams.check(gsparams, self._gsparams, **kwargs)
         if self._propagate_gsparams:
             new_obj = chld[0].withGSParams(aux["gsparams"])
             chld = (new_obj,) + chld[1:]
@@ -127,11 +149,11 @@ class Transformation(GSObject):
     def __eq__(self, other):
         return self is other or (
             isinstance(other, Transformation)
-            and self.original == other.original
-            and jnp.array_equal(self.jac, other.jac)
-            and self.offset == other.offset
-            and self.flux_ratio == other.flux_ratio
-            and self.gsparams == other.gsparams
+            and self._original == other._original
+            and jnp.array_equal(self._jac, other._jac)
+            and self._offset == other._params["offset"]
+            and self._flux_ratio == other._flux_ratio
+            and self._gsparams == other._gsparams
             and self._propagate_gsparams == other._propagate_gsparams
         )
 
@@ -139,12 +161,12 @@ class Transformation(GSObject):
         return hash(
             (
                 "galsim.Transformation",
-                self.original,
+                self._original,
                 ensure_hashable(self._jac.ravel()),
-                ensure_hashable(self.offset.x),
-                ensure_hashable(self.offset.y),
-                ensure_hashable(self.flux_ratio),
-                self.gsparams,
+                ensure_hashable(self._offset.x),
+                ensure_hashable(self._offset.y),
+                ensure_hashable(self._flux_ratio),
+                self._gsparams,
                 self._propagate_gsparams,
             )
         )
@@ -154,11 +176,11 @@ class Transformation(GSObject):
             "galsim.Transformation(%r, jac=%r, offset=%r, flux_ratio=%r, gsparams=%r, "
             "propagate_gsparams=%r)"
         ) % (
-            self.original,
+            self._original,
             ensure_hashable(self._jac.ravel()),
-            self.offset,
-            ensure_hashable(self.flux_ratio),
-            self.gsparams,
+            self._offset,
+            ensure_hashable(self._flux_ratio),
+            self._gsparams,
             self._propagate_gsparams,
         )
 
@@ -200,15 +222,15 @@ class Transformation(GSObject):
             return ""
 
     def __str__(self):
-        s = str(self.original)
+        s = str(self._original)
         s += self._str_from_jac(self._jac)
-        if self.offset.x != 0 or self.offset.y != 0:
+        if self._offset.x != 0 or self._offset.y != 0:
             s += ".shift(%s,%s)" % (
-                ensure_hashable(self.offset.x),
-                ensure_hashable(self.offset.y),
+                ensure_hashable(self._offset.x),
+                ensure_hashable(self._offset.y),
             )
-        if self.flux_ratio != 1.0:
-            s += " * %s" % ensure_hashable(self.flux_ratio)
+        if self._flux_ratio != 1.0:
+            s += " * %s" % ensure_hashable(self._flux_ratio)
         return s
 
     @property
@@ -227,11 +249,11 @@ class Transformation(GSObject):
     # than flux_ratio, which is really an amplitude scaling.
     @property
     def _amp_scaling(self):
-        return self._params["flux_ratio"]
+        return self._flux_ratio
 
     @property
     def _flux_scaling(self):
-        return jnp.abs(self._det) * self._params["flux_ratio"]
+        return jnp.abs(self._det) * self._flux_ratio
 
     def _fwd(self, x, y):
         res = jnp.dot(self._jac, jnp.array([x, y]))
@@ -246,36 +268,25 @@ class Transformation(GSObject):
         return res[0], res[1]
 
     def _kfactor(self, kx, ky):
-        kx *= -1j * self.offset.x
-        ky *= -1j * self.offset.y
+        kx *= -1j * self._offset.x
+        ky *= -1j * self._offset.y
         kx += ky
         return self._flux_scaling * jnp.exp(kx)
 
-    def _major_minor(self):
-        if not hasattr(self, "_major"):
-            h1 = jnp.hypot(
-                self._jac[0, 0] + self._jac[1, 1], self._jac[0, 1] - self._jac[1, 0]
-            )
-            h2 = jnp.hypot(
-                self._jac[0, 0] - self._jac[1, 1], self._jac[0, 1] + self._jac[1, 0]
-            )
-            self._major = 0.5 * abs(h1 + h2)
-            self._minor = 0.5 * abs(h1 - h2)
-
     @property
     def _maxk(self):
-        self._major_minor()
-        return self._original.maxk / self._minor
+        _, minor = compute_major_minor_from_jacobian(self._jac)
+        return self._original.maxk / minor
 
     @property
     def _stepk(self):
-        self._major_minor()
-        stepk = self._original.stepk / self._major
+        major, _ = compute_major_minor_from_jacobian(self._jac)
+        stepk = self._original.stepk / major
         # If we have a shift, we need to further modify stepk
         #     stepk = Pi/R
         #     R <- R + |shift|
         #     stepk <- Pi/(Pi/stepk + |shift|)
-        dr = jnp.hypot(self.offset.x, self.offset.y)
+        dr = jnp.hypot(self._offset.x, self._offset.y)
         stepk = jnp.pi / (jnp.pi / stepk + dr)
         return stepk
 
@@ -289,7 +300,7 @@ class Transformation(GSObject):
             self._original.is_axisymmetric
             and self._jac[0, 0] == self._jac[1, 1]
             and self._jac[0, 1] == -self._jac[1, 0]
-            and self.offset == PositionD(0.0, 0.0)
+            and self._offset == PositionD(0.0, 0.0)
         )
 
     @property
@@ -304,7 +315,7 @@ class Transformation(GSObject):
     def _centroid(self):
         cen = self._original.centroid
         cen = PositionD(self._fwd(cen.x, cen.y))
-        cen += self.offset
+        cen += self._offset
         return cen
 
     @property
@@ -316,11 +327,15 @@ class Transformation(GSObject):
         return self._flux_scaling * self._original.negative_flux
 
     @property
+    def _flux_per_photon(self):
+        return self._calculate_flux_per_photon()
+
+    @property
     def _max_sb(self):
         return self._amp_scaling * self._original.max_sb
 
     def _xValue(self, pos):
-        pos -= self.offset
+        pos -= self._offset
         inv_pos = PositionD(self._inv(pos.x, pos.y))
         return self._original._xValue(inv_pos) * self._amp_scaling
 
@@ -331,12 +346,12 @@ class Transformation(GSObject):
     def _drawReal(self, image, jac=None, offset=(0.0, 0.0), flux_scaling=1.0):
         dx, dy = offset
         if jac is not None:
-            x1 = jac.dot(self.offset._array)
+            x1 = jac.dot(self._offset._array)
             dx += x1[0]
             dy += x1[1]
         else:
-            dx += self.offset.x
-            dy += self.offset.y
+            dx += self._offset.x
+            dy += self._offset.y
         flux_scaling *= self._flux_scaling
         jac = (
             self._jac
@@ -360,7 +375,7 @@ class Transformation(GSObject):
         image = self._original._drawKImage(image, jac1)
 
         _jac = jnp.eye(2) if jac is None else jac
-        image = apply_kImage_phases(self.offset, image, _jac)
+        image = apply_kImage_phases(self._offset, image, _jac)
 
         image = image * self._flux_scaling
         return image
@@ -372,7 +387,7 @@ class Transformation(GSObject):
         children = (self._original, self._params)
         # Define auxiliary static data that doesn’t need to be traced
         aux_data = {
-            "gsparams": self.gsparams,
+            "gsparams": self._gsparams,
             "propagate_gsparams": self._propagate_gsparams,
         }
         return (children, aux_data)

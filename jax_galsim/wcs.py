@@ -126,6 +126,12 @@ class BaseWCS(_galsim.BaseWCS):
             raise TypeError("image_pos must be a PositionD or PositionI argument")
         return self._local(image_pos, color)
 
+    @_wraps(_galsim.BaseWCS.jacobian)
+    def jacobian(self, image_pos=None, world_pos=None, color=None):
+        if color is None:
+            color = self._color
+        return self.local(image_pos, world_pos, color=color)._toJacobian()
+
     @_wraps(_galsim.BaseWCS.affine)
     def affine(self, image_pos=None, world_pos=None, color=None):
         if color is None:
