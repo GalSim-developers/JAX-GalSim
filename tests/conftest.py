@@ -15,8 +15,6 @@ import yaml  # noqa: E402
 
 import jax_galsim  # noqa: E402
 
-config.update("jax_enable_x64", True)
-
 # Identify the path to this current file
 test_directory = os.path.dirname(os.path.abspath(__file__))
 
