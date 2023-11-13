@@ -151,7 +151,7 @@ class BaseDeviate:
     def discard(self, n, suppress_warnings=False):
         self._key = self.__class__._discard(self._key, n)
 
-    jax.jit
+    @jax.jit
     def _discard(key, n):
         def __discard(i, key):
             key, subkey = jrandom.split(key)
