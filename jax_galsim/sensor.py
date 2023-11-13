@@ -1,8 +1,8 @@
 import galsim as _galsim
-from .position import PositionI
-from .errors import GalSimUndefinedBoundsError
-
 from jax._src.numpy.util import _wraps
+
+from .errors import GalSimUndefinedBoundsError
+from .position import PositionI
 
 
 @_wraps(_galsim.Sensor)

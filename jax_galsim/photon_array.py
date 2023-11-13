@@ -1,17 +1,18 @@
 import galsim as _galsim
 import jax.numpy as jnp
-from jax._src.numpy.util import _wraps
 import jax.random as jrng
+from jax._src.numpy.util import _wraps
 from jax.tree_util import register_pytree_node_class
 
 from jax_galsim.core.utils import cast_to_python_float
 from jax_galsim.errors import (
-    GalSimValueError,
-    GalSimUndefinedBoundsError,
-    GalSimRangeError,
     GalSimIncompatibleValuesError,
+    GalSimRangeError,
+    GalSimUndefinedBoundsError,
+    GalSimValueError,
 )
-from jax_galsim.random import UniformDeviate, BaseDeviate
+from jax_galsim.random import BaseDeviate, UniformDeviate
+
 from ._pyfits import pyfits
 
 
@@ -560,6 +561,7 @@ class PhotonArray:
             file_name:  The file name of the output FITS file.
         """
         import numpy as np
+
         from jax_galsim import fits
 
         cols = []
