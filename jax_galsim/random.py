@@ -16,7 +16,7 @@ except (ModuleNotFoundError, ImportError):
 from jax_galsim.core.utils import ensure_hashable
 
 LAX_FUNCTIONAL_RNG = """\
-JAX-GalSim PRNGs have some support linking states, but it may not always and/or may cause issues.
+JAX-GalSim PRNGs have some support for linking states, but it may not always work and/or may cause issues.
 
  - Linked states across JIT boundaries or devices will not work.
  - Within a single routine linking may work.
