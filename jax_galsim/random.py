@@ -151,13 +151,13 @@ class BaseDeviate:
     def discard(self, n, suppress_warnings=False):
         self._key = self.__class__._discard(self._key, n)
 
-    @partial(jax.jit, static_argnums=(1,))
+    jax.jit
     def _discard(key, n):
-        def _f(key, x):
-            key, sub_key = jrandom.split(key)
-            return key, sub_key
+        def __discard(i, key):
+            key, subkey = jrandom.split(key)
+            return key
 
-        return jax.lax.scan(_f, key, None, length=n)
+        return jax.lax.fori_loop(0, n, __discard, key)
 
     @_wraps(
         _galsim.BaseDeviate.raw,
