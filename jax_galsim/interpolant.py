@@ -1383,8 +1383,7 @@ class Lanczos(Interpolant):
     def tree_unflatten(cls, aux_data, children):
         """Recreates an instance of the class from flattened representation"""
         n = aux_data.pop("n")
-        ret = cls(n, **aux_data)
-        return ret
+        return cls(n, **aux_data)
 
     def __repr__(self):
         return "galsim.Lanczos(%r, %r, gsparams=%r)" % (

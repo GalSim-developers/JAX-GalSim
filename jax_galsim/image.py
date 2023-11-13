@@ -725,6 +725,8 @@ class Image(object):
         dk = jnp.pi / (No2 * dx)
 
         out = Image(BoundsI(0, No2, -No2, No2 - 1), dtype=np.complex128, scale=dk)
+        # we shift the image before and after the FFT to match the layout of the modes
+        # used by GalSim
         out._array = jnp.fft.fftshift(
             jnp.fft.rfft2(jnp.fft.fftshift(ximage.array)), axes=0
         )
@@ -779,6 +781,7 @@ class Image(object):
 
         # For the inverse, we need a bit of extra space for the fft.
         out_extra = Image(BoundsI(-No2, No2 + 1, -No2, No2 - 1), dtype=float, scale=dx)
+        # we shift the image before and after the FFT to match the layout used by galsim
         out_extra._array = jnp.fft.fftshift(
             jnp.fft.irfft2(jnp.fft.fftshift(kimage.array, axes=0))
         )
@@ -796,6 +799,7 @@ class Image(object):
         going to be performing FFTs on an image, these will tend to be faster at performing
         the FFT.
         """
+        # we use the math module here since this function should not be jitted.
         import math
 
         # Reference from GalSim C++
