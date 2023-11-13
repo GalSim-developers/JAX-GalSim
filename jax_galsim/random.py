@@ -149,8 +149,7 @@ class BaseDeviate:
         ),
     )
     def discard(self, n, suppress_warnings=False):
-        self._key, subkeys = self.__class__._discard(self._key, n)
-        return subkeys
+        self._key = self.__class__._discard(self._key, n)
 
     @partial(jax.jit, static_argnums=(1,))
     def _discard(key, n):
