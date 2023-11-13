@@ -12,6 +12,7 @@ from jax_galsim.core.integrate import ClenshawCurtisQuad, quad_integral
 from jax_galsim.core.utils import bisect_for_root, ensure_hashable
 from jax_galsim.gsobject import GSObject
 from jax_galsim.position import PositionD
+from jax_galsim.random import UniformDeviate
 
 
 @jax.jit
@@ -380,3 +381,23 @@ class Moffat(GSObject):
             flux=flux,
             gsparams=self.gsparams,
         )
+
+    @_wraps(_galsim.Moffat.shoot)
+    def _shoot(self, photons, rng):
+        # from the galsim C++ in SBMoffat.cpp
+        ud = UniformDeviate(rng)
+
+        # First get a point uniformly distributed on unit circle
+        theta = ud.generate(photons.x) * 2.0 * jnp.pi
+        rsq = ud.generate(
+            photons.x
+        )  # cumulative dist function P(<r) = r^2 for unit circle
+        sint = jnp.sin(theta)
+        cost = jnp.cos(theta)
+
+        # Then map radius to the Moffat flux distribution
+        newRsq = jnp.power(1.0 - rsq * self._fluxFactor, 1.0 / (1.0 - self.beta)) - 1.0
+        r = self.scale_radius * jnp.sqrt(newRsq)
+        photons.x = r * cost
+        photons.y = r * sint
+        photons.flux = self.flux / photons.size()

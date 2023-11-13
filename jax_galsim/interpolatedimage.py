@@ -6,6 +6,7 @@ from functools import partial
 import galsim as _galsim
 import jax
 import jax.numpy as jnp
+import jax.random as jrng
 from galsim.errors import (
     GalSimIncompatibleValuesError,
     GalSimRangeError,
@@ -24,6 +25,7 @@ from jax_galsim.gsparams import GSParams
 from jax_galsim.image import Image
 from jax_galsim.interpolant import Quintic
 from jax_galsim.position import PositionD
+from jax_galsim.random import UniformDeviate
 from jax_galsim.transform import Transformation
 from jax_galsim.utilities import convert_interpolant, lazy_property
 from jax_galsim.wcs import BaseWCS, PixelScale
@@ -669,33 +671,6 @@ class _InterpolatedImageImpl(GSObject):
         return self._xim.calculate_fft()
 
     @lazy_property
-    def _pos_neg_fluxes(self):
-        # record pos and neg fluxes now too
-        pflux = jnp.sum(jnp.where(self._pad_image.array > 0, self._pad_image.array, 0))
-        nflux = jnp.abs(
-            jnp.sum(jnp.where(self._pad_image.array < 0, self._pad_image.array, 0))
-        )
-        pint = self._x_interpolant.positive_flux
-        nint = self._x_interpolant.negative_flux
-        pint2d = pint * pint + nint * nint
-        nint2d = 2 * pint * nint
-        return [
-            pint2d * pflux + nint2d * nflux,
-            pint2d * nflux + nint2d * pflux,
-        ]
-
-    @property
-    def _positive_flux(self):
-        return self._pos_neg_fluxes[0]
-
-    @property
-    def _negative_flux(self):
-        return self._pos_neg_fluxes[1]
-
-    def _flux_per_photon(self):
-        return self._calculate_flux_per_photon()
-
-    @lazy_property
     def _maxk(self):
         if self._jax_aux_data["_force_maxk"]:
             major, minor = compute_major_minor_from_jacobian(
@@ -797,9 +772,6 @@ class _InterpolatedImageImpl(GSObject):
             self._k_interpolant,
         )[0]
 
-    def _shoot(self, photons, rng):
-        raise NotImplementedError("Photon shooting not implemented.")
-
     def _drawReal(self, image, jac=None, offset=(0.0, 0.0), flux_scaling=1.0):
         jacobian = jnp.eye(2) if jac is None else jac
 
@@ -857,6 +829,61 @@ class _InterpolatedImageImpl(GSObject):
 
         # Return an image
         return Image(array=im, bounds=image.bounds, wcs=image.wcs, check_bounds=False)
+
+    @lazy_property
+    def _pos_neg_fluxes(self):
+        # record pos and neg fluxes now too
+        pflux = jnp.sum(jnp.where(self._pad_image.array > 0, self._pad_image.array, 0))
+        nflux = jnp.abs(
+            jnp.sum(jnp.where(self._pad_image.array < 0, self._pad_image.array, 0))
+        )
+        pint = self._x_interpolant.positive_flux
+        nint = self._x_interpolant.negative_flux
+        pint2d = pint * pint + nint * nint
+        nint2d = 2 * pint * nint
+        return [
+            pint2d * pflux + nint2d * nflux,
+            pint2d * nflux + nint2d * pflux,
+        ]
+
+    @property
+    def _positive_flux(self):
+        return self._pos_neg_fluxes[0]
+
+    @property
+    def _negative_flux(self):
+        return self._pos_neg_fluxes[1]
+
+    def _flux_per_photon(self):
+        return self._calculate_flux_per_photon()
+
+    def _shoot(self, photons, rng):
+        # we first draw the index location from the image
+        img = self._pad_image
+        subkey = rng._state.split_one()
+        inds = jrng.choice(
+            subkey,
+            img.array.size,
+            shape=(photons.size(),),
+            replace=True,
+            # we use abs here since some of the pixels could be negative
+            # and for a noise image this procedure results in a fair
+            # sampling of the noise
+            p=jnp.abs(img.array.ravel()) / jnp.sum(jnp.abs(img.array)),
+        ).astype(int)
+        yinds, xinds = jnp.unravel_index(inds, img.array.shape)
+
+        xedges = jnp.arange(img.bounds.xmin, img.bounds.xmax + 2) - 0.5
+        yedges = jnp.arange(img.bounds.ymin, img.bounds.ymax + 2) - 0.5
+
+        # now we draw the position within the pixel
+        ud = UniformDeviate(rng)
+        photons.x = ud.generate(photons.x) + xedges[xinds]
+        photons.y = ud.generate(photons.y) + yedges[yinds]
+        photons.flux = jnp.sign(img.array.ravel())[inds] * self._flux_per_photon()
+
+        # now we convolve with the x interpolant
+        raise NotImplementedError("InterpolatedImages do not support photon shooting!")
 
 
 @_wraps(_galsim._InterpolatedImage)

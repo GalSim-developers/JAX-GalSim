@@ -47,7 +47,7 @@ class BaseNoise:
         else:
             if not isinstance(rng, BaseDeviate):
                 raise TypeError("rng must be a galsim.BaseDeviate instance.")
-            self._rng = rng.duplicate()
+            self._rng = rng
 
     @property
     def rng(self):
@@ -510,6 +510,7 @@ class DeviateNoise(BaseNoise):
             # kind of deviate, but just reset it to follow the given rng.
             dev = self.rng.duplicate()
             dev.reset(rng)
+        print(repr(dev), repr(self.rng))
         return DeviateNoise(dev)
 
     def __repr__(self):

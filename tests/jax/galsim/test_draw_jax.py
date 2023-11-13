@@ -1127,7 +1127,7 @@ def test_shoot():
     obj.drawImage(image2, method='phot', poisson_flux=False, add_to_image=False, rng=rng,
                   maxN=100000)
     image2 += 100
-    np.testing.assert_almost_equal(image2.array, image1.array, decimal=12)
+    np.testing.assert_array_almost_equal(image2.array, image1.array, decimal=12)
 
     # Also check that you get the same answer with a smaller maxN.
     image3 = galsim.ImageF(32,32, init_value=100)
@@ -1138,7 +1138,7 @@ def test_shoot():
 
     # Test that shooting with 0.0 flux makes a zero-photons image.
     image4 = (obj*0).drawImage(method='phot')
-    np.testing.assert_equal(image4.array, 0)
+    np.testing.assert_array_equal(image4.array, 0)
 
     # Warns if flux is 1 and n_photons not given.
     psf = galsim.Gaussian(sigma=3)

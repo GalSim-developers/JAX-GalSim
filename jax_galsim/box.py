@@ -6,6 +6,7 @@ from jax.tree_util import register_pytree_node_class
 from jax_galsim.core.draw import draw_by_kValue, draw_by_xValue
 from jax_galsim.core.utils import ensure_hashable
 from jax_galsim.gsobject import GSObject
+from jax_galsim.random import UniformDeviate
 
 
 @_wraps(_galsim.Box)
@@ -114,6 +115,15 @@ class Box(GSObject):
             flux=children[0]["flux"],
             **aux_data
         )
+
+    @_wraps(_galsim.Box._shoot)
+    def _shoot(self, photons, rng):
+        ud = UniformDeviate(rng)
+
+        # this does not fill arrays like in galsim
+        photons.x = (ud.generate(photons.x) - 0.5) * self.width
+        photons.y = (ud.generate(photons.y) - 0.5) * self.height
+        photons.flux = self.flux / photons.size()
 
 
 @_wraps(_galsim.Pixel)

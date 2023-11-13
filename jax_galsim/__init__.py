@@ -86,6 +86,10 @@ from .interpolant import (
 )
 from .interpolatedimage import InterpolatedImage, _InterpolatedImage
 
+# Photon Shooting
+from .photon_array import PhotonArray
+from .sensor import Sensor
+
 # packages kept separate
 from . import bessel
 from . import fits

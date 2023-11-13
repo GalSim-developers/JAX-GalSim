@@ -4,9 +4,20 @@ import jax.numpy as jnp
 import numpy as np
 from jax._src.numpy.util import _wraps
 
+import jax_galsim.photon_array as pa
 from jax_galsim.core.utils import is_equal_with_arrays
+from jax_galsim.errors import (
+    GalSimError,
+    GalSimIncompatibleValuesError,
+    GalSimNotImplementedError,
+    GalSimRangeError,
+    GalSimValueError,
+    galsim_warn,
+)
 from jax_galsim.gsparams import GSParams
 from jax_galsim.position import Position, PositionD, PositionI
+from jax_galsim.random import BaseDeviate, PoissonDeviate
+from jax_galsim.sensor import Sensor
 from jax_galsim.utilities import parse_pos_args
 
 
@@ -15,6 +26,18 @@ class GSObject:
     def __init__(self, *, gsparams=None, **params):
         self._params = params  # Dictionary containing all traced parameters
         self._gsparams = GSParams.check(gsparams)  # Non-traced static parameters
+        self._workspace = {}  # used by lazy_property
+
+    def __getstate__(self):
+        d = self.__dict__.copy()
+        d["had_workspace"] = "_workspace" in d
+        d.pop("_workspace", None)
+        return d
+
+    def __setstate__(self, d):
+        if d.pop("had_workspace", False):
+            d["_workspace"] = {}
+        self.__dict__ = d
 
     @property
     def flux(self):
@@ -615,7 +638,12 @@ class GSObject:
 
     @_wraps(
         _galsim.GSObject.drawImage,
-        lax_description="The JAX-GalSim version of `drawImage` does not do extensive (any?) checking of the input settings.",
+        lax_description="""\
+The JAX-GalSim version of `drawImage` does not
+
+ - do extensive (any?) checking of the input settings.
+ - does not support the deprecated `surface_ops` argument
+""",
     )
     def drawImage(
         self,
@@ -645,7 +673,6 @@ class GSObject:
         save_photons=False,
         bandpass=None,
         setup_only=False,
-        surface_ops=None,
     ):
         from jax_galsim.box import Pixel
         from jax_galsim.convolve import Convolve
@@ -654,6 +681,11 @@ class GSObject:
 
         if image is not None and not isinstance(image, Image):
             raise TypeError("image is not an Image instance", image)
+
+        if method == "phot" and save_photons and maxN is not None:
+            raise GalSimIncompatibleValuesError(
+                "Setting maxN is incompatible with save_photons=True"
+            )
 
         # Figure out what wcs we are going to use.
         wcs = self._determine_wcs(scale, wcs, image)
@@ -715,26 +747,44 @@ class GSObject:
             image.added_flux = 0.0
             return image
 
-        if method == "phot":
-            raise NotImplementedError("Phot shooting not yet implemented in drawImage")
-        if sensor is not None:
-            raise NotImplementedError("Sensor not yet implemented in drawImage")
-
         # Making a view of the image lets us change the center without messing up the original.
         original_center = image.center
         wcs = image.wcs
         image.setCenter(0, 0)
         image.wcs = PixelScale(1.0)
 
-        if prof.is_analytic_x:
-            added_photons = prof.drawReal(image, add_to_image)
+        if method == "phot":
+            added_photons, photons = prof.drawPhot(
+                image,
+                gain,
+                add_to_image,
+                n_photons,
+                rng,
+                max_extra_noise,
+                poisson_flux,
+                sensor,
+                photon_ops,
+                maxN,
+                original_center,
+                local_wcs,
+            )
         else:
-            added_photons = prof.drawFFT(image, add_to_image)
+            if sensor is not None:
+                raise NotImplementedError(
+                    "Sensor not yet implemented in drawImage for method != 'phot'."
+                )
+
+            if prof.is_analytic_x:
+                added_photons = prof.drawReal(image, add_to_image)
+            else:
+                added_photons = prof.drawFFT(image, add_to_image)
 
         image.added_flux = added_photons / flux_scale
         # Restore the original center and wcs
         image.shift(original_center)
         image.wcs = wcs
+        if save_photons:
+            image.photons = photons
 
         # Update image_in to satisfy GalSim API
         image_in._array = image._array
@@ -742,6 +792,9 @@ class GSObject:
         image_in._bounds = image._bounds
         image_in.wcs = image.wcs
         image_in._dtype = image._dtype
+        if save_photons:
+            image_in.photons = photons
+
         return image
 
     @_wraps(_galsim.GSObject.drawReal)
@@ -1031,6 +1084,304 @@ class GSObject:
         raise NotImplementedError(
             "%s does not implement drawKImage" % self.__class__.__name__
         )
+
+    @_wraps(_galsim.GSObject._calculate_nphotons)
+    def _calculate_nphotons(self, n_photons, poisson_flux, max_extra_noise, rng):
+        # For profiles that are positive definite, then N = flux. Easy.
+        #
+        # However, some profiles shoot some of their photons with negative flux. This means that
+        # we need a few more photons to get the right S/N = sqrt(flux). Take eta to be the
+        # fraction of shot photons that have negative flux.
+        #
+        # S^2 = (N+ - N-)^2 = (N+ + N- - 2N-)^2 = (Ntot - 2N-)^2 = Ntot^2(1 - 2 eta)^2
+        # N^2 = Var(S) = (N+ + N-) = Ntot
+        #
+        # So flux = (S/N)^2 = Ntot (1-2eta)^2
+        # Ntot = flux / (1-2eta)^2
+        #
+        # However, if each photon has a flux of 1, then S = (1-2eta) Ntot = flux / (1-2eta).
+        # So in fact, each photon needs to carry a flux of g = 1-2eta to get the right
+        # total flux.
+        #
+        # That's all the easy case. The trickier case is when we are sky-background dominated.
+        # Then we can usually get away with fewer shot photons than the above.  In particular,
+        # if the noise from the photon shooting is much less than the sky noise, then we can
+        # use fewer shot photons and essentially have each photon have a flux > 1. This is ok
+        # as long as the additional noise due to this approximation is "much less than" the
+        # noise we'll be adding to the image for the sky noise.
+        #
+        # Let's still have Ntot photons, but now each with a flux of g. And let's look at the
+        # noise we get in the brightest pixel that has a nominal total flux of Imax.
+        #
+        # The number of photons hitting this pixel will be Imax/flux * Ntot.
+        # The variance of this number is the same thing (Poisson counting).
+        # So the noise in that pixel is:
+        #
+        # N^2 = Imax/flux * Ntot * g^2
+        #
+        # And the signal in that pixel will be:
+        #
+        # S = Imax/flux * (N+ - N-) * g which has to equal Imax, so
+        # g = flux / Ntot(1-2eta)
+        # N^2 = Imax/Ntot * flux / (1-2eta)^2
+        #
+        # As expected, we see that lowering Ntot will increase the noise in that (and every
+        # other) pixel.
+        # The input max_extra_noise parameter is the maximum value of spurious noise we want
+        # to allow.
+        #
+        # So setting N^2 = Imax + nu, we get
+        #
+        # Ntot = flux / (1-2eta)^2 / (1 + nu/Imax)
+        # g = (1 - 2eta) * (1 + nu/Imax)
+        #
+        # Returns the total flux placed inside the image bounds by photon shooting.
+        #
+
+        flux = self.flux
+        if flux == 0.0:
+            return 0, 1.0
+
+        # The _flux_per_photon property is (1-2eta)
+        # This factor will already be accounted for by the shoot function, so don't include
+        # that as part of our scaling here.  There may be other adjustments though, so g=1 here.
+        eta_factor = self._flux_per_photon
+        mod_flux = flux / (eta_factor * eta_factor)
+        g = 1.0
+
+        # If requested, let the target flux value vary as a Poisson deviate
+        if poisson_flux:
+            # If we have both positive and negative photons, then the mix of these
+            # already gives us some variation in the flux value from the variance
+            # of how many are positive and how many are negative.
+            # The number of negative photons varies as a binomial distribution.
+            # <F-> = eta * Ntot * g
+            # <F+> = (1-eta) * Ntot * g
+            # <F+ - F-> = (1-2eta) * Ntot * g = flux
+            # Var(F-) = eta * (1-eta) * Ntot * g^2
+            # F+ = Ntot * g - F- is not an independent variable, so
+            # Var(F+ - F-) = Var(Ntot*g - 2*F-)
+            #              = 4 * Var(F-)
+            #              = 4 * eta * (1-eta) * Ntot * g^2
+            #              = 4 * eta * (1-eta) * flux
+            # We want the variance to be equal to flux, so we need an extra:
+            # delta Var = (1 - 4*eta + 4*eta^2) * flux
+            #           = (1-2eta)^2 * flux
+            absflux = abs(flux)
+            mean = eta_factor * eta_factor * absflux
+            pd = PoissonDeviate(rng, mean)
+            pd_val = pd() - mean + absflux
+            ratio = pd_val / absflux
+            g *= ratio
+            mod_flux *= ratio
+
+        if n_photons == 0.0:
+            n_photons = abs(mod_flux)
+            if max_extra_noise > 0.0:
+                gfactor = 1.0 + max_extra_noise / abs(self.max_sb)
+                n_photons /= gfactor
+                g *= gfactor
+
+        # Make n_photons an integer.
+        iN = int(n_photons + 0.5)
+
+        return iN, g
+
+    @_wraps(
+        _galsim.GSObject.makePhot,
+        lax_description="The JAX-GalSim version of `makePhot` does not support the deprecated surface_ops argument.",
+    )
+    def makePhot(
+        self,
+        n_photons=0,
+        rng=None,
+        max_extra_noise=0.0,
+        poisson_flux=None,
+        photon_ops=(),
+        local_wcs=None,
+        surface_ops=None,
+    ):
+        if surface_ops is not None:
+            from .deprecated import depr
+
+            depr("surface_ops", 2.3, "photon_ops")
+            photon_ops = surface_ops
+
+        # Make sure the type of n_photons is correct and has a valid value:
+        if not n_photons >= 0.0:
+            raise GalSimRangeError("Invalid n_photons < 0.", n_photons, 0.0, None)
+
+        if poisson_flux is None:
+            # If n_photons is given, poisson_flux = False
+            poisson_flux = n_photons == 0.0
+
+        # Check that either n_photons is set to something or flux is set to something
+        if n_photons == 0.0 and self.flux == 1.0:
+            galsim_warn(
+                "Warning: drawImage for object with flux == 1, area == 1, and "
+                "exptime == 1, but n_photons == 0.  This will only shoot a single photon."
+            )
+
+        Ntot, g = self._calculate_nphotons(
+            n_photons, poisson_flux, max_extra_noise, rng
+        )
+
+        try:
+            photons = self.shoot(Ntot, rng)
+        except (GalSimError, NotImplementedError) as e:
+            raise GalSimNotImplementedError(
+                "Unable to draw this GSObject with photon shooting.  Perhaps it "
+                "is a Deconvolve or is a compound including one or more "
+                "Deconvolve objects.\nOriginal error: %r" % (e)
+            )
+
+        if g != 1.0:
+            photons.scaleFlux(g)
+
+        for op in photon_ops:
+            op.applyTo(photons, local_wcs, rng)
+
+        return photons
+
+    @_wraps(
+        _galsim.GSObject.drawPhot,
+        lax_description="The JAX-GalSim version of `drawPhot` does not support the deprecated surface_ops argument.",
+    )
+    def drawPhot(
+        self,
+        image,
+        gain=1.0,
+        add_to_image=False,
+        n_photons=0,
+        rng=None,
+        max_extra_noise=0.0,
+        poisson_flux=None,
+        sensor=None,
+        photon_ops=(),
+        maxN=None,
+        orig_center=PositionI(0, 0),
+        local_wcs=None,
+    ):
+        # Make sure the type of n_photons is correct and has a valid value:
+        if not n_photons >= 0.0:
+            raise GalSimRangeError("Invalid n_photons < 0.", n_photons, 0.0, None)
+
+        if poisson_flux is None:
+            # If n_photons is given, poisson_flux = False
+            poisson_flux = n_photons == 0.0
+
+        # Check that either n_photons is set to something or flux is set to something
+        if n_photons == 0.0 and self.flux == 1.0:
+            galsim_warn(
+                "Warning: drawImage for object with flux == 1, area == 1, and "
+                "exptime == 1, but n_photons == 0.  This will only shoot a single photon."
+            )
+
+        # Make sure the image is set up to have unit pixel scale and centered at 0,0.
+        if image.wcs is None or not image.wcs._isPixelScale:
+            raise GalSimValueError(
+                "drawPhot requires an image with a PixelScale wcs", image
+            )
+
+        if sensor is None:
+            sensor = Sensor()
+        elif not isinstance(sensor, Sensor):
+            raise TypeError("The sensor provided is not a Sensor instance")
+
+        Ntot, g = self._calculate_nphotons(
+            n_photons, poisson_flux, max_extra_noise, rng
+        )
+
+        if gain != 1.0:
+            g /= gain
+
+        # total flux falling inside image bounds, this will be returned on exit.
+        added_flux = 0.0
+
+        if maxN is None:
+            maxN = Ntot
+
+        if not add_to_image:
+            image.setZero()
+
+        # Nleft is the number of photons remaining to shoot.
+        Nleft = Ntot
+        photons = None  # Just in case Nleft is already 0.
+        resume = False
+        while Nleft > 0:
+            # Shoot at most maxN at a time
+            thisN = min(maxN, Nleft)
+
+            try:
+                photons = self.shoot(thisN, rng)
+            except (GalSimError, NotImplementedError) as e:
+                raise GalSimNotImplementedError(
+                    "Unable to draw this GSObject with photon shooting.  Perhaps it "
+                    "is a Deconvolve or is a compound including one or more "
+                    "Deconvolve objects.\nOriginal error: %r" % (e)
+                )
+
+            if g != 1.0 or thisN != Ntot:
+                photons.scaleFlux(g * thisN / Ntot)
+
+            if image.scale != 1.0:
+                photons.scaleXY(
+                    1.0 / image.scale
+                )  # Convert x,y to image coords if necessary
+
+            for op in photon_ops:
+                op.applyTo(photons, local_wcs, rng)
+
+            if image.dtype in (np.float32, np.float64):
+                added_flux += sensor.accumulate(
+                    photons, image, orig_center, resume=resume
+                )
+                resume = (
+                    True  # Resume from this point if there are any further iterations.
+                )
+            else:
+                # Need a temporary
+                from jax_galsim.image import ImageD
+
+                im1 = ImageD(bounds=image.bounds)
+                added_flux += sensor.accumulate(photons, im1, orig_center)
+                image += im1
+
+            Nleft -= thisN
+
+        return added_flux, photons
+
+    @_wraps(_galsim.GSObject.shoot)
+    def shoot(self, n_photons, rng=None):
+        photons = pa.PhotonArray(n_photons)
+        if n_photons == 0:
+            # It's ok to shoot 0, but downstream can have problems with it, so just stop now.
+            return photons
+        if rng is None:
+            rng = BaseDeviate()
+
+        self._shoot(photons, rng)
+        return photons
+
+    @_wraps(_galsim.GSObject._shoot)
+    def _shoot(self, photons, rng):
+        raise NotImplementedError(
+            "%s does not implement shoot" % self.__class__.__name__
+        )
+
+    @_wraps(_galsim.GSObject.applyTo)
+    def applyTo(self, photon_array, local_wcs=None, rng=None):
+        p1 = pa.PhotonArray(len(photon_array))
+        if photon_array.hasAllocatedWavelengths():
+            p1._wave = photon_array._wave
+        if photon_array.hasAllocatedPupil():
+            p1._pupil_u = photon_array._pupil_u
+            p1._pupil_v = photon_array._pupil_v
+        if photon_array.hasAllocatedTimes():
+            p1._time = photon_array._time
+        obj = local_wcs.toImage(self) if local_wcs is not None else self
+        obj._shoot(p1, rng)
+        photon_array.convolve(p1, rng)
 
     def tree_flatten(self):
         """This function flattens the GSObject into a list of children

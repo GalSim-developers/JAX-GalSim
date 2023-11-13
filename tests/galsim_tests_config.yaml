@@ -25,7 +25,7 @@ enabled_tests:
 # correspond to features that are not implemented yet
 # in jax_galsim
 allowed_failures:
-  - "Phot shooting not yet implemented in drawImage"
+  - "module 'jax_galsim' has no attribute 'DeltaFunction'"
   - "Real-space convolutions are not implemented"
   - "Photon shooting convolutions are not implemented"
   - "module 'jax_galsim' has no attribute 'Airy'"
@@ -50,7 +50,6 @@ allowed_failures:
   - "module 'jax_galsim.utilities' has no attribute 'dol_to_lod'"
   - "module 'jax_galsim.utilities' has no attribute 'nCr'"
   - "'Image' object has no attribute 'bin'"
-  - "has no attribute 'shoot'"
   - "module 'jax_galsim' has no attribute 'integ'"
   - "module 'jax_galsim' has no attribute 'InterpolatedKImage'"
   - "module 'jax_galsim' has no attribute 'CorrelatedNoise'"
@@ -60,7 +59,6 @@ allowed_failures:
   - "ValueError not raised by greatCirclePoint"
   - "TypeError not raised by __mul__"
   - "ValueError not raised by CelestialCoord"
-  - "has no attribute 'drawPhot'"
   - "'Image' object has no attribute 'FindAdaptiveMom'"
   - "module 'jax_galsim' has no attribute 'BaseCorrelatedNoise'"
   - " module 'jax_galsim' has no attribute 'fft'"
@@ -70,3 +68,10 @@ allowed_failures:
   - "pad_image not implemented in jax_galsim."
   - "InterpolatedImages do not support noise padding in jax_galsim."
   - "module 'jax_galsim' has no attribute 'FittedSIPWCS'"
+  - "module 'jax_galsim' has no attribute 'Bandpass'"
+  - "module 'jax_galsim' has no attribute 'Refraction'"
+  - "module 'jax_galsim' has no attribute 'FRatioAngles'"
+  - "module 'jax_galsim' has no attribute 'PupilAnnulusSampler'"
+  - "module 'jax_galsim' has no attribute 'TimeSampler'"
+  - "object has no attribute 'noise'"
+  - "module 'jax_galsim' has no attribute 'SED'"

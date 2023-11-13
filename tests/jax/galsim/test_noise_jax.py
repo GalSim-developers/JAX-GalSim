@@ -61,12 +61,10 @@ def test_deviate_noise():
     assert noise != noise4
     assert noise.rng() == noise2.rng()
     assert noise == noise2  # Still equal because both chains incremented one place.
-    # jax does not link RNGs so these are not equal
-    assert noise != noise3
+    assert noise == noise3
     noise.rng()
     assert noise2 != noise3  # This is no longer equal, since only noise.rng is incremented.
-    # jax does not link RNGs so these are not equal
-    assert noise != noise3
+    assert noise == noise3
 
     assert_raises(TypeError, galsim.DeviateNoise, 53)
     assert_raises(NotImplementedError, galsim.BaseNoise().getVariance)
@@ -247,12 +245,10 @@ def test_gaussian_noise():
     assert gn != gn5
     assert gn.rng.raw() == gn2.rng.raw()
     assert gn == gn2
-    # jax does not link RNGs
-    assert gn != gn3
+    assert gn == gn3
     gn.rng.raw()
     assert gn != gn2
-    # jax does not link RNGs
-    assert gn != gn3
+    assert gn == gn3
 
 
 @timer
@@ -347,12 +343,10 @@ def test_variable_gaussian_noise():
     assert vgn != vgn5
     assert vgn.rng.raw() == vgn2.rng.raw()
     assert vgn == vgn2
-    # jax does not link RNGs
-    assert vgn != vgn3
+    assert vgn == vgn3
     vgn.rng.raw()
     assert vgn != vgn2
-    # jax does not link RNGs
-    assert vgn != vgn3
+    assert vgn == vgn3
 
     assert_raises(TypeError, vgn.applyTo, 23)
     assert_raises(ValueError, vgn.applyTo, galsim.ImageF(3, 3))
@@ -517,12 +511,10 @@ def test_poisson_noise():
     assert pn != pn5
     assert pn.rng.raw() == pn2.rng.raw()
     assert pn == pn2
-    # jax does not link RNGs
-    assert pn != pn3
+    assert pn == pn3
     pn.rng.raw()
     assert pn != pn2
-    # jax does not link RNGs
-    assert pn != pn3
+    assert pn == pn3
 
 
 @timer
@@ -805,12 +797,10 @@ def test_ccdnoise():
     assert ccdnoise != ccdnoise7
     assert ccdnoise.rng.raw() == ccdnoise2.rng.raw()
     assert ccdnoise == ccdnoise2
-    # jax does not link RNGs
-    assert ccdnoise != ccdnoise3
+    assert ccdnoise == ccdnoise3
     ccdnoise.rng.raw()
     assert ccdnoise != ccdnoise2
-    # jax does not link RNGs
-    assert ccdnoise != ccdnoise3
+    assert ccdnoise == ccdnoise3
 
 
 @timer

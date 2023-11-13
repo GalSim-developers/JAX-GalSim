@@ -6,6 +6,8 @@ from jax.tree_util import register_pytree_node_class
 from jax_galsim.core.draw import draw_by_kValue, draw_by_xValue
 from jax_galsim.core.utils import ensure_hashable
 from jax_galsim.gsobject import GSObject
+from jax_galsim.random import UniformDeviate
+from jax_galsim.utilities import lazy_property
 
 
 @_wraps(_galsim.Exponential)
@@ -145,3 +147,31 @@ class Exponential(GSObject):
         return Exponential(
             scale_radius=self.scale_radius, flux=flux, gsparams=self.gsparams
         )
+
+    @lazy_property
+    def _shoot_cdf(self):
+        # store this for later
+        _rmax = -jnp.log(self.gsparams.shoot_accuracy)
+        _umax = 1.0 - jnp.exp(-_rmax)
+        _u_cdf = jnp.linspace(0, _umax, 10000)
+        _cdf = _u_cdf - (_u_cdf - 1) * jnp.log(1 - _u_cdf)
+        _cdf /= _cdf[-1]
+        return _u_cdf, _cdf
+
+    @_wraps(_galsim.Exponential._shoot)
+    def _shoot(self, photons, rng):
+        ud = UniformDeviate(rng)
+
+        u = ud.generate(
+            photons.x
+        )  # this does not fill arrays like in galsim so is safe
+        _u_cdf, _cdf = self._shoot_cdf
+        u = jnp.interp(u, _cdf, _u_cdf)
+        r = -jnp.log(1.0 - u) * self._r0
+
+        ang = (
+            ud.generate(photons.x) * 2.0 * jnp.pi
+        )  # this does not fill arrays like in galsim so is safe
+        photons.x = r * jnp.cos(ang)
+        photons.y = r * jnp.sin(ang)
+        photons.flux = self.flux / photons.size()

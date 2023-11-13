@@ -166,31 +166,26 @@ def test_uniform():
         u.raw(), u2.raw(), err_msg="Uniform deviates generate different raw values"
     )
 
-    # NOTE: these tests differ from galsim since we cannot connect
-    # generators
     rng2 = galsim.BaseDeviate(testseed)
     rng2.discard(4)
-    rng.discard(4)  # new line relative to galsim
     np.testing.assert_equal(
         rng.raw(),
         rng2.raw(),
         err_msg="BaseDeviates generate different raw values after discard",
     )
 
-    # NOTE: these tests will never work in galsim since we cannot
-    # connect RNGs in JAX
-    # # Check that two connected uniform deviates work correctly together.
-    # u2 = galsim.UniformDeviate(testseed)
-    # u.reset(u2)
-    # testResult2 = (u(), u2(), u())
-    # np.testing.assert_array_equal(
-    #     np.array(testResult), np.array(testResult2),
-    #     err_msg='Wrong uniform random number sequence generated using two uds')
-    # u.seed(testseed)
-    # testResult2 = (u2(), u(), u2())
-    # np.testing.assert_array_equal(
-    #     np.array(testResult), np.array(testResult2),
-    #     err_msg='Wrong uniform random number sequence generated using two uds after seed')
+    # Check that two connected uniform deviates work correctly together.
+    u2 = galsim.UniformDeviate(testseed)
+    u.reset(u2)
+    testResult2 = (u(), u2(), u())
+    np.testing.assert_array_equal(
+        np.array(testResult), np.array(testResult2),
+        err_msg='Wrong uniform random number sequence generated using two uds')
+    u.seed(testseed)
+    testResult2 = (u2(), u(), u2())
+    np.testing.assert_array_equal(
+        np.array(testResult), np.array(testResult2),
+        err_msg='Wrong uniform random number sequence generated using two uds after seed')
 
     # Check that seeding with the time works (although we cannot check the output).
     # We're mostly just checking that this doesn't raise an exception.
@@ -387,22 +382,21 @@ def test_gaussian():
         np.array(testResult), np.array(testResult2),
         err_msg='Wrong Gaussian random number sequence generated after reset(ud)')
 
-    # NOTE jax doesn't allow connected RNGs
-    # # Check that two connected Gaussian deviates work correctly together.
-    # g2 = galsim.GaussianDeviate(testseed, mean=gMean, sigma=gSigma)
-    # g.reset(g2)
-    # # Note: GaussianDeviate generates two values at a time, so we have to compare them in pairs.
-    # testResult2 = (g(), g(), g2())
-    # np.testing.assert_array_equal(
-    #     np.array(testResult), np.array(testResult2),
-    #     err_msg='Wrong Gaussian random number sequence generated using two gds')
-    # g.seed(testseed)
-    # # For the same reason, after seeding one, we need to manually clear the other's cache:
-    # g2.clearCache()
-    # testResult2 = (g2(), g2(), g())
-    # np.testing.assert_array_equal(
-    #     np.array(testResult), np.array(testResult2),
-    #     err_msg='Wrong Gaussian random number sequence generated using two gds after seed')
+    # Check that two connected Gaussian deviates work correctly together.
+    g2 = galsim.GaussianDeviate(testseed, mean=gMean, sigma=gSigma)
+    g.reset(g2)
+    # Note: GaussianDeviate generates two values at a time, so we have to compare them in pairs.
+    testResult2 = (g(), g(), g2())
+    np.testing.assert_array_equal(
+        np.array(testResult), np.array(testResult2),
+        err_msg='Wrong Gaussian random number sequence generated using two gds')
+    g.seed(testseed)
+    # For the same reason, after seeding one, we need to manually clear the other's cache:
+    g2.clearCache()
+    testResult2 = (g2(), g2(), g())
+    np.testing.assert_array_equal(
+        np.array(testResult), np.array(testResult2),
+        err_msg='Wrong Gaussian random number sequence generated using two gds after seed')
 
     # Check that seeding with the time works (although we cannot check the output).
     # We're mostly just checking that this doesn't raise an exception.
@@ -590,19 +584,18 @@ def test_binomial():
         np.array(testResult), np.array(testResult2),
         err_msg='Wrong binomial random number sequence generated after reset(ud)')
 
-    # NOTE JAX does not support connected RNGs
-    # # Check that two connected binomial deviates work correctly together.
-    # b2 = galsim.BinomialDeviate(testseed, N=bN, p=bp)
-    # b.reset(b2)
-    # testResult2 = (b(), b2(), b())
-    # np.testing.assert_array_equal(
-    #     np.array(testResult), np.array(testResult2),
-    #     err_msg='Wrong binomial random number sequence generated using two bds')
-    # b.seed(testseed)
-    # testResult2 = (b2(), b(), b2())
-    # np.testing.assert_array_equal(
-    #     np.array(testResult), np.array(testResult2),
-    #     err_msg='Wrong binomial random number sequence generated using two bds after seed')
+    # Check that two connected binomial deviates work correctly together.
+    b2 = galsim.BinomialDeviate(testseed, N=bN, p=bp)
+    b.reset(b2)
+    testResult2 = (b(), b2(), b())
+    np.testing.assert_array_equal(
+        np.array(testResult), np.array(testResult2),
+        err_msg='Wrong binomial random number sequence generated using two bds')
+    b.seed(testseed)
+    testResult2 = (b2(), b(), b2())
+    np.testing.assert_array_equal(
+        np.array(testResult), np.array(testResult2),
+        err_msg='Wrong binomial random number sequence generated using two bds after seed')
 
     # Check that seeding with the time works (although we cannot check the output).
     # We're mostly just checking that this doesn't raise an exception.
@@ -778,19 +771,18 @@ def test_poisson():
         np.array(testResult), np.array(testResult2),
         err_msg='Wrong poisson random number sequence generated after reset(ud)')
 
-    # NOTE: jax-galsim doesn't have connected RNGs
-    # # Check that two connected poisson deviates work correctly together.
-    # p2 = galsim.PoissonDeviate(testseed, mean=pMean)
-    # p.reset(p2)
-    # testResult2 = (p(), p2(), p())
-    # np.testing.assert_array_equal(
-    #     np.array(testResult), np.array(testResult2),
-    #     err_msg='Wrong poisson random number sequence generated using two pds')
-    # p.seed(testseed)
-    # testResult2 = (p2(), p(), p2())
-    # np.testing.assert_array_equal(
-    #         np.array(testResult), np.array(testResult2),
-    #         err_msg='Wrong poisson random number sequence generated using two pds after seed')
+    # Check that two connected poisson deviates work correctly together.
+    p2 = galsim.PoissonDeviate(testseed, mean=pMean)
+    p.reset(p2)
+    testResult2 = (p(), p2(), p())
+    np.testing.assert_array_equal(
+        np.array(testResult), np.array(testResult2),
+        err_msg='Wrong poisson random number sequence generated using two pds')
+    p.seed(testseed)
+    testResult2 = (p2(), p(), p2())
+    np.testing.assert_array_equal(
+        np.array(testResult), np.array(testResult2),
+        err_msg='Wrong poisson random number sequence generated using two pds after seed')
 
     # Check that seeding with the time works (although we cannot check the output).
     # We're mostly just checking that this doesn't raise an exception.
@@ -941,56 +933,53 @@ def test_poisson_highmean():
         print('after %d vals, next one is %s, %s' % (nvals, v1, v2))
         assert v1 == v2
 
-        # NOTE: JAX cannot connect RNGs
-        # # Check that two connected poisson deviates work correctly together.
-        # p2 = galsim.PoissonDeviate(testseed, mean=mean)
-        # p.reset(p2)
-        # testResult2 = (p(), p(), p2())
-        # np.testing.assert_array_equal(
-        #     testResult2, testResult,
-        #     err_msg='Wrong poisson random number sequence generated using two pds')
-        # p.seed(testseed)
-        # p2.clearCache()
-        # testResult2 = (p2(), p2(), p())
-        # np.testing.assert_array_equal(
-        #     testResult2, testResult,
-        #     err_msg='Wrong poisson random number sequence generated using two pds after seed')
+        # Check that two connected poisson deviates work correctly together.
+        p2 = galsim.PoissonDeviate(testseed, mean=mean)
+        p.reset(p2)
+        testResult2 = (p(), p(), p2())
+        np.testing.assert_array_equal(
+            testResult2, testResult,
+            err_msg='Wrong poisson random number sequence generated using two pds')
+        p.seed(testseed)
+        p2.clearCache()
+        testResult2 = (p2(), p2(), p())
+        np.testing.assert_array_equal(
+            testResult2, testResult,
+            err_msg='Wrong poisson random number sequence generated using two pds after seed')
 
-        # FIXME no noise methods for images in JAX yet
         # Test filling an image
-        # p.seed(testseed)
-        # testimage = galsim.ImageD(np.zeros((3, 1)))
-        # testimage.addNoise(galsim.DeviateNoise(p))
-        # np.testing.assert_array_equal(
-        #     testimage.array.flatten(), testResult,
-        #     err_msg='Wrong poisson random number sequence generated when applied to image.')
+        p.seed(testseed)
+        testimage = galsim.ImageD(np.zeros((3, 1)))
+        testimage.addNoise(galsim.DeviateNoise(p))
+        np.testing.assert_array_equal(
+            testimage.array.flatten(), testResult,
+            err_msg='Wrong poisson random number sequence generated when applied to image.')
 
-        # # The PoissonNoise version also subtracts off the mean value
-        # rng = galsim.BaseDeviate(testseed)
-        # pn = galsim.PoissonNoise(rng, sky_level=mean)
-        # testimage.fill(0)
-        # testimage.addNoise(pn)
-        # np.testing.assert_array_equal(
-        #     testimage.array.flatten(), np.array(testResult) - mean,
-        #     err_msg='Wrong poisson random number sequence generated using PoissonNoise')
+        rng = galsim.BaseDeviate(testseed)
+        pn = galsim.PoissonNoise(rng, sky_level=mean)
+        testimage.fill(0)
+        testimage.addNoise(pn)
+        np.testing.assert_array_equal(
+            testimage.array.flatten(), np.array(testResult) - mean,
+            err_msg='Wrong poisson random number sequence generated using PoissonNoise')
 
-        # # Check PoissonNoise variance:
-        # np.testing.assert_allclose(
-        #     pn.getVariance(), mean, rtol=1.e-8,
-        #     err_msg="PoissonNoise getVariance returns wrong variance")
-        # np.testing.assert_allclose(
-        #     pn.sky_level, mean, rtol=1.e-8,
-        #     err_msg="PoissonNoise sky_level returns wrong value")
+        # Check PoissonNoise variance:
+        np.testing.assert_allclose(
+            pn.getVariance(), mean, rtol=1.e-8,
+            err_msg="PoissonNoise getVariance returns wrong variance")
+        np.testing.assert_allclose(
+            pn.sky_level, mean, rtol=1.e-8,
+            err_msg="PoissonNoise sky_level returns wrong value")
 
-        # # Check that the noise model really does produce this variance.
-        # big_im = galsim.Image(2048, 2048, dtype=float)
-        # big_im.addNoise(pn)
-        # var = np.var(big_im.array)
-        # print('variance = ', var)
-        # print('getVar = ', pn.getVariance())
-        # np.testing.assert_allclose(
-        #     var, pn.getVariance(), rtol=rtol_var,
-        #     err_msg='Realized variance for PoissonNoise did not match getVariance()')
+        # Check that the noise model really does produce this variance.
+        big_im = galsim.Image(2048, 2048, dtype=float)
+        big_im.addNoise(pn)
+        var = np.var(big_im.array)
+        print('variance = ', var)
+        print('getVar = ', pn.getVariance())
+        np.testing.assert_allclose(
+            var, pn.getVariance(), rtol=rtol_var,
+            err_msg='Realized variance for PoissonNoise did not match getVariance()')
 
 
 @timer

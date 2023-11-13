@@ -7,6 +7,7 @@ from jax.tree_util import register_pytree_node_class
 from jax_galsim.gsobject import GSObject
 from jax_galsim.gsparams import GSParams
 from jax_galsim.position import PositionD
+from jax_galsim.random import BinomialDeviate
 
 
 @_wraps(
@@ -171,6 +172,59 @@ class Sum(GSObject):
             for obj in self.obj_list[1:]:
                 image += obj._drawKImage(image, jac)
         return image
+
+    @property
+    def _positive_flux(self):
+        pflux_list = jnp.array([obj.positive_flux for obj in self.obj_list])
+        return jnp.sum(pflux_list)
+
+    @property
+    def _negative_flux(self):
+        nflux_list = jnp.array([obj.negative_flux for obj in self.obj_list])
+        return jnp.sum(nflux_list)
+
+    @property
+    def _flux_per_photon(self):
+        return self._calculate_flux_per_photon()
+
+    def _shoot(self, photons, rng):
+        remainingAbsoluteFlux = self.positive_flux + self.negative_flux
+        fluxPerPhoton = remainingAbsoluteFlux / len(photons)
+
+        remainingN = len(photons)
+        istart = (
+            0  # The location in the photons array where we assign the component arrays.
+        )
+
+        # Get photons from each summand, using BinomialDeviate to randomize
+        # the distribution of photons among summands
+        for i, obj in enumerate(self.obj_list):
+            thisAbsoluteFlux = obj.positive_flux + obj.negative_flux
+
+            # How many photons to shoot from this summand?
+            thisN = remainingN  # All of what's left, if this is the last summand...
+            if i < len(self.obj_list) - 1:
+                # otherwise, allocate a randomized fraction of the remaining photons to summand.
+                bd = BinomialDeviate(
+                    rng, remainingN, thisAbsoluteFlux / remainingAbsoluteFlux
+                )
+                thisN = int(bd())
+            if thisN > 0:
+                thisPA = obj.shoot(thisN, rng)
+                # Now rescale the photon fluxes so that they are each nominally fluxPerPhoton
+                # whereas the shoot() routine would have made them each nominally
+                # thisAbsoluteFlux/thisN
+                thisPA.scaleFlux(fluxPerPhoton * thisN / thisAbsoluteFlux)
+                photons.assignAt(istart, thisPA)
+                istart += thisN
+            remainingN -= thisN
+            remainingAbsoluteFlux -= thisAbsoluteFlux
+        # assert remainingN == 0
+        # assert np.isclose(remainingAbsoluteFlux, 0.0)
+
+        # This process produces correlated photons, so mark the resulting array as such.
+        if len(self.obj_list) > 1:
+            photons.setCorrelated()
 
     def tree_flatten(self):
         """This function flattens the GSObject into a list of children
