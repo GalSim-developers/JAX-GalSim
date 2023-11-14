@@ -56,8 +56,7 @@ class DeltaFunction(GSObject):
 
     def _xValue(self, pos):
         return jax.lax.cond(
-            jnp.array(pos.x == 0.0, dtype=bool)
-            & jnp.array(pos.y == 0.0, dtype=bool),
+            jnp.array(pos.x == 0.0, dtype=bool) & jnp.array(pos.y == 0.0, dtype=bool),
             lambda *a: DeltaFunction._mock_inf,
             lambda *a: 0.0,
         )

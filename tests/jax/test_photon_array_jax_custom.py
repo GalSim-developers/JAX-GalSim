@@ -1,5 +1,6 @@
-import jax_galsim
 import numpy as np
+
+import jax_galsim
 
 
 def test_photon_array_make_from_image_notranspose():
