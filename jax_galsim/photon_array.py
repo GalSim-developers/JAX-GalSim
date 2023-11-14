@@ -492,10 +492,12 @@ class PhotonArray:
             raise GalSimUndefinedBoundsError(
                 "Attempting to PhotonArray::addTo an Image with undefined Bounds"
             )
+        # the numpy histogram function histograms x along the first dimension and y along the
+        # along the second dimension. We need the opposite so we swap the inputs
         xbins = jnp.arange(image.bounds.xmin, image.bounds.xmax + 2) - 0.5
         ybins = jnp.arange(image.bounds.ymin, image.bounds.ymax + 2) - 0.5
         im = jnp.histogram2d(
-            self._x, self._y, bins=(xbins, ybins), weights=self._flux, density=False
+            self._y, self._x, bins=(ybins, xbins), weights=self._flux, density=False
         )[0]
         image._array += im
         return im.sum()
@@ -524,7 +526,6 @@ class PhotonArray:
         n_per = jnp.clip(jnp.ceil(jnp.abs(image.array) / max_flux), 1).astype(int)
         flux_per = (image.array / n_per).ravel()
         n_per = n_per.ravel()
-        flux_per = flux_per.ravel()
         inds = jnp.arange(image.array.size)
         inds = jnp.repeat(inds, n_per)
         yinds, xinds = jnp.unravel_index(inds, image.array.shape)

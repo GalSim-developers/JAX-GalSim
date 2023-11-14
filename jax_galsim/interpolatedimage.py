@@ -24,6 +24,7 @@ from jax_galsim.gsobject import GSObject
 from jax_galsim.gsparams import GSParams
 from jax_galsim.image import Image
 from jax_galsim.interpolant import Quintic
+from jax_galsim.photon_array import PhotonArray
 from jax_galsim.position import PositionD
 from jax_galsim.random import UniformDeviate
 from jax_galsim.transform import Transformation
@@ -877,10 +878,22 @@ class _InterpolatedImageImpl(GSObject):
         ud = UniformDeviate(rng)
         photons.x = ud.generate(photons.x) + xedges[xinds]
         photons.y = ud.generate(photons.y) + yedges[yinds]
-        photons.flux = jnp.sign(img.array.ravel())[inds] * self._flux_per_photon()
+        photons.flux = (
+            jnp.sign(img.array.ravel())[inds]
+            * self._flux_per_photon()
+            * (self.positive_flux + self.negative_flux)
+            / photons.size()
+        )
+
+        # accounnt for offset - we add the offset to get to
+        # image pixels in xValue so we need to subtract it here
+        photons.x -= self._offset.x
+        photons.y -= self._offset.y
 
         # now we convolve with the x interpolant
-        raise NotImplementedError("InterpolatedImages do not support photon shooting!")
+        x_photons = PhotonArray(photons.size())
+        self._x_interpolant._shoot(x_photons, rng)
+        photons.convolve(x_photons)
 
 
 @_wraps(_galsim._InterpolatedImage)

@@ -675,7 +675,7 @@ The JAX-GalSim version of `drawImage` does not
         setup_only=False,
     ):
         from jax_galsim.box import Pixel
-        from jax_galsim.convolve import Convolve
+        from jax_galsim.convolve import Convolution, Convolve
         from jax_galsim.image import Image
         from jax_galsim.wcs import PixelScale
 
@@ -686,6 +686,19 @@ The JAX-GalSim version of `drawImage` does not
             raise GalSimIncompatibleValuesError(
                 "Setting maxN is incompatible with save_photons=True"
             )
+
+        # Check that the user isn't convolving by a Pixel already.  This is almost always an error.
+        if method == "auto" and isinstance(self, Convolution):
+            if any([isinstance(obj, Pixel) for obj in self.obj_list]):
+                galsim_warn(
+                    "You called drawImage with ``method='auto'`` "
+                    "for an object that includes convolution by a Pixel.  "
+                    "This is probably an error.  Normally, you should let GalSim "
+                    "handle the Pixel convolution for you.  If you want to handle the Pixel "
+                    "convolution yourself, you can use method=no_pixel.  Or if you really meant "
+                    "for your profile to include the Pixel and also have GalSim convolve by "
+                    "an _additional_ Pixel, you can suppress this warning by using method=fft."
+                )
 
         # Figure out what wcs we are going to use.
         wcs = self._determine_wcs(scale, wcs, image)

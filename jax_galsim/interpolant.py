@@ -9,11 +9,57 @@ import jax
 import jax.numpy as jnp
 from galsim.errors import GalSimValueError
 from jax._src.numpy.util import _wraps
+from jax.tree_util import Partial as jax_partial
 from jax.tree_util import register_pytree_node_class
 
 from jax_galsim.bessel import si
 from jax_galsim.core.utils import is_equal_with_arrays
+from jax_galsim.errors import GalSimError
 from jax_galsim.gsparams import GSParams
+from jax_galsim.random import UniformDeviate
+
+
+@jax.jit
+def _rejection_sample(photons, rng, tot_xrange, xval, pos_flux, neg_flux, max_val):
+    def _cond_fun(args):
+        _, _, tot, _, curr = args
+        return curr < tot
+
+    def _body_fun(args):
+        arr, sign, tot, ud, curr = args
+        xloc = (ud() - 0.5) * tot_xrange
+        yv = ud() * max_val
+        xloc_val = xval(xloc)
+        arr, sign, curr = jax.lax.cond(
+            yv <= jnp.abs(xloc_val),
+            lambda arr, sign, curr, xloc, xloc_val: (
+                arr.at[curr].set(xloc),
+                sign.at[curr].set(jnp.sign(xloc_val)),
+                curr + 1,
+            ),
+            lambda arr, sign, curr, xloc, xloc_val: (arr, sign, curr),
+            arr,
+            sign,
+            curr,
+            xloc,
+            xloc_val,
+        )
+        return arr, sign, tot, ud, curr
+
+    ud = UniformDeviate(rng)
+    photons.x, _sign_x, _, ud, _ = jax.lax.while_loop(
+        _cond_fun,
+        _body_fun,
+        (jnp.zeros_like(photons.x), jnp.zeros_like(photons.x), photons.size(), ud, 0),
+    )
+    photons.y, _sign_y, _, ud, _ = jax.lax.while_loop(
+        _cond_fun,
+        _body_fun,
+        (jnp.zeros_like(photons.y), jnp.zeros_like(photons.y), photons.size(), ud, 0),
+    )
+    flux_per = (pos_flux + neg_flux) ** 2 / photons.size()
+    photons.flux = _sign_x * _sign_y * flux_per
+    return photons, rng
 
 
 @_wraps(_galsim.interpolant.Interpolant)
@@ -255,6 +301,11 @@ class Interpolant:
             % self.__class__.__name__
         )
 
+    def _shoot(self, photons, rng):
+        raise NotImplementedError(
+            "%s does not implement shoot" % self.__class__.__name__
+        )
+
     # subclasses should implement __init__, _xval, _uval,
     # _unit_integrals, _positive_flux, _negative_flux, urange, and xrange
 
@@ -303,6 +354,11 @@ class Delta(Interpolant):
         """The total integral range of the interpolant.  Typically 2 * xrange."""
         return 0
 
+    def _shoot(self, photons, rng):
+        photons.x = 0.0
+        photons.y = 0.0
+        photons.flux = 1.0 / photons.size()
+
 
 @_wraps(_galsim.interpolant.Nearest)
 @register_pytree_node_class
@@ -340,6 +396,12 @@ class Nearest(Interpolant):
     def ixrange(self):
         """The total integral range of the interpolant.  Typically 2 * xrange."""
         return 1
+
+    def _shoot(self, photons, rng):
+        ud = UniformDeviate(rng)
+        photons.x = ud.generate(photons.x) - 0.5
+        photons.y = ud.generate(photons.y) - 0.5
+        photons.flux = 1.0 / photons.size()
 
 
 @_wraps(_galsim.interpolant.SincInterpolant)
@@ -408,6 +470,12 @@ class SincInterpolant(Interpolant):
         self._positive_flux = jax.lax.stop_gradient(jnp.sum(val[val > 0])).item() * 2.0
         self._negative_flux = self._positive_flux - 1.0
 
+    def _shoot(self, photons, rng):
+        raise GalSimError(
+            "%s does not implement shoot since the "
+            "kernel is not compact in real-space." % self.__class__.__name__
+        )
+
 
 @_wraps(_galsim.interpolant.Linear)
 @register_pytree_node_class
@@ -453,6 +521,12 @@ class Linear(Interpolant):
     def ixrange(self):
         """The total integral range of the interpolant.  Typically 2 * xrange."""
         return 2
+
+    def _shoot(self, photons, rng):
+        ud = UniformDeviate(rng)
+        photons.x = ud.generate(photons.x) + ud.generate(photons.x) - 1.0
+        photons.y = ud.generate(photons.y) + ud.generate(photons.y) - 1.0
+        photons.flux = 1.0 / photons.size()
 
 
 @_wraps(_galsim.interpolant.Cubic)
@@ -518,6 +592,21 @@ class Cubic(Interpolant):
     def ixrange(self):
         """The total integral range of the interpolant.  Typically 2 * xrange."""
         return 4
+
+    def _shoot(self, photons, rng):
+        _photons, _rng = _rejection_sample(
+            photons,
+            rng,
+            self.xrange * 2.0,
+            jax_partial(self.__class__._xval),
+            self.positive_flux,
+            self.negative_flux,
+            self._xval_noraise(0.0),
+        )
+        photons.x = _photons.x
+        photons.y = _photons.y
+        photons.flux = _photons.flux
+        rng._state = _rng._state
 
 
 @_wraps(_galsim.interpolant.Quintic)
@@ -613,6 +702,21 @@ class Quintic(Interpolant):
     def ixrange(self):
         """The total integral range of the interpolant.  Typically 2 * xrange."""
         return 6
+
+    def _shoot(self, photons, rng):
+        _photons, _rng = _rejection_sample(
+            photons,
+            rng,
+            self.xrange * 2.0,
+            jax_partial(self.__class__._xval),
+            self.positive_flux,
+            self.negative_flux,
+            self._xval_noraise(0.0),
+        )
+        photons.x = _photons.x
+        photons.y = _photons.y
+        photons.flux = _photons.flux
+        rng._state = _rng._state
 
 
 @_wraps(_galsim.interpolant.Lanczos)
@@ -1398,7 +1502,7 @@ class Lanczos(Interpolant):
     # this is a pure function and we apply JIT ahead of time since this
     # one is pretty slow
     @jax.jit
-    def _xval(x, n, conserve_dc, _K):
+    def _xval(n, conserve_dc, _K, x):
         x = jnp.abs(x)
 
         def _low(x, n):
@@ -1471,7 +1575,7 @@ class Lanczos(Interpolant):
         )
 
     def _xval_noraise(self, x):
-        return Lanczos._xval(x, self._n, self._conserve_dc, self._K_arr)
+        return Lanczos._xval(self._n, self._conserve_dc, self._K_arr, x)
 
     def _raw_uval(u, n):
         # this function is used in the init and so was causing a recursion depth error
@@ -1589,6 +1693,21 @@ class Lanczos(Interpolant):
             return self._unit_integrals_conserve_dc[self._n][:n]
         else:
             return self._unit_integrals_no_conserve_dc[self._n][:n]
+
+    def _shoot(self, photons, rng):
+        _photons, _rng = _rejection_sample(
+            photons,
+            rng,
+            self.xrange * 2.0,
+            jax_partial(self.__class__._xval, self._n, self._conserve_dc, self._K_arr),
+            self.positive_flux,
+            self.negative_flux,
+            self._xval_noraise(0.0),
+        )
+        photons.x = _photons.x
+        photons.y = _photons.y
+        photons.flux = _photons.flux
+        rng._state = _rng._state
 
 
 # we apply JIT here to esnure the class init is fast

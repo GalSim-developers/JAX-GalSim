@@ -315,3 +315,61 @@ def test_interpolatedimage_utils_jax_galsim_fft_vs_galsim_fft(n):
     np.testing.assert_allclose(gim.array, im.array)
     np.testing.assert_allclose(gkim.array, kim.array)
     np.testing.assert_allclose(gxkim.array, xkim.array)
+
+
+@pytest.mark.parametrize(
+    "interp",
+    [
+        Nearest(),
+        Linear(),
+        Cubic(),
+        Quintic(),
+        Lanczos(3, conserve_dc=True),
+        Lanczos(3, conserve_dc=False),
+        Lanczos(7),
+    ],
+)
+def test_interpolatedimage_interpolant_rejection_sample(interp):
+    from jax.tree_util import Partial as jax_partial
+
+    from jax_galsim.interpolant import _rejection_sample
+    from jax_galsim.photon_array import PhotonArray
+    from jax_galsim.random import BaseDeviate
+
+    rng = BaseDeviate(1234)
+
+    ntot = 1000000
+    photons = PhotonArray(ntot)
+    photons, _ = _rejection_sample(
+        photons,
+        rng,
+        interp.xrange * 2.0,
+        jax_partial(interp._xval_noraise),
+        interp.positive_flux,
+        interp.negative_flux,
+        interp._xval_noraise(0.0),
+    )
+
+    h, bins = jnp.histogram(photons.x, bins=500)
+    mid = (bins[1:] + bins[:-1]) / 2.0
+    dx = bins[1:] - bins[:-1]
+    yv = (
+        jnp.abs(interp._xval_noraise(mid))
+        * dx
+        * ntot
+        * 1.0
+        / (interp.positive_flux + interp.negative_flux)
+    )
+    msk = yv > 100
+    fdev = np.abs(h - yv) / np.abs(np.sqrt(yv))
+    np.testing.assert_allclose(fdev[msk], 0, rtol=0, atol=5.0, err_msg=f"{interp}")
+    np.testing.assert_allclose(fdev[~msk], 0, rtol=0, atol=15.0, err_msg=f"{interp}")
+
+    if interp.__class__.__name__ == "Quintic" and False:
+        import proplot as pplt
+
+        fig, axs = pplt.subplots(figsize=(4, 4))
+        axs.hist(photons.x, bins=500, log=False)
+        axs.plot(mid, yv, color="k")
+        fig.show()
+        breakpoint()
