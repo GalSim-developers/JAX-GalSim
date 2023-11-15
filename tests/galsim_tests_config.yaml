@@ -12,6 +12,7 @@ enabled_tests:
     - test_shear.py
     - test_shear_position.py
     - test_wcs.py
+    - test_box.py
     - test_interpolatedimage.py
   coord:
     - test_angle.py
@@ -32,16 +33,15 @@ allowed_failures:
   - "module 'jax_galsim' has no attribute 'Sersic'"
   - "module 'jax_galsim' has no attribute 'DeVaucouleurs'"
   - "module 'jax_galsim' has no attribute 'UncorrelatedNoise'"
-  - "module 'jax_galsim' has no attribute 'GaussianNoise'"
   - "module 'jax_galsim' has no attribute 'Shapelet'"
   - "module 'jax_galsim' has no attribute 'UVFunction'"
   - "module 'jax_galsim' has no attribute 'FitsWCS'"
-  - "module 'jax_galsim' has no attribute 'FitsHeader'"
   - "module 'jax_galsim' has no attribute 'AstropyWCS'"
   - "module 'jax_galsim' has no attribute 'GSFitsWCS'"
   - "module 'jax_galsim' has no attribute 'WcsToolsWCS'"
   - "module 'jax_galsim' has no attribute 'AutoCorrelate'"
   - "module 'jax_galsim' has no attribute 'AutoConvolve'"
+  - "module 'jax_galsim' has no attribute 'TopHat'"
   - "module 'jax_galsim' has no attribute 'integ'"
   - "module 'jax_galsim.utilities' has no attribute 'roll2d'"
   - "module 'jax_galsim.utilities' has no attribute 'kxky'"
@@ -68,7 +68,10 @@ allowed_failures:
   - "module 'jax_galsim.utilities' has no attribute 'horner2d'"
   - "'Image' object has no attribute 'FindAdaptiveMom'"
   - "module 'jax_galsim' has no attribute 'BaseCorrelatedNoise'"
+  - " module 'jax_galsim' has no attribute 'fft'"
   - "'Image' object has no attribute 'addNoise'"
   - "Transform does not support callable arguments."
   - "The JAX galsim.BaseDeviate does not support being used as a numpy PRNG."
   - "jax_galsim does not support the galsim WCS class GSFitsWCS"
+  - "pad_image not implemented in jax_galsim."
+  - "InterpolatedImages do not support noise padding in jax_galsim."

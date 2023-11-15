@@ -110,20 +110,23 @@ class Image(object):
 
         # Check that we got them all
         if kwargs:
-            if "copy" in kwargs.keys():
+            if "copy" in kwargs.keys() and not kwargs["copy"]:
                 raise TypeError(
-                    "'copy' is not a valid keyword argument for the JAX-GalSim version of the Image constructor"
+                    "'copy=False' is not a valid keyword argument for the JAX-GalSim version of the Image constructor"
                 )
+            else:
+                # remove it since we used it
+                kwargs.pop("copy", None)
+
             if "make_const" in kwargs.keys():
                 raise TypeError(
                     "'make_const' is not a valid keyword argument for the JAX-GalSim version of the Image constructor"
                 )
-            raise TypeError(
-                "Image constructor got unexpected keyword arguments: %s", kwargs
-            )
-            raise TypeError(
-                "Image constructor got unexpected keyword arguments: %s", kwargs
-            )
+
+            if kwargs:
+                raise TypeError(
+                    "Image constructor got unexpected keyword arguments: %s", kwargs
+                )
 
         # Figure out what dtype we want:
         dtype = self._alias_dtypes.get(dtype, dtype)
@@ -150,6 +153,14 @@ class Image(object):
             if not array.dtype.isnative:
                 array = array.astype(array.dtype.newbyteorder("="))
             self._dtype = array.dtype.type
+        elif image is not None:
+            if not isinstance(image, Image):
+                raise TypeError("image must be an Image")
+            # we do less checking here since we already have a valid image
+            if dtype is None:
+                self._dtype = image.dtype
+            else:
+                self._dtype = dtype
         elif dtype is not None:
             self._dtype = dtype
         else:
@@ -669,7 +680,10 @@ class Image(object):
 
         return self.subImage(bounds)
 
-    @_wraps(_galsim.Image.calculate_fft)
+    @_wraps(
+        _galsim.Image.calculate_fft,
+        lax_description="JAX-GalSim does not support forward FFTs of complex dtypes.",
+    )
     def calculate_fft(self):
         if not self.bounds.isDefined():
             raise _galsim.GalSimUndefinedBoundsError(
@@ -680,6 +694,10 @@ class Image(object):
         if not self.wcs._isPixelScale:
             raise _galsim.GalSimError(
                 "calculate_fft requires that the image has a PixelScale wcs."
+            )
+        if self.dtype in [np.complex64, np.complex128, complex]:
+            raise _galsim.GalSimNotImplementedError(
+                "JAX-GalSim does not support forward FFTs of complex dtypes."
             )
 
         No2 = max(
