@@ -1,7 +1,10 @@
+from functools import partial
 import jax
 import jax.numpy as jnp
+import numpy as np
 
 import jax_galsim as galsim
+from jax_galsim.core.testing import time_code_block
 
 # Defining jitting identity
 identity = jax.jit(lambda x: x)
@@ -168,3 +171,95 @@ def test_shear_jitting():
 
     assert test_eq(identity(g), g)
     assert test_eq(identity(e), e)
+
+
+def test_jitting_draw_fft():
+    def _build_and_draw(hlr, fwhm, jit=True):
+        gal = galsim.Exponential(half_light_radius=hlr, flux=1000.0)
+        psf = galsim.Gaussian(fwhm=fwhm, flux=1.0)
+        final = galsim.Convolve(
+            [gal, psf],
+        )
+        n = final.getGoodImageSize(0.2).item()
+        n += 1
+        nfft = galsim.Image.good_fft_size(4 * n)
+        if jit:
+            return _draw_it_jit(final, n, nfft)
+        else:
+            final = final.withGSParams(
+                minimum_fft_size=128,
+                maximum_fft_size=128,
+            )
+            return final.drawImage(
+                nx=n,
+                ny=n,
+                scale=0.2,
+            )
+
+    @partial(jax.jit, static_argnums=(1, 2))
+    def _draw_it_jit(obj, n, nfft):
+        obj = obj.withGSParams(
+            minimum_fft_size=128,
+            maximum_fft_size=128,
+        )
+        return obj.drawImage(
+            nx=n,
+            ny=n,
+            scale=0.2,
+        )
+
+    with time_code_block("warmup no-jit"):
+        img = _build_and_draw(0.5, 1.0, jit=False)
+    with time_code_block("no-jit"):
+        img = _build_and_draw(0.5, 1.0, jit=False)
+
+    with time_code_block("warmup jit"):
+        img = _build_and_draw(0.5, 1.0)
+    with time_code_block("jit"):
+        img = _build_and_draw(0.5, 1.0)
+
+    np.testing.assert_array_almost_equal(img.array.sum(), 1000.0, 0)
+
+
+def test_jitting_draw_phot():
+    def _build_and_draw(hlr, fwhm, jit=True):
+        gal = galsim.Exponential(half_light_radius=hlr, flux=1000.0)
+        psf = galsim.Gaussian(fwhm=fwhm, flux=1.0)
+        final = galsim.Convolve(
+            [gal, psf],
+        )
+        n = final.getGoodImageSize(0.2).item()
+        n += 1
+        n_photons = final._calculate_nphotons(0, False, 0, None)[0]
+        if jit:
+            return _draw_it_jit(final, n, n_photons)
+        else:
+            return final.drawImage(
+                nx=n,
+                ny=n,
+                scale=0.2,
+                method="phot",
+                n_photons=n_photons,
+            )
+
+    @partial(jax.jit, static_argnums=(1, 2))
+    def _draw_it_jit(obj, n, nphotons):
+        return obj.drawImage(
+            nx=n,
+            ny=n,
+            scale=0.2,
+            n_photons=nphotons,
+            method="phot",
+        )
+
+    with time_code_block("warmup no-jit"):
+        img = _build_and_draw(0.5, 1.0, jit=False)
+    with time_code_block("no-jit"):
+        img = _build_and_draw(0.5, 1.0, jit=False)
+
+    with time_code_block("warmup jit"):
+        img = _build_and_draw(0.5, 1.0)
+    with time_code_block("jit"):
+        img = _build_and_draw(0.5, 1.0)
+
+    np.testing.assert_array_almost_equal(img.array.sum(), 1000.0, 3)
