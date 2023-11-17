@@ -172,7 +172,7 @@ def horner(x, coef, dtype=None):
     if len(coef.shape) != 1:
         raise GalSimValueError("coef must be 1-dimensional", coef)
 
-    # TODO: we cannot trim zerosin jax galsim because then for all zeros
+    # TODO: we cannot trim zeros in jax galsim because then for all zeros
     # jax attempts to index an array with shape = (0,) which throws an
     # error.
     # coef = jnp.trim_zeros(coef, trim="b")  # trim only from the back
