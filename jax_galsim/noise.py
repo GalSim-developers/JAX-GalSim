@@ -510,7 +510,6 @@ class DeviateNoise(BaseNoise):
             # kind of deviate, but just reset it to follow the given rng.
             dev = self.rng.duplicate()
             dev.reset(rng)
-        print(repr(dev), repr(self.rng))
         return DeviateNoise(dev)
 
     def __repr__(self):
