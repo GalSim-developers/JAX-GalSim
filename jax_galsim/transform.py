@@ -402,7 +402,11 @@ class Transformation(GSObject):
     @classmethod
     def tree_unflatten(cls, aux_data, children):
         """Recreates an instance of the class from flatten representation"""
-        return cls(children[0], **(children[1]), **aux_data)
+        obj = cls.__new__(cls)
+        obj._gsparams = aux_data["gsparams"]
+        obj._propagate_gsparams = aux_data["propagate_gsparams"]
+        obj._original, obj._params = children
+        return obj
 
 
 def _Transform(

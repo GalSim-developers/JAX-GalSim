@@ -1,11 +1,13 @@
 import galsim as _galsim
 from jax._src.numpy.util import _wraps
+from jax.tree_util import register_pytree_node_class
 
 from .errors import GalSimUndefinedBoundsError
 from .position import PositionI
 
 
 @_wraps(_galsim.Sensor)
+@register_pytree_node_class
 class Sensor:
     def __init__(self):
         pass
@@ -38,3 +40,12 @@ class Sensor:
 
     def __hash__(self):
         return hash(repr(self))
+
+    def tree_flatten(self):
+        children = tuple()
+        aux_data = {}
+        return (children, aux_data)
+
+    @classmethod
+    def tree_unflatten(cls, aux_data, children):
+        return cls()

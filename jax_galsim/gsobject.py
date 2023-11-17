@@ -1,3 +1,5 @@
+from functools import partial
+
 import galsim as _galsim
 import jax
 import jax.numpy as jnp
@@ -5,6 +7,7 @@ import numpy as np
 from jax._src.numpy.util import _wraps
 
 import jax_galsim.photon_array as pa
+from jax_galsim.core.draw import calculate_n_photons, sample_poisson_flux
 from jax_galsim.core.utils import is_equal_with_arrays
 from jax_galsim.errors import (
     GalSimError,
@@ -15,8 +18,9 @@ from jax_galsim.errors import (
     galsim_warn,
 )
 from jax_galsim.gsparams import GSParams
+from jax_galsim.photon_array import PhotonArray
 from jax_galsim.position import Position, PositionD, PositionI
-from jax_galsim.random import BaseDeviate, PoissonDeviate
+from jax_galsim.random import BaseDeviate
 from jax_galsim.sensor import Sensor
 from jax_galsim.utilities import parse_pos_args
 
@@ -723,7 +727,7 @@ The JAX-GalSim version of `drawImage` does not
             flux_scale /= local_wcs.pixelArea()
         # Only do the gain here if not photon shooting, since need the number of photons to
         # reflect that actual photons, not ADU.
-        if gain != 1 and method != "phot" and sensor is None:
+        if method != "phot" and sensor is None and gain != 1:
             flux_scale /= gain
 
         # Determine the offset, and possibly fix the centering for even-sized images
@@ -1100,105 +1104,24 @@ The JAX-GalSim version of `drawImage` does not
 
     @_wraps(_galsim.GSObject._calculate_nphotons)
     def _calculate_nphotons(self, n_photons, poisson_flux, max_extra_noise, rng):
-        # For profiles that are positive definite, then N = flux. Easy.
-        #
-        # However, some profiles shoot some of their photons with negative flux. This means that
-        # we need a few more photons to get the right S/N = sqrt(flux). Take eta to be the
-        # fraction of shot photons that have negative flux.
-        #
-        # S^2 = (N+ - N-)^2 = (N+ + N- - 2N-)^2 = (Ntot - 2N-)^2 = Ntot^2(1 - 2 eta)^2
-        # N^2 = Var(S) = (N+ + N-) = Ntot
-        #
-        # So flux = (S/N)^2 = Ntot (1-2eta)^2
-        # Ntot = flux / (1-2eta)^2
-        #
-        # However, if each photon has a flux of 1, then S = (1-2eta) Ntot = flux / (1-2eta).
-        # So in fact, each photon needs to carry a flux of g = 1-2eta to get the right
-        # total flux.
-        #
-        # That's all the easy case. The trickier case is when we are sky-background dominated.
-        # Then we can usually get away with fewer shot photons than the above.  In particular,
-        # if the noise from the photon shooting is much less than the sky noise, then we can
-        # use fewer shot photons and essentially have each photon have a flux > 1. This is ok
-        # as long as the additional noise due to this approximation is "much less than" the
-        # noise we'll be adding to the image for the sky noise.
-        #
-        # Let's still have Ntot photons, but now each with a flux of g. And let's look at the
-        # noise we get in the brightest pixel that has a nominal total flux of Imax.
-        #
-        # The number of photons hitting this pixel will be Imax/flux * Ntot.
-        # The variance of this number is the same thing (Poisson counting).
-        # So the noise in that pixel is:
-        #
-        # N^2 = Imax/flux * Ntot * g^2
-        #
-        # And the signal in that pixel will be:
-        #
-        # S = Imax/flux * (N+ - N-) * g which has to equal Imax, so
-        # g = flux / Ntot(1-2eta)
-        # N^2 = Imax/Ntot * flux / (1-2eta)^2
-        #
-        # As expected, we see that lowering Ntot will increase the noise in that (and every
-        # other) pixel.
-        # The input max_extra_noise parameter is the maximum value of spurious noise we want
-        # to allow.
-        #
-        # So setting N^2 = Imax + nu, we get
-        #
-        # Ntot = flux / (1-2eta)^2 / (1 + nu/Imax)
-        # g = (1 - 2eta) * (1 + nu/Imax)
-        #
-        # Returns the total flux placed inside the image bounds by photon shooting.
-        #
-
-        flux = self.flux
-        if flux == 0.0:
-            return 0, 1.0
-
-        # The _flux_per_photon property is (1-2eta)
-        # This factor will already be accounted for by the shoot function, so don't include
-        # that as part of our scaling here.  There may be other adjustments though, so g=1 here.
-        eta_factor = self._flux_per_photon
-        mod_flux = flux / (eta_factor * eta_factor)
-        g = 1.0
-
-        # If requested, let the target flux value vary as a Poisson deviate
-        if poisson_flux:
-            # If we have both positive and negative photons, then the mix of these
-            # already gives us some variation in the flux value from the variance
-            # of how many are positive and how many are negative.
-            # The number of negative photons varies as a binomial distribution.
-            # <F-> = eta * Ntot * g
-            # <F+> = (1-eta) * Ntot * g
-            # <F+ - F-> = (1-2eta) * Ntot * g = flux
-            # Var(F-) = eta * (1-eta) * Ntot * g^2
-            # F+ = Ntot * g - F- is not an independent variable, so
-            # Var(F+ - F-) = Var(Ntot*g - 2*F-)
-            #              = 4 * Var(F-)
-            #              = 4 * eta * (1-eta) * Ntot * g^2
-            #              = 4 * eta * (1-eta) * flux
-            # We want the variance to be equal to flux, so we need an extra:
-            # delta Var = (1 - 4*eta + 4*eta^2) * flux
-            #           = (1-2eta)^2 * flux
-            absflux = abs(flux)
-            mean = eta_factor * eta_factor * absflux
-            pd = PoissonDeviate(rng, mean)
-            pd_val = pd() - mean + absflux
-            ratio = pd_val / absflux
-            g *= ratio
-            mod_flux *= ratio
-
         if n_photons == 0.0:
-            n_photons = abs(mod_flux)
-            if max_extra_noise > 0.0:
-                gfactor = 1.0 + max_extra_noise / abs(self.max_sb)
-                n_photons /= gfactor
-                g *= gfactor
+            Ntot, g = calculate_n_photons(
+                self.flux,
+                self._flux_per_photon,
+                self.max_sb,
+                rng=rng,
+                max_extra_noise=max_extra_noise,
+                poisson_flux=poisson_flux,
+            )
+        else:
+            Ntot = int(n_photons + 0.5)
+            if poisson_flux:
+                pd_val = sample_poisson_flux(self.flux, self._flux_per_photon, rng=rng)
+                g = pd_val / jnp.abs(self.flux)
+            else:
+                g = 1.0
 
-        # Make n_photons an integer.
-        iN = int(n_photons + 0.5)
-
-        return iN, g
+        return Ntot, g
 
     @_wraps(
         _galsim.GSObject.makePhot,
@@ -1248,8 +1171,13 @@ The JAX-GalSim version of `drawImage` does not
                 "Deconvolve objects.\nOriginal error: %r" % (e)
             )
 
-        if g != 1.0:
-            photons.scaleFlux(g)
+        photons = jax.lax.cond(
+            g == 1.0,
+            lambda photons, g: photons,
+            lambda photons, g: photons.scaleFlux(g),
+            photons,
+            g,
+        )
 
         for op in photon_ops:
             op.applyTo(photons, local_wcs, rng)
@@ -1304,12 +1232,13 @@ The JAX-GalSim version of `drawImage` does not
         Ntot, g = self._calculate_nphotons(
             n_photons, poisson_flux, max_extra_noise, rng
         )
-
-        if gain != 1.0:
-            g /= gain
-
-        # total flux falling inside image bounds, this will be returned on exit.
-        added_flux = 0.0
+        g = jax.lax.cond(
+            gain != 1.0,
+            lambda g, gain: g / gain,
+            lambda g, gain: g,
+            g,
+            gain,
+        )
 
         if maxN is None:
             maxN = Ntot
@@ -1317,52 +1246,41 @@ The JAX-GalSim version of `drawImage` does not
         if not add_to_image:
             image.setZero()
 
-        # Nleft is the number of photons remaining to shoot.
-        Nleft = Ntot
-        photons = None  # Just in case Nleft is already 0.
-        resume = False
-        while Nleft > 0:
-            # Shoot at most maxN at a time
-            thisN = min(maxN, Nleft)
+        (
+            photons,
+            _rng,
+            added_flux,
+            _Nleft,
+            _image,
+            _photon_ops,
+            _sensor,
+        ) = _draw_phot_while_loop(
+            PhotonArray(maxN),
+            rng,
+            self,
+            image,
+            g,
+            Ntot,
+            maxN,
+            photon_ops,
+            local_wcs,
+            sensor,
+            orig_center,
+        )
+        if rng is not None:
+            rng._state = _rng._state
+        else:
+            rng = _rng
+        for i in range(len(photon_ops)):
+            photon_ops[i] = _photon_ops[i]
+        image._array = _image._array
+        # TODO: how to update the sensor?
+        if sensor.__class__ is not Sensor:
+            raise GalSimNotImplementedError(
+                "Non-default sensors that carry state are not yet supported in jax-galsim."
+            )
 
-            try:
-                photons = self.shoot(thisN, rng)
-            except (GalSimError, NotImplementedError) as e:
-                raise GalSimNotImplementedError(
-                    "Unable to draw this GSObject with photon shooting.  Perhaps it "
-                    "is a Deconvolve or is a compound including one or more "
-                    "Deconvolve objects.\nOriginal error: %r" % (e)
-                )
-
-            if g != 1.0 or thisN != Ntot:
-                photons.scaleFlux(g * thisN / Ntot)
-
-            if image.scale != 1.0:
-                photons.scaleXY(
-                    1.0 / image.scale
-                )  # Convert x,y to image coords if necessary
-
-            for op in photon_ops:
-                op.applyTo(photons, local_wcs, rng)
-
-            if image.dtype in (np.float32, np.float64):
-                added_flux += sensor.accumulate(
-                    photons, image, orig_center, resume=resume
-                )
-                resume = (
-                    True  # Resume from this point if there are any further iterations.
-                )
-            else:
-                # Need a temporary
-                from jax_galsim.image import ImageD
-
-                im1 = ImageD(bounds=image.bounds)
-                added_flux += sensor.accumulate(photons, im1, orig_center)
-                image += im1
-
-            Nleft -= thisN
-
-        return added_flux, photons
+        return added_flux, photons or None  # Just in case Nleft is already 0.
 
     @_wraps(_galsim.GSObject.shoot)
     def shoot(self, n_photons, rng=None):
@@ -1409,3 +1327,160 @@ The JAX-GalSim version of `drawImage` does not
     def tree_unflatten(cls, aux_data, children):
         """Recreates an instance of the class from flatten representation"""
         return cls(**(children[0]), **aux_data)
+
+
+@partial(jax.jit, static_argnames=("maxN",))
+def _draw_phot_while_loop(
+    photons,
+    rng,
+    obj,
+    image,
+    g,
+    Ntot,
+    maxN,
+    photon_ops,
+    local_wcs,
+    sensor,
+    orig_center,
+):
+    def _cond_fun(args):
+        (
+            photons,
+            rng,
+            added_flux,
+            obj,
+            Nleft,
+            resume,
+            image,
+            g,
+            photon_ops,
+            local_wcs,
+            sensor,
+            orig_center,
+        ) = args
+        return Nleft > 0
+
+    def _body_fun(args):
+        (
+            photons,
+            rng,
+            added_flux,
+            obj,
+            Nleft,
+            resume,
+            image,
+            g,
+            photon_ops,
+            local_wcs,
+            sensor,
+            orig_center,
+        ) = args
+        # Shoot at most maxN at a time
+        thisN = jnp.minimum(maxN, Nleft)
+
+        try:
+            photons = obj.shoot(maxN, rng)
+        except (GalSimError, NotImplementedError) as e:
+            raise GalSimNotImplementedError(
+                "Unable to draw this GSObject with photon shooting.  Perhaps it "
+                "is a Deconvolve or is a compound including one or more "
+                "Deconvolve objects.\nOriginal error: %r" % (e)
+            )
+        photons.flux = jnp.where(
+            jnp.arange(maxN) < thisN,
+            photons.flux,
+            0.0,
+        )
+
+        photons = jax.lax.cond(
+            # weird way to say gain == 1 and thisN == Ntot
+            jnp.abs(g - 1.0) + jnp.abs(thisN - Ntot) == 0,
+            lambda photons, g, thisN, Ntot: photons,
+            # the factor here is (maxN / thisN) * (thisN / Ntot) = maxN / Ntot
+            # the first bit is that we drew maxN photons, but only thisN of them are valid
+            # the second bit is that we only drew thisN photons, but use a total of Ntot photons
+            lambda photons, g, thisN, Ntot: photons.scaleFlux(g * maxN / Ntot),
+            photons,
+            g,
+            thisN,
+            Ntot,
+        )
+
+        photons = jax.lax.cond(
+            image.scale != 1.0,
+            lambda photons, scale: photons.scaleXY(
+                1.0 / scale
+            ),  # Convert x,y to image coords if necessary
+            lambda photons, scale: photons,
+            photons,
+            image.scale,
+        )
+
+        for op in photon_ops:
+            op.applyTo(photons, local_wcs, rng)
+
+        if image.dtype in (jnp.float32, jnp.float64):
+            added_flux += sensor.accumulate(photons, image, orig_center, resume=resume)
+            resume = True  # Resume from this point if there are any further iterations.
+        else:
+            # Need a temporary
+            from jax_galsim.image import ImageD
+
+            im1 = ImageD(bounds=image.bounds)
+            added_flux += sensor.accumulate(photons, im1, orig_center)
+            image += im1
+
+        Nleft -= thisN
+
+        return (
+            photons,
+            rng,
+            added_flux,
+            obj,
+            Nleft,
+            resume,
+            image,
+            g,
+            photon_ops,
+            local_wcs,
+            sensor,
+            orig_center,
+        )
+
+    added_flux = jnp.array(0)
+    Nleft = jnp.array(Ntot)
+    resume = jnp.array(False)
+    rng = BaseDeviate(rng)
+    (
+        photons,
+        rng,
+        added_flux,
+        obj,
+        Nleft,
+        resume,
+        image,
+        g,
+        photon_ops,
+        local_wcs,
+        sensor,
+        orig_center,
+    ) = jax.lax.while_loop(
+        _cond_fun,
+        _body_fun,
+        (
+            photons,
+            rng,
+            added_flux,
+            obj,
+            Nleft,
+            resume,
+            image,
+            g,
+            photon_ops,
+            local_wcs,
+            sensor,
+            orig_center,
+        ),
+    )
+
+    return photons, rng, added_flux, Nleft, image, photon_ops, sensor

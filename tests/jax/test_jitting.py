@@ -5,6 +5,7 @@ import jax.numpy as jnp
 import numpy as np
 
 import jax_galsim as galsim
+from jax_galsim.core.draw import calculate_n_photons
 from jax_galsim.core.testing import time_code_block
 
 # Defining jitting identity
@@ -231,9 +232,15 @@ def test_jitting_draw_phot():
         )
         n = final.getGoodImageSize(0.2).item()
         n += 1
-        n_photons = final._calculate_nphotons(0, False, 0, None)[0]
+        n_photons = calculate_n_photons(
+            final.flux,
+            final._flux_per_photon,
+            final.max_sb,
+            poisson_flux=False,
+        )[0]
+        gain = 1.0
         if jit:
-            return _draw_it_jit(final, n, n_photons)
+            return _draw_it_jit(final, n, n_photons, gain)
         else:
             return final.drawImage(
                 nx=n,
@@ -241,16 +248,21 @@ def test_jitting_draw_phot():
                 scale=0.2,
                 method="phot",
                 n_photons=n_photons,
+                poisson_flux=False,
+                gain=gain,
             )
 
     @partial(jax.jit, static_argnums=(1, 2))
-    def _draw_it_jit(obj, n, nphotons):
+    def _draw_it_jit(obj, n, nphotons, gain):
         return obj.drawImage(
             nx=n,
             ny=n,
             scale=0.2,
             n_photons=nphotons,
             method="phot",
+            poisson_flux=False,
+            gain=gain,
+            maxN=101,
         )
 
     with time_code_block("warmup no-jit"):
@@ -263,4 +275,4 @@ def test_jitting_draw_phot():
     with time_code_block("jit"):
         img = _build_and_draw(0.5, 1.0)
 
-    np.testing.assert_array_almost_equal(img.array.sum(), 1000.0, 3)
+    np.testing.assert_allclose(img.array.sum(), 1000.0)

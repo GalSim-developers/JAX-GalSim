@@ -112,18 +112,17 @@ class PhotonArray:
         time=None,
         is_corr=False,
     ):
-        ret = cls(
-            x.shape[0],
-            x=x,
-            y=y,
-            flux=flux,
-            dxdz=dxdz,
-            dydz=dydz,
-            wavelength=wavelength,
-            pupil_u=pupil_u,
-            pupil_v=pupil_v,
-            time=time,
-        )
+        ret = cls.__new__(cls)
+        ret._N = x.shape[0]
+        ret._x = x
+        ret._y = y
+        ret._flux = flux
+        ret._dxdz = dxdz
+        ret._dydz = dydz
+        ret._wave = wavelength
+        ret._pupil_u = pupil_u
+        ret._pupil_v = pupil_v
+        ret._time = time
         ret._is_corr = is_corr
         return ret
 
@@ -140,13 +139,25 @@ class PhotonArray:
                 "is_corr": self.isCorrelated(),
             },
         )
-        aux_data = None
+        aux_data = (self._N,)
         return (children, aux_data)
 
     @classmethod
     def tree_unflatten(cls, aux_data, children):
         """Recreates an instance of the class from flatten representation"""
-        return cls._fromArrays(*children[0], **children[1])
+        ret = cls.__new__(cls)
+        ret._N = aux_data[0]
+        ret._x = children[0][0]
+        ret._y = children[0][1]
+        ret._flux = children[0][2]
+        ret._dxdz = children[1]["dxdz"]
+        ret._dydz = children[1]["dydz"]
+        ret._wave = children[1]["wavelength"]
+        ret._pupil_u = children[1]["pupil_u"]
+        ret._pupil_v = children[1]["pupil_v"]
+        ret._time = children[1]["time"]
+        ret._is_corr = children[1]["is_corr"]
+        return ret
 
     def size(self):
         """Return the size of the photon array.  Equivalent to ``len(self)``."""
@@ -308,6 +319,8 @@ class PhotonArray:
         """
         self.scaleFlux(flux / self.getTotalFlux())
 
+        return self
+
     def scaleFlux(self, scale):
         """Rescale the photon fluxes by the given factor.
 
@@ -315,6 +328,8 @@ class PhotonArray:
             scale:      The factor by which to scale the fluxes.
         """
         self._flux *= scale
+
+        return self
 
     def scaleXY(self, scale):
         """Scale the photon positions (`x` and `y`) by the given factor.
@@ -324,6 +339,8 @@ class PhotonArray:
         """
         self._x *= scale
         self._y *= scale
+
+        return self
 
     def assignAt(self, istart, rhs):
         """Assign the contents of another `PhotonArray` to this one starting at istart."""
@@ -353,6 +370,8 @@ class PhotonArray:
         if rhs.hasAllocatedTimes():
             self.allocateTimes()
             self._time = self._time.at[istart : istart + rhs.size()].set(rhs.time)
+
+        return self
 
     def convolve(self, rhs, rng=None):
         """Convolve this `PhotonArray` with another.
@@ -399,6 +418,8 @@ class PhotonArray:
         self._x = self._x + rhs._x[sinds]
         self._y = self._y + rhs._y[sinds]
         self._flux = self._flux * rhs._flux[sinds] * self.size()
+
+        return self
 
     def __repr__(self):
         s = "galsim.PhotonArray(%d, x=array(%r), y=array(%r), flux=array(%r)" % (
@@ -492,15 +513,11 @@ class PhotonArray:
             raise GalSimUndefinedBoundsError(
                 "Attempting to PhotonArray::addTo an Image with undefined Bounds"
             )
-        # the numpy histogram function histograms x along the first dimension and y along the
-        # along the second dimension. We need the opposite so we swap the inputs
-        xbins = jnp.arange(image.bounds.xmin, image.bounds.xmax + 2) - 0.5
-        ybins = jnp.arange(image.bounds.ymin, image.bounds.ymax + 2) - 0.5
-        im = jnp.histogram2d(
-            self._y, self._x, bins=(ybins, xbins), weights=self._flux, density=False
-        )[0]
-        image._array += im
-        return im.sum()
+        xinds = jnp.floor(self._x - image.bounds.xmin).astype(int)
+        yinds = jnp.floor(self._y - image.bounds.ymin).astype(int)
+        image._array = image._array.at[yinds, xinds].add(self._flux)
+
+        return self._flux.sum()
 
     @classmethod
     def makeFromImage(cls, image, max_flux=1.0, rng=None):
