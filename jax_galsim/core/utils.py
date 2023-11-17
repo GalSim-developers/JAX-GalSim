@@ -50,7 +50,7 @@ def cast_to_python_int(x):
     else:
         try:
             return int(x)
-        except Exception:
+        except TypeError:
             return x
 
 
