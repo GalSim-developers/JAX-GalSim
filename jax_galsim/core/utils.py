@@ -38,7 +38,7 @@ def cast_to_python_float(x):
     else:
         try:
             return float(x)
-        except Exception:
+        except TypeError:
             return x
 
 
