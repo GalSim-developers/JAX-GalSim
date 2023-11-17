@@ -4,6 +4,8 @@ interpolant classes. The code here assumes that all properties of the
 interpolants themselves (e.g., the coefficients that define the kernel
 shapes, the integrals of the kernels, etc.) are constants.
 """
+import math
+
 import galsim as _galsim
 import jax
 import jax.numpy as jnp
@@ -287,7 +289,7 @@ class Interpolant:
     @property
     def ixrange(self):
         """The total integral range of the interpolant.  Typically 2 * xrange."""
-        return 2 * int(jnp.ceil(self.xrange))
+        return 2 * int(math.ceil(self.xrange))
 
     @property
     def krange(self):
@@ -467,7 +469,9 @@ class SincInterpolant(Interpolant):
         narr = jnp.arange(n)
 
         val = (si(jnp.pi * (narr + 1)) - si(jnp.pi * (narr))) / jnp.pi
-        self._positive_flux = jax.lax.stop_gradient(jnp.sum(val[val > 0])).item() * 2.0
+        self._positive_flux = (
+            jax.lax.stop_gradient(jnp.sum(jnp.where(val > 0, val, 0.0))) * 2.0
+        )
         self._negative_flux = self._positive_flux - 1.0
 
     def _shoot(self, photons, rng):

@@ -1,4 +1,5 @@
 import galsim as _galsim
+import jax
 import jax.numpy as jnp
 import numpy as np
 from jax._src.numpy.util import _wraps
@@ -6,8 +7,9 @@ from jax.tree_util import register_pytree_node_class
 
 from jax_galsim.gsobject import GSObject
 from jax_galsim.gsparams import GSParams
+from jax_galsim.photon_array import PhotonArray
 from jax_galsim.position import PositionD
-from jax_galsim.random import BinomialDeviate
+from jax_galsim.random import BaseDeviate
 
 
 @_wraps(
@@ -188,43 +190,63 @@ class Sum(GSObject):
         return self._calculate_flux_per_photon()
 
     def _shoot(self, photons, rng):
-        remainingAbsoluteFlux = self.positive_flux + self.negative_flux
-        fluxPerPhoton = remainingAbsoluteFlux / len(photons)
-
-        remainingN = len(photons)
-        istart = (
-            0  # The location in the photons array where we assign the component arrays.
+        tot_flux = self.positive_flux + self.negative_flux
+        fluxes = jnp.array(
+            [obj.positive_flux + obj.negative_flux for obj in self.obj_list]
         )
+        rng = BaseDeviate(rng)
+        key = rng._state.split_one()
+        cat_inds = jax.random.choice(
+            key,
+            len(self.obj_list),
+            shape=(len(photons),),
+            replace=True,
+            p=fluxes / tot_flux,
+        )
+        photon_arrays = [obj.shoot(photons.size(), rng=rng) for obj in self.obj_list]
 
-        # Get photons from each summand, using BinomialDeviate to randomize
-        # the distribution of photons among summands
-        for i, obj in enumerate(self.obj_list):
-            thisAbsoluteFlux = obj.positive_flux + obj.negative_flux
+        def _body_fun(i, args):
+            photons, rng, pa_dict, fluxes, cat_inds, tot_flux = args
+            thisAbsoluteFlux = jax.lax.dynamic_index_in_dim(fluxes, i, keepdims=False)
+            pa = PhotonArray._fromArrays(
+                x=jax.lax.dynamic_index_in_dim(pa_dict["x"], i, keepdims=False),
+                y=jax.lax.dynamic_index_in_dim(pa_dict["y"], i, keepdims=False),
+                flux=(
+                    jax.lax.dynamic_index_in_dim(pa_dict["flux"], i, keepdims=False)
+                    * (tot_flux / thisAbsoluteFlux)
+                ),
+                dxdz=jax.lax.dynamic_index_in_dim(pa_dict["dxdz"], i, keepdims=False),
+                dydz=jax.lax.dynamic_index_in_dim(pa_dict["dydz"], i, keepdims=False),
+                wavelength=jax.lax.dynamic_index_in_dim(
+                    pa_dict["wavelength"], i, keepdims=False
+                ),
+                pupil_u=jax.lax.dynamic_index_in_dim(
+                    pa_dict["pupil_u"], i, keepdims=False
+                ),
+                pupil_v=jax.lax.dynamic_index_in_dim(
+                    pa_dict["pupil_v"], i, keepdims=False
+                ),
+                time=jax.lax.dynamic_index_in_dim(pa_dict["time"], i, keepdims=False),
+                is_corr=jnp.any(pa_dict["is_corr"], axis=0),
+            )
+            photons._assign_from_categorical_index(cat_inds, i, pa)
+            return photons, rng, pa_dict, fluxes, cat_inds, tot_flux
 
-            # How many photons to shoot from this summand?
-            thisN = remainingN  # All of what's left, if this is the last summand...
-            if i < len(self.obj_list) - 1:
-                # otherwise, allocate a randomized fraction of the remaining photons to summand.
-                bd = BinomialDeviate(
-                    rng, remainingN, thisAbsoluteFlux / remainingAbsoluteFlux
-                )
-                thisN = int(bd())
-            if thisN > 0:
-                thisPA = obj.shoot(thisN, rng)
-                # Now rescale the photon fluxes so that they are each nominally fluxPerPhoton
-                # whereas the shoot() routine would have made them each nominally
-                # thisAbsoluteFlux/thisN
-                thisPA.scaleFlux(fluxPerPhoton * thisN / thisAbsoluteFlux)
-                photons.assignAt(istart, thisPA)
-                istart += thisN
-            remainingN -= thisN
-            remainingAbsoluteFlux -= thisAbsoluteFlux
-        # assert remainingN == 0
-        # assert np.isclose(remainingAbsoluteFlux, 0.0)
-
-        # This process produces correlated photons, so mark the resulting array as such.
-        if len(self.obj_list) > 1:
-            photons.setCorrelated()
+        _photons, _rng = jax.lax.fori_loop(
+            0,
+            len(self.obj_list),
+            _body_fun,
+            (
+                photons,
+                BaseDeviate(rng),
+                PhotonArray._stack_photon_arrays_to_dict_of_matrices(photon_arrays),
+                fluxes,
+                cat_inds,
+                tot_flux,
+            ),
+        )[0:2]
+        rng._state = _rng._state
+        photons.assignAt(0, _photons)
 
     def tree_flatten(self):
         """This function flattens the GSObject into a list of children

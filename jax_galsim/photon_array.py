@@ -1,4 +1,5 @@
 import galsim as _galsim
+import jax
 import jax.numpy as jnp
 import jax.random as jrng
 from jax._src.numpy.util import _wraps
@@ -48,13 +49,13 @@ class PhotonArray:
         self._x = jnp.zeros(self._N, dtype=float)
         self._y = jnp.zeros(self._N, dtype=float)
         self._flux = jnp.zeros(self._N, dtype=float)
-        self._dxdz = None
-        self._dydz = None
-        self._wave = None
-        self._pupil_u = None
-        self._pupil_v = None
-        self._time = None
-        self._is_corr = False
+        self._dxdz = jnp.full(self._N, jnp.nan, dtype=float)
+        self._dydz = jnp.full(self._N, jnp.nan, dtype=float)
+        self._wave = jnp.full(self._N, jnp.nan, dtype=float)
+        self._pupil_u = jnp.full(self._N, jnp.nan, dtype=float)
+        self._pupil_v = jnp.full(self._N, jnp.nan, dtype=float)
+        self._time = jnp.full(self._N, jnp.nan, dtype=float)
+        self._is_corr = jnp.array(False)
 
         if x is not None:
             self.x = x
@@ -114,16 +115,34 @@ class PhotonArray:
     ):
         ret = cls.__new__(cls)
         ret._N = x.shape[0]
-        ret._x = x
-        ret._y = y
-        ret._flux = flux
-        ret._dxdz = dxdz
-        ret._dydz = dydz
-        ret._wave = wavelength
-        ret._pupil_u = pupil_u
-        ret._pupil_v = pupil_v
-        ret._time = time
-        ret._is_corr = is_corr
+        ret._x = x.copy()
+        ret._y = y.copy()
+        ret._flux = flux.copy()
+        ret._dxdz = (
+            dxdz.copy() if dxdz is not None else jnp.full(ret._N, jnp.nan, dtype=float)
+        )
+        ret._dydz = (
+            dydz.copy() if dydz is not None else jnp.full(ret._N, jnp.nan, dtype=float)
+        )
+        ret._wave = (
+            wavelength.copy()
+            if wavelength is not None
+            else jnp.full(ret._N, jnp.nan, dtype=float)
+        )
+        ret._pupil_u = (
+            pupil_u.copy()
+            if pupil_u is not None
+            else jnp.full(ret._N, jnp.nan, dtype=float)
+        )
+        ret._pupil_v = (
+            pupil_v.copy()
+            if pupil_v is not None
+            else jnp.full(ret._N, jnp.nan, dtype=float)
+        )
+        ret._time = (
+            time.copy() if time is not None else jnp.full(ret._N, jnp.nan, dtype=float)
+        )
+        ret._is_corr = jnp.array(is_corr)
         return ret
 
     def tree_flatten(self):
@@ -204,8 +223,13 @@ class PhotonArray:
 
     @dxdz.setter
     def dxdz(self, value):
-        self.allocateAngles()
         self._dxdz = self._dxdz.at[:].set(value)
+        self._dydz = jax.lax.cond(
+            jnp.any(jnp.isfinite(self._dxdz)) & jnp.all(~jnp.isfinite(self._dydz)),
+            lambda dydz: jnp.zeros_like(dydz),
+            lambda dydz: dydz,
+            self._dydz,
+        )
 
     @property
     def dydz(self):
@@ -214,8 +238,13 @@ class PhotonArray:
 
     @dydz.setter
     def dydz(self, value):
-        self.allocateAngles()
         self._dydz = self._dydz.at[:].set(value)
+        self._dxdz = jax.lax.cond(
+            jnp.any(jnp.isfinite(self._dydz)) & jnp.all(~jnp.isfinite(self._dxdz)),
+            lambda dxdz: jnp.zeros_like(dxdz),
+            lambda dxdz: dxdz,
+            self._dxdz,
+        )
 
     @property
     def wavelength(self):
@@ -224,7 +253,6 @@ class PhotonArray:
 
     @wavelength.setter
     def wavelength(self, value):
-        self.allocateWavelengths()
         self._wave = self._wave.at[:].set(value)
 
     @property
@@ -234,8 +262,14 @@ class PhotonArray:
 
     @pupil_u.setter
     def pupil_u(self, value):
-        self.allocatePupil()
         self._pupil_u = self._pupil_u.at[:].set(value)
+        self._pupil_v = jax.lax.cond(
+            jnp.any(jnp.isfinite(self._pupil_u))
+            & jnp.all(~jnp.isfinite(self._pupil_v)),
+            lambda pupil_v: jnp.zeros_like(pupil_v),
+            lambda pupil_v: pupil_v,
+            self._pupil_v,
+        )
 
     @property
     def pupil_v(self):
@@ -244,8 +278,14 @@ class PhotonArray:
 
     @pupil_v.setter
     def pupil_v(self, value):
-        self.allocatePupil()
         self._pupil_v = self._pupil_v.at[:].set(value)
+        self._pupil_u = jax.lax.cond(
+            jnp.any(jnp.isfinite(self._pupil_v))
+            & jnp.all(~jnp.isfinite(self._pupil_u)),
+            lambda pupil_u: jnp.zeros_like(pupil_u),
+            lambda pupil_u: pupil_u,
+            self._pupil_u,
+        )
 
     @property
     def time(self):
@@ -254,50 +294,43 @@ class PhotonArray:
 
     @time.setter
     def time(self, value):
-        self.allocateTimes()
         self._time = self._time.at[:].set(value)
 
     def hasAllocatedAngles(self):
         """Returns whether the arrays for the incidence angles `dxdz` and `dydz` have been
         allocated.
         """
-        return self._dxdz is not None and self._dydz is not None
+        return jnp.any(jnp.isfinite(self.dxdz) | jnp.isfinite(self.dydz))
 
     def allocateAngles(self):
         """Allocate memory for the incidence angles, `dxdz` and `dydz`."""
-        if not self.hasAllocatedAngles():
-            self._dxdz = jnp.zeros(self._N, dtype=float)
-            self._dydz = jnp.zeros(self._N, dtype=float)
+        pass
 
     def hasAllocatedWavelengths(self):
         """Returns whether the `wavelength` array has been allocated."""
-        return self._wave is not None
+        return jnp.any(jnp.isfinite(self.wavelength))
 
     def allocateWavelengths(self):
         """Allocate the memory for the `wavelength` array."""
-        if not self.hasAllocatedWavelengths():
-            self._wave = jnp.zeros(self._N, dtype=float)
+        pass
 
     def hasAllocatedPupil(self):
         """Returns whether the arrays for the pupil coordinates `pupil_u` and `pupil_v` have been
         allocated.
         """
-        return self._pupil_u is not None and self._pupil_v is not None
+        return jnp.any(jnp.isfinite(self.pupil_u) | jnp.isfinite(self.pupil_v))
 
     def allocatePupil(self):
         """Allocate the memory for the pupil coordinates, `pupil_u` and `pupil_v`."""
-        if not self.hasAllocatedPupil():
-            self._pupil_u = jnp.zeros(self._N, dtype=float)
-            self._pupil_v = jnp.zeros(self._N, dtype=float)
+        pass
 
     def hasAllocatedTimes(self):
         """Returns whether the array for the time stamps `time` has been allocated."""
-        return self._time is not None
+        return jnp.any(jnp.isfinite(self.time))
 
     def allocateTimes(self):
         """Allocate the memory for the time stamps, `time`."""
-        if not self.hasAllocatedTimes():
-            self._time = jnp.zeros(self._N, dtype=float)
+        return True
 
     def isCorrelated(self):
         """Returns whether the photons are correlated"""
@@ -305,7 +338,7 @@ class PhotonArray:
 
     def setCorrelated(self, is_corr=True):
         """Set whether the photons are correlated"""
-        self._is_corr = is_corr
+        self._is_corr = jnp.array(is_corr, dtype=bool)
 
     def getTotalFlux(self):
         """Return the total flux of all the photons."""
@@ -352,26 +385,48 @@ class PhotonArray:
         self._x = self._x.at[istart : istart + rhs.size()].set(rhs.x)
         self._y = self._y.at[istart : istart + rhs.size()].set(rhs.y)
         self._flux = self._flux.at[istart : istart + rhs.size()].set(rhs.flux)
-        if rhs.hasAllocatedAngles():
-            self.allocateAngles()
-            self._dxdz = self._dxdz.at[istart : istart + rhs.size()].set(rhs.dxdz)
-            self._dydz = self._dydz.at[istart : istart + rhs.size()].set(rhs.dydz)
-        if rhs.hasAllocatedWavelengths():
-            self.allocateWavelengths()
-            self._wave = self._wave.at[istart : istart + rhs.size()].set(rhs.wavelength)
-        if rhs.hasAllocatedPupil():
-            self.allocatePupil()
-            self._pupil_u = self._pupil_u.at[istart : istart + rhs.size()].set(
-                rhs.pupil_u
-            )
-            self._pupil_v = self._pupil_v.at[istart : istart + rhs.size()].set(
-                rhs.pupil_v
-            )
-        if rhs.hasAllocatedTimes():
-            self.allocateTimes()
-            self._time = self._time.at[istart : istart + rhs.size()].set(rhs.time)
+        self._dxdz = self._dxdz.at[istart : istart + rhs.size()].set(rhs.dxdz)
+        self._dydz = self._dydz.at[istart : istart + rhs.size()].set(rhs.dydz)
+        self._wave = self._wave.at[istart : istart + rhs.size()].set(rhs.wavelength)
+        self._pupil_u = self._pupil_u.at[istart : istart + rhs.size()].set(rhs.pupil_u)
+        self._pupil_v = self._pupil_v.at[istart : istart + rhs.size()].set(rhs.pupil_v)
+        self._time = self._time.at[istart : istart + rhs.size()].set(rhs.time)
 
         return self
+
+    def _assign_from_categorical_index(self, cat_inds, cat_ind_to_assign, rhs):
+        """Assign the contents of another `PhotonArray` to this one at locations
+        where cat_ind == cat_ind_to_assign.
+        """
+        msk = cat_ind_to_assign == cat_inds
+        self._x = jnp.where(msk, rhs._x, self._x)
+        self._y = jnp.where(msk, rhs._y, self._y)
+        self._flux = jnp.where(msk, rhs._flux, self._flux)
+
+        self._dxdz = jnp.where(msk, rhs._dxdz, self._dxdz)
+        self._dydz = jnp.where(msk, rhs._dydz, self._dydz)
+        self._wave = jnp.where(msk, rhs._wave, self._wave)
+        self._pupil_u = jnp.where(msk, rhs._pupil_u, self._pupil_u)
+        self._pupil_v = jnp.where(msk, rhs._pupil_v, self._pupil_v)
+        self._time = jnp.where(msk, rhs._time, self._time)
+
+        return self
+
+    @classmethod
+    def _stack_photon_arrays_to_dict_of_matrices(cls, photon_arrays):
+        ret = {
+            "x": jnp.stack([pa.x for pa in photon_arrays]),
+            "y": jnp.stack([pa.y for pa in photon_arrays]),
+            "flux": jnp.stack([pa.flux for pa in photon_arrays]),
+            "is_corr": jnp.stack([pa.isCorrelated() for pa in photon_arrays]),
+            "dxdz": jnp.stack([pa.dxdz for pa in photon_arrays]),
+            "dydz": jnp.stack([pa.dydz for pa in photon_arrays]),
+            "wavelength": jnp.stack([pa.wavelength for pa in photon_arrays]),
+            "pupil_u": jnp.stack([pa.pupil_u for pa in photon_arrays]),
+            "pupil_v": jnp.stack([pa.pupil_v for pa in photon_arrays]),
+            "time": jnp.stack([pa.time for pa in photon_arrays]),
+        }
+        return ret
 
     def convolve(self, rhs, rng=None):
         """Convolve this `PhotonArray` with another.
@@ -386,38 +441,82 @@ class PhotonArray:
                 "PhotonArray.convolve with unequal size arrays", self_pa=self, rhs=rhs
             )
 
-        if rhs.isCorrelated() and self.isCorrelated():
-            rng = BaseDeviate(rng)
-            subkey = rng._state.split_one()
-            sinds = jrng.choice(
-                subkey,
-                self.size(),
-                shape=(self.size(),),
-                replace=False,
-            )
-        else:
-            sinds = jnp.arange(self.size())
+        rng = BaseDeviate(rng)
+        rsinds = jrng.choice(
+            rng._state.split_one(),
+            self.size(),
+            shape=(self.size(),),
+            replace=False,
+        )
+        nrsinds = jnp.arange(self.size())
 
-        if rhs.hasAllocatedAngles() and not self.hasAllocatedAngles():
-            self.dxdz = rhs.dxdz[sinds]
-            self.dydz = rhs.dydz[sinds]
+        sinds = jax.lax.cond(
+            jnp.array(self.isCorrelated()) & jnp.array(rhs.isCorrelated()),
+            lambda nrsinds, rsinds: rsinds,
+            lambda nrsinds, rsinds: nrsinds,
+            nrsinds,
+            rsinds,
+        )
 
-        if rhs.hasAllocatedWavelengths() and not self.hasAllocatedWavelengths():
-            self.wavelength = rhs.wavelength
+        self.dxdz, self.dydz = jax.lax.cond(
+            rhs.hasAllocatedAngles() & (~self.hasAllocatedAngles()),
+            lambda self_dxdz, rhs_dxdz, self_dydz, rhs_dydz, sinds: (
+                rhs_dxdz.at[sinds].get(),
+                rhs_dydz.at[sinds].get(),
+            ),
+            lambda self_dxdz, rhs_dxdz, self_dydz, rhs_dydz, sinds: (
+                self_dxdz,
+                self_dydz,
+            ),
+            self.dxdz,
+            rhs.dxdz,
+            self.dydz,
+            rhs.dydz,
+            sinds,
+        )
 
-        if rhs.hasAllocatedPupil() and not self.hasAllocatedPupil():
-            self.pupil_u = rhs.pupil_u[sinds]
-            self.pupil_v = rhs.pupil_v[sinds]
+        self.wavelength = jax.lax.cond(
+            rhs.hasAllocatedWavelengths() & (~self.hasAllocatedWavelengths()),
+            lambda self_wave, rhs_wave, sinds: rhs_wave.at[sinds].get(),
+            lambda self_wave, rhs_wave, sinds: self_wave,
+            self.wavelength,
+            rhs.wavelength,
+            sinds,
+        )
 
-        if rhs.hasAllocatedTimes() and not self.hasAllocatedTimes():
-            self.time = rhs.time[sinds]
+        self.pupil_u, self.pupil_v = jax.lax.cond(
+            rhs.hasAllocatedPupil() & (~self.hasAllocatedPupil()),
+            lambda self_pupil_u, rhs_pupil_u, self_pupil_v, rhs_pupil_v, sinds: (
+                rhs_pupil_u.at[sinds].get(),
+                rhs_pupil_v.at[sinds].get(),
+            ),
+            lambda self_pupil_u, rhs_pupil_u, self_pupil_v, rhs_pupil_v, sinds: (
+                self_pupil_u,
+                self_pupil_v,
+            ),
+            self.pupil_u,
+            rhs.pupil_u,
+            self.pupil_v,
+            rhs.pupil_v,
+            sinds,
+        )
 
-        if rhs.isCorrelated():
-            self.setCorrelated()
+        self.time = jax.lax.cond(
+            rhs.hasAllocatedTimes() & (~self.hasAllocatedTimes()),
+            lambda self_time, rhs_time, sinds: rhs_time.at[sinds].get(),
+            lambda self_time, rhs_time, sinds: self_time,
+            self.time,
+            rhs.time,
+            sinds,
+        )
 
-        self._x = self._x + rhs._x[sinds]
-        self._y = self._y + rhs._y[sinds]
-        self._flux = self._flux * rhs._flux[sinds] * self.size()
+        self.setCorrelated(
+            jnp.array(self.isCorrelated()) | jnp.array(rhs.isCorrelated())
+        )
+
+        self._x = self._x + rhs._x.at[sinds].get()
+        self._y = self._y + rhs._y.at[sinds].get()
+        self._flux = self._flux * rhs._flux.at[sinds].get() * self.size()
 
         return self
 
@@ -458,40 +557,12 @@ class PhotonArray:
             and jnp.array_equal(self.x, other.x)
             and jnp.array_equal(self.y, other.y)
             and jnp.array_equal(self.flux, other.flux)
-            and self.hasAllocatedAngles() == other.hasAllocatedAngles()
-            and self.hasAllocatedWavelengths() == other.hasAllocatedWavelengths()
-            and self.hasAllocatedPupil() == other.hasAllocatedPupil()
-            and self.hasAllocatedTimes() == other.hasAllocatedTimes()
-            and (
-                jnp.array_equal(self.dxdz, other.dxdz)
-                if self.hasAllocatedAngles()
-                else True
-            )
-            and (
-                jnp.array_equal(self.dydz, other.dydz)
-                if self.hasAllocatedAngles()
-                else True
-            )
-            and (
-                jnp.array_equal(self.wavelength, other.wavelength)
-                if self.hasAllocatedWavelengths()
-                else True
-            )
-            and (
-                jnp.array_equal(self.pupil_u, other.pupil_u)
-                if self.hasAllocatedPupil()
-                else True
-            )
-            and (
-                jnp.array_equal(self.pupil_v, other.pupil_v)
-                if self.hasAllocatedPupil()
-                else True
-            )
-            and (
-                jnp.array_equal(self.time, other.time)
-                if self.hasAllocatedTimes()
-                else True
-            )
+            and jnp.array_equal(self.dxdz, other.dxdz, equal_nan=True)
+            and jnp.array_equal(self.dydz, other.dydz, equal_nan=True)
+            and jnp.array_equal(self.wavelength, other.wavelength, equal_nan=True)
+            and jnp.array_equal(self.pupil_u, other.pupil_u, equal_nan=True)
+            and jnp.array_equal(self.pupil_v, other.pupil_v, equal_nan=True)
+            and jnp.array_equal(self.time, other.time, equal_nan=True)
         )
 
     def __ne__(self, other):
@@ -517,7 +588,19 @@ class PhotonArray:
             )
         xinds = jnp.floor(self._x - image.bounds.xmin + 0.5).astype(int)
         yinds = jnp.floor(self._y - image.bounds.ymin + 0.5).astype(int)
-        image._array = image._array.at[yinds, xinds].add(self._flux)
+        # the jax documentation says that they drop out of bounds indices,
+        # but the galsim unit tests reveal that withoout the check below,
+        # the indices are not dropped.
+        # I think maybe it is only indices beyond the end of the array that are
+        # dropped and negative indices wrap around
+        good = (
+            (xinds >= 0)
+            & (xinds < image.array.shape[1])
+            & (yinds >= 0)
+            & (yinds < image.array.shape[0])
+        )
+        flux = jnp.where(good, self._flux, 0.0)
+        image._array = image._array.at[yinds, xinds].add(flux)
 
         return self._flux.sum()
 
