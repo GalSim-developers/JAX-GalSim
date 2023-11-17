@@ -225,10 +225,9 @@ def test_jitting_draw_fft():
 
 def test_jitting_draw_phot():
     def _build_and_draw(hlr, fwhm, jit=True):
-        gal = (
-            galsim.Exponential(half_light_radius=hlr, flux=1000.0)
-            + galsim.Exponential(half_light_radius=hlr * 2.0, flux=100.0)
-        )
+        gal = galsim.Exponential(
+            half_light_radius=hlr, flux=1000.0
+        ) + galsim.Exponential(half_light_radius=hlr * 2.0, flux=100.0)
         psf = galsim.Gaussian(fwhm=fwhm, flux=1.0)
         final = galsim.Convolve(
             [gal, psf],
