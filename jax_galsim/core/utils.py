@@ -13,24 +13,42 @@ def compute_major_minor_from_jacobian(jac):
     return major, minor
 
 
-def cast_to_float_array_scalar(x):
-    """Cast the input to a float array scalar. Works on python floats, iterables and jax arrays.
+def cast_to_array_scalar(x, dtype=None):
+    """Cast the input to an array scalar. Works on python scalars, iterables and jax arrays.
     For iterables it always takes the first element after a call to .ravel()"""
+    if dtype is None:
+        if hasattr(x, "dtype"):
+            dtype = x.dtype
+        else:
+            dtype = float
+
     if isinstance(x, jax.Array):
-        return jnp.atleast_1d(x).astype(float).ravel()[0]
+        return jnp.atleast_1d(x).astype(dtype).ravel()[0]
     elif hasattr(x, "astype"):
-        return x.astype(float).ravel()[0]
+        return x.astype(dtype).ravel()[0]
     else:
-        return jnp.atleast_1d(jnp.array(x, dtype=float)).ravel()[0]
+        return jnp.atleast_1d(jnp.array(x, dtype=dtype)).ravel()[0]
 
 
 def cast_to_python_float(x):
     """Cast the input to a python float. Works on python floats and jax arrays.
     For jax arrays it always takes the first element after a call to .ravel()"""
     if isinstance(x, jax.Array):
-        return cast_to_float_array_scalar(x).item()
+        return cast_to_array_scalar(x, dtype=float).item()
     else:
-        return float(x)
+        try:
+            return float(x)
+        except Exception:
+            return x
+
+
+def cast_to_python_int(x):
+    """Cast the input to a python int. Works on python ints and jax arrays.
+    For jax arrays it always takes the first element after a call to .ravel()"""
+    if isinstance(x, jax.Array):
+        return cast_to_array_scalar(x, dtype=int).item()
+    else:
+        return int(x)
 
 
 def cast_to_float(x):

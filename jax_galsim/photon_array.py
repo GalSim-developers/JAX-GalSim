@@ -4,7 +4,7 @@ import jax.random as jrng
 from jax._src.numpy.util import _wraps
 from jax.tree_util import register_pytree_node_class
 
-from jax_galsim.core.utils import cast_to_python_float
+from jax_galsim.core.utils import cast_to_python_int
 from jax_galsim.errors import (
     GalSimIncompatibleValuesError,
     GalSimRangeError,
@@ -422,31 +422,33 @@ class PhotonArray:
         return self
 
     def __repr__(self):
-        s = "galsim.PhotonArray(%d, x=array(%r), y=array(%r), flux=array(%r)" % (
-            int(cast_to_python_float(self.size())),
-            self.x.tolist(),
-            self.y.tolist(),
-            self.flux.tolist(),
+        import numpy as np
+
+        s = "galsim.PhotonArray(%r, x=array(%r), y=array(%r), flux=array(%r)" % (
+            cast_to_python_int(self.size()),
+            np.array(self.x).tolist(),
+            np.array(self.y).tolist(),
+            np.array(self.flux).tolist(),
         )
         if self.hasAllocatedAngles():
             s += ", dxdz=array(%r), dydz=array(%r)" % (
-                self.dxdz.tolist(),
-                self.dydz.tolist(),
+                np.array(self.dxdz).tolist(),
+                np.array(self.dydz).tolist(),
             )
         if self.hasAllocatedWavelengths():
-            s += ", wavelength=array(%r)" % (self.wavelength.tolist())
+            s += ", wavelength=array(%r)" % (np.array(self.wavelength).tolist())
         if self.hasAllocatedPupil():
             s += ", pupil_u=array(%r), pupil_v=array(%r)" % (
-                self.pupil_u.tolist(),
-                self.pupil_v.tolist(),
+                np.array(self.pupil_u).tolist(),
+                np.array(self.pupil_v).tolist(),
             )
         if self.hasAllocatedTimes():
-            s += ", time=array(%r)" % (self.time.tolist())
+            s += ", time=array(%r)" % np.array(self.time).tolist()
         s += ")"
         return s
 
     def __str__(self):
-        return "galsim.PhotonArray(%d)" % int(cast_to_python_float(self.size()))
+        return "galsim.PhotonArray(%r)" % cast_to_python_int(self.size())
 
     __hash__ = None
 
