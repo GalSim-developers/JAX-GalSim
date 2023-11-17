@@ -515,8 +515,8 @@ class PhotonArray:
             raise GalSimUndefinedBoundsError(
                 "Attempting to PhotonArray::addTo an Image with undefined Bounds"
             )
-        xinds = jnp.floor(self._x - image.bounds.xmin).astype(int)
-        yinds = jnp.floor(self._y - image.bounds.ymin).astype(int)
+        xinds = jnp.floor(self._x - image.bounds.xmin + 0.5).astype(int)
+        yinds = jnp.floor(self._y - image.bounds.ymin + 0.5).astype(int)
         image._array = image._array.at[yinds, xinds].add(self._flux)
 
         return self._flux.sum()
