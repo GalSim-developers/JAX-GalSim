@@ -1,3 +1,4 @@
+import jax
 import numpy as np
 import pytest
 from jax.tree_util import register_pytree_node_class
@@ -40,7 +41,7 @@ def test_photon_shooting_jax_make_from_image_notranspose():
 
 
 @register_pytree_node_class
-class TestExponential(jax_galsim.Exponential):
+class NoShootingExponential(jax_galsim.Exponential):
     def _shoot(self, *args, **kwargs):
         raise NotImplementedError("this is a test")
 
@@ -60,6 +61,14 @@ class TestExponential(jax_galsim.Exponential):
 
 
 def test_photon_shooting_jax_raises():
-    obj = TestExponential(half_light_radius=1.0, flux=1.0)
+    obj = NoShootingExponential(half_light_radius=1.0, flux=1.0)
     with pytest.raises(jax_galsim.errors.GalSimNotImplementedError):
         obj.drawImage(nx=33, ny=33, scale=0.2, method="phot", n_photons=1000)
+
+    @jax.jit
+    def _jitted():
+        obj = NoShootingExponential(half_light_radius=1.0, flux=1.0)
+        return obj.drawImage(nx=33, ny=33, scale=0.2, method="phot", n_photons=1000)
+
+    with pytest.raises(jax_galsim.errors.GalSimNotImplementedError):
+        _jitted()
