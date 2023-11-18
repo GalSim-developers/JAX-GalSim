@@ -23,22 +23,65 @@ from jax_galsim.random import UniformDeviate
 
 @jax.jit
 def _rejection_sample(photons, rng, tot_xrange, xval, pos_flux, neg_flux, max_val):
+    """Use rejection sampling to generate photons from a given 1D interpolant function.
+
+    We sample both x and y values from the interpolant function.
+
+    Parameters
+    ----------
+    photons : PhotonArray
+        The photon array to shoot into.
+    rng : BaseDeviate
+        The random number generator to use for drawing photons.
+    tot_xrange : float
+        The total range of the interpolant function from the most negative
+        point to the most positive point. The interpolant is assumed to be
+        symmetric about zero.
+    xval : callable
+        The interpolant function. Will only be called with positive values.
+    pos_flux : float
+        The total integral under all positive regions of the interpolant function.
+    neg_flux : float
+        The absolute value of the total integral under all negative regions of
+        the interpolant function.
+    max_val : float
+        The maximum value of the interpolant function. Usually this is xval(0.0) and
+        is 1.0.
+    """
+
     def _cond_fun(args):
+        # we stop drawing when we have tot photons
+        # curr records how many we have currently
         _, _, tot, _, curr = args
         return curr < tot
 
     def _body_fun(args):
         arr, sign, tot, ud, curr = args
+        # arr is the array we are filling with photon positions
+        # sign is the array of signs of the interpolant function at the photon positions
+        # tot is the total number of photons to draw
+        # ud is the random number generator for uniform deviates from 0 to 1
+        # curr is the current number of photons drawn
+
+        # we first draw a random x location centered at zero with a
+        # total range of tot_xrange
         xloc = (ud() - 0.5) * tot_xrange
+
+        # next we draw a random y value between 0 and max_val
         yv = ud() * max_val
         xloc_val = xval(xloc)
+
+        # this cond operator keeps the photon if the y value we drew is
+        # below the interpolant function at the x location we drew
         arr, sign, curr = jax.lax.cond(
             yv <= jnp.abs(xloc_val),
+            # if we keep it, assign the location, assign the sign, and increment curr
             lambda arr, sign, curr, xloc, xloc_val: (
                 arr.at[curr].set(xloc),
                 sign.at[curr].set(jnp.sign(xloc_val)),
                 curr + 1,
             ),
+            # otherwise we pass
             lambda arr, sign, curr, xloc, xloc_val: (arr, sign, curr),
             arr,
             sign,
@@ -49,6 +92,8 @@ def _rejection_sample(photons, rng, tot_xrange, xval, pos_flux, neg_flux, max_va
         return arr, sign, tot, ud, curr
 
     ud = UniformDeviate(rng)
+
+    # we first make the x and y positions
     photons.x, _sign_x, _, ud, _ = jax.lax.while_loop(
         _cond_fun,
         _body_fun,
@@ -59,6 +104,8 @@ def _rejection_sample(photons, rng, tot_xrange, xval, pos_flux, neg_flux, max_va
         _body_fun,
         (jnp.zeros_like(photons.y), jnp.zeros_like(photons.y), photons.size(), ud, 0),
     )
+    # this magic formula comes from looking closely at the galsim code in Interpolant.cpp
+    # and how things get adjusted down the line OneDimensionalDeviate.cpp
     flux_per = (pos_flux + neg_flux) ** 2 / photons.size()
     photons.flux = _sign_x * _sign_y * flux_per
     return photons, rng
