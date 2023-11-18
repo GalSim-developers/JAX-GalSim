@@ -150,7 +150,33 @@ class Exponential(GSObject):
 
     @lazy_property
     def _shoot_cdf(self):
-        # store this for later
+        # Comments on the math here:
+        #
+        # We are looking to draw from a distribution that is r * exp(-r).
+        # This distribution is the radial PDF of an Exponential profile.
+        # The fact of r comes from the area element r * dr.
+        #
+        # We can compute the CDF of this distribution analytically, but we cannot
+        # invert the CDF in closed form. Thus we invert it numerically using a table.
+        #
+        # One final detail is that we want the inversion to be accurate and are using
+        # linear interpolation. Thus we use a change of variables r = -ln(1 - u)
+        # to make the CDF more linear.
+        #
+        # Putting this all together, we get
+        #
+        #     r * exp(-r) dr = -ln(1-u) (1-u) dr/du du
+        #                    = -ln(1-u) (1-u)  * 1 / (1-u)
+        #                    = -ln(1-u)
+        #
+        # The new range of integration is u = 0 to u = 1. Thus the CDF is
+        #
+        #     CDF = -int_0^u ln(1-u') du'
+        #         =  u - (u - 1) ln(1 - u)
+        #
+        # The final detail is that galsim defines a shoot accuracy and draws photons
+        # between r = 0 and rmax = -log(shoot_accuracy). Thus we normalize the CDF to
+        # its value at umax = 1 - exp(-rmax) and then finally invert the CDF numerically.
         _rmax = -jnp.log(self.gsparams.shoot_accuracy)
         _umax = 1.0 - jnp.exp(-_rmax)
         _u_cdf = jnp.linspace(0, _umax, 10000)
@@ -166,7 +192,10 @@ class Exponential(GSObject):
             photons.x
         )  # this does not fill arrays like in galsim so is safe
         _u_cdf, _cdf = self._shoot_cdf
+        # this interpolation inverts the CDF
         u = jnp.interp(u, _cdf, _u_cdf)
+        # this converts from u (see above) to r and scales by the actual size of
+        # the object r0.
         r = -jnp.log(1.0 - u) * self._r0
 
         ang = (
