@@ -38,7 +38,7 @@ def cast_to_python_float(x):
     else:
         try:
             return float(x)
-        except Exception:
+        except TypeError:
             return x
 
 
@@ -48,7 +48,10 @@ def cast_to_python_int(x):
     if isinstance(x, jax.Array):
         return cast_to_array_scalar(x, dtype=int).item()
     else:
-        return int(x)
+        try:
+            return int(x)
+        except TypeError:
+            return x
 
 
 def cast_to_float(x):
