@@ -570,23 +570,18 @@ class PhotonArray:
             raise GalSimUndefinedBoundsError(
                 "Attempting to PhotonArray::addTo an Image with undefined Bounds"
             )
-        xinds = jnp.floor(self._x - image.bounds.xmin + 0.5).astype(int)
-        yinds = jnp.floor(self._y - image.bounds.ymin + 0.5).astype(int)
-        # the jax documentation says that they drop out of bounds indices,
-        # but the galsim unit tests reveal that withoout the check below,
-        # the indices are not dropped.
-        # I think maybe it is only indices beyond the end of the array that are
-        # dropped and negative indices wrap around
-        good = (
-            (xinds >= 0)
-            & (xinds < image.array.shape[1])
-            & (yinds >= 0)
-            & (yinds < image.array.shape[0])
-        )
-        flux = jnp.where(good, self._flux, 0.0)
-        image._array = image._array.at[yinds, xinds].add(flux)
 
-        return self._flux.sum()
+        _arr, _flux_sum = _add_photons_to_image(
+            self._x,
+            self._y,
+            self._flux,
+            image.bounds.xmin,
+            image.bounds.ymin,
+            image._array,
+        )
+        image._array = _arr
+
+        return _flux_sum
 
     @classmethod
     def makeFromImage(cls, image, max_flux=1.0, rng=None):
@@ -724,3 +719,19 @@ class PhotonArray:
         if "time" in names:
             photons.time = jnp.array(data["time"])
         return photons
+
+
+@jax.jit
+def _add_photons_to_image(x, y, flux, xmin, ymin, arr):
+    xinds = jnp.floor(x - xmin + 0.5).astype(int)
+    yinds = jnp.floor(y - ymin + 0.5).astype(int)
+    # the jax documentation says that they drop out of bounds indices,
+    # but the galsim unit tests reveal that withoout the check below,
+    # the indices are not dropped.
+    # I think maybe it is only indices beyond the end of the array that are
+    # dropped and negative indices wrap around
+    good = (xinds >= 0) & (xinds < arr.shape[1]) & (yinds >= 0) & (yinds < arr.shape[0])
+    _flux = jnp.where(good, flux, 0.0)
+    _arr = arr.at[yinds, xinds].add(_flux.astype(arr.dtype))
+
+    return _arr, _flux.sum()
