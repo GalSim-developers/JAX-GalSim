@@ -25,17 +25,18 @@ def test_photon_shooting_jax_make_from_image_notranspose():
     image2 = jax_galsim.Image(np.zeros_like(ref_array))
     photons.addTo(image2)
 
-    if not np.allclose(image2.array, ref_array) and False:
-        import proplot as pplt
+    # code for testing
+    # if not np.allclose(image2.array, ref_array) and False:
+    #     import proplot as pplt
 
-        fig, axs = pplt.subplots(nrows=1, ncols=3)
-        axs[0].imshow(ref_array)
-        axs[1].imshow(image2.array)
-        axs[2].imshow(image2.array - ref_array)
+    #     fig, axs = pplt.subplots(nrows=1, ncols=3)
+    #     axs[0].imshow(ref_array)
+    #     axs[1].imshow(image2.array)
+    #     axs[2].imshow(image2.array - ref_array)
 
-        import pdb
+    #     import pdb
 
-        pdb.set_trace()
+    #     pdb.set_trace()
 
     np.testing.assert_allclose(image2.array, ref_array)
 
