@@ -46,18 +46,11 @@ class NoShootingExponential(jax_galsim.Exponential):
         raise NotImplementedError("this is a test")
 
     def tree_flatten(self):
-        """This function flattens the GSObject into a list of children
-        nodes that will be traced by JAX and auxiliary static data."""
-        # Define the children nodes of the PyTree that need tracing
-        children = (self.params,)
-        # Define auxiliary static data that doesn’t need to be traced
-        aux_data = {"gsparams": self.gsparams}
-        return (children, aux_data)
+        return super().tree_flatten()
 
     @classmethod
     def tree_unflatten(cls, aux_data, children):
-        """Recreates an instance of the class from flatten representation"""
-        return cls(**(children[0]), **aux_data)
+        return super().tree_unflatten(aux_data, children)
 
 
 def test_photon_shooting_jax_raises():
