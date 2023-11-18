@@ -7,7 +7,6 @@ from jax.tree_util import register_pytree_node_class
 
 from jax_galsim.gsobject import GSObject
 from jax_galsim.gsparams import GSParams
-from jax_galsim.photon_array import PhotonArray
 from jax_galsim.position import PositionD
 from jax_galsim.random import BaseDeviate
 
@@ -203,50 +202,37 @@ class Sum(GSObject):
             replace=True,
             p=fluxes / tot_flux,
         )
-        photon_arrays = [obj.shoot(photons.size(), rng=rng) for obj in self.obj_list]
-
-        def _body_fun(i, args):
-            photons, rng, pa_dict, fluxes, cat_inds, tot_flux = args
-            thisAbsoluteFlux = jax.lax.dynamic_index_in_dim(fluxes, i, keepdims=False)
-            pa = PhotonArray._fromArrays(
-                x=jax.lax.dynamic_index_in_dim(pa_dict["x"], i, keepdims=False),
-                y=jax.lax.dynamic_index_in_dim(pa_dict["y"], i, keepdims=False),
-                flux=(
-                    jax.lax.dynamic_index_in_dim(pa_dict["flux"], i, keepdims=False)
-                    * (tot_flux / thisAbsoluteFlux)
-                ),
-                dxdz=jax.lax.dynamic_index_in_dim(pa_dict["dxdz"], i, keepdims=False),
-                dydz=jax.lax.dynamic_index_in_dim(pa_dict["dydz"], i, keepdims=False),
-                wavelength=jax.lax.dynamic_index_in_dim(
-                    pa_dict["wavelength"], i, keepdims=False
-                ),
-                pupil_u=jax.lax.dynamic_index_in_dim(
-                    pa_dict["pupil_u"], i, keepdims=False
-                ),
-                pupil_v=jax.lax.dynamic_index_in_dim(
-                    pa_dict["pupil_v"], i, keepdims=False
-                ),
-                time=jax.lax.dynamic_index_in_dim(pa_dict["time"], i, keepdims=False),
-                is_corr=jnp.any(pa_dict["is_corr"], axis=0),
-            )
+        for i, obj in enumerate(self.obj_list):
+            pa = obj.shoot(photons.size(), rng=rng)
+            # now we rescale the fluxes of the photons
+            # the photons start with
+            #
+            #    flux_per_photon = (obj.positive_flux + obj.negative_flux) / photons.size()
+            #
+            # but they should have had a flux per photon of
+            #
+            #    flux_per_photon = (self.positive_flux + self.negative_flux) / thisN
+            #                    = fluxes[i] / thisN
+            #
+            # where thisN = jnp.sum(cat_inds == i). We drew photons.size() photons instead
+            # of thisN, above. so we scale their fluxes by a factor of
+            #
+            #     _scale_fac = photons.size() / thisN
+            #
+            # next we want them to have a total flux of
+            #
+            #     tot_flux_per_photon = (self.positive_flux + self.negative_flux) / photons.size()
+            #
+            # so we scale by a factor of
+            #
+            #     _scale_fac = tot_flux_per_photon / flux_per_photon_thisN
+            #
+            # so we get a total factor of
+            #
+            #     _scale_fac = tot_flux / fluxes[i]
+            _scale_fac = tot_flux / fluxes[i]
+            pa.scaleFlux(_scale_fac)
             photons._assign_from_categorical_index(cat_inds, i, pa)
-            return photons, rng, pa_dict, fluxes, cat_inds, tot_flux
-
-        _photons, _rng = jax.lax.fori_loop(
-            0,
-            len(self.obj_list),
-            _body_fun,
-            (
-                photons,
-                BaseDeviate(rng),
-                PhotonArray._stack_photon_arrays_to_dict_of_matrices(photon_arrays),
-                fluxes,
-                cat_inds,
-                tot_flux,
-            ),
-        )[0:2]
-        rng._state = _rng._state
-        photons.assignAt(0, _photons)
 
     def tree_flatten(self):
         """This function flattens the GSObject into a list of children

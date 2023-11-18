@@ -269,11 +269,16 @@ def test_jitting_draw_phot():
 
     with time_code_block("warmup no-jit"):
         img = _build_and_draw(0.5, 1.0, jit=False)
+    np.testing.assert_allclose(img.array.sum(), 1100.0)
+
     with time_code_block("no-jit"):
         img = _build_and_draw(0.5, 1.0, jit=False)
+    np.testing.assert_allclose(img.array.sum(), 1100.0)
 
     with time_code_block("warmup jit"):
         img = _build_and_draw(0.5, 1.0)
+    np.testing.assert_allclose(img.array.sum(), 1100.0)
+
     with time_code_block("jit"):
         img = _build_and_draw(0.5, 1.0)
 

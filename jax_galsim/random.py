@@ -96,7 +96,7 @@ class BaseDeviate:
             self._state = seed
         elif isinstance(seed, BaseDeviate):
             self._state = seed._state
-        elif isinstance(seed, jax.Array):
+        elif isinstance(seed, jax.Array) and seed.shape == (2,):
             self._state = _DeviateState(wrap_key_data(seed))
         elif isinstance(seed, str):
             self._state = _DeviateState(

@@ -412,22 +412,6 @@ class PhotonArray:
 
         return self
 
-    @classmethod
-    def _stack_photon_arrays_to_dict_of_matrices(cls, photon_arrays):
-        ret = {
-            "x": jnp.stack([pa.x for pa in photon_arrays]),
-            "y": jnp.stack([pa.y for pa in photon_arrays]),
-            "flux": jnp.stack([pa.flux for pa in photon_arrays]),
-            "is_corr": jnp.stack([pa.isCorrelated() for pa in photon_arrays]),
-            "dxdz": jnp.stack([pa.dxdz for pa in photon_arrays]),
-            "dydz": jnp.stack([pa.dydz for pa in photon_arrays]),
-            "wavelength": jnp.stack([pa.wavelength for pa in photon_arrays]),
-            "pupil_u": jnp.stack([pa.pupil_u for pa in photon_arrays]),
-            "pupil_v": jnp.stack([pa.pupil_v for pa in photon_arrays]),
-            "time": jnp.stack([pa.time for pa in photon_arrays]),
-        }
-        return ret
-
     def convolve(self, rhs, rng=None):
         """Convolve this `PhotonArray` with another.
 
