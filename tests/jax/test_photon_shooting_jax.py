@@ -1,9 +1,11 @@
 import jax
+import jax.numpy as jnp
 import numpy as np
 import pytest
 from jax.tree_util import register_pytree_node_class
 
 import jax_galsim
+from jax_galsim.core.testing import time_code_block
 
 
 def test_photon_shooting_jax_make_from_image_notranspose():
@@ -66,3 +68,103 @@ def test_photon_shooting_jax_raises():
 
     with pytest.raises(jax_galsim.errors.GalSimNotImplementedError):
         _jitted()
+
+
+@pytest.mark.parametrize(
+    "offset",
+    [
+        (0, 0),
+        (5, 5),
+        (0, 5),
+        (0, -5),
+        (5, 0),
+        (-5, 0),
+        (-5, -5),
+        (-5, 5),
+        (5, -5),
+    ],
+)
+def test_photon_shooting_jax_offset(offset):
+    gal = jax_galsim.Exponential(
+        half_light_radius=0.5, flux=1000.0
+    ) + jax_galsim.Exponential(half_light_radius=1.0, flux=100.0)
+    psf = jax_galsim.Gaussian(fwhm=0.9, flux=1.0)
+    obj = jax_galsim.Convolve([gal, psf])
+    img = obj.drawImage(scale=0.2)
+    iobj = jax_galsim.InterpolatedImage(img, scale=0.2, offset=offset)
+
+    img_fft = iobj.drawImage(nx=33, ny=33, scale=0.2, dtype=np.float64)
+
+    # these magic equations come from the do_shoot routine in the
+    # GalSim file galsim/tests/galsim_test_helpers.py
+    rtol = 1e-2
+    flux_tot = iobj.flux
+    flux_max = iobj.max_sb * 0.2**2
+    atol = flux_max * rtol * 3
+    nphot = int((flux_tot / flux_max / rtol**2).item())
+
+    with time_code_block():
+        img_phot = iobj.drawImage(
+            nx=33,
+            ny=33,
+            scale=0.2,
+            method="phot",
+            dtype=np.float64,
+            n_photons=nphot,
+            maxN=10000,
+            rng=jax_galsim.BaseDeviate(1234),
+        )
+
+    print(
+        "fft|phot argmax:",
+        jnp.argmax(img_fft.array),
+        jnp.argmax(img_phot.array),
+    )
+
+    print(
+        "fft|phot max:",
+        jnp.max(img_fft.array),
+        jnp.max(img_phot.array),
+    )
+
+    print(
+        "fft|phot sum:",
+        jnp.sum(img_fft.array),
+        jnp.sum(img_phot.array),
+    )
+
+    print(
+        "fft  moments:",
+        " ".join(
+            "%s:% 15.7e" % (k, v)
+            for k, v in jax_galsim.utilities.unweighted_moments(img_fft).items()
+        ),
+    )
+    print(
+        "phot moments:",
+        " ".join(
+            "%s:% 15.7e" % (k, v)
+            for k, v in jax_galsim.utilities.unweighted_moments(img_phot).items()
+        ),
+    )
+
+    # code for testing
+    if not np.allclose(img_fft.array, img_phot.array, rtol=rtol, atol=atol):
+        import proplot as pplt
+
+        fig, axs = pplt.subplots(nrows=1, ncols=3)
+        axs[0].imshow(img_fft.array, origin="lower")
+        axs[1].imshow(img_phot.array, origin="lower")
+        axs[2].imshow(img_fft.array - img_phot.array, origin="lower")
+        fig.show()
+
+        import pdb
+
+        pdb.set_trace()
+
+    np.testing.assert_almost_equal(
+        jnp.argmax(img_fft.array),
+        jnp.argmax(img_phot.array),
+    )
+
+    np.testing.assert_allclose(img_fft.array, img_phot.array, rtol=rtol, atol=atol)
