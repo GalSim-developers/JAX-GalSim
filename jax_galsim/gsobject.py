@@ -1386,20 +1386,15 @@ def _draw_phot_while_loop(
                 "is a Deconvolve or is a compound including one or more "
                 "Deconvolve objects.\nOriginal error: %r" % (e)
             )
-        photons.flux = jnp.where(
-            jnp.arange(maxN) < thisN,
-            photons.flux,
-            0.0,
-        )
+        # we drew maxN, but only keep thisN of them
+        photons._num_keep = thisN
 
         photons = jax.lax.cond(
             # weird way to say gain == 1 and thisN == Ntot
             jnp.abs(g - 1.0) + jnp.abs(thisN - Ntot) == 0,
             lambda photons, g, thisN, Ntot: photons,
-            # the factor here is (maxN / thisN) * (thisN / Ntot) = maxN / Ntot
-            # the first bit is that we drew maxN photons, but only thisN of them are valid
-            # the second bit is that we only drew thisN photons, but use a total of Ntot photons
-            lambda photons, g, thisN, Ntot: photons.scaleFlux(g * maxN / Ntot),
+            # the factor here is thisN / Ntot since we drew thisN photons, but use a total of Ntot photons
+            lambda photons, g, thisN, Ntot: photons.scaleFlux(g * thisN / Ntot),
             photons,
             g,
             thisN,
