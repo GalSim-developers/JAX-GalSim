@@ -22,6 +22,19 @@ JAX-GalSim PRNGs have some support for linking states, but it may not always wor
  - Within a single routine linking may work.
  - You may encounter errors related to global side effects for some combinations of linked states
    and jitted/vmapped routines.
+
+Seeding the JAX-GalSim PRNG can be done in a few ways:
+
+  - pass seed=None (This is equivalent to passing seed=0)
+  - pass an integer seed (This method will throw errors if the integer is traced by JAX.)
+  - pass another JAX-GalSim PRNG
+  - pass a JAX PRNG key made via `jax.random.key`.
+
+**JAX PRNG keys made via `jax.random.PRNGKey` are not supported.**
+
+When using JAX-GalSim PRNGs and JIT, you should always return the PRNG from the function
+and then set the state on input PRNG via `prng.reset(new_prng)`. This will ensure that the
+PRNG state is propagated correctly outside the JITed code.
 """
 
 
@@ -33,8 +46,8 @@ class _DeviateState:
 
     Parameters
     ----------
-    key : jax.random.PRNGKey
-        The JAX PRNG key made via `jrandom.PRNGKey` or equivalent.
+    key : key data with dtype `jax.dtypes.prng_key`
+        The JAX PRNG key made via `jrandom.key`
     """
 
     def __init__(self, key):
@@ -79,13 +92,13 @@ class BaseDeviate:
         _galsim.BaseDeviate.seed,
         lax_description="The JAX version of this method does no type checking.",
     )
-    def seed(self, seed=0):
+    def seed(self, seed=None):
         self._seed(seed=seed)
 
     @_wraps(_galsim.BaseDeviate._seed)
-    def _seed(self, seed=0):
+    def _seed(self, seed=None):
         _initial_seed = seed or secrets.randbelow(2**31)
-        self._state.key = jrandom.PRNGKey(_initial_seed)
+        self._state.key = jrandom.key(_initial_seed)
 
     @_wraps(
         _galsim.BaseDeviate.reset,
@@ -96,8 +109,10 @@ class BaseDeviate:
             self._state = seed
         elif isinstance(seed, BaseDeviate):
             self._state = seed._state
-        elif isinstance(seed, jax.Array) and seed.shape == (2,):
-            self._state = _DeviateState(wrap_key_data(seed))
+        elif hasattr(seed, "dtype") and jax.dtypes.issubdtype(
+            seed.dtype, jax.dtypes.prng_key
+        ):
+            self._state = _DeviateState(seed)
         elif isinstance(seed, str):
             self._state = _DeviateState(
                 wrap_key_data(jnp.array(eval(seed), dtype=jnp.uint32))
@@ -108,7 +123,7 @@ class BaseDeviate:
             )
         else:
             _initial_seed = seed or secrets.randbelow(2**31)
-            self._state = _DeviateState(jrandom.PRNGKey(_initial_seed))
+            self._state = _DeviateState(jrandom.key(_initial_seed))
 
     @property
     def _key(self):

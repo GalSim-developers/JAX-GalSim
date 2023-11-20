@@ -240,7 +240,7 @@ def test_jitting_draw_phot():
             final._flux_per_photon,
             final.max_sb,
             poisson_flux=False,
-        )[0]
+        )[0].item()
         gain = 1.0
         if jit:
             return _draw_it_jit(final, n, n_photons, gain)
