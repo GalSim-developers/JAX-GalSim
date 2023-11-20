@@ -264,7 +264,12 @@ class Interpolant:
     def _shoot_cdf(self):
         x = jnp.linspace(-self.xrange, self.xrange, 10000)
         px = jnp.abs(self._xval_noraise(jnp.abs(x)))
-        cdfx = jnp.cumsum(px)
+        dx = x[1] - x[0]
+        # cumulative trapezoidal rule
+        # see scipy.integrate.cumulative_trapezoidal
+        cdfx = jnp.concatenate(
+            [jnp.array([0]), jnp.cumsum((px[1:] + px[:-1]) * 0.5 * dx)]
+        )
         cdfx /= cdfx[-1]
         return x, cdfx
 

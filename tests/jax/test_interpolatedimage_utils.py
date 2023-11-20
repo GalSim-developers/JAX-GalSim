@@ -354,11 +354,12 @@ def test_interpolatedimage_interpolant_sample(interp):
     np.testing.assert_allclose(fdev[msk], 0, rtol=0, atol=5.0, err_msg=f"{interp}")
     np.testing.assert_allclose(fdev[~msk], 0, rtol=0, atol=15.0, err_msg=f"{interp}")
 
-    if interp.__class__.__name__ == "Quintic" and False:
+    if interp.__class__.__name__ in ["Quintic", "Lanczos"] and False:
         import proplot as pplt
 
         fig, axs = pplt.subplots(figsize=(6, 6))
         axs.hist(photons.x, bins=500, log=True)
         axs.plot(mid, yv, color="k")
+        axs.format(title=interp.__class__.__name__)
         fig.show()
         breakpoint()
