@@ -3079,7 +3079,9 @@ def test_gsfitswcs():
         "ZTF",
     ]
 
-    dir = "fits_files"
+    dir = os.path.join(
+        os.path.dirname(__file__), "..", "..", "GalSim", "tests", "fits_files"
+    )
 
     for tag in test_tags:
         file_name, ref_list = references[tag]
@@ -3111,8 +3113,15 @@ def test_gsfitswcs():
         do_wcs_image(wcs, "GSFitsWCS_" + tag)
 
     # tpv_odd.fits is a modified version to have (unsupported) odd powers of r.
+    dr = os.path.join(
+        os.path.dirname(__file__),
+        "..",
+        "..",
+        "GalSim",
+        "tests",
+    )
     with assert_raises(galsim.GalSimNotImplementedError):
-        galsim.GSFitsWCS("tpv_odd.fits", dir=dir)
+        galsim.GSFitsWCS(dr + "/fits_files/tpv_odd.fits", dir=dir)
 
     # TSC is one of the ones that GSFitsWCS doesn't support.
     with assert_raises(galsim.GalSimValueError):
@@ -3120,11 +3129,11 @@ def test_gsfitswcs():
 
     # Doesn't support LINEAR WCS types.
     with assert_raises(galsim.GalSimError):
-        galsim.GSFitsWCS("SBProfile_comparison_images/kolmogorov.fits")
+        galsim.GSFitsWCS(dr + "/SBProfile_comparison_images/kolmogorov.fits")
 
     # This file does not have any WCS information in it.
     with assert_raises(galsim.GalSimError):
-        galsim.GSFitsWCS("fits_files/blankimg.fits")
+        galsim.GSFitsWCS(dr + "/fits_files/blankimg.fits")
 
     assert_raises(TypeError, galsim.GSFitsWCS)
     assert_raises(TypeError, galsim.GSFitsWCS, file_name, header="dummy")
@@ -3222,32 +3231,21 @@ def test_inverseab_convergence():
     # Now one that should fail, since it's well outside the applicable area for the SIP polynomials.
     ra = 2.1
     dec = -0.45
-    with assert_raises(galsim.GalSimError):
-        x, y = wcs.radecToxy(ra, dec, units="radians")
-    try:
-        x, y = wcs.radecToxy(ra, dec, units="radians")
-    except galsim.GalSimError as e:
-        print("Error message is\n", e)
-        assert "[0,]" in str(e)
+    x, y = wcs.radecToxy(ra, dec, units="radians")
+    assert np.all(np.isnan(x))
+    assert np.all(np.isnan(y))
 
     # Check as part of a longer list (longer than 256 is important)
-    ra = np.random.uniform(2.185, 2.186, 1000)
-    dec = np.random.uniform(-0.501, -0.499, 1000)
+    rng = np.random.RandomState(1234)
+    ra = rng.uniform(2.185, 2.186, 1000)
+    dec = rng.uniform(-0.501, -0.499, 1000)
     ra = np.append(ra, [2.1, 2.9])
     dec = np.append(dec, [-0.45, 0.2])
     print("ra = ", ra)
     print("dec = ", dec)
-    with assert_raises(galsim.GalSimError):
-        x, y = wcs.radecToxy(ra, dec, units="radians")
-    try:
-        x, y = wcs.radecToxy(ra, dec, units="radians")
-    except galsim.GalSimError as e:
-        print("Error message is\n", e)
-        assert "[1000,1001,]" in str(e)
-        # We don't currently do this for the user, but it's not too hard to get a python list
-        # of the bad indices.  Included here as an example for users who may need this.
-        bad = eval(str(e)[str(e).rfind("[") :])
-        print("as a python list: ", bad)
+    x, y = wcs.radecToxy(ra, dec, units="radians")
+    assert np.sum(np.isnan(x)) >= 2
+    assert np.sum(np.isnan(y)) >= 2
 
 
 @timer
@@ -3345,7 +3343,9 @@ def test_fitswcs():
         except Exception:
             pass
 
-    dir = "fits_files"
+    dir = os.path.join(
+        os.path.dirname(__file__), "..", "..", "GalSim", "tests", "fits_files"
+    )
 
     for tag in test_tags:
         file_name, ref_list = references[tag]
@@ -3381,16 +3381,23 @@ def test_fitswcs():
         galsim.fits.closeHDUList(hdu_list, fin)
 
     # This does support LINEAR WCS types.
-    linear = galsim.FitsWCS("SBProfile_comparison_images/kolmogorov.fits")
+    dr = os.path.join(
+        os.path.dirname(__file__),
+        "..",
+        "..",
+        "GalSim",
+        "tests",
+    )
+    linear = galsim.FitsWCS(dr + "/" + "SBProfile_comparison_images/kolmogorov.fits")
     assert isinstance(linear, galsim.OffsetWCS)
 
     # This file does not have any WCS information in it.
     with assert_warns(galsim.GalSimWarning):
-        pixel = galsim.FitsWCS("fits_files/blankimg.fits")
+        pixel = galsim.FitsWCS(dr + "/" + "fits_files/blankimg.fits")
     assert pixel == galsim.PixelScale(1.0)
 
     # Can suppress the warning if desired
-    pixel = galsim.FitsWCS("fits_files/blankimg.fits", suppress_warning=True)
+    pixel = galsim.FitsWCS(dr + "/" + "fits_files/blankimg.fits", suppress_warning=True)
     assert pixel == galsim.PixelScale(1.0)
 
     assert_raises(TypeError, galsim.FitsWCS)
@@ -3687,7 +3694,9 @@ def test_fittedsipwcs():
 @timer
 def test_scamp():
     """Test that we can read in a SCamp .head file correctly"""
-    dir = "fits_files"
+    dir = os.path.join(
+        os.path.dirname(__file__), "..", "..", "GalSim", "tests", "fits_files"
+    )
     file_name = "scamp.head"
 
     wcs = galsim.FitsWCS(file_name, dir=dir, text_file=True)
@@ -3955,7 +3964,9 @@ def test_int_args():
 
     test_tags = all_tags
 
-    dir = "fits_files"
+    dir = os.path.join(
+        os.path.dirname(__file__), "..", "..", "GalSim", "tests", "fits_files"
+    )
 
     for tag in test_tags:
         file_name, ref_list = references[tag]
@@ -3978,7 +3989,9 @@ def test_int_args():
     # Along the way, check issue #1024 where Erin noticed that reading the WCS from the
     # header of a compressed file was spending lots of time decompressing the data, which
     # is unnecessary.
-    dir = "des_data"
+    dir = os.path.join(
+        os.path.dirname(__file__), "..", "..", "GalSim", "tests", "des_data"
+    )
     file_name = "DECam_00158414_01.fits.fz"
     with Profile():
         t0 = time.time()

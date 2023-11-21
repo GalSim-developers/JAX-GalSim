@@ -1,4 +1,5 @@
 import inspect
+import os
 import pickle
 
 import galsim as _galsim
@@ -210,6 +211,62 @@ def _run_object_checks(obj, cls, kind):
 
         # check vmap
         x = jnp.linspace(-0.9, 0.9, 10)
+        np.testing.assert_allclose(_fun_vmap(x), [_reg_fun(_x) for _x in x])
+
+        # check vmap grad
+        np.testing.assert_allclose(_gradfun_vmap(x), [_gradfun(_x) for _x in x])
+    elif kind == "vmap-jit-grad-celestialwcs":
+        assert obj.__class__.tree_unflatten(*((obj.tree_flatten())[::-1])) == obj
+
+        def _reg_fun(x):
+            return obj.toWorld(jax_galsim.PositionD(x, -0.3)).ra.rad
+
+        _fun = jax.jit(_reg_fun)
+        _gradfun = jax.jit(jax.grad(_fun))
+        _fun_vmap = jax.jit(jax.vmap(_fun))
+        _gradfun_vmap = jax.jit(jax.vmap(_gradfun))
+
+        # we can jit the object
+        np.testing.assert_allclose(_fun(0.3), _reg_fun(0.3))
+
+        # check derivs
+        eps = 1e-2
+        grad = _gradfun(0.3)
+        finite_diff = (_reg_fun(0.3 + eps) - _reg_fun(0.3 - eps)) / (2 * eps)
+        np.testing.assert_allclose(grad, finite_diff)
+
+        # check vmap
+        x = jnp.linspace(-0.9, 0.9, 10)
+        np.testing.assert_allclose(_fun_vmap(x), [_reg_fun(_x) for _x in x])
+
+        # check vmap grad
+        np.testing.assert_allclose(_gradfun_vmap(x), [_gradfun(_x) for _x in x])
+
+        # go the other way
+        def _reg_fun(x):
+            return obj.toImage(
+                jax_galsim.CelestialCoord(
+                    x * jax_galsim.degrees, -56.51006288339 * jax_galsim.degrees
+                )
+            ).x
+
+        _fun = jax.jit(_reg_fun)
+        _gradfun = jax.jit(jax.grad(_fun))
+        _fun_vmap = jax.jit(jax.vmap(_fun))
+        _gradfun_vmap = jax.jit(jax.vmap(_gradfun))
+
+        # we can jit the object
+        farg = 66.03
+        np.testing.assert_allclose(_fun(farg), _reg_fun(farg))
+
+        # check derivs
+        eps = 1e-5
+        grad = _gradfun(farg)
+        finite_diff = (_reg_fun(farg + eps) - _reg_fun(farg - eps)) / (2 * eps)
+        np.testing.assert_allclose(grad, finite_diff)
+
+        # check vmap
+        x = jnp.linspace(-0.9, 0.9, 10) + farg
         np.testing.assert_allclose(_fun_vmap(x), [_reg_fun(_x) for _x in x])
 
         # check vmap grad
@@ -565,6 +622,9 @@ OK_ERRORS_WCS = [
     "__init__() takes 2 positional arguments but 3 were given",
     "__init__() takes 2 positional arguments but 5 were given",
     "__init__() takes 3 positional arguments but 5 were given",
+    "'ArrayImpl' object has no attribute 'lower'",
+    "expected str, bytes or os.PathLike object, not",
+    "__init__() got an unexpected keyword argument 'dir'",
 ]
 
 
@@ -597,6 +657,18 @@ def _attempt_init_wcs(cls):
         else:
             raise e
 
+    try:
+        dr = os.path.join(
+            os.path.dirname(__file__), "..", "GalSim", "tests", "des_data"
+        )
+        file_name = "DECam_00158414_01.fits.fz"
+        obj = cls(file_name, dir=dr)
+    except Exception as e:
+        if any(estr in repr(e) for estr in OK_ERRORS_WCS):
+            pass
+        else:
+            raise e
+
     return obj
 
 
@@ -613,9 +685,26 @@ def test_api_wcs():
                 jax_galsim.wcs.EuclideanWCS,
                 jax_galsim.wcs.LocalWCS,
                 jax_galsim.wcs.UniformWCS,
+                jax_galsim.wcs.CelestialWCS,
             )
         ):
             classes.append(getattr(jax_galsim.wcs, item))
+
+    for item in sorted(dir(jax_galsim.fitswcs)):
+        cls = getattr(jax_galsim.fitswcs, item)
+        if (
+            inspect.isclass(cls)
+            and issubclass(cls, jax_galsim.wcs.BaseWCS)
+            and cls
+            not in (
+                jax_galsim.wcs.BaseWCS,
+                jax_galsim.wcs.EuclideanWCS,
+                jax_galsim.wcs.LocalWCS,
+                jax_galsim.wcs.UniformWCS,
+                jax_galsim.wcs.CelestialWCS,
+            )
+        ):
+            classes.append(getattr(jax_galsim.fitswcs, item))
 
     tested = set()
     for cls in classes:
@@ -625,7 +714,10 @@ def test_api_wcs():
             tested.add(cls.__name__)
             _run_object_checks(obj, cls, "docs-methods")
             _run_object_checks(obj, cls, "pickle-eval-repr-wcs")
-            _run_object_checks(obj, cls, "vmap-jit-grad-wcs")
+            if isinstance(obj, jax_galsim.wcs.CelestialWCS):
+                _run_object_checks(obj, cls, "vmap-jit-grad-celestialwcs")
+            else:
+                _run_object_checks(obj, cls, "vmap-jit-grad-wcs")
 
     assert {
         "AffineTransform",
@@ -634,6 +726,7 @@ def test_api_wcs():
         "PixelScale",
         "OffsetShearWCS",
         "OffsetWCS",
+        "GSFitsWCS",
     } <= tested
 
 

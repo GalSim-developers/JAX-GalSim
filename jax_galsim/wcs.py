@@ -3,7 +3,10 @@ import jax.numpy as jnp
 from jax._src.numpy.util import _wraps
 from jax.tree_util import register_pytree_node_class
 
-from jax_galsim.core.utils import convert_to_float, ensure_hashable
+from jax_galsim.angle import AngleUnit, arcsec, radians
+from jax_galsim.celestial import CelestialCoord
+from jax_galsim.core.utils import cast_to_python_float, ensure_hashable
+from jax_galsim.errors import GalSimValueError
 from jax_galsim.gsobject import GSObject
 from jax_galsim.position import Position, PositionD, PositionI
 from jax_galsim.shear import Shear
@@ -81,8 +84,7 @@ class BaseWCS(_galsim.BaseWCS):
     def posToImage(self, world_pos, color=None):
         if color is None:
             color = self._color
-        # TODO: update this to jax version of CelestialCoord when available
-        if self.isCelestial() and not isinstance(world_pos, _galsim.CelestialCoord):
+        if self.isCelestial() and not isinstance(world_pos, CelestialCoord):
             raise TypeError("world_pos must be a CelestialCoord argument")
         elif not self.isCelestial() and not isinstance(world_pos, Position):
             raise TypeError("world_pos must be a PositionD or PositionI argument")
@@ -175,7 +177,7 @@ class BaseWCS(_galsim.BaseWCS):
             self._world_origin = world_origin
 
     def tree_flatten(self):
-        """This function flattens the GSObject into a list of children
+        """This function flattens the WCS into a list of children
         nodes that will be traced by JAX and auxiliary static data."""
         # Define the children nodes of the PyTree that need tracing
         children = (self._params,)
@@ -196,7 +198,10 @@ class BaseWCS(_galsim.BaseWCS):
                 "galsim_wcs must be a galsim BaseWCS object or subclass thereof."
             )
 
-        if galsim_wcs.__class__.__name__ not in globals():
+        if (
+            galsim_wcs.__class__.__name__ not in globals()
+            and galsim_wcs.__class__.__name__ != "GSFitsWCS"
+        ):
             raise NotImplementedError(
                 "jax_galsim does not support the galsim WCS class %s"
                 % galsim_wcs.__class__.__name__
@@ -231,6 +236,26 @@ class BaseWCS(_galsim.BaseWCS):
                 galsim_wcs.dvdy,
                 origin=Position.from_galsim(galsim_wcs.origin),
                 world_origin=Position.from_galsim(galsim_wcs.world_origin),
+            )
+        elif isinstance(galsim_wcs, _galsim.GSFitsWCS):
+            # this import goes here to avoid circular imports
+            from jax_galsim.angle import radians
+            from jax_galsim.celestial import CelestialCoord
+            from jax_galsim.fitswcs import GSFitsWCS
+
+            return GSFitsWCS(
+                _data=[
+                    galsim_wcs.wcs_type,
+                    galsim_wcs.crpix,
+                    galsim_wcs.cd,
+                    CelestialCoord(
+                        ra=galsim_wcs.center.ra.rad * radians,
+                        dec=galsim_wcs.center.dec.rad * radians,
+                    ),
+                    galsim_wcs.pv,
+                    galsim_wcs.ab,
+                    galsim_wcs.abp,
+                ],
             )
 
 
@@ -463,7 +488,7 @@ class EuclideanWCS(BaseWCS):
         dvdy = 0.5 * (v[2:ny, 1 : nx - 1] - v[0 : ny - 2, 1 : nx - 1])
 
         area = jnp.abs(dudx * dvdy - dvdx * dudy)
-        image.array[:, :] = area * sky_level
+        image._array = (area * sky_level).astype(image.dtype)
 
     # Each class should define the __eq__ function.  Then __ne__ is obvious.
     def __ne__(self, other):
@@ -561,6 +586,215 @@ class LocalWCS(UniformWCS):
     # For LocalWCS, this is of course trivial.
     def _local(self, image_pos, color):
         return self
+
+
+class CelestialWCS(BaseWCS):
+    """A CelestialWCS is a `BaseWCS` whose world coordinates are on the celestial sphere.
+    We use the `CelestialCoord` class for the world coordinates.
+    """
+
+    @property
+    def _isCelestial(self):
+        return True
+
+    # CelestialWCS classes still have origin, but not world_origin.
+    @property
+    def x0(self):
+        """The x coordinate of self.origin."""
+        return self.origin.x
+
+    @property
+    def y0(self):
+        """The y coordinate of self.origin."""
+        return self.origin.y
+
+    def xyToradec(self, x, y, units=None, color=None):
+        """Convert x,y from image coordinates to world coordinates.
+
+        This is equivalent to ``wcs.toWorld(x,y, units=units)``.
+
+        It is also equivalent to ``wcs.posToWorld(galsim.PositionD(x,y)).rad`` when x and y are
+        scalars if units is 'radians'; however, this routine allows x and y to be numpy arrays,
+        in which case, the calculation will be vectorized, which is often much faster than using
+        the pos interface.
+
+        Parameters:
+            x:          The x value(s) in image coordinates
+            y:          The y value(s) in image coordinates
+            units:      (Only valid for `CelestialWCS`, in which case it is required)
+                        The units to use for the returned ra, dec values.
+            color:      For color-dependent WCS's, the color term to use. [default: None]
+
+        Returns:
+            ra, dec
+        """
+        if color is None:
+            color = self._color
+        if units is None:
+            raise TypeError("units is required for CelestialWCS types")
+        elif isinstance(units, str):
+            units = AngleUnit.from_name(units)
+        elif not isinstance(units, AngleUnit):
+            raise GalSimValueError(
+                "units must be either an AngleUnit or a string",
+                units,
+                AngleUnit.valid_names,
+            )
+        return self._xyToradec(x, y, units, color)
+
+    def radecToxy(self, ra, dec, units, color=None):
+        """Convert ra,dec from world coordinates to image coordinates.
+
+        This is equivalent to ``wcs.toWorld(ra,dec, units=units)``.
+
+        It is also equivalent to ``wcs.posToImage(galsim.CelestialCoord(ra * units, dec * units))``
+        when ra and dec are scalars; however, this routine allows ra and dec to be numpy arrays,
+        in which case, the calculation will be vectorized, which is often much faster than using
+        the pos interface.
+
+        Parameters:
+            ra:         The ra value(s) in world coordinates
+            dec:        The dec value(s) in world coordinates
+            units:      The units to use for the input ra, dec values.
+            color:      For color-dependent WCS's, the color term to use. [default: None]
+        """
+        if color is None:
+            color = self._color
+        if isinstance(units, str):
+            units = AngleUnit.from_name(units)
+        elif not isinstance(units, AngleUnit):
+            raise GalSimValueError(
+                "units must be either an AngleUnit or a string",
+                units,
+                AngleUnit.valid_names,
+            )
+        return self._radecToxy(ra, dec, units, color)
+
+    # This is a bit simpler than the EuclideanWCS version, since there is no world_origin.
+    def _shiftOrigin(self, origin, world_origin, color):
+        # We want the new wcs to have wcs.toWorld(x2,y2) match the current wcs.toWorld(0,0).
+        # So,
+        #
+        #     u' = ufunc(x-x1, y-y1)        # In this case, there are no u0,v0
+        #     v' = vfunc(x-x1, y-y1)
+        #
+        #     u'(x2,y2) = u(0,0)    v'(x2,y2) = v(0,0)
+        #
+        #     x2 - x1 = 0 - x0      y2 - y1 = 0 - y0
+        # =>  x1 = x0 + x2          y1 = y0 + y2
+        if world_origin is not None:
+            raise TypeError("world_origin is invalid for CelestialWCS classes")
+        origin += self.origin
+        return self._newOrigin(origin)
+
+    # If the class doesn't define something else, then we can approximate the local Jacobian
+    # from finite differences for the derivatives of ra and dec.  Very similar to the
+    # version for EuclideanWCS, but convert from dra, ddec to du, dv locallat at the given
+    # position.
+    def _local(self, image_pos, color):
+        if image_pos is None:
+            raise TypeError("origin must be a PositionD or PositionI argument")
+
+        x0 = image_pos.x - self.x0
+        y0 = image_pos.y - self.y0
+        # Use dx,dy = 1 pixel for numerical derivatives
+        dx = 1
+        dy = 1
+
+        xlist = jnp.array([x0, x0 + dx, x0 - dx, x0, x0], dtype=float)
+        ylist = jnp.array([y0, y0, y0, y0 + dy, y0 - dy], dtype=float)
+        ra, dec = self._radec(xlist, ylist, color)
+
+        # Note: our convention is that ra increases to the left!
+        # i.e. The u,v plane is the tangent plane as seen from Earth with +v pointing
+        # north, and +u pointing west.
+        # That means the du values are the negative of dra.
+        cosdec = jnp.cos(dec[0])
+        dudx = -0.5 * (ra[1] - ra[2]) / dx * cosdec
+        dudy = -0.5 * (ra[3] - ra[4]) / dy * cosdec
+        dvdx = 0.5 * (dec[1] - dec[2]) / dx
+        dvdy = 0.5 * (dec[3] - dec[4]) / dy
+
+        # These values are all in radians.  Convert to arcsec as per our usual standard.
+        factor = radians / arcsec
+        return JacobianWCS(dudx * factor, dudy * factor, dvdx * factor, dvdy * factor)
+
+    # This is similar to the version for EuclideanWCS, but uses dra, ddec.
+    # Again, it is much faster if the _radec function works with numpy arrays.
+    def _makeSkyImage(self, image, sky_level, color):
+        b = image.bounds
+        nx = (
+            b.xmax - b.xmin + 1 + 2
+        )  # +2 more than in image to get row/col off each edge.
+        ny = b.ymax - b.ymin + 1 + 2
+        x, y = jnp.meshgrid(
+            jnp.linspace(b.xmin - 1, b.xmax + 1, nx),
+            jnp.linspace(b.ymin - 1, b.ymax + 1, ny),
+        )
+        x -= self.x0
+        y -= self.y0
+        ra, dec = self._radec(x.ravel(), y.ravel(), color)
+        ra = jnp.reshape(ra, x.shape)
+        dec = jnp.reshape(dec, x.shape)
+
+        # Use the finite differences to estimate the derivatives.
+        cosdec = jnp.cos(dec[1 : ny - 1, 1 : nx - 1])
+        dudx = -0.5 * (ra[1 : ny - 1, 2:nx] - ra[1 : ny - 1, 0 : nx - 2])
+        dudy = -0.5 * (ra[2:ny, 1 : nx - 1] - ra[0 : ny - 2, 1 : nx - 1])
+        # Check for discontinuities in ra.  ra can jump by 2pi, so when it does
+        # add (or subtract) pi to dudx, which is dra/2
+        dudx = jnp.where(dudx > 1, dudx - jnp.pi, dudx)
+        dudx = jnp.where(dudx < -1, dudx + jnp.pi, dudx)
+        dudy = jnp.where(dudy > 1, dudy - jnp.pi, dudy)
+        dudy = jnp.where(dudy < -1, dudy + jnp.pi, dudy)
+        # Now account for the cosdec factor
+        dudx *= cosdec
+        dudy *= cosdec
+        dvdx = 0.5 * (dec[1 : ny - 1, 2:nx] - dec[1 : ny - 1, 0 : nx - 2])
+        dvdy = 0.5 * (dec[2:ny, 1 : nx - 1] - dec[0 : ny - 2, 1 : nx - 1])
+
+        area = jnp.abs(dudx * dvdy - dvdx * dudy)
+        factor = radians / arcsec
+        image._array = area * sky_level * factor**2
+
+    # Simple.  Just call _radec.
+    def _posToWorld(self, image_pos, color, project_center=None, projection="gnomonic"):
+        x = image_pos.x - self.x0
+        y = image_pos.y - self.y0
+        ra, dec = self._radec(x, y, color)
+        coord = CelestialCoord(ra * radians, dec * radians)
+        if project_center is None:
+            return coord
+        else:
+            u, v = project_center.project(coord, projection=projection)
+            return PositionD(u / arcsec, v / arcsec)
+
+    def _xyToradec(self, x, y, units, color):
+        x = x - self.x0  # Not -=, since don't want to modify the input arrays in place.
+        y = y - self.y0
+        ra, dec = self._radec(x, y, color)
+        ra *= radians / units
+        dec *= radians / units
+        return ra, dec
+
+    # Also simple if _xy is implemented.  However, it is allowed to raise a NotImplementedError.
+    def _posToImage(self, world_pos, color):
+        ra = world_pos.ra.rad
+        dec = world_pos.dec.rad
+        x, y = self._xy(ra, dec, color)
+        return PositionD(x, y) + self.origin
+
+    def _radecToxy(self, ra, dec, units, color):
+        ra = ra * (units / radians)
+        dec = dec * (units / radians)
+        x, y = self._xy(ra, dec, color)
+        x += self.origin.x
+        y += self.origin.y
+        return x, y
+
+    # Each class should define the __eq__ function.  Then __ne__ is obvious.
+    def __ne__(self, other):
+        return not self.__eq__(other)
 
 
 #########################################################################################
@@ -668,7 +902,7 @@ class PixelScale(LocalWCS):
 
     def _writeHeader(self, header, bounds):
         header["GS_WCS"] = ("PixelScale", "GalSim WCS name")
-        header["GS_SCALE"] = (self.scale, "GalSim image scale")
+        header["GS_SCALE"] = (cast_to_python_float(self.scale), "GalSim image scale")
         return self.affine()._writeLinearWCS(header, bounds)
 
     @staticmethod
@@ -790,9 +1024,9 @@ class ShearWCS(LocalWCS):
 
     def _writeHeader(self, header, bounds):
         header["GS_WCS"] = ("ShearWCS", "GalSim WCS name")
-        header["GS_SCALE"] = (self.scale, "GalSim image scale")
-        header["GS_G1"] = (self.shear.g1, "GalSim image shear g1")
-        header["GS_G2"] = (self.shear.g2, "GalSim image shear g2")
+        header["GS_SCALE"] = (cast_to_python_float(self.scale), "GalSim image scale")
+        header["GS_G1"] = (cast_to_python_float(self.shear.g1), "GalSim image shear g1")
+        header["GS_G2"] = (cast_to_python_float(self.shear.g2), "GalSim image shear g2")
         return self.affine()._writeLinearWCS(header, bounds)
 
     def copy(self):
@@ -1087,11 +1321,17 @@ class OffsetWCS(UniformWCS):
 
     def _writeHeader(self, header, bounds):
         header["GS_WCS"] = ("OffsetWCS", "GalSim WCS name")
-        header["GS_SCALE"] = (self.scale, "GalSim image scale")
-        header["GS_X0"] = (self.origin.x, "GalSim image origin x")
-        header["GS_Y0"] = (self.origin.y, "GalSim image origin y")
-        header["GS_U0"] = (self.world_origin.x, "GalSim world origin u")
-        header["GS_V0"] = (self.world_origin.y, "GalSim world origin v")
+        header["GS_SCALE"] = (cast_to_python_float(self.scale), "GalSim image scale")
+        header["GS_X0"] = (cast_to_python_float(self.origin.x), "GalSim image origin x")
+        header["GS_Y0"] = (cast_to_python_float(self.origin.y), "GalSim image origin y")
+        header["GS_U0"] = (
+            cast_to_python_float(self.world_origin.x),
+            "GalSim world origin u",
+        )
+        header["GS_V0"] = (
+            cast_to_python_float(self.world_origin.y),
+            "GalSim world origin v",
+        )
         return self.affine()._writeLinearWCS(header, bounds)
 
     @staticmethod
@@ -1159,13 +1399,25 @@ class OffsetShearWCS(UniformWCS):
 
     def _writeHeader(self, header, bounds):
         header["GS_WCS"] = ("OffsetShearWCS", "GalSim WCS name")
-        header["GS_SCALE"] = (self.scale, "GalSim image scale")
-        header["GS_G1"] = (self.shear.g1, "GalSim image shear g1")
-        header["GS_G2"] = (self.shear.g2, "GalSim image shear g2")
-        header["GS_X0"] = (self.origin.x, "GalSim image origin x coordinate")
-        header["GS_Y0"] = (self.origin.y, "GalSim image origin y coordinate")
-        header["GS_U0"] = (self.world_origin.x, "GalSim world origin u coordinate")
-        header["GS_V0"] = (self.world_origin.y, "GalSim world origin v coordinate")
+        header["GS_SCALE"] = (cast_to_python_float(self.scale), "GalSim image scale")
+        header["GS_G1"] = (cast_to_python_float(self.shear.g1), "GalSim image shear g1")
+        header["GS_G2"] = (cast_to_python_float(self.shear.g2), "GalSim image shear g2")
+        header["GS_X0"] = (
+            cast_to_python_float(self.origin.x),
+            "GalSim image origin x coordinate",
+        )
+        header["GS_Y0"] = (
+            cast_to_python_float(self.origin.y),
+            "GalSim image origin y coordinate",
+        )
+        header["GS_U0"] = (
+            cast_to_python_float(self.world_origin.x),
+            "GalSim world origin u coordinate",
+        )
+        header["GS_V0"] = (
+            cast_to_python_float(self.world_origin.y),
+            "GalSim world origin v coordinate",
+        )
         return self.affine()._writeLinearWCS(header, bounds)
 
     def copy(self):
@@ -1246,25 +1498,25 @@ class AffineTransform(UniformWCS):
         header["CTYPE1"] = ("LINEAR", "name of the world coordinate axis")
         header["CTYPE2"] = ("LINEAR", "name of the world coordinate axis")
         header["CRVAL1"] = (
-            convert_to_float(self.u0),
+            cast_to_python_float(self.u0),
             "world coordinate at reference pixel = u0",
         )
         header["CRVAL2"] = (
-            convert_to_float(self.v0),
+            cast_to_python_float(self.v0),
             "world coordinate at reference pixel = v0",
         )
         header["CRPIX1"] = (
-            convert_to_float(self.x0),
+            cast_to_python_float(self.x0),
             "image coordinate of reference pixel = x0",
         )
         header["CRPIX2"] = (
-            convert_to_float(self.y0),
+            cast_to_python_float(self.y0),
             "image coordinate of reference pixel = y0",
         )
-        header["CD1_1"] = (convert_to_float(self.dudx), "CD1_1 = dudx")
-        header["CD1_2"] = (convert_to_float(self.dudy), "CD1_2 = dudy")
-        header["CD2_1"] = (convert_to_float(self.dvdx), "CD2_1 = dvdx")
-        header["CD2_2"] = (convert_to_float(self.dvdy), "CD2_2 = dvdy")
+        header["CD1_1"] = (cast_to_python_float(self.dudx), "CD1_1 = dudx")
+        header["CD1_2"] = (cast_to_python_float(self.dudy), "CD1_2 = dudy")
+        header["CD2_1"] = (cast_to_python_float(self.dvdx), "CD2_1 = dvdx")
+        header["CD2_2"] = (cast_to_python_float(self.dvdy), "CD2_2 = dvdy")
         return header
 
     @staticmethod

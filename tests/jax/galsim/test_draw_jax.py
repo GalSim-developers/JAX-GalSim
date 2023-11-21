@@ -364,6 +364,14 @@ def test_drawImage():
         assert abs(center[0] - im11.true_center.x) <= 0.5
         assert abs(center[1] - im11.true_center.y) <= 0.5
 
+    dr = os.path.join(
+        os.path.dirname(__file__),
+        "..",
+        "..",
+        "GalSim",
+        "tests",
+    )
+
     # Combinations that raise errors:
     assert_raises(TypeError, obj.drawImage, image=im10, bounds=bounds)
     assert_raises(TypeError, obj.drawImage, image=im10, dtype=int)
@@ -381,24 +389,26 @@ def test_drawImage():
     assert_raises(TypeError, obj.drawImage, bounds=bounds, scale=scale, wcs=galsim.PixelScale(3))
     assert_raises(TypeError, obj.drawImage, bounds=bounds, wcs=scale)
     assert_raises(TypeError, obj.drawImage, image=im10.array)
-    assert_raises(TypeError, obj.drawImage, wcs=galsim.FitsWCS('fits_files/tpv.fits'))
+    assert_raises(TypeError, obj.drawImage, wcs=galsim.FitsWCS(dr + '/fits_files/tpv.fits'))
 
     assert_raises(ValueError, obj.drawImage, bounds=galsim.BoundsI())
-    assert_raises(ValueError, obj.drawImage, image=im10, gain=0.)
-    assert_raises(ValueError, obj.drawImage, image=im10, gain=-1.)
-    assert_raises(ValueError, obj.drawImage, image=im10, area=0.)
-    assert_raises(ValueError, obj.drawImage, image=im10, area=-1.)
-    assert_raises(ValueError, obj.drawImage, image=im10, exptime=0.)
-    assert_raises(ValueError, obj.drawImage, image=im10, exptime=-1.)
-    assert_raises(ValueError, obj.drawImage, image=im10, method='invalid')
+    # JAX galsim does not raise for these things
+    # assert_raises(ValueError, obj.drawImage, image=im10, gain=0.)
+    # assert_raises(ValueError, obj.drawImage, image=im10, gain=-1.)
+    # assert_raises(ValueError, obj.drawImage, image=im10, area=0.)
+    # assert_raises(ValueError, obj.drawImage, image=im10, area=-1.)
+    # assert_raises(ValueError, obj.drawImage, image=im10, exptime=0.)
+    # assert_raises(ValueError, obj.drawImage, image=im10, exptime=-1.)
+    # assert_raises(ValueError, obj.drawImage, image=im10, method='invalid')
 
     # These options are invalid unless metho=phot
-    assert_raises(TypeError, obj.drawImage, image=im10, n_photons=3)
-    assert_raises(TypeError, obj.drawImage, rng=galsim.BaseDeviate(234))
-    assert_raises(TypeError, obj.drawImage, max_extra_noise=23)
-    assert_raises(TypeError, obj.drawImage, poisson_flux=True)
-    assert_raises(TypeError, obj.drawImage, maxN=10000)
-    assert_raises(TypeError, obj.drawImage, save_photons=True)
+    # JAX galsim does not raise for these things
+    # assert_raises(TypeError, obj.drawImage, image=im10, n_photons=3)
+    # assert_raises(TypeError, obj.drawImage, rng=galsim.BaseDeviate(234))
+    # assert_raises(TypeError, obj.drawImage, max_extra_noise=23)
+    # assert_raises(TypeError, obj.drawImage, poisson_flux=True)
+    # assert_raises(TypeError, obj.drawImage, maxN=10000)
+    # assert_raises(TypeError, obj.drawImage, save_photons=True)
 
 
 @timer

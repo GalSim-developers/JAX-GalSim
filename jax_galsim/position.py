@@ -4,11 +4,7 @@ import jax.numpy as jnp
 from jax._src.numpy.util import _wraps
 from jax.tree_util import register_pytree_node_class
 
-from jax_galsim.core.utils import (
-    cast_scalar_to_float,
-    cast_scalar_to_int,
-    ensure_hashable,
-)
+from jax_galsim.core.utils import cast_to_float, cast_to_int, ensure_hashable
 
 
 @_wraps(_galsim.Position)
@@ -185,8 +181,8 @@ class PositionD(Position):
         self._parse_args(*args, **kwargs)
 
         # Force conversion to float type in this case
-        self.x = cast_scalar_to_float(self.x)
-        self.y = cast_scalar_to_float(self.y)
+        self.x = cast_to_float(self.x)
+        self.y = cast_to_float(self.y)
 
     def _check_scalar(self, other, op):
         try:
@@ -210,8 +206,8 @@ class PositionI(Position):
         self._parse_args(*args, **kwargs)
 
         # inputs must be ints
-        self.x = cast_scalar_to_int(self.x)
-        self.y = cast_scalar_to_int(self.y)
+        self.x = cast_to_int(self.x)
+        self.y = cast_to_int(self.y)
 
     def _check_scalar(self, other, op):
         try:

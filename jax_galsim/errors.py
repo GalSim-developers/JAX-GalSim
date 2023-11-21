@@ -16,4 +16,5 @@ from galsim.errors import (  # noqa: F401
     GalSimUndefinedBoundsError,
     GalSimValueError,
     GalSimWarning,
+    galsim_warn,
 )
