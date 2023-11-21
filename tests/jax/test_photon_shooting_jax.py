@@ -1,3 +1,4 @@
+import galsim as _galsim
 import jax
 import jax.numpy as jnp
 import numpy as np
@@ -6,6 +7,7 @@ from jax.tree_util import register_pytree_node_class
 
 import jax_galsim
 from jax_galsim.core.testing import time_code_block
+from jax_galsim.photon_array import fixed_photon_array_size
 
 
 def test_photon_shooting_jax_make_from_image_notranspose():
@@ -168,3 +170,69 @@ def test_photon_shooting_jax_offset(offset):
     )
 
     np.testing.assert_allclose(img_fft.array, img_phot.array, rtol=rtol, atol=atol)
+
+
+def test_photon_shooting_jax_vmapping():
+    n_stamps = 100
+    rng = np.random.RandomState(1234)
+    shifts = jnp.array(rng.uniform(-1, 1, size=(n_stamps, 2)))
+    hlrs = jnp.array(rng.uniform(0.1, 1.0, size=(n_stamps,)))
+    fwhms = jnp.array(rng.uniform(0.9, 1.0, size=(n_stamps,)))
+    fluxes = jnp.array(rng.uniform(100, 1000, size=(n_stamps,)))
+    rng = jax_galsim.BaseDeviate(1234)
+    seeds = []
+    for i in range(n_stamps):
+        seeds.append(jax.random.key(i + 1))
+    max_n_phot = 2048
+    seeds = jnp.array(seeds)
+
+    @jax.jit
+    def _draw(hlr, fwhm, shift, flux, seed):
+        obj = jax_galsim.Convolve(
+            [
+                jax_galsim.Exponential(half_light_radius=hlr, flux=flux).shift(*shift),
+                jax_galsim.Gaussian(fwhm=fwhm, flux=1.0),
+            ]
+        )
+        with fixed_photon_array_size(max_n_phot):
+            return obj.drawImage(
+                nx=33,
+                ny=33,
+                scale=0.2,
+                method="phot",
+                rng=jax_galsim.BaseDeviate(seed),
+            )
+
+    with time_code_block("one warmup"):
+        img = _draw(hlrs[0], fwhms[0], shifts[0], fluxes[0], seeds[0])
+    with time_code_block("one"):
+        img = _draw(hlrs[0], fwhms[0], shifts[0], fluxes[0], seeds[0])
+    print(img.array.shape, img.bounds, img.array.sum(), fluxes[0])
+
+    _vmap_draw = jax.jit(jax.vmap(_draw, in_axes=(0, 0, 0, 0, 0)))
+    with time_code_block("vmap warmup"):
+        imgs = _vmap_draw(hlrs, fwhms, shifts, fluxes, seeds)
+    with time_code_block("vmap"):
+        imgs = _vmap_draw(hlrs, fwhms, shifts, fluxes, seeds)
+    print(imgs.array.shape)
+
+    np.testing.assert_allclose(img.array.sum(), imgs.array[0].sum())
+
+    def _draw_galsim(hlr, fwhm, shift, flux, seed):
+        obj = _galsim.Convolve(
+            [
+                _galsim.Exponential(half_light_radius=hlr, flux=flux).shift(*shift),
+                _galsim.Gaussian(fwhm=fwhm, flux=1.0),
+            ]
+        )
+        return obj.drawImage(
+            nx=33,
+            ny=33,
+            scale=0.2,
+            method="phot",
+            rng=_galsim.BaseDeviate(seed),
+        )
+
+    with time_code_block("galsim"):
+        for i in range(n_stamps):
+            _draw_galsim(hlrs[i], fwhms[i], shifts[i], fluxes[i], i + 1)

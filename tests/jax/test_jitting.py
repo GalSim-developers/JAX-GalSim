@@ -7,6 +7,7 @@ import numpy as np
 import jax_galsim as galsim
 from jax_galsim.core.draw import calculate_n_photons
 from jax_galsim.core.testing import time_code_block
+from jax_galsim.photon_array import fixed_photon_array_size
 
 # Defining jitting identity
 identity = jax.jit(lambda x: x)
@@ -239,7 +240,7 @@ def test_jitting_draw_phot():
             final._flux_per_photon,
             final.max_sb,
             poisson_flux=False,
-        )[0]
+        )[0].item()
         gain = 1.0
         if jit:
             return _draw_it_jit(final, n, n_photons, gain)
@@ -266,6 +267,70 @@ def test_jitting_draw_phot():
             gain=gain,
             maxN=101,
         )
+
+    with time_code_block("warmup no-jit"):
+        img = _build_and_draw(0.5, 1.0, jit=False)
+    np.testing.assert_allclose(img.array.sum(), 1100.0)
+
+    with time_code_block("no-jit"):
+        img = _build_and_draw(0.5, 1.0, jit=False)
+    np.testing.assert_allclose(img.array.sum(), 1100.0)
+
+    with time_code_block("warmup jit"):
+        img = _build_and_draw(0.5, 1.0)
+    np.testing.assert_allclose(img.array.sum(), 1100.0)
+
+    with time_code_block("jit"):
+        img = _build_and_draw(0.5, 1.0)
+
+    np.testing.assert_allclose(img.array.sum(), 1100.0)
+
+
+def test_jitting_draw_phot_fixed():
+    def _build_and_draw(hlr, fwhm, jit=True):
+        gal = galsim.Exponential(
+            half_light_radius=hlr, flux=1000.0
+        ) + galsim.Exponential(half_light_radius=hlr * 2.0, flux=100.0)
+        psf = galsim.Gaussian(fwhm=fwhm, flux=1.0)
+        final = galsim.Convolve(
+            [gal, psf],
+        )
+        n = final.getGoodImageSize(0.2).item()
+        n += 1
+        n_photons = calculate_n_photons(
+            final.flux,
+            final._flux_per_photon,
+            final.max_sb,
+            poisson_flux=False,
+        )[0]
+        gain = 1.0
+        if jit:
+            return _draw_it_jit(final, n, n_photons, gain)
+        else:
+            with fixed_photon_array_size(2048):
+                return final.drawImage(
+                    nx=n,
+                    ny=n,
+                    scale=0.2,
+                    method="phot",
+                    n_photons=n_photons,
+                    poisson_flux=False,
+                    gain=gain,
+                )
+
+    @partial(jax.jit, static_argnums=(1, 2))
+    def _draw_it_jit(obj, n, nphotons, gain):
+        with fixed_photon_array_size(2048):
+            return obj.drawImage(
+                nx=n,
+                ny=n,
+                scale=0.2,
+                n_photons=nphotons,
+                method="phot",
+                poisson_flux=False,
+                gain=gain,
+                maxN=101,
+            )
 
     with time_code_block("warmup no-jit"):
         img = _build_and_draw(0.5, 1.0, jit=False)

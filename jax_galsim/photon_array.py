@@ -1,3 +1,5 @@
+from contextlib import contextmanager
+
 import galsim as _galsim
 import jax
 import jax.numpy as jnp
@@ -15,6 +17,20 @@ from jax_galsim.errors import (
 from jax_galsim.random import BaseDeviate, UniformDeviate
 
 from ._pyfits import pyfits
+
+_JAX_GALSIM_PHOTON_ARRAY_SIZE = None
+
+
+@contextmanager
+def fixed_photon_array_size(size):
+    """Context manager to temporarily set a fixed size for photon arrays."""
+    global _JAX_GALSIM_PHOTON_ARRAY_SIZE
+    old_size = _JAX_GALSIM_PHOTON_ARRAY_SIZE
+    _JAX_GALSIM_PHOTON_ARRAY_SIZE = size
+    try:
+        yield
+    finally:
+        _JAX_GALSIM_PHOTON_ARRAY_SIZE = old_size
 
 
 @_wraps(
@@ -41,20 +57,35 @@ class PhotonArray:
         pupil_u=None,
         pupil_v=None,
         time=None,
+        _nokeep=None,
     ):
-        self._N = N
+        # self._N = N
+        self._Ntot = _JAX_GALSIM_PHOTON_ARRAY_SIZE or N
+        # if (
+        #     _JAX_GALSIM_PHOTON_ARRAY_SIZE is not None
+        #     and isinstance(N, int)
+        #     and N > _JAX_GALSIM_PHOTON_ARRAY_SIZE
+        # ):
+        #     raise GalSimValueError(
+        #         f"The given photon array size {N} is larger than "
+        #         f"the allowed total size {_JAX_GALSIM_PHOTON_ARRAY_SIZE}."
+        #     )
+        if _nokeep is not None:
+            self._nokeep = _nokeep
+        else:
+            self._nokeep = jnp.arange(self._Ntot) >= N
 
         # Only x, y, flux are built by default, since these are always required.
         # The others we leave as None unless/until they are needed.
-        self._x = jnp.zeros(self._N, dtype=float)
-        self._y = jnp.zeros(self._N, dtype=float)
-        self._flux = jnp.zeros(self._N, dtype=float)
-        self._dxdz = jnp.full(self._N, jnp.nan, dtype=float)
-        self._dydz = jnp.full(self._N, jnp.nan, dtype=float)
-        self._wave = jnp.full(self._N, jnp.nan, dtype=float)
-        self._pupil_u = jnp.full(self._N, jnp.nan, dtype=float)
-        self._pupil_v = jnp.full(self._N, jnp.nan, dtype=float)
-        self._time = jnp.full(self._N, jnp.nan, dtype=float)
+        self._x = jnp.zeros(self._Ntot, dtype=float)
+        self._y = jnp.zeros(self._Ntot, dtype=float)
+        self._flux = jnp.zeros(self._Ntot, dtype=float)
+        self._dxdz = jnp.full(self._Ntot, jnp.nan, dtype=float)
+        self._dydz = jnp.full(self._Ntot, jnp.nan, dtype=float)
+        self._wave = jnp.full(self._Ntot, jnp.nan, dtype=float)
+        self._pupil_u = jnp.full(self._Ntot, jnp.nan, dtype=float)
+        self._pupil_v = jnp.full(self._Ntot, jnp.nan, dtype=float)
+        self._time = jnp.full(self._Ntot, jnp.nan, dtype=float)
         self._is_corr = jnp.array(False)
 
         if x is not None:
@@ -113,59 +144,78 @@ class PhotonArray:
         time=None,
         is_corr=False,
     ):
+        if (
+            _JAX_GALSIM_PHOTON_ARRAY_SIZE is not None
+            and x.shape[0] != _JAX_GALSIM_PHOTON_ARRAY_SIZE
+        ):
+            raise GalSimValueError(
+                "The given arrays do not match the expected total size",
+                x.shape[0],
+                _JAX_GALSIM_PHOTON_ARRAY_SIZE,
+            )
+
         ret = cls.__new__(cls)
-        ret._N = x.shape[0]
+        # ret._N = x.shape[0]
+        ret._Ntot = _JAX_GALSIM_PHOTON_ARRAY_SIZE or x.shape[0]
         ret._x = x.copy()
         ret._y = y.copy()
         ret._flux = flux.copy()
+        ret._nokeep = jnp.arange(ret._Ntot) >= x.shape[0]
         ret._dxdz = (
-            dxdz.copy() if dxdz is not None else jnp.full(ret._N, jnp.nan, dtype=float)
+            dxdz.copy()
+            if dxdz is not None
+            else jnp.full(ret._Ntot, jnp.nan, dtype=float)
         )
         ret._dydz = (
-            dydz.copy() if dydz is not None else jnp.full(ret._N, jnp.nan, dtype=float)
+            dydz.copy()
+            if dydz is not None
+            else jnp.full(ret._Ntot, jnp.nan, dtype=float)
         )
         ret._wave = (
             wavelength.copy()
             if wavelength is not None
-            else jnp.full(ret._N, jnp.nan, dtype=float)
+            else jnp.full(ret._Ntot, jnp.nan, dtype=float)
         )
         ret._pupil_u = (
             pupil_u.copy()
             if pupil_u is not None
-            else jnp.full(ret._N, jnp.nan, dtype=float)
+            else jnp.full(ret._Ntot, jnp.nan, dtype=float)
         )
         ret._pupil_v = (
             pupil_v.copy()
             if pupil_v is not None
-            else jnp.full(ret._N, jnp.nan, dtype=float)
+            else jnp.full(ret._Ntot, jnp.nan, dtype=float)
         )
         ret._time = (
-            time.copy() if time is not None else jnp.full(ret._N, jnp.nan, dtype=float)
+            time.copy()
+            if time is not None
+            else jnp.full(ret._Ntot, jnp.nan, dtype=float)
         )
         ret._is_corr = jnp.array(is_corr)
         return ret
 
     def tree_flatten(self):
         children = (
-            (self.x, self.y, self.flux),
+            (self._x, self._y, self._flux, self._nokeep),
             {
-                "dxdz": self.dxdz,
-                "dydz": self.dydz,
-                "wavelength": self.wavelength,
-                "pupil_u": self.pupil_u,
-                "pupil_v": self.pupil_v,
-                "time": self.time,
-                "is_corr": self.isCorrelated(),
+                "dxdz": self._dxdz,
+                "dydz": self._dydz,
+                "wavelength": self._wave,
+                "pupil_u": self._pupil_u,
+                "pupil_v": self._pupil_v,
+                "time": self._time,
+                "is_corr": self._is_corr,
             },
         )
-        aux_data = (self._N,)
+        aux_data = (self._Ntot,)
         return (children, aux_data)
 
     @classmethod
     def tree_unflatten(cls, aux_data, children):
         """Recreates an instance of the class from flatten representation"""
         ret = cls.__new__(cls)
-        ret._N = aux_data[0]
+        ret._Ntot = aux_data[0]
+        ret._nokeep = children[0][3]
         ret._x = children[0][0]
         ret._y = children[0][1]
         ret._flux = children[0][2]
@@ -180,10 +230,20 @@ class PhotonArray:
 
     def size(self):
         """Return the size of the photon array.  Equivalent to ``len(self)``."""
-        return self._N
+        return self._Ntot
 
     def __len__(self):
-        return self._N
+        return self._Ntot
+
+    @property
+    def _num_keep(self):
+        """The number of actual photons in the array."""
+        return jnp.sum(~self._nokeep).astype(int)
+
+    @_num_keep.setter
+    def _num_keep(self, num_keep):
+        """Set the number of actual photons in the array."""
+        self._nokeep = jnp.arange(self._Ntot) >= num_keep
 
     @property
     def x(self):
@@ -210,7 +270,13 @@ class PhotonArray:
     @property
     def flux(self):
         """The flux of the photons."""
-        return self._flux
+        return jax.lax.cond(
+            self._Ntot == self._num_keep,
+            lambda flux, ratio: flux,
+            lambda flux, ratio: flux * ratio,
+            jnp.where(self._nokeep, 0.0, self._flux),
+            self._Ntot / self._num_keep,
+        )
 
     @flux.setter
     def flux(self, value):
@@ -375,6 +441,22 @@ class PhotonArray:
 
         return self
 
+    def _sort_by_nokeep(self):
+        # now sort things to keep to the left
+        sinds = jnp.argsort(self._nokeep)
+        self._x = self._x.at[sinds].get()
+        self._y = self._y.at[sinds].get()
+        self._flux = self._flux.at[sinds].get()
+        self._nokeep = self._nokeep.at[sinds].get()
+        self._dxdz = self._dxdz.at[sinds].get()
+        self._dydz = self._dydz.at[sinds].get()
+        self._wave = self._wave.at[sinds].get()
+        self._pupil_u = self._pupil_u.at[sinds].get()
+        self._pupil_v = self._pupil_v.at[sinds].get()
+        self._time = self._time.at[sinds].get()
+
+        return self
+
     def assignAt(self, istart, rhs):
         """Assign the contents of another `PhotonArray` to this one starting at istart."""
         if istart + rhs.size() > self.size():
@@ -385,6 +467,7 @@ class PhotonArray:
         self._x = self._x.at[istart : istart + rhs.size()].set(rhs.x)
         self._y = self._y.at[istart : istart + rhs.size()].set(rhs.y)
         self._flux = self._flux.at[istart : istart + rhs.size()].set(rhs.flux)
+        self._nokeep = self._nokeep.at[istart : istart + rhs.size()].set(rhs._nokeep)
         self._dxdz = self._dxdz.at[istart : istart + rhs.size()].set(rhs.dxdz)
         self._dydz = self._dydz.at[istart : istart + rhs.size()].set(rhs.dydz)
         self._wave = self._wave.at[istart : istart + rhs.size()].set(rhs.wavelength)
@@ -392,7 +475,7 @@ class PhotonArray:
         self._pupil_v = self._pupil_v.at[istart : istart + rhs.size()].set(rhs.pupil_v)
         self._time = self._time.at[istart : istart + rhs.size()].set(rhs.time)
 
-        return self
+        return self._sort_by_nokeep()
 
     def _assign_from_categorical_index(self, cat_inds, cat_ind_to_assign, rhs):
         """Assign the contents of another `PhotonArray` to this one at locations
@@ -402,6 +485,7 @@ class PhotonArray:
         self._x = jnp.where(msk, rhs._x, self._x)
         self._y = jnp.where(msk, rhs._y, self._y)
         self._flux = jnp.where(msk, rhs._flux, self._flux)
+        self._nokeep = jnp.where(msk, rhs._nokeep, self._nokeep)
 
         self._dxdz = jnp.where(msk, rhs._dxdz, self._dxdz)
         self._dydz = jnp.where(msk, rhs._dydz, self._dydz)
@@ -410,7 +494,7 @@ class PhotonArray:
         self._pupil_v = jnp.where(msk, rhs._pupil_v, self._pupil_v)
         self._time = jnp.where(msk, rhs._time, self._time)
 
-        return self
+        return self._sort_by_nokeep()
 
     def convolve(self, rhs, rng=None):
         """Convolve this `PhotonArray` with another.
@@ -428,7 +512,7 @@ class PhotonArray:
         rng = BaseDeviate(rng)
         rsinds = jrng.choice(
             rng._state.split_one(),
-            self.size(),
+            self._Ntot,
             shape=(self.size(),),
             replace=False,
         )
@@ -436,7 +520,9 @@ class PhotonArray:
 
         sinds = jax.lax.cond(
             jnp.array(self.isCorrelated()) & jnp.array(rhs.isCorrelated()),
-            lambda nrsinds, rsinds: rsinds,
+            lambda nrsinds, rsinds: rsinds.at[
+                jnp.argsort(rhs._nokeep.at[rsinds].get())
+            ].get(),
             lambda nrsinds, rsinds: nrsinds,
             nrsinds,
             rsinds,
@@ -527,6 +613,7 @@ class PhotonArray:
             )
         if self.hasAllocatedTimes():
             s += ", time=array(%r)" % np.array(self.time).tolist()
+        s += ", _nokeep=array(%r)" % np.array(self._nokeep).tolist()
         s += ")"
         return s
 
@@ -541,6 +628,7 @@ class PhotonArray:
             and jnp.array_equal(self.x, other.x)
             and jnp.array_equal(self.y, other.y)
             and jnp.array_equal(self.flux, other.flux)
+            and jnp.array_equal(self._nokeep, other._nokeep)
             and jnp.array_equal(self.dxdz, other.dxdz, equal_nan=True)
             and jnp.array_equal(self.dydz, other.dydz, equal_nan=True)
             and jnp.array_equal(self.wavelength, other.wavelength, equal_nan=True)
@@ -574,7 +662,7 @@ class PhotonArray:
         _arr, _flux_sum = _add_photons_to_image(
             self._x,
             self._y,
-            self._flux,
+            jnp.where(self._nokeep, 0.0, self._flux) * self._Ntot / self._num_keep,
             image.bounds.xmin,
             image.bounds.ymin,
             image._array,
@@ -651,6 +739,9 @@ class PhotonArray:
         cols.append(pyfits.Column(name="x", format="D", array=np.array(self.x)))
         cols.append(pyfits.Column(name="y", format="D", array=np.array(self.y)))
         cols.append(pyfits.Column(name="flux", format="D", array=np.array(self.flux)))
+        cols.append(
+            pyfits.Column(name="_nokeep", format="L", array=np.array(self._nokeep))
+        )
 
         if self.hasAllocatedAngles():
             cols.append(
@@ -708,6 +799,7 @@ class PhotonArray:
             y=jnp.array(data["y"]),
             flux=jnp.array(data["flux"]),
         )
+        photons._nokeep = jnp.array(data["_nokeep"])
         if "dxdz" in names:
             photons.dxdz = jnp.array(data["dxdz"])
             photons.dydz = jnp.array(data["dydz"])

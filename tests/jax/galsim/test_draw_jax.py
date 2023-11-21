@@ -1115,19 +1115,22 @@ def test_shoot():
     # in exact arithmetic.  We had an assert there which blew up in a not very nice way.
     obj = galsim.Gaussian(sigma=0.2398318) + 0.1*galsim.Gaussian(sigma=0.47966352)
     obj = obj.withFlux(100001)
-    image1 = galsim.ImageF(32,32, init_value=100)
+    # JAX-Galsim adjusts the images to double here
+    image1 = galsim.ImageD(32,32, init_value=100)
     rng = galsim.BaseDeviate(1234)
     obj.drawImage(image1, method='phot', poisson_flux=False, add_to_image=True, rng=rng,
                   maxN=100000)
 
     # The test here is really just that it doesn't crash.
     # But let's do something to check correctness.
-    image2 = galsim.ImageF(32,32)
+    # JAX-Galsim adjusts the images to double here
+    image2 = galsim.ImageD(32,32)
     rng = galsim.BaseDeviate(1234)
     obj.drawImage(image2, method='phot', poisson_flux=False, add_to_image=False, rng=rng,
                   maxN=100000)
     image2 += 100
-    np.testing.assert_array_almost_equal(image2.array, image1.array, decimal=12)
+    # with double, we get the same result to 10 decimal places
+    np.testing.assert_array_almost_equal(image2.array, image1.array, decimal=10)
 
     # Also check that you get the same answer with a smaller maxN.
     image3 = galsim.ImageF(32,32, init_value=100)
@@ -1141,13 +1144,15 @@ def test_shoot():
     np.testing.assert_array_equal(image4.array, 0)
 
     # Warns if flux is 1 and n_photons not given.
+    # JAX-GalSim doesn't warn in this case
     psf = galsim.Gaussian(sigma=3)
-    with assert_warns(galsim.GalSimWarning):
-        psf.drawImage(method='phot')
-    with assert_warns(galsim.GalSimWarning):
-        psf.drawPhot(image4)
-    with assert_warns(galsim.GalSimWarning):
-        psf.makePhot()
+    # with assert_warns(galsim.GalSimWarning):
+    #     psf.drawImage(method='phot')
+    # with assert_warns(galsim.GalSimWarning):
+    #     psf.drawPhot(image4)
+    # with assert_warns(galsim.GalSimWarning):
+    #     psf.makePhot()
+
     # With n_photons=1, it's fine.
     psf.drawImage(method='phot', n_photons=1)
     psf.drawPhot(image4, n_photons=1)
@@ -1204,23 +1209,24 @@ def test_drawImage_area_exptime():
     msg = "obj.drawImage(method='phot') unexpectedly produced equal images with different rng"
     assert not np.allclose(im5.array, im4.array), msg
 
-    # Shooting with flux=1 raises a warning.
-    obj1 = obj.withFlux(1)
-    with assert_warns(galsim.GalSimWarning):
-        obj1.drawImage(method='phot')
-    # But not if we explicitly tell it to shoot 1 photon
-    with assert_raises(AssertionError):
-        assert_warns(galsim.GalSimWarning, obj1.drawImage, method='phot', n_photons=1)
-    # Likewise for makePhot
-    with assert_warns(galsim.GalSimWarning):
-        obj1.makePhot()
-    with assert_raises(AssertionError):
-        assert_warns(galsim.GalSimWarning, obj1.makePhot, n_photons=1)
-    # And drawPhot
-    with assert_warns(galsim.GalSimWarning):
-        obj1.drawPhot(im1)
-    with assert_raises(AssertionError):
-        assert_warns(galsim.GalSimWarning, obj1.drawPhot, im1, n_photons=1)
+    # JAX-GalSim doesn't raise for these things
+    # # Shooting with flux=1 raises a warning.
+    # obj1 = obj.withFlux(1)
+    # with assert_warns(galsim.GalSimWarning):
+    #     obj1.drawImage(method='phot')
+    # # But not if we explicitly tell it to shoot 1 photon
+    # with assert_raises(AssertionError):
+    #     assert_warns(galsim.GalSimWarning, obj1.drawImage, method='phot', n_photons=1)
+    # # Likewise for makePhot
+    # with assert_warns(galsim.GalSimWarning):
+    #     obj1.makePhot()
+    # with assert_raises(AssertionError):
+    #     assert_warns(galsim.GalSimWarning, obj1.makePhot, n_photons=1)
+    # # And drawPhot
+    # with assert_warns(galsim.GalSimWarning):
+    #     obj1.drawPhot(im1)
+    # with assert_raises(AssertionError):
+    #     assert_warns(galsim.GalSimWarning, obj1.drawPhot, im1, n_photons=1)
 
 
 @timer

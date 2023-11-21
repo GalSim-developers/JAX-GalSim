@@ -329,10 +329,7 @@ def test_interpolatedimage_utils_jax_galsim_fft_vs_galsim_fft(n):
         Lanczos(7),
     ],
 )
-def test_interpolatedimage_interpolant_rejection_sample(interp):
-    from jax.tree_util import Partial as jax_partial
-
-    from jax_galsim.interpolant import _rejection_sample
+def test_interpolatedimage_interpolant_sample(interp):
     from jax_galsim.photon_array import PhotonArray
     from jax_galsim.random import BaseDeviate
 
@@ -340,15 +337,7 @@ def test_interpolatedimage_interpolant_rejection_sample(interp):
 
     ntot = 1000000
     photons = PhotonArray(ntot)
-    photons, _ = _rejection_sample(
-        photons,
-        rng,
-        interp.xrange * 2.0,
-        jax_partial(interp._xval_noraise),
-        interp.positive_flux,
-        interp.negative_flux,
-        interp._xval_noraise(0.0),
-    )
+    interp._shoot(photons, rng)
 
     h, bins = jnp.histogram(photons.x, bins=500)
     mid = (bins[1:] + bins[:-1]) / 2.0
@@ -365,11 +354,12 @@ def test_interpolatedimage_interpolant_rejection_sample(interp):
     np.testing.assert_allclose(fdev[msk], 0, rtol=0, atol=5.0, err_msg=f"{interp}")
     np.testing.assert_allclose(fdev[~msk], 0, rtol=0, atol=15.0, err_msg=f"{interp}")
 
-    if interp.__class__.__name__ == "Quintic" and False:
+    if interp.__class__.__name__ in ["Quintic", "Lanczos"] and False:
         import proplot as pplt
 
-        fig, axs = pplt.subplots(figsize=(4, 4))
-        axs.hist(photons.x, bins=500, log=False)
+        fig, axs = pplt.subplots(figsize=(6, 6))
+        axs.hist(photons.x, bins=500, log=True)
         axs.plot(mid, yv, color="k")
+        axs.format(title=interp.__class__.__name__)
         fig.show()
         breakpoint()
