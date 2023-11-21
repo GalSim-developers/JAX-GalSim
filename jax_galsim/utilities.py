@@ -172,7 +172,7 @@ def horner(x, coef, dtype=None):
     if len(coef.shape) != 1:
         raise GalSimValueError("coef must be 1-dimensional", coef)
 
-    # TODO: we cannot trim zerosin jax galsim because then for all zeros
+    # TODO: we cannot trim zeros in jax galsim because then for all zeros
     # jax attempts to index an array with shape = (0,) which throws an
     # error.
     # coef = jnp.trim_zeros(coef, trim="b")  # trim only from the back
@@ -210,38 +210,56 @@ def horner2d(x, y, coefs, dtype=None, triangle=False):
             "coefs must be square if triangle is True", coefs=coefs, triangle=triangle
         )
 
-    def _sub(arr, i):
-        return arr[:i]
-
     if triangle:
+        # this loop in python looks like
+        # Note: for each power of x, it computes all powers of y
+        #
+        # result = np.zeros_like(x)
+        # temp = np.zeros_like(x)
+        #
+        # for i, coef in enumerate(coefs[::-1]):
+        #     result *= x
+        #     _horner(y, coef[:i+1], temp)
+        #     result += temp
+
+        def _body(i, args):
+            res, coeffs, y = args
+            # only grab the triangular part
+            tri_coeffs = jnp.where(
+                jnp.arange(coeffs.shape[1]) < i + 1,
+                coeffs[i, :],
+                jnp.zeros_like(coeffs[i, :]),
+            )
+            res = res * x + horner(y, tri_coeffs, dtype=dtype)
+            return res, coeffs, y
+
         res = jax.lax.fori_loop(
             0,
             coefs.shape[0],
-            lambda i, args: (
-                args[0] * x
-                + horner(
-                    args[2],
-                    jnp.where(
-                        jnp.arange(args[1].shape[1]) < i + 1,
-                        args[1][i, :],
-                        jnp.zeros_like(args[1][i, :]),
-                    ),
-                    dtype=dtype,
-                ),
-                args[1],
-                args[2],
-            ),
+            _body,
             (res, coefs[::-1, :], y),
         )[0]
     else:
+        # this loop in python looks like
+        # Note: for each power of x, it computes all powers of y
+        #
+        # result = np.zeros_like(x)
+        # temp = np.zeros_like(x)
+        #
+        # for coef in coefs[::-1]:
+        #     result *= x
+        #     _horner(y, coef, temp)
+        #     result += temp
+
+        def _body(i, args):
+            res, coeffs, y = args
+            res = res * x + horner(y, coeffs[i], dtype=dtype)
+            return res, coeffs, y
+
         res = jax.lax.fori_loop(
             0,
             coefs.shape[0],
-            lambda i, args: (
-                args[0] * x + horner(args[2], args[1][i], dtype=dtype),
-                args[1],
-                args[2],
-            ),
+            _body,
             (res, coefs[::-1, :], y),
         )[0]
 
