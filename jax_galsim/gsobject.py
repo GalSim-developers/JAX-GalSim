@@ -445,7 +445,7 @@ class GSObject:
                 )
 
             # Resize the given image if necessary
-            if not image.bounds.isDefined():
+            if not image.bounds.isDefined(_static=True):
                 # Can't add to image if need to resize
                 if add_to_image:
                     raise _galsim.GalSimIncompatibleValuesError(
@@ -478,7 +478,7 @@ class GSObject:
                         ny=ny,
                         bounds=bounds,
                     )
-                if not bounds.isDefined():
+                if not bounds.isDefined(_static=True):
                     raise _galsim.GalSimValueError(
                         "Cannot use undefined bounds", bounds
                     )
@@ -515,7 +515,7 @@ class GSObject:
             bounds = new_bounds
         else:
             bounds = image.bounds
-        if not bounds.isDefined():
+        if not bounds.isDefined(_static=True):
             raise _galsim.GalSimIncompatibleValuesError(
                 "Cannot provide non-local wcs with automatically sized image",
                 wcs=wcs,
@@ -556,7 +556,7 @@ class GSObject:
     def _get_new_bounds(self, image, nx, ny, bounds, center):
         from jax_galsim.bounds import BoundsI
 
-        if image is not None and image.bounds.isDefined():
+        if image is not None and image.bounds.isDefined(_static=True):
             return image.bounds
         elif nx is not None and ny is not None:
             b = BoundsI(1, nx, 1, ny)
@@ -568,7 +568,7 @@ class GSObject:
                     )
                 )
             return b
-        elif bounds is not None and bounds.isDefined():
+        elif bounds is not None and bounds.isDefined(_static=True):
             return bounds
         else:
             return BoundsI()
@@ -576,7 +576,7 @@ class GSObject:
     def _adjust_offset(self, new_bounds, offset, center, use_true_center):
         # Note: this assumes self is in terms of image coordinates.
         if center is not None:
-            if new_bounds.isDefined():
+            if new_bounds.isDefined(_static=True):
                 offset += center - new_bounds.center
             else:
                 # Then will be created as even sized image.
@@ -590,7 +590,7 @@ class GSObject:
             # Also, remember that numpy's shape is ordered as [y,x]
             dx = offset.x
             dy = offset.y
-            shape = new_bounds.numpyShape()
+            shape = new_bounds.numpyShape(_static=True)
             dx -= 0.5 * ((shape[1] + 1) % 2)
             dy -= 0.5 * ((shape[0] + 1) % 2)
 
@@ -690,6 +690,13 @@ The JAX-GalSim version of `drawImage` does not
                 "Setting maxN is incompatible with save_photons=True"
             )
 
+        if method not in ("auto", "fft", "real_space", "phot", "no_pixel", "sb"):
+            raise GalSimValueError(
+                "Invalid method name",
+                method,
+                ("auto", "fft", "real_space", "phot", "no_pixel", "sb"),
+            )
+
         # Check that the user isn't convolving by a Pixel already.  This is almost always an error.
         if method == "auto" and isinstance(self, Convolution):
             if any([isinstance(obj, Pixel) for obj in self.obj_list]):
@@ -701,6 +708,45 @@ The JAX-GalSim version of `drawImage` does not
                     "convolution yourself, you can use method=no_pixel.  Or if you really meant "
                     "for your profile to include the Pixel and also have GalSim convolve by "
                     "an _additional_ Pixel, you can suppress this warning by using method=fft."
+                )
+
+        if method != "phot":
+            if n_photons is not None:
+                raise GalSimIncompatibleValuesError(
+                    "n_photons is only relevant for method='phot'",
+                    method=method,
+                    sensor=sensor,
+                    n_photons=n_photons,
+                )
+            if poisson_flux is not None:
+                raise GalSimIncompatibleValuesError(
+                    "poisson_flux is only relevant for method='phot'",
+                    method=method,
+                    sensor=sensor,
+                    poisson_flux=poisson_flux,
+                )
+
+        if method != "phot" and sensor is None:
+            if rng is not None:
+                raise GalSimIncompatibleValuesError(
+                    "rng is only relevant for method='phot' or when using a sensor",
+                    method=method,
+                    sensor=sensor,
+                    rng=rng,
+                )
+            if maxN is not None:
+                raise GalSimIncompatibleValuesError(
+                    "maxN is only relevant for method='phot' or when using a sensor",
+                    method=method,
+                    sensor=sensor,
+                    maxN=maxN,
+                )
+            if save_photons:
+                raise GalSimIncompatibleValuesError(
+                    "save_photons is only valid for method='phot' or when using a sensor",
+                    method=method,
+                    sensor=sensor,
+                    save_photons=save_photons,
                 )
 
         # Figure out what wcs we are going to use.
@@ -726,7 +772,7 @@ The JAX-GalSim version of `drawImage` does not
             flux_scale /= local_wcs.pixelArea()
         # Only do the gain here if not photon shooting, since need the number of photons to
         # reflect that actual photons, not ADU.
-        if method != "phot" and sensor is None and gain != 1:
+        if method != "phot" and sensor is None:
             flux_scale /= gain
 
         # Determine the offset, and possibly fix the centering for even-sized images
@@ -785,9 +831,9 @@ The JAX-GalSim version of `drawImage` does not
                 local_wcs,
             )
         else:
-            if sensor is not None:
+            if sensor is not None or photon_ops:
                 raise NotImplementedError(
-                    "Sensor not yet implemented in drawImage for method != 'phot'."
+                    "Sensor/photon_ops not yet implemented in drawImage for method != 'phot'."
                 )
 
             if prof.is_analytic_x:
@@ -872,7 +918,7 @@ The JAX-GalSim version of `drawImage` does not
                 jnp.array(
                     [
                         jnp.max(jnp.abs(jnp.array(image.bounds._getinitargs()))) * 2,
-                        jnp.max(jnp.array(image.bounds.numpyShape())),
+                        jnp.max(jnp.array(image.bounds.numpyShape(_static=True))),
                     ]
                 )
             )
@@ -938,7 +984,7 @@ The JAX-GalSim version of `drawImage` does not
         )
         kimg_shift = jnp.fft.ifftshift(kimage_wrap.array, axes=(-2,))
         real_image_arr = jnp.fft.fftshift(
-            jnp.fft.irfft2(kimg_shift, breal.numpyShape())
+            jnp.fft.irfft2(kimg_shift, breal.numpyShape(_static=True))
         )
         real_image = Image(
             bounds=breal, array=real_image_arr, dtype=image.dtype, wcs=image.wcs
@@ -1023,7 +1069,7 @@ The JAX-GalSim version of `drawImage` does not
             dk = self.stepk
         else:
             dk = scale
-        if image is not None and image.bounds.isDefined():
+        if image is not None and image.bounds.isDefined(_static=True):
             dx = np.pi / (max(image.array.shape) // 2 * dk)
         elif scale is None or scale <= 0:
             dx = self.nyquist_scale
@@ -1035,7 +1081,7 @@ The JAX-GalSim version of `drawImage` does not
         # If the profile needs to be constructed from scratch, the _setup_image function will
         # do that, but only if the profile is in image coordinates for the real space image.
         # So make that profile.
-        if image is None or not image.bounds.isDefined():
+        if image is None or not image.bounds.isDefined(_static=True):
             real_prof = PixelScale(dx).profileToImage(self)
             dtype = np.complex128 if image is None else image.dtype
             image = real_prof._setup_image(

@@ -640,21 +640,12 @@ class PhotonArray:
     def __ne__(self, other):
         return not self == other
 
+    @_wraps(
+        _galsim.PhotonArray.addTo,
+        lax_description="The JAX equivalent of galsim.PhotonArray.addTo may not raise for undefined bounds.",
+    )
     def addTo(self, image):
-        """Add flux of photons to an image by binning into pixels.
-
-        Photons in this `PhotonArray` are binned into the pixels of the input
-        `Image` and their flux summed into the pixels.  The `Image` is assumed to represent
-        surface brightness, so photons' fluxes are divided by image pixel area.
-        Photons past the edges of the image are discarded.
-
-        Parameters:
-            image:      The `Image` to which the photons' flux will be added.
-
-        Returns:
-            the total flux of photons the landed inside the image bounds.
-        """
-        if not image.bounds.isDefined():
+        if not image.bounds.isDefined(_static=True):
             raise GalSimUndefinedBoundsError(
                 "Attempting to PhotonArray::addTo an Image with undefined Bounds"
             )

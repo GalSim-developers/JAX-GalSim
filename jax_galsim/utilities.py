@@ -4,20 +4,12 @@ import galsim as _galsim
 import jax
 import jax.numpy as jnp
 from jax._src.numpy.util import _wraps
-from jax.tree_util import tree_flatten
 
 from jax_galsim.errors import GalSimIncompatibleValuesError, GalSimValueError
 from jax_galsim.position import PositionD, PositionI
+from jax_galsim.core.utils import has_tracers
 
 printoptions = _galsim.utilities.printoptions
-
-
-def has_tracers(x):
-    """Return True if the data is equal, False otherwise. Handles jax.Array types."""
-    for item in tree_flatten(x)[0]:
-        if isinstance(item, jax.core.Tracer):
-            return True
-    return False
 
 
 @_wraps(

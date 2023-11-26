@@ -837,6 +837,8 @@ class PixelScale(LocalWCS):
     _isPixelScale = True
 
     def __init__(self, scale):
+        if isinstance(scale, BaseWCS):
+            raise TypeError("Cannot initialize PixelScale from a BaseWCS")
         self._params = {"scale": scale}
         self._color = None
 
@@ -1630,8 +1632,7 @@ def readFromFitsHeader(header, suppress_warning=True):
     """
     from . import fits
 
-    # FIXME: Enable FitsWCS
-    # from .fitswcs import FitsWCS
+    from .fitswcs import FitsWCS
     if not isinstance(header, fits.FitsHeader):
         header = fits.FitsHeader(header)
     xmin = header.get("GS_XMIN", 1)
@@ -1644,9 +1645,8 @@ def readFromFitsHeader(header, suppress_warning=True):
         wcs_type = eval("jax_galsim." + wcs_name, gdict)
         wcs = wcs_type._readHeader(header)
     else:
-        raise NotImplementedError("FitsWCS is not implemented for jax_galsim.")
         # If we aren't told which type to use, this should find something appropriate
-        # wcs = FitsWCS(header=header, suppress_warning=suppress_warning)
+        wcs = FitsWCS(header=header, suppress_warning=suppress_warning)
 
     if xmin != 1 or ymin != 1:
         # ds9 always assumes the image has an origin at (1,1), so convert back to actual

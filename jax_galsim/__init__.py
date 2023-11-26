@@ -44,6 +44,7 @@ from .image import (
     ImageS,
     ImageUI,
     ImageUS,
+    _Image,
 )
 
 # GSObject
