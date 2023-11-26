@@ -1631,8 +1631,8 @@ def readFromFitsHeader(header, suppress_warning=True):
         a tuple (wcs, origin) of the wcs from the header and the image origin.
     """
     from . import fits
-
     from .fitswcs import FitsWCS
+
     if not isinstance(header, fits.FitsHeader):
         header = fits.FitsHeader(header)
     xmin = header.get("GS_XMIN", 1)

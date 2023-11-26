@@ -82,19 +82,14 @@ def pytest_collection_modifyitems(config, items):
         # if this is a galsim test we check if it is requested or not
         if (
             (
-                (
-                    not any(
-                        [t in item.nodeid for t in test_config["enabled_tests"]["galsim"]]
-                    )
+                not any(
+                    [t in item.nodeid for t in test_config["enabled_tests"]["galsim"]]
                 )
-                and "*" not in test_config["enabled_tests"]["galsim"]
-            ) and (
-                (
-                    not any(
-                        [t in item.nodeid for t in test_config["enabled_tests"]["coord"]]
-                    )
-                ) and "*" not in test_config["enabled_tests"]["coord"]
             )
+            and "*" not in test_config["enabled_tests"]["galsim"]
+        ) and (
+            (not any([t in item.nodeid for t in test_config["enabled_tests"]["coord"]]))
+            and "*" not in test_config["enabled_tests"]["coord"]
         ):
             item.add_marker(skip)
 

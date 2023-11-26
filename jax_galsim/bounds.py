@@ -11,8 +11,8 @@ from jax_galsim.core.utils import (
     ensure_hashable,
     has_tracers,
 )
-from jax_galsim.position import Position, PositionD, PositionI
 from jax_galsim.errors import GalSimUndefinedBoundsError
+from jax_galsim.position import Position, PositionD, PositionI
 
 
 # The reason for avoid these tests is that they are not easy to do for jitted code.
@@ -97,8 +97,10 @@ class Bounds(object):
     @_wraps(_galsim.Bounds.isDefined)
     def isDefined(self, _static=False):
         if _static:
-            return self._isdefined and np.all(self.xmin <= self.xmax) and np.all(
-                self.ymin <= self.ymax
+            return (
+                self._isdefined
+                and np.all(self.xmin <= self.xmax)
+                and np.all(self.ymin <= self.ymax)
             )
         else:
             return (
@@ -371,7 +373,10 @@ class Bounds(object):
                     and np.array_equal(self.ymin, other.ymin, equal_nan=True)
                     and np.array_equal(self.ymax, other.ymax, equal_nan=True)
                 )
-                or ((not self.isDefined(_static=True)) and (not other.isDefined(_static=True)))
+                or (
+                    (not self.isDefined(_static=True))
+                    and (not other.isDefined(_static=True))
+                )
             )
         )
 
@@ -518,7 +523,10 @@ class BoundsI(Bounds):
             return jax.lax.cond(
                 jnp.any(self.isDefined()),
                 lambda xmin, xmax, ymin, ymax: (ymax - ymin + 1, xmax - xmin + 1),
-                lambda xmin, xmax, ymin, ymax: (jnp.zeros_like(xmin), jnp.zeros_like(xmin)),
+                lambda xmin, xmax, ymin, ymax: (
+                    jnp.zeros_like(xmin),
+                    jnp.zeros_like(xmin),
+                ),
                 self.xmin,
                 self.xmax,
                 self.ymin,

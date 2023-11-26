@@ -1,6 +1,6 @@
 import jax
 import numpy as np
-from galsim_test_helpers import timer, assert_raises
+from galsim_test_helpers import assert_raises, timer
 
 import jax_galsim as galsim
 from jax_galsim.core.wrap_image import (

@@ -5,9 +5,9 @@ import jax
 import jax.numpy as jnp
 from jax._src.numpy.util import _wraps
 
+from jax_galsim.core.utils import has_tracers
 from jax_galsim.errors import GalSimIncompatibleValuesError, GalSimValueError
 from jax_galsim.position import PositionD, PositionI
-from jax_galsim.core.utils import has_tracers
 
 printoptions = _galsim.utilities.printoptions
 

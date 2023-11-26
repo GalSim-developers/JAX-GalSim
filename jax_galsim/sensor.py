@@ -2,8 +2,8 @@ import galsim as _galsim
 from jax._src.numpy.util import _wraps
 from jax.tree_util import register_pytree_node_class
 
-from jax_galsim.position import PositionI
 from jax_galsim.errors import GalSimUndefinedBoundsError
+from jax_galsim.position import PositionI
 
 
 @_wraps(_galsim.Sensor)
