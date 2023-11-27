@@ -617,7 +617,7 @@ class PhotonArray:
         nrsinds = jnp.arange(self.size())
 
         sinds = jax.lax.cond(
-            jnp.array(self.isCorrelated()) & jnp.array(rhs.isCorrelated()),
+            self._is_corr & rhs._is_corr,
             lambda nrsinds, rsinds: rsinds.at[
                 jnp.argsort(rhs._nokeep.at[rsinds].get())
             ].get(),
@@ -678,9 +678,7 @@ class PhotonArray:
             sinds,
         )
 
-        self.setCorrelated(
-            jnp.array(self.isCorrelated()) | jnp.array(rhs.isCorrelated())
-        )
+        self._is_corr = self._is_corr | rhs._is_corr
 
         self._x = self._x + rhs._x.at[sinds].get()
         self._y = self._y + rhs._y.at[sinds].get()
