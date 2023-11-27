@@ -15,6 +15,8 @@ import yaml  # noqa: E402
 
 import jax_galsim  # noqa: E402
 
+os.environ["JAX_GALSIM_TESTING"] = "1"
+
 # Identify the path to this current file
 test_directory = os.path.dirname(os.path.abspath(__file__))
 

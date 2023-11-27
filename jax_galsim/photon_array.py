@@ -59,7 +59,6 @@ class PhotonArray:
         time=None,
         _nokeep=None,
     ):
-        # self._N = N
         self._Ntot = _JAX_GALSIM_PHOTON_ARRAY_SIZE or N
         # if (
         #     _JAX_GALSIM_PHOTON_ARRAY_SIZE is not None
@@ -155,7 +154,6 @@ class PhotonArray:
             )
 
         ret = cls.__new__(cls)
-        # ret._N = x.shape[0]
         ret._Ntot = _JAX_GALSIM_PHOTON_ARRAY_SIZE or x.shape[0]
         ret._x = x.copy()
         ret._y = y.copy()
@@ -191,7 +189,7 @@ class PhotonArray:
             if time is not None
             else jnp.full(ret._Ntot, jnp.nan, dtype=float)
         )
-        ret._is_corr = jnp.array(is_corr)
+        ret.setCorrelated(is_corr)
         return ret
 
     def tree_flatten(self):
@@ -400,10 +398,28 @@ class PhotonArray:
 
     def isCorrelated(self):
         """Returns whether the photons are correlated"""
+        from .deprecated import depr
+
+        depr(
+            "isCorrelated",
+            2.5,
+            "",
+            "We don't think this is necessary anymore.  If you have a use case that "
+            "requires it, please open an issue.",
+        )
         return self._is_corr
 
     def setCorrelated(self, is_corr=True):
         """Set whether the photons are correlated"""
+        from .deprecated import depr
+
+        depr(
+            "setCorrelated",
+            2.5,
+            "",
+            "We don't think this is necessary anymore.  If you have a use case that "
+            "requires it, please open an issue.",
+        )
         self._is_corr = jnp.array(is_corr, dtype=bool)
 
     def getTotalFlux(self):
@@ -459,6 +475,13 @@ class PhotonArray:
 
     def assignAt(self, istart, rhs):
         """Assign the contents of another `PhotonArray` to this one starting at istart."""
+        from .deprecated import depr
+
+        depr(
+            "PhotonArray.assignAt",
+            2.5,
+            "copyFrom(rhs, slice(istart, istart+rhs.size()))",
+        )
         if istart + rhs.size() > self.size():
             raise GalSimValueError(
                 "The given rhs does not fit into this array starting at %d" % istart,
@@ -474,6 +497,81 @@ class PhotonArray:
         self._pupil_u = self._pupil_u.at[istart : istart + rhs.size()].set(rhs.pupil_u)
         self._pupil_v = self._pupil_v.at[istart : istart + rhs.size()].set(rhs.pupil_v)
         self._time = self._time.at[istart : istart + rhs.size()].set(rhs.time)
+
+        return self._sort_by_nokeep()
+
+    @_wraps(
+        _galsim.PhotonArray.copyFrom,
+        lax_description="The JAX version of PhotonArray.copyFrom does not raise for out of bounds indices.",
+    )
+    def copyFrom(
+        self,
+        rhs,
+        target_indices=slice(None),
+        source_indices=slice(None),
+        do_xy=True,
+        do_flux=True,
+        do_other=True,
+    ):
+        return self._copyFrom(
+            rhs, target_indices, source_indices, do_xy, do_flux, do_other
+        )
+
+    def _copyFrom(
+        self,
+        rhs,
+        target_indices,
+        source_indices,
+        do_xy=True,
+        do_flux=True,
+        do_other=True,
+    ):
+        """Equivalent to self.copyFrom(rhs, target_indices, source_indices), but without any
+        checks that the indices are valid.
+        """
+        # Aliases for notational convenience.
+        s1 = target_indices
+        s2 = source_indices
+
+        @jax.jit
+        def _cond_set_indices(arr1, arr2, cond_val):
+            return jax.lax.cond(
+                cond_val,
+                lambda arr1, arr2: arr1.at[s1].set(arr2.at[s2].get()),
+                lambda arr1, arr2: arr1,
+                arr1,
+                arr2,
+            )
+
+        if do_xy:
+            self._x = self._x.at[s1].set(rhs.x.at[s2].get())
+            self._y = self._y.at[s1].set(rhs.y.at[s2].get())
+
+        if do_flux:
+            self._flux = self._flux.at[s1].set(rhs.flux.at[s2].get())
+
+        if do_other:
+            self._dxdz = _cond_set_indices(
+                self._dxdz, rhs.dxdz, rhs.hasAllocatedAngles()
+            )
+            self._dydz = _cond_set_indices(
+                self._dydz, rhs.dydz, rhs.hasAllocatedAngles()
+            )
+            self._wave = _cond_set_indices(
+                self._wave, rhs.wavelength, rhs.hasAllocatedWavelengths()
+            )
+            self._pupil_u = _cond_set_indices(
+                self._pupil_u, rhs.pupil_u, rhs.hasAllocatedPupil()
+            )
+            self._pupil_v = _cond_set_indices(
+                self._pupil_v, rhs.pupil_v, rhs.hasAllocatedPupil()
+            )
+            self._time = _cond_set_indices(
+                self._time, rhs.time, rhs.hasAllocatedTimes()
+            )
+
+        if do_xy or do_flux or do_other:
+            self._nokeep = self._nokeep.at[s1].set(rhs._nokeep.at[s2].get())
 
         return self._sort_by_nokeep()
 

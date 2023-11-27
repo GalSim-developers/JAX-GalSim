@@ -346,6 +346,16 @@ class Image(object):
         return self._array
 
     @property
+    def nrow(self):
+        """The number of rows in the image"""
+        return self._array.shape[0]
+
+    @property
+    def ncol(self):
+        """The number of columns in the image"""
+        return self._array.shape[1]
+
+    @property
     def isconst(self):
         """Whether the `Image` is constant.  I.e. modifying its values is an error."""
         return self._is_const
@@ -438,7 +448,9 @@ class Image(object):
 
         This works for real or complex.  For real images, it acts the same as `view`.
         """
-        return self.__class__(self.array.real, bounds=self.bounds, wcs=self.wcs)
+        return self.__class__(
+            self.array.real, bounds=self.bounds, wcs=self.wcs, make_const=self._is_const
+        )
 
     @property
     def imag(self):
@@ -449,7 +461,12 @@ class Image(object):
         This works for real or complex.  For real images, the returned array is read-only and
         all elements are 0.
         """
-        return self.__class__(self.array.imag, bounds=self.bounds, wcs=self.wcs)
+        return self.__class__(
+            self.array.imag,
+            bounds=self.bounds,
+            wcs=self.wcs,
+            make_const=self._is_const or (not self.iscomplex),
+        )
 
     @property
     def conjugate(self):
@@ -895,7 +912,7 @@ Contrary to GalSim, view
         # we use the static bounds check set at construction
         # since the dynamic one in JAX would change array shape
         if not self.bounds.isDefined(_static=True):
-            return Image(wcs=wcs, dtype=dtype)
+            return Image(wcs=wcs, dtype=dtype, make_const=make_const)
 
         # Recast the array type if necessary
         if dtype != self.array.dtype:
@@ -906,7 +923,7 @@ Contrary to GalSim, view
             array = self.array
 
         # Make the return Image
-        ret = self.__class__(array, bounds=self.bounds, wcs=wcs)
+        ret = self.__class__(array, bounds=self.bounds, wcs=wcs, make_const=make_const)
 
         # Update the origin if requested
         if origin is not None:
