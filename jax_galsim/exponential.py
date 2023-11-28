@@ -154,14 +154,14 @@ class Exponential(GSObject):
         #
         # We are looking to draw from a distribution that is r * exp(-r).
         # This distribution is the radial PDF of an Exponential profile.
-        # The fact of r comes from the area element r * dr.
+        # The factor of r comes from the area element r * dr.
         #
         # We can compute the CDF of this distribution analytically, but we cannot
         # invert the CDF in closed form. Thus we invert it numerically using a table.
         #
         # One final detail is that we want the inversion to be accurate and are using
         # linear interpolation. Thus we use a change of variables r = -ln(1 - u)
-        # to make the CDF more linear.
+        # to make the CDF more linear and map it's domain to [0, 1) instead of [0, inf).
         #
         # Putting this all together, we get
         #
