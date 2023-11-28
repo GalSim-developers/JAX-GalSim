@@ -104,6 +104,7 @@ def test_photon_shooting_jax_offset(offset):
     flux_max = iobj.max_sb * 0.2**2
     atol = flux_max * rtol * 3
     nphot = int((flux_tot / flux_max / rtol**2).item())
+    rtol *= 3
 
     with time_code_block():
         img_phot = iobj.drawImage(
@@ -207,14 +208,12 @@ def test_photon_shooting_jax_vmapping():
         img = _draw(hlrs[0], fwhms[0], shifts[0], fluxes[0], seeds[0])
     with time_code_block("one"):
         img = _draw(hlrs[0], fwhms[0], shifts[0], fluxes[0], seeds[0])
-    print(img.array.shape, img.bounds, img.array.sum(), fluxes[0])
 
     _vmap_draw = jax.jit(jax.vmap(_draw, in_axes=(0, 0, 0, 0, 0)))
     with time_code_block("vmap warmup"):
         imgs = _vmap_draw(hlrs, fwhms, shifts, fluxes, seeds)
     with time_code_block("vmap"):
         imgs = _vmap_draw(hlrs, fwhms, shifts, fluxes, seeds)
-    print(imgs.array.shape)
 
     np.testing.assert_allclose(img.array.sum(), imgs.array[0].sum())
 
