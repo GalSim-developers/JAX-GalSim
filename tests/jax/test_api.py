@@ -940,7 +940,6 @@ def test_api_noise():
     ],
 )
 def test_api_pickling_eval_repr_basic(obj1):
-    """This test is here until we run all of the galsim tests which cover this one."""
     # test copied from galsim
     import copy
     import pickle
