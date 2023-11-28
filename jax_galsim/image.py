@@ -259,8 +259,6 @@ class Image(object):
             b = kwargs.pop("bounds")
             if not isinstance(b, BoundsI):
                 raise TypeError("bounds must be a galsim.BoundsI instance")
-            # we use the static bounds check here since we cannot raise errors in jitted
-            # code anyways
             if check_bounds and b.isDefined():
                 # We need to disable this when jitting
                 if b.xmax - b.xmin + 1 != array.shape[1]:
@@ -276,9 +274,6 @@ class Image(object):
                         bounds=b,
                     )
 
-            # this statement in JAX would change array sizes and so is not supported
-            # so instead we check the static property set on construction for whether
-            # the bounds are defined
             if b.isDefined():
                 xmin = b.xmin
                 ymin = b.ymin
@@ -867,12 +862,7 @@ class Image(object):
 
     @_wraps(
         _galsim.Image.view,
-        lax_description="""\
-Contrary to GalSim, view
-
-  - will create a copy of the orginal image
-  - will not check for undefined bounds
-""",
+        lax_description="Contrary to GalSim, this will create a copy of the orginal image.",
     )
     def view(
         self,
