@@ -55,7 +55,7 @@ class Image(object):
     valid_dtypes = _valid_dtypes
 
     def __init__(self, *args, **kwargs):
-        # this one is pecific to jax-galsim and is used to disable bounds checking
+        # this one is specific to jax-galsim and is used to disable bounds checking
         _check_bounds = kwargs.pop("_check_bounds", True)
 
         # Parse the args, kwargs
