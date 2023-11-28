@@ -23,7 +23,7 @@ printoptions = _galsim.utilities.printoptions
     ),
 )
 def lazy_property(func_=None, cache_jax_tracers=False):
-    # the extra layer of indirection here allows the decorator to 
+    # the extra layer of indirection here allows the decorator to
     # take keyword arguments and also be used without them.
     # see https://stackoverflow.com/a/57268935
     def _decorator(func):
