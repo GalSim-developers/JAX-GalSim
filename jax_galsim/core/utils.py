@@ -7,14 +7,9 @@ from jax.tree_util import tree_flatten
 
 
 def has_tracers(x):
-    """Return True if the input item is a JAX tracer, False otherwise."""
+    """Return True if the input item is a JAX tracer or object, False otherwise."""
     for item in tree_flatten(x)[0]:
-        if (
-            isinstance(item, jax.core.Tracer)
-            or type(item) is object
-            # or isinstance(item, jax.core.ShapedArray)
-            # or isinstance(item, str)
-        ):
+        if isinstance(item, jax.core.Tracer) or type(item) is object:
             return True
     return False
 
