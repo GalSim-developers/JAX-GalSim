@@ -741,7 +741,7 @@ class PhotonArray:
         lax_description="The JAX equivalent of galsim.PhotonArray.addTo may not raise for undefined bounds.",
     )
     def addTo(self, image):
-        if not image.bounds.isDefined(_static=True):
+        if not image.bounds.isDefined():
             raise GalSimUndefinedBoundsError(
                 "Attempting to PhotonArray::addTo an Image with undefined Bounds"
             )

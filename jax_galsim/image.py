@@ -188,9 +188,7 @@ class Image(object):
         elif bounds is not None:
             if not isinstance(bounds, BoundsI):
                 raise TypeError("bounds must be a galsim.BoundsI instance")
-            self._array = self._make_empty(
-                bounds.numpyShape(_static=True), dtype=self._dtype
-            )
+            self._array = self._make_empty(bounds.numpyShape(), dtype=self._dtype)
             self._bounds = bounds
             if init_value:
                 self._array = self._array + init_value
@@ -263,7 +261,7 @@ class Image(object):
                 raise TypeError("bounds must be a galsim.BoundsI instance")
             # we use the static bounds check here since we cannot raise errors in jitted
             # code anyways
-            if check_bounds and b.isDefined(_static=True):
+            if check_bounds and b.isDefined():
                 # We need to disable this when jitting
                 if b.xmax - b.xmin + 1 != array.shape[1]:
                     raise _galsim.GalSimIncompatibleValuesError(
@@ -281,7 +279,7 @@ class Image(object):
             # this statement in JAX would change array sizes and so is not supported
             # so instead we check the static property set on construction for whether
             # the bounds are defined
-            if b.isDefined(_static=True):
+            if b.isDefined():
                 xmin = b.xmin
                 ymin = b.ymin
             else:
@@ -302,7 +300,7 @@ class Image(object):
 
     def __repr__(self):
         s = "galsim.Image(bounds=%r" % self.bounds
-        if self.bounds.isDefined(_static=True):
+        if self.bounds.isDefined():
             s += ", array=\n%r" % np.array(self.array)
         s += ", wcs=%r" % self.wcs
         if self.isconst:
@@ -522,9 +520,7 @@ class Image(object):
             raise GalSimImmutableError("Cannot modify an immutable Image", self)
         if not isinstance(bounds, BoundsI):
             raise TypeError("bounds must be a galsim.BoundsI instance")
-        self._array = self._make_empty(
-            shape=bounds.numpyShape(_static=True), dtype=self.dtype
-        )
+        self._array = self._make_empty(shape=bounds.numpyShape(), dtype=self.dtype)
         self._bounds = bounds
         if wcs is not None:
             self.wcs = wcs
@@ -536,11 +532,11 @@ class Image(object):
         """
         if not isinstance(bounds, BoundsI):
             raise TypeError("bounds must be a galsim.BoundsI instance")
-        if not self.bounds.isDefined(_static=True):
+        if not self.bounds.isDefined():
             raise _galsim.GalSimUndefinedBoundsError(
                 "Attempt to access subImage of undefined image"
             )
-        if not self.bounds.includes(bounds, _static=True):
+        if not self.bounds.includes(bounds):
             raise _galsim.GalSimBoundsError(
                 "Attempt to access subImage not (fully) in image", bounds, self.bounds
             )
@@ -564,17 +560,17 @@ class Image(object):
             raise GalSimImmutableError("Cannot modify an immutable Image", self)
         if not isinstance(bounds, BoundsI):
             raise TypeError("bounds must be a galsim.BoundsI instance")
-        if not self.bounds.isDefined(_static=True):
+        if not self.bounds.isDefined():
             raise _galsim.GalSimUndefinedBoundsError(
                 "Attempt to access values of an undefined image"
             )
-        if not self.bounds.includes(bounds, _static=True):
+        if not self.bounds.includes(bounds):
             raise _galsim.GalSimBoundsError(
                 "Attempt to access subImage not (fully) in image", bounds, self.bounds
             )
         if not isinstance(rhs, Image):
             raise TypeError("Trying to copyFrom a non-image")
-        if bounds.numpyShape(_static=True) != rhs.bounds.numpyShape(_static=True):
+        if bounds.numpyShape() != rhs.bounds.numpyShape():
             raise _galsim.GalSimIncompatibleValuesError(
                 "Trying to copy images that are not the same shape",
                 self_image=self,
@@ -726,7 +722,7 @@ class Image(object):
         lax_description="JAX-GalSim does not support forward FFTs of complex dtypes.",
     )
     def calculate_fft(self):
-        if not self.bounds.isDefined(_static=True):
+        if not self.bounds.isDefined():
             raise _galsim.GalSimUndefinedBoundsError(
                 "calculate_fft requires that the image have defined bounds."
             )
@@ -778,7 +774,7 @@ class Image(object):
 
     @_wraps(_galsim.Image.calculate_inverse_fft)
     def calculate_inverse_fft(self):
-        if not self.bounds.isDefined(_static=True):
+        if not self.bounds.isDefined():
             raise _galsim.GalSimUndefinedBoundsError(
                 "calculate_fft requires that the image have defined bounds."
             )
@@ -790,7 +786,7 @@ class Image(object):
             raise _galsim.GalSimError(
                 "calculate_inverse_fft requires that the image has a PixelScale wcs."
             )
-        if not self.bounds.includes(0, 0, _static=True):
+        if not self.bounds.includes(0, 0):
             raise _galsim.GalSimBoundsError(
                 "calculate_inverse_fft requires that the image includes (0,0)",
                 PositionI(0, 0),
@@ -861,7 +857,7 @@ class Image(object):
             raise GalSimImmutableError("Cannot modify an immutable Image", self)
         if not isinstance(rhs, Image):
             raise TypeError("Trying to copyFrom a non-image")
-        if self.bounds.numpyShape(_static=True) != rhs.bounds.numpyShape(_static=True):
+        if self.bounds.numpyShape() != rhs.bounds.numpyShape():
             raise _galsim.GalSimIncompatibleValuesError(
                 "Trying to copy images that are not the same shape",
                 self_image=self,
@@ -911,7 +907,7 @@ Contrary to GalSim, view
         # If currently empty, just return a new empty image.
         # we use the static bounds check set at construction
         # since the dynamic one in JAX would change array shape
-        if not self.bounds.isDefined(_static=True):
+        if not self.bounds.isDefined():
             return Image(wcs=wcs, dtype=dtype, make_const=make_const)
 
         # Recast the array type if necessary
@@ -985,11 +981,11 @@ Contrary to GalSim, view
 
     @_wraps(_galsim.Image.getValue)
     def getValue(self, x, y):
-        if not self.bounds.isDefined(_static=True):
+        if not self.bounds.isDefined():
             raise _galsim.GalSimUndefinedBoundsError(
                 "Attempt to access values of an undefined image"
             )
-        if not self.bounds.includes(x, y, _static=True):
+        if not self.bounds.includes(x, y):
             raise _galsim.GalSimBoundsError(
                 "Attempt to access position not in bounds of image.",
                 PositionI(x, y),
@@ -1007,14 +1003,14 @@ Contrary to GalSim, view
     def setValue(self, *args, **kwargs):
         if self.isconst:
             raise GalSimImmutableError("Cannot modify an immutable Image", self)
-        if not self.bounds.isDefined(_static=True):
+        if not self.bounds.isDefined():
             raise _galsim.GalSimUndefinedBoundsError(
                 "Attempt to set value of an undefined image"
             )
         pos, value = parse_pos_args(
             args, kwargs, "x", "y", integer=True, others=["value"]
         )
-        if not self.bounds.includes(pos, _static=True):
+        if not self.bounds.includes(pos):
             raise _galsim.GalSimBoundsError(
                 "Attempt to set position not in bounds of image", pos, self.bounds
             )
@@ -1035,14 +1031,14 @@ Contrary to GalSim, view
     def addValue(self, *args, **kwargs):
         if self.isconst:
             raise GalSimImmutableError("Cannot modify an immutable Image", self)
-        if not self.bounds.isDefined(_static=True):
+        if not self.bounds.isDefined():
             raise _galsim.GalSimUndefinedBoundsError(
                 "Attempt to set value of an undefined image"
             )
         pos, value = parse_pos_args(
             args, kwargs, "x", "y", integer=True, others=["value"]
         )
-        if not self.bounds.includes(pos, _static=True):
+        if not self.bounds.includes(pos):
             raise _galsim.GalSimBoundsError(
                 "Attempt to set position not in bounds of image", pos, self.bounds
             )
@@ -1067,7 +1063,7 @@ Contrary to GalSim, view
         """
         if self.isconst:
             raise GalSimImmutableError("Cannot modify an immutable Image", self)
-        if not self.bounds.isDefined(_static=True):
+        if not self.bounds.isDefined():
             raise _galsim.GalSimUndefinedBoundsError(
                 "Attempt to set values of an undefined image"
             )
@@ -1091,7 +1087,7 @@ Contrary to GalSim, view
         """
         if self.isconst:
             raise GalSimImmutableError("Cannot modify an immutable Image", self)
-        if not self.bounds.isDefined(_static=True):
+        if not self.bounds.isDefined():
             raise _galsim.GalSimUndefinedBoundsError(
                 "Attempt to set values of an undefined image"
             )
@@ -1130,8 +1126,7 @@ Contrary to GalSim, view
             and self.bounds == other.bounds
             and self.wcs == other.wcs
             and (
-                not self.bounds.isDefined(_static=True)
-                or jnp.array_equal(self.array, other.array)
+                not self.bounds.isDefined() or jnp.array_equal(self.array, other.array)
             )
             and self.isconst == other.isconst
         )

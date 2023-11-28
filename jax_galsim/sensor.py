@@ -17,7 +17,7 @@ class Sensor:
         lax_description="The JAX equivalent of galsim.Sensor.accumulate does not raise for undefined bounds.",
     )
     def accumulate(self, photons, image, orig_center=None, resume=False):
-        if not image.bounds.isDefined(_static=True):
+        if not image.bounds.isDefined():
             raise GalSimUndefinedBoundsError(
                 "Calling accumulate on image with undefined bounds"
             )
