@@ -886,8 +886,8 @@ class _InterpolatedImageImpl(GSObject):
         )
 
         # accounnt for offset - we add the offset to get to
-        # image pixels in xValue
-        # here we generate photons from the image and thus
+        # image pixels in the xValue method
+        # here we generate photons from the image and
         # so we need to subtract it to get back to get to x as
         # it would be input in xVal
         photons.x -= self._offset.x

@@ -15,6 +15,10 @@ import yaml  # noqa: E402
 
 import jax_galsim  # noqa: E402
 
+# this environment variable is used in the
+# JAX-specific modifications to the GalSim
+# test suite to change tests where
+# jax-galsim is not compatible.
 os.environ["JAX_GALSIM_TESTING"] = "1"
 
 # Identify the path to this current file

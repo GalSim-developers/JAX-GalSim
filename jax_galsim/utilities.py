@@ -18,10 +18,13 @@ printoptions = _galsim.utilities.printoptions
         "The LAX version of this decorator uses an `_workspace` attribute "
         "attached to the object so that the cache can easily be discarded "
         "for certain operations. It also will not cache jax.core.Tracer objects "
-        "in order to avoid side-effects in jit/grad/vmap transformations."
+        "in order to avoid side-effects in jit/grad/vmap transformations "
+        "unless `cache_jax_tracers=True` is given."
     ),
 )
 def lazy_property(func_=None, cache_jax_tracers=False):
+    # the extra layer of indirection here allows the decorator to 
+    # take keyword arguments and also be used without them.
     # see https://stackoverflow.com/a/57268935
     def _decorator(func):
         attname = func.__name__ + "_cached"
