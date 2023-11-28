@@ -151,18 +151,18 @@ def test_photon_shooting_jax_offset(offset):
     )
 
     # code for testing
-    if not np.allclose(img_fft.array, img_phot.array, rtol=rtol, atol=atol):
-        import proplot as pplt
+    # if not np.allclose(img_fft.array, img_phot.array, rtol=rtol, atol=atol):
+    #     import proplot as pplt
 
-        fig, axs = pplt.subplots(nrows=1, ncols=3)
-        axs[0].imshow(img_fft.array, origin="lower")
-        axs[1].imshow(img_phot.array, origin="lower")
-        axs[2].imshow(img_fft.array - img_phot.array, origin="lower")
-        fig.show()
+    #     fig, axs = pplt.subplots(nrows=1, ncols=3)
+    #     axs[0].imshow(img_fft.array, origin="lower")
+    #     axs[1].imshow(img_phot.array, origin="lower")
+    #     axs[2].imshow(img_fft.array - img_phot.array, origin="lower")
+    #     fig.show()
 
-        import pdb
+    #     import pdb
 
-        pdb.set_trace()
+    #     pdb.set_trace()
 
     np.testing.assert_almost_equal(
         jnp.argmax(img_fft.array),
