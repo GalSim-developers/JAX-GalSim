@@ -54,11 +54,17 @@ def cast_to_python_float(x):
         try:
             return float(x)
         except TypeError:
-            return x
+            # this will return the same value for anything float-like that
+            # cannot be cast to float
+            # however, it will raise an error if something is not float-like
+            return 1.0 * x
         except ValueError as e:
             # we let NaNs through
             if " NaN " in str(e):
-                return x
+                # this will return the same value for anything float-like that
+                # cannot be cast to float
+                # however, it will raise an error if something is not float-like
+                return 1.0 * x
             else:
                 raise e
 
@@ -72,11 +78,17 @@ def cast_to_python_int(x):
         try:
             return int(x)
         except TypeError:
-            return x
+            # this will return the same value for anything int-like that
+            # cannot be cast to int
+            # however, it will raise an error if something is not int-like
+            return 1 * x
         except ValueError as e:
             # we let NaNs through
             if " NaN " in str(e):
-                return x
+                # this will return the same value for anything int-like that
+                # cannot be cast to int
+                # however, it will raise an error if something is not int-like
+                return 1 * x
             else:
                 raise e
 
@@ -89,7 +101,10 @@ def cast_to_float(x):
         try:
             return jnp.asarray(x, dtype=float)
         except Exception:
-            return x
+            # this will return the same value for anything float-like that
+            # cannot be cast to float
+            # however, it will raise an error if something is not float-like
+            return 1.0 * x
 
 
 def cast_to_int(x):
@@ -101,9 +116,15 @@ def cast_to_int(x):
             if not jnp.any(jnp.isnan(x)):
                 return jnp.asarray(x, dtype=int)
             else:
-                return x
+                # this will return the same value for anything int-like that
+                # cannot be cast to int
+                # however, it will raise an error if something is not int-like
+                return 1 * x
         except Exception:
-            return x
+            # this will return the same value for anything int-like that
+            # cannot be cast to int
+            # however, it will raise an error if something is not int-like
+            return 1 * x
 
 
 def is_equal_with_arrays(x, y):

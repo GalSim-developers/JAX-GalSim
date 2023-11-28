@@ -36,9 +36,7 @@ class AngleUnit(object):
         """
         if isinstance(value, AngleUnit):
             raise TypeError("Cannot construct AngleUnit from another AngleUnit")
-        self._value = 1.0 * cast_to_float(
-            value
-        )  # this will cause an exception if things are not numeric
+        self._value = cast_to_float(value)
 
     @property
     def value(self):
