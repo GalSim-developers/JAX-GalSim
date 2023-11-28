@@ -445,7 +445,7 @@ class GSObject:
                 )
 
             # Resize the given image if necessary
-            if not image.bounds.isDefined(_static=True):
+            if not image.bounds.isDefined():
                 # Can't add to image if need to resize
                 if add_to_image:
                     raise _galsim.GalSimIncompatibleValuesError(
@@ -478,7 +478,7 @@ class GSObject:
                         ny=ny,
                         bounds=bounds,
                     )
-                if not bounds.isDefined(_static=True):
+                if not bounds.isDefined():
                     raise _galsim.GalSimValueError(
                         "Cannot use undefined bounds", bounds
                     )
@@ -515,7 +515,7 @@ class GSObject:
             bounds = new_bounds
         else:
             bounds = image.bounds
-        if not bounds.isDefined(_static=True):
+        if not bounds.isDefined():
             raise _galsim.GalSimIncompatibleValuesError(
                 "Cannot provide non-local wcs with automatically sized image",
                 wcs=wcs,
@@ -556,7 +556,7 @@ class GSObject:
     def _get_new_bounds(self, image, nx, ny, bounds, center):
         from jax_galsim.bounds import BoundsI
 
-        if image is not None and image.bounds.isDefined(_static=True):
+        if image is not None and image.bounds.isDefined():
             return image.bounds
         elif nx is not None and ny is not None:
             b = BoundsI(1, nx, 1, ny)
@@ -568,7 +568,7 @@ class GSObject:
                     )
                 )
             return b
-        elif bounds is not None and bounds.isDefined(_static=True):
+        elif bounds is not None and bounds.isDefined():
             return bounds
         else:
             return BoundsI()
@@ -576,7 +576,7 @@ class GSObject:
     def _adjust_offset(self, new_bounds, offset, center, use_true_center):
         # Note: this assumes self is in terms of image coordinates.
         if center is not None:
-            if new_bounds.isDefined(_static=True):
+            if new_bounds.isDefined():
                 offset += center - new_bounds.center
             else:
                 # Then will be created as even sized image.
@@ -590,7 +590,7 @@ class GSObject:
             # Also, remember that numpy's shape is ordered as [y,x]
             dx = offset.x
             dy = offset.y
-            shape = new_bounds.numpyShape(_static=True)
+            shape = new_bounds.numpyShape()
             dx -= 0.5 * ((shape[1] + 1) % 2)
             dy -= 0.5 * ((shape[0] + 1) % 2)
 
@@ -918,7 +918,7 @@ The JAX-GalSim version of `drawImage` does not
                 jnp.array(
                     [
                         jnp.max(jnp.abs(jnp.array(image.bounds._getinitargs()))) * 2,
-                        jnp.max(jnp.array(image.bounds.numpyShape(_static=True))),
+                        jnp.max(jnp.array(image.bounds.numpyShape())),
                     ]
                 )
             )
@@ -984,7 +984,7 @@ The JAX-GalSim version of `drawImage` does not
         )
         kimg_shift = jnp.fft.ifftshift(kimage_wrap.array, axes=(-2,))
         real_image_arr = jnp.fft.fftshift(
-            jnp.fft.irfft2(kimg_shift, breal.numpyShape(_static=True))
+            jnp.fft.irfft2(kimg_shift, breal.numpyShape())
         )
         real_image = Image(
             bounds=breal, array=real_image_arr, dtype=image.dtype, wcs=image.wcs
@@ -1069,7 +1069,7 @@ The JAX-GalSim version of `drawImage` does not
             dk = self.stepk
         else:
             dk = scale
-        if image is not None and image.bounds.isDefined(_static=True):
+        if image is not None and image.bounds.isDefined():
             dx = np.pi / (max(image.array.shape) // 2 * dk)
         elif scale is None or scale <= 0:
             dx = self.nyquist_scale
@@ -1081,7 +1081,7 @@ The JAX-GalSim version of `drawImage` does not
         # If the profile needs to be constructed from scratch, the _setup_image function will
         # do that, but only if the profile is in image coordinates for the real space image.
         # So make that profile.
-        if image is None or not image.bounds.isDefined(_static=True):
+        if image is None or not image.bounds.isDefined():
             real_prof = PixelScale(dx).profileToImage(self)
             dtype = np.complex128 if image is None else image.dtype
             image = real_prof._setup_image(

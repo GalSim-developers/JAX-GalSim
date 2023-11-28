@@ -427,7 +427,7 @@ class _InterpolatedImageImpl(GSObject):
         )
 
         # it must have well-defined bounds, otherwise seg fault in SBInterpolatedImage constructor
-        if not image.bounds.isDefined(_static=True):
+        if not image.bounds.isDefined():
             raise GalSimUndefinedBoundsError(
                 "Supplied image does not have bounds defined."
             )
