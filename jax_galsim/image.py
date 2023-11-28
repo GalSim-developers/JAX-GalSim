@@ -895,8 +895,6 @@ class Image(object):
         dtype = dtype if dtype else self.dtype
 
         # If currently empty, just return a new empty image.
-        # we use the static bounds check set at construction
-        # since the dynamic one in JAX would change array shape
         if not self.bounds.isDefined():
             return Image(wcs=wcs, dtype=dtype, make_const=make_const)
 
@@ -1149,11 +1147,6 @@ class Image(object):
 
     @_wraps(_galsim.Image.rot_180)
     def rot_180(self):
-        """Return a version of the image rotated 180 degrees.
-
-        Note: The returned image will have an undefined wcs.
-        If you care about the wcs, you will need to set it yourself.
-        """
         return _Image(self.array.at[::-1, ::-1].get(), self._bounds, None)
 
     def tree_flatten(self):
