@@ -225,7 +225,7 @@ def test_jitting_draw_fft():
 
 
 def test_jitting_draw_phot():
-    def _build_and_draw(hlr, fwhm, jit=True):
+    def _build_and_draw(hlr, fwhm, jit=True, maxn=False):
         gal = galsim.Exponential(
             half_light_radius=hlr, flux=1000.0
         ) + galsim.Exponential(half_light_radius=hlr * 2.0, flux=100.0)
@@ -240,10 +240,14 @@ def test_jitting_draw_phot():
             final._flux_per_photon,
             final.max_sb,
             poisson_flux=False,
+            rng=galsim.BaseDeviate(1234),
         )[0].item()
         gain = 1.0
         if jit:
-            return _draw_it_jit(final, n, n_photons, gain)
+            if maxn:
+                return _draw_it_jit_maxn(final, n, n_photons, gain)
+            else:
+                return _draw_it_jit(final, n, n_photons, gain)
         else:
             return final.drawImage(
                 nx=n,
@@ -253,7 +257,22 @@ def test_jitting_draw_phot():
                 n_photons=n_photons,
                 poisson_flux=False,
                 gain=gain,
+                rng=galsim.BaseDeviate(42),
             )
+
+    @partial(jax.jit, static_argnums=(1, 2))
+    def _draw_it_jit_maxn(obj, n, nphotons, gain):
+        return obj.drawImage(
+            nx=n,
+            ny=n,
+            scale=0.2,
+            n_photons=nphotons,
+            method="phot",
+            poisson_flux=False,
+            gain=gain,
+            maxN=101,
+            rng=galsim.BaseDeviate(2),
+        )
 
     @partial(jax.jit, static_argnums=(1, 2))
     def _draw_it_jit(obj, n, nphotons, gain):
@@ -265,29 +284,42 @@ def test_jitting_draw_phot():
             method="phot",
             poisson_flux=False,
             gain=gain,
-            maxN=101,
+            maxN=None,
+            rng=galsim.BaseDeviate(42),
         )
 
     with time_code_block("warmup no-jit"):
-        img = _build_and_draw(0.5, 1.0, jit=False)
-    np.testing.assert_allclose(img.array.sum(), 1100.0)
+        img1 = _build_and_draw(0.5, 1.0, jit=False)
 
     with time_code_block("no-jit"):
-        img = _build_and_draw(0.5, 1.0, jit=False)
-    np.testing.assert_allclose(img.array.sum(), 1100.0)
+        img2 = _build_and_draw(0.5, 1.0, jit=False)
 
     with time_code_block("warmup jit"):
-        img = _build_and_draw(0.5, 1.0)
-    np.testing.assert_allclose(img.array.sum(), 1100.0)
+        img3 = _build_and_draw(0.5, 1.0)
 
     with time_code_block("jit"):
-        img = _build_and_draw(0.5, 1.0)
+        img4 = _build_and_draw(0.5, 1.0)
 
-    np.testing.assert_allclose(img.array.sum(), 1100.0)
+    with time_code_block("warmup jit"):
+        img5 = _build_and_draw(0.5, 1.0, maxn=True)
+
+    with time_code_block("jit"):
+        img6 = _build_and_draw(0.5, 1.0, maxn=True)
+
+    np.testing.assert_allclose(img1.array, img2.array)
+    np.testing.assert_allclose(img1.array, img3.array)
+    np.testing.assert_allclose(img1.array, img4.array)
+
+    assert not np.allclose(img1.array, img5.array)
+
+    np.testing.assert_allclose(img5.array, img6.array)
+
+    np.testing.assert_allclose(img1.array.sum(), 1100.0)
+    np.testing.assert_allclose(img5.array.sum(), 1100.0)
 
 
 def test_jitting_draw_phot_fixed():
-    def _build_and_draw(hlr, fwhm, jit=True):
+    def _build_and_draw(hlr, fwhm, jit=True, maxn=False):
         gal = galsim.Exponential(
             half_light_radius=hlr, flux=1000.0
         ) + galsim.Exponential(half_light_radius=hlr * 2.0, flux=100.0)
@@ -302,10 +334,14 @@ def test_jitting_draw_phot_fixed():
             final._flux_per_photon,
             final.max_sb,
             poisson_flux=False,
+            rng=galsim.BaseDeviate(1234),
         )[0]
         gain = 1.0
         if jit:
-            return _draw_it_jit(final, n, n_photons, gain)
+            if maxn:
+                return _draw_it_jit_maxn(final, n, n_photons, gain)
+            else:
+                return _draw_it_jit(final, n, n_photons, gain)
         else:
             with fixed_photon_array_size(2048):
                 return final.drawImage(
@@ -316,6 +352,7 @@ def test_jitting_draw_phot_fixed():
                     n_photons=n_photons,
                     poisson_flux=False,
                     gain=gain,
+                    rng=galsim.BaseDeviate(42),
                 )
 
     @partial(jax.jit, static_argnums=(1, 2))
@@ -329,22 +366,49 @@ def test_jitting_draw_phot_fixed():
                 method="phot",
                 poisson_flux=False,
                 gain=gain,
+                rng=galsim.BaseDeviate(42),
+            )
+
+    @partial(jax.jit, static_argnums=(1, 2))
+    def _draw_it_jit_maxn(obj, n, nphotons, gain):
+        with fixed_photon_array_size(2048):
+            return obj.drawImage(
+                nx=n,
+                ny=n,
+                scale=0.2,
+                n_photons=nphotons,
+                method="phot",
+                poisson_flux=False,
+                gain=gain,
                 maxN=101,
+                rng=galsim.BaseDeviate(42),
             )
 
     with time_code_block("warmup no-jit"):
-        img = _build_and_draw(0.5, 1.0, jit=False)
-    np.testing.assert_allclose(img.array.sum(), 1100.0)
+        img1 = _build_and_draw(0.5, 1.0, jit=False)
 
     with time_code_block("no-jit"):
-        img = _build_and_draw(0.5, 1.0, jit=False)
-    np.testing.assert_allclose(img.array.sum(), 1100.0)
+        img2 = _build_and_draw(0.5, 1.0, jit=False)
 
     with time_code_block("warmup jit"):
-        img = _build_and_draw(0.5, 1.0)
-    np.testing.assert_allclose(img.array.sum(), 1100.0)
+        img3 = _build_and_draw(0.5, 1.0)
 
     with time_code_block("jit"):
-        img = _build_and_draw(0.5, 1.0)
+        img4 = _build_and_draw(0.5, 1.0)
 
-    np.testing.assert_allclose(img.array.sum(), 1100.0)
+    with time_code_block("warmup jit"):
+        img5 = _build_and_draw(0.5, 1.0, maxn=True)
+
+    with time_code_block("jit"):
+        img6 = _build_and_draw(0.5, 1.0, maxn=True)
+
+    np.testing.assert_allclose(img1.array, img2.array)
+    np.testing.assert_allclose(img1.array, img3.array)
+    np.testing.assert_allclose(img1.array, img4.array)
+
+    assert not np.allclose(img1.array, img5.array)
+
+    np.testing.assert_allclose(img5.array, img6.array)
+
+    np.testing.assert_allclose(img1.array.sum(), 1100.0)
+    np.testing.assert_allclose(img5.array.sum(), 1100.0)

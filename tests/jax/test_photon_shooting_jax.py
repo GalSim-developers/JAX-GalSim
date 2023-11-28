@@ -1,3 +1,5 @@
+from functools import partial
+
 import galsim as _galsim
 import jax
 import jax.numpy as jnp
@@ -6,6 +8,7 @@ import pytest
 from jax.tree_util import register_pytree_node_class
 
 import jax_galsim
+from jax_galsim.core.draw import calculate_n_photons
 from jax_galsim.core.testing import time_code_block
 from jax_galsim.photon_array import fixed_photon_array_size
 
@@ -235,3 +238,80 @@ def test_photon_shooting_jax_vmapping():
     with time_code_block("galsim"):
         for i in range(n_stamps):
             _draw_galsim(hlrs[i], fwhms[i], shifts[i], fluxes[i], i + 1)
+
+
+def test_photon_shooting_jax_rng_seed():
+    def _build_and_draw(hlr, fwhm, jit=True, new_seed=False):
+        gal = jax_galsim.Exponential(
+            half_light_radius=hlr, flux=1000.0
+        ) + jax_galsim.Exponential(half_light_radius=hlr * 2.0, flux=100.0)
+        psf = jax_galsim.Gaussian(fwhm=fwhm, flux=1.0)
+        final = jax_galsim.Convolve(
+            [gal, psf],
+        )
+        n = final.getGoodImageSize(0.2).item()
+        n += 1
+        n_photons = calculate_n_photons(
+            final.flux,
+            final._flux_per_photon,
+            final.max_sb,
+            poisson_flux=True,
+            rng=jax_galsim.BaseDeviate(1234),
+        )[0].item()
+        if jit:
+            if new_seed:
+                return _draw_it_jit_new_seed(final, n_photons)
+            else:
+                return _draw_it_jit(final, n_photons)
+        else:
+            return final.makePhot(
+                local_wcs=jax_galsim.PixelScale(0.2),
+                n_photons=n_photons,
+                poisson_flux=False,
+                rng=jax_galsim.BaseDeviate(42),
+            )
+
+    @partial(jax.jit, static_argnums=(1,))
+    def _draw_it_jit(obj, n_photons):
+        return obj.makePhot(
+            local_wcs=jax_galsim.PixelScale(0.2),
+            n_photons=n_photons,
+            poisson_flux=False,
+            rng=jax_galsim.BaseDeviate(42),
+        )
+
+    @partial(jax.jit, static_argnums=(1,))
+    def _draw_it_jit_new_seed(obj, n_photons):
+        return obj.makePhot(
+            local_wcs=jax_galsim.PixelScale(0.2),
+            n_photons=n_photons,
+            poisson_flux=False,
+            rng=jax_galsim.BaseDeviate(2),
+        )
+
+    with time_code_block("warmup no-jit"):
+        pa1 = _build_and_draw(0.5, 1.0, jit=False)
+
+    with time_code_block("no-jit"):
+        pa2 = _build_and_draw(0.5, 1.0, jit=False)
+
+    with time_code_block("warmup jit"):
+        pa3 = _build_and_draw(0.5, 1.0)
+
+    with time_code_block("jit"):
+        pa4 = _build_and_draw(0.5, 1.0)
+
+    with time_code_block("warmup jit + new seed"):
+        pa5 = _build_and_draw(0.5, 1.0, new_seed=True, jit=True)
+
+    with time_code_block("jit + new seed"):
+        pa6 = _build_and_draw(0.5, 1.0, new_seed=True, jit=True)
+
+    for attr in ["x", "y"]:
+        np.testing.assert_allclose(getattr(pa1, attr), getattr(pa2, attr))
+        np.testing.assert_allclose(getattr(pa1, attr), getattr(pa3, attr))
+        np.testing.assert_allclose(getattr(pa1, attr), getattr(pa4, attr))
+
+        assert not np.allclose(getattr(pa1, attr), getattr(pa5, attr))
+
+        np.testing.assert_allclose(getattr(pa5, attr), getattr(pa6, attr))
