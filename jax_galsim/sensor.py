@@ -2,8 +2,8 @@ import galsim as _galsim
 from jax._src.numpy.util import _wraps
 from jax.tree_util import register_pytree_node_class
 
-from .errors import GalSimUndefinedBoundsError
-from .position import PositionI
+from jax_galsim.errors import GalSimUndefinedBoundsError
+from jax_galsim.position import PositionI
 
 
 @_wraps(_galsim.Sensor)
@@ -12,9 +12,12 @@ class Sensor:
     def __init__(self):
         pass
 
-    @_wraps(_galsim.Sensor.accumulate)
+    @_wraps(
+        _galsim.Sensor.accumulate,
+        lax_description="The JAX equivalent of galsim.Sensor.accumulate does not raise for undefined bounds.",
+    )
     def accumulate(self, photons, image, orig_center=None, resume=False):
-        if not image.bounds.isDefined():
+        if not image.bounds.isDefined(_static=True):
             raise GalSimUndefinedBoundsError(
                 "Calling accumulate on image with undefined bounds"
             )

@@ -22,7 +22,7 @@ import jax.numpy as jnp
 from jax._src.numpy.util import _wraps
 from jax.tree_util import register_pytree_node_class
 
-from jax_galsim.core.utils import cast_to_array_scalar, ensure_hashable
+from jax_galsim.core.utils import cast_to_float, ensure_hashable
 
 
 @_wraps(_galsim.AngleUnit)
@@ -34,7 +34,11 @@ class AngleUnit(object):
         """
         :param value:   The measure of the unit in radians.
         """
-        self._value = cast_to_array_scalar(value, dtype=float)
+        if isinstance(value, AngleUnit):
+            raise TypeError("Cannot construct AngleUnit from another AngleUnit")
+        self._value = 1.0 * cast_to_float(
+            value
+        )  # this will cause an exception if things are not numeric
 
     @property
     def value(self):
@@ -142,7 +146,7 @@ class Angle(object):
             raise TypeError("Invalid unit %s of type %s" % (unit, type(unit)))
         else:
             # Normal case
-            self._rad = cast_to_array_scalar(theta, dtype=float) * unit.value
+            self._rad = cast_to_float(theta) * unit.value
 
     @property
     def rad(self):

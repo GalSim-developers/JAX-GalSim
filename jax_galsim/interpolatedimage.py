@@ -61,6 +61,7 @@ class DirMeta(type):
             - the pad_image options
             - depixelize
             - most of the type checks and dtype casts done by galsim
+            - the image bounds are defined
         """
     ),
 )
@@ -426,7 +427,7 @@ class _InterpolatedImageImpl(GSObject):
         )
 
         # it must have well-defined bounds, otherwise seg fault in SBInterpolatedImage constructor
-        if not image.bounds.isDefined():
+        if not image.bounds.isDefined(_static=True):
             raise GalSimUndefinedBoundsError(
                 "Supplied image does not have bounds defined."
             )
@@ -594,7 +595,7 @@ class _InterpolatedImageImpl(GSObject):
         # Store the image as an attribute and make sure we don't change the original image
         # in anything we do here.  (e.g. set scale, etc.)
         if self._jax_aux_data["depixelize"]:
-            # FIXME: no depixelize in jax_galsim
+            # TODO: no depixelize in jax_galsim
             # self._image = image.view(dtype=np.float64).depixelize(self._x_interpolant)
             raise NotImplementedError(
                 "InterpolatedImages do not support 'depixelize' in jax_galsim."
@@ -801,7 +802,7 @@ class _InterpolatedImageImpl(GSObject):
         im = (im * flux_scaling).astype(image.dtype)
 
         # Return an image
-        return Image(array=im, bounds=image.bounds, wcs=image.wcs, check_bounds=False)
+        return Image(array=im, bounds=image.bounds, wcs=image.wcs, _check_bounds=False)
 
     def _drawKImage(self, image, jac=None):
         jacobian = jnp.eye(2) if jac is None else jac
@@ -826,7 +827,7 @@ class _InterpolatedImageImpl(GSObject):
         im = (im).astype(image.dtype)
 
         # Return an image
-        return Image(array=im, bounds=image.bounds, wcs=image.wcs, check_bounds=False)
+        return Image(array=im, bounds=image.bounds, wcs=image.wcs, _check_bounds=False)
 
     @lazy_property
     def _pos_neg_fluxes(self):
