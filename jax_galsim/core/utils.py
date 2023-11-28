@@ -99,7 +99,11 @@ def cast_to_float(x):
             # this will return the same value for anything float-like that
             # cannot be cast to float
             # however, it will raise an error if something is not float-like
-            return 1.0 * x
+            # we exclude object types since they are used in JAX tracing
+            if type(x) is object:
+                return x
+            else:
+                return 1.0 * x
 
 
 def cast_to_int(x):
@@ -114,12 +118,18 @@ def cast_to_int(x):
                 # this will return the same value for anything int-like that
                 # cannot be cast to int
                 # however, it will raise an error if something is not int-like
-                return 1 * x
+                if type(x) is object:
+                    return x
+                else:
+                    return 1 * x
         except Exception:
             # this will return the same value for anything int-like that
             # cannot be cast to int
             # however, it will raise an error if something is not int-like
-            return 1 * x
+            if type(x) is object:
+                return x
+            else:
+                return 1 * x
 
 
 def is_equal_with_arrays(x, y):
