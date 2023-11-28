@@ -193,7 +193,8 @@ class Sum(GSObject):
         fluxes = jnp.array(
             [obj.positive_flux + obj.negative_flux for obj in self.obj_list]
         )
-        # for a sum of objects, we use a slightly different approach than galsim
+        # for a sum of objects, we use a slightly different approach than galsim did
+        # as of version 2.5
         # galsim uses a binomial distribution to compute the number of photons per object
         # we take an equivalent but different approach in order to use fixed size arrays
         # of photons. it means we draw more photons but the code is JIT compilable and a bit simpler
