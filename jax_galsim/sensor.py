@@ -12,10 +12,7 @@ class Sensor:
     def __init__(self):
         pass
 
-    @_wraps(
-        _galsim.Sensor.accumulate,
-        lax_description="The JAX equivalent of galsim.Sensor.accumulate does not raise for undefined bounds.",
-    )
+    @_wraps(_galsim.Sensor.accumulate)
     def accumulate(self, photons, image, orig_center=None, resume=False):
         if not image.bounds.isDefined():
             raise GalSimUndefinedBoundsError(

@@ -206,8 +206,8 @@ class PositionI(Position):
         self._parse_args(*args, **kwargs)
 
         # inputs must be ints
-        self.x = 1 * cast_to_int(self.x)
-        self.y = 1 * cast_to_int(self.y)
+        self.x = cast_to_int(self.x)
+        self.y = cast_to_int(self.y)
 
     def _check_scalar(self, other, op):
         try:

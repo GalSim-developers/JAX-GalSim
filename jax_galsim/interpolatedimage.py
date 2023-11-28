@@ -60,8 +60,7 @@ class DirMeta(type):
             - noise padding
             - the pad_image options
             - depixelize
-            - most of the type checks and dtype casts done by galsim
-            - the image bounds are defined
+            - most of the bounds checks, type checks, and dtype casts done by galsim
         """
     ),
 )
