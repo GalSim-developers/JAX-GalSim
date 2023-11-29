@@ -30,6 +30,17 @@ class Interpolant:
             "Use one of the subclasses instead, or use the `from_name` factory function."
         )
 
+    def __getstate__(self):
+        d = self.__dict__.copy()
+        d["had_workspace"] = "_workspace" in d
+        d.pop("_workspace", None)
+        return d
+
+    def __setstate__(self, d):
+        if d.pop("had_workspace", False):
+            d["_workspace"] = {}
+        self.__dict__ = d
+
     @staticmethod
     def from_name(name, tol=None, gsparams=None):
         """A factory function to create an `Interpolant` of the correct type according to
