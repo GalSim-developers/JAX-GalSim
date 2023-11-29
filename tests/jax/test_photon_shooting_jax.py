@@ -176,7 +176,8 @@ def test_photon_shooting_jax_offset(offset):
     np.testing.assert_allclose(img_fft.array, img_phot.array, rtol=rtol, atol=atol)
 
 
-def test_photon_shooting_jax_vmapping():
+@pytest.mark.parametrize("max_n_phot", [10, 100, 1000])
+def test_photon_shooting_jax_vmapping(max_n_phot):
     n_stamps = 100
     rng = np.random.RandomState(1234)
     shifts = jnp.array(rng.uniform(-1, 1, size=(n_stamps, 2)))
@@ -187,7 +188,6 @@ def test_photon_shooting_jax_vmapping():
     seeds = []
     for i in range(n_stamps):
         seeds.append(jax.random.key(i + 1))
-    max_n_phot = 2048
     seeds = jnp.array(seeds)
 
     @jax.jit
@@ -200,8 +200,8 @@ def test_photon_shooting_jax_vmapping():
         )
         with fixed_photon_array_size(max_n_phot):
             return obj.drawImage(
-                nx=33,
-                ny=33,
+                nx=53,
+                ny=53,
                 scale=0.2,
                 method="phot",
                 rng=jax_galsim.BaseDeviate(seed),
@@ -228,8 +228,8 @@ def test_photon_shooting_jax_vmapping():
             ]
         )
         return obj.drawImage(
-            nx=33,
-            ny=33,
+            nx=53,
+            ny=53,
             scale=0.2,
             method="phot",
             rng=_galsim.BaseDeviate(seed),

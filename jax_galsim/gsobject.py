@@ -1288,6 +1288,8 @@ The JAX-GalSim version of `drawPhot`
         if not add_to_image:
             image.setZero()
 
+        maxN = pa._JAX_GALSIM_PHOTON_ARRAY_SIZE or maxN
+
         if maxN is None:
             (
                 added_flux,
