@@ -1154,6 +1154,13 @@ class Image(object):
         # Define the children nodes of the PyTree that need tracing
         children = (self.array, self.wcs)
         aux_data = {"dtype": self.dtype, "bounds": self.bounds, "isconst": self.isconst}
+        if hasattr(self, "added_flux"):
+            children += (self.added_flux,)
+        if hasattr(self, "header"):
+            aux_data["header"] = self.header
+        if hasattr(self, "photons"):
+            children += (self.photons,)
+
         return (children, aux_data)
 
     @classmethod
@@ -1165,6 +1172,12 @@ class Image(object):
         obj._bounds = aux_data["bounds"]
         obj._dtype = aux_data["dtype"]
         obj._is_const = aux_data["isconst"]
+        if len(children) > 2:
+            obj.added_flux = children[2]
+        if "header" in aux_data:
+            obj.header = aux_data["header"]
+        if len(children) > 3:
+            obj.photons = children[3]
         return obj
 
     @classmethod
