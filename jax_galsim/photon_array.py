@@ -106,11 +106,11 @@ class PhotonArray:
         if time is not None:
             self.time = time
 
+    @classmethod
     @_wraps(
         _galsim.PhotonArray.fromArrays,
         lax_description="JAX-GalSim does not do input type/size checking.",
     )
-    @classmethod
     def fromArrays(
         cls,
         x,
@@ -128,8 +128,8 @@ class PhotonArray:
             x, y, flux, dxdz, dydz, wavelength, pupil_u, pupil_v, time, is_corr
         )
 
-    @_wraps(_galsim.PhotonArray._fromArrays)
     @classmethod
+    @_wraps(_galsim.PhotonArray._fromArrays)
     def _fromArrays(
         cls,
         x,
@@ -473,8 +473,8 @@ class PhotonArray:
 
         return self
 
+    @_wraps(_galsim.PhotonArray.assignAt)
     def assignAt(self, istart, rhs):
-        """Assign the contents of another `PhotonArray` to this one starting at istart."""
         from .deprecated import depr
 
         depr(

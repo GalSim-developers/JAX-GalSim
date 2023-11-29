@@ -125,7 +125,7 @@ def _run_object_checks(obj, cls, kind):
 
         # check that we can hash the object
         hash(obj)
-    elif kind == "pickle-eval-repr-img":
+    elif kind == "pickle-eval-repr-img" or kind == "pickle-eval-repr-nohash":
         from numpy import array  # noqa: F401
 
         # eval repr is identity mapping
@@ -147,6 +147,9 @@ def _run_object_checks(obj, cls, kind):
 
         # check that we cannot hash the object
         hash(obj)
+    elif kind == "jax-compatible":
+        # JAX tracing should be an identity
+        assert cls.tree_unflatten(*((obj.tree_flatten())[::-1])) == obj
     elif kind == "vmap-jit-grad":
         # JAX tracing should be an identity
         assert cls.tree_unflatten(*((obj.tree_flatten())[::-1])) == obj
@@ -362,7 +365,15 @@ def _run_object_checks(obj, cls, kind):
                                 line.strip()
                                 and line not in _galsim.utilities.lazy_property.__doc__
                             ):
-                                assert line.strip() in getattr(cls, method).__doc__
+                                assert line.strip() in getattr(cls, method).__doc__, (
+                                    cls.__name__
+                                    + "."
+                                    + method
+                                    + " doc string does not match galsim."
+                                    + gscls.__name__
+                                    + "."
+                                    + method
+                                )
                 else:
                     assert method not in dir(gscls), cls.__name__ + "." + method
     else:
@@ -1024,3 +1035,11 @@ def test_api_pickling_eval_repr_basic(obj1):
     else:
         # Even if we're not actually doing the test, still make the repr to check for syntax errors.
         repr(obj1)
+
+
+def test_api_photon_array():
+    pa = jax_galsim.PhotonArray(101)
+
+    _run_object_checks(pa, pa.__class__, "docs-methods")
+    _run_object_checks(pa, pa.__class__, "pickle-eval-repr-nohash")
+    _run_object_checks(pa, pa.__class__, "jax-compatible")
