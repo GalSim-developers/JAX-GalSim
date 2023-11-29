@@ -1043,3 +1043,24 @@ def test_api_photon_array():
     _run_object_checks(pa, pa.__class__, "docs-methods")
     _run_object_checks(pa, pa.__class__, "pickle-eval-repr-nohash")
     _run_object_checks(pa, pa.__class__, "jax-compatible")
+
+
+def test_api_sensor():
+    classes = []
+    for item in sorted(dir(jax_galsim)):
+        cls = getattr(jax_galsim, item)
+        if inspect.isclass(cls) and issubclass(cls, jax_galsim.sensor.Sensor):
+            classes.append(getattr(jax_galsim.sensor, item))
+
+    tested = set()
+    for cls in classes:
+        obj = cls()
+        print(obj)
+        tested.add(cls.__name__)
+        _run_object_checks(obj, obj.__class__, "docs-methods")
+        _run_object_checks(obj, obj.__class__, "pickle-eval-repr")
+        _run_object_checks(obj, obj.__class__, "jax-compatible")
+
+    assert {
+        "Sensor",
+    } <= tested
