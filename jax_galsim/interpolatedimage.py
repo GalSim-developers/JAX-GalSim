@@ -878,6 +878,23 @@ class _InterpolatedImageImpl(GSObject):
         ud = UniformDeviate(rng)
         photons.x = ud.generate(photons.x) + xedges[xinds]
         photons.y = ud.generate(photons.y) + yedges[yinds]
+        # this magic set of factors comes from the galsim C++ code in
+        # a few spots it is
+        #
+        #  - the sign of the photon flux
+        #  - the flux per photon = 1 - 2 neg / (pos + neg)
+        #  - the total absolute flux in the image = (pos + neg)
+        #  - the number of photons to draw = photons.size()
+        #
+        # If you inpack it all, then you get
+        #
+        #  sign * (1 - 2 neg / (pos + neg)) * (pos + neg) / photons.size()
+        #  = sign * (pos + neg - 2 neg) / (pos + neg) * (pos + neg) / photons.size()
+        #  = sign * (pos - neg) / photons.size()
+        #
+        # So what we have is a sign that oscillates between -1 and 1 with each photon getting
+        # the flux of the object divided by the number of photons (which is inflated to get the total flux
+        # correct by other bits of the code)
         photons.flux = (
             jnp.sign(img.array.ravel())[inds]
             * self._flux_per_photon()

@@ -642,10 +642,13 @@ class GSObject:
     @_wraps(
         _galsim.GSObject.drawImage,
         lax_description="""\
-The JAX-GalSim version of `drawImage` does not
+The JAX-GalSim version of `drawImage`
 
- - do extensive (any?) checking of the input settings.
- - does not support the deprecated `surface_ops` argument
+  - does not do extensive (any?) checking of the input settings.
+  - uses a default of ``n_photons=None`` instead of ``n_photons=0``
+    to indicate that the number of photons should be determined
+    from the flux and gain
+  - requires that the maxN option must be a constant
 """,
     )
     def drawImage(
@@ -676,11 +679,18 @@ The JAX-GalSim version of `drawImage` does not
         save_photons=False,
         bandpass=None,
         setup_only=False,
+        surface_ops=None,
     ):
         from jax_galsim.box import Pixel
         from jax_galsim.convolve import Convolution, Convolve
         from jax_galsim.image import Image
         from jax_galsim.wcs import PixelScale
+
+        if surface_ops is not None:
+            from .deprecated import depr
+
+            depr("surface_ops", 2.3, "photon_ops")
+            photon_ops = surface_ops
 
         if image is not None and not isinstance(image, Image):
             raise TypeError("image is not an Image instance", image)
@@ -1168,7 +1178,6 @@ The JAX-GalSim version of `drawImage` does not
         lax_description="""\
 The JAX-GalSim version of `makePhot`
 
-  - does not support the deprecated surface_ops argument
   - does little to no error checking on the inputs
   - uses a default of ``n_photons=None`` instead of ``n_photons=0``
     to indicate that the number of photons should be determined
@@ -1196,11 +1205,16 @@ The JAX-GalSim version of `makePhot`
             poisson_flux = n_photons is None
 
         if n_photons is not None:
+            # n_photons is the length of an array so it is a python int and
+            # and thus a constant wrt to JIT
             Ntot = int(n_photons + 0.5)
             _, g = self._calculate_nphotons(
                 n_photons, poisson_flux, max_extra_noise, rng
             )
         else:
+            # here Ntot can be a traced value
+            # one thus must use the fixed_photon_array_size context manager
+            # to ensure that the size of the photon array is fixed if using JIT
             Ntot, g = self._calculate_nphotons(0.0, poisson_flux, max_extra_noise, rng)
 
         try:
@@ -1230,13 +1244,11 @@ The JAX-GalSim version of `makePhot`
         lax_description="""\
 The JAX-GalSim version of `drawPhot`
 
-  - does not support the deprecated surface_ops argument
   - does little to no error checking on the inputs
   - uses a default of ``n_photons=None`` instead of ``n_photons=0``
     to indicate that the number of photons should be determined
     from the flux and gain
-  - the maxN option requires the use of fixed photon array sizes or a fixed
-    number of photons
+  - requires that the maxN option must be a constant
 """,
     )
     def drawPhot(
@@ -1253,7 +1265,14 @@ The JAX-GalSim version of `drawPhot`
         maxN=None,
         orig_center=PositionI(0, 0),
         local_wcs=None,
+        surface_ops=None,
     ):
+        if surface_ops is not None:
+            from .deprecated import depr
+
+            depr("surface_ops", 2.3, "photon_ops")
+            photon_ops = surface_ops
+
         # If n_photons is given and poisson_flux is None, poisson_flux = False
         if poisson_flux is None:
             poisson_flux = n_photons is None
@@ -1270,11 +1289,17 @@ The JAX-GalSim version of `drawPhot`
             raise TypeError("The sensor provided is not a Sensor instance")
 
         if n_photons is not None:
+            # n_photons is the length of an array so it is a python int and
+            # and thus a constant wrt to JIT
             Ntot = int(n_photons + 0.5)
             _, g = self._calculate_nphotons(
                 n_photons, poisson_flux, max_extra_noise, rng
             )
         else:
+            # here Ntot can be a traced value
+            # one thus must use the fixed_photon_array_size context manager
+            # or the maxN option to ensure that the size of the photon array is fixed if using JIT
+
             Ntot, g = self._calculate_nphotons(0.0, poisson_flux, max_extra_noise, rng)
 
         g = jax.lax.cond(
@@ -1288,12 +1313,19 @@ The JAX-GalSim version of `drawPhot`
         if not add_to_image:
             image.setZero()
 
+        # both maxN and _JAX_GALSIM_PHOTON_ARRAY_SIZE can be used to fix the sizes
+        # of the photon arrays for use with JIT
         if maxN is not None and pa._JAX_GALSIM_PHOTON_ARRAY_SIZE is not None:
+            # if both maxN and _JAX_GALSIM_PHOTON_ARRAY_SIZE are set, we use the smaller
+            # of the two
             maxN = min(maxN, pa._JAX_GALSIM_PHOTON_ARRAY_SIZE)
         else:
+            # otherwise we use the one that is set
             maxN = pa._JAX_GALSIM_PHOTON_ARRAY_SIZE or maxN
 
         if maxN is None:
+            # if neither maxN nor _JAX_GALSIM_PHOTON_ARRAY_SIZE are set
+            # we drae Ntot photons all at once
             (
                 added_flux,
                 _image,
@@ -1318,6 +1350,9 @@ The JAX-GalSim version of `drawPhot`
                 0.0,
             )
         else:
+            # if maxN or _JAX_GALSIM_PHOTON_ARRAY_SIZE is set
+            # we draw a fixed number of photons at a time in a while
+            # loop until we have drawn Ntot photons
             (
                 photons,
                 _rng,
@@ -1354,13 +1389,13 @@ The JAX-GalSim version of `drawPhot`
                 "Non-default sensors that carry state are not yet supported in jax-galsim."
             )
 
-        return added_flux, photons or None  # Just in case Nleft is already 0.
+        return added_flux, photons
 
     @_wraps(_galsim.GSObject.shoot)
     def shoot(self, n_photons, rng=None):
         photons = pa.PhotonArray(n_photons)
 
-        if photons._x.shape[0] > 0:
+        if photons.x.shape[0] > 0:
             _rng = BaseDeviate(rng)
             self._shoot(photons, _rng)
             if rng is not None:
@@ -1376,14 +1411,31 @@ The JAX-GalSim version of `drawPhot`
 
     @_wraps(_galsim.GSObject.applyTo)
     def applyTo(self, photon_array, local_wcs=None, rng=None):
+        # galsim does not deal with dxdz and dydz here - IDK why
         p1 = pa.PhotonArray(len(photon_array))
-        if photon_array.hasAllocatedWavelengths():
-            p1._wave = photon_array._wave
-        if photon_array.hasAllocatedPupil():
-            p1._pupil_u = photon_array._pupil_u
-            p1._pupil_v = photon_array._pupil_v
-        if photon_array.hasAllocatedTimes():
-            p1._time = photon_array._time
+        p1._wave = jax.lax.cond(
+            photon_array.hasAllocatedWavelengths(),
+            lambda pa_wave, p1_wave: pa_wave,
+            lambda pa_wave, p1_wave: p1_wave,
+            photon_array._wave,
+            p1._wave,
+        )
+        p1._pupil_u, p1._pupil_v = jax.lax.cond(
+            photon_array.hasAllocatedPupil(),
+            lambda pa_u, pa_v, p1_u, p1_v: (pa_u, pa_v),
+            lambda pa_u, pa_v, p1_u, p1_v: (p1_u, p1_v),
+            photon_array._pupil_u,
+            photon_array._pupil_v,
+            p1._pupil_u,
+            p1._pupil_v,
+        )
+        p1._time = jax.lax.cond(
+            photon_array.hasAllocatedTimes(),
+            lambda pa_time, p1_time: pa_time,
+            lambda pa_time, p1_time: p1_time,
+            photon_array._time,
+            p1._time,
+        )
         obj = local_wcs.toImage(self) if local_wcs is not None else self
         obj._shoot(p1, rng)
         photon_array.convolve(p1, rng)
@@ -1418,6 +1470,7 @@ def _draw_phot_while_loop_shoot(
     resume,
     added_flux,
 ):
+    """This helper function shoots thisN photons and accumulates them into the image."""
     try:
         photons = obj.shoot(maxN, rng)
     except (GalSimError, NotImplementedError) as e:
@@ -1482,6 +1535,8 @@ def _draw_phot_while_loop(
     sensor,
     orig_center,
 ):
+    """This helper function shoots photons until Ntot is reached."""
+
     def _cond_fun(args):
         (
             photons,

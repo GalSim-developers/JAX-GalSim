@@ -41,6 +41,33 @@ JAX-GalSim PhotonArrays have significant differences from the original GalSim.
     - They always copy input data and operations on them always copy.
     - They (usually) do not do any type/size checking on input data.
     - They do not support indexed assignement directly on the attributes.
+    - The additional properties `dxdz`, `dydz`, `wavelength`, `pupil_u`, `pupil_v`,
+      and `time` are set to arrays of NaNs by default. They are thus always allocated.
+      However, the methods like `hasAllocatedAngles` etc. return false if the arrays
+      are all NaNs.
+
+Further, a context manager `fixed_photon_array_size` is provided to temporarily
+set a fixed size for photon arrays.
+
+  - This functionality is useful when apply JIT to operations that vary the
+    number of photons drawn using Poisson statistics.
+  - When using this context manager, the attribute `_nokeep` stores a boolean mask
+    indicating which photons are to be kept.
+  - The attribute `_num_keep` stores the number of photons to be kept. If you set
+    this attribute, the `_nokeep` mask is updated by sorting _nokeep so that things
+    to be kept are at the start, the first `_num_keep` photons are marked to be kept,
+    and finally the array is sorted back to its original order.
+  - You may get an error if you ask for more photons than the fixed size, but not always,
+    especially in JITed code.
+  - Operations on photon arrays with fixed sizes but different `_num_keep` values are not
+    defined and will not raise an error.
+  - The `.flux` property scales `._flux` by the ratio of the fixed size to the number of kept photons
+    and sets non-kept photons to zero flux. Setting `.flux` to `._flux` will break things badly.
+  - Profiles should always draw the full number of photons given by `.size()` or `len()`
+    so that they use fixed array sizes and things are JIT compatible.
+
+**The `_nokeep`, `_num_keep`, and associated methods are private and should not be set by hand
+unless you know what you are doing!**
 """,
 )
 @register_pytree_node_class
@@ -60,15 +87,19 @@ class PhotonArray:
         _nokeep=None,
     ):
         self._Ntot = _JAX_GALSIM_PHOTON_ARRAY_SIZE or N
-        # if (
-        #     _JAX_GALSIM_PHOTON_ARRAY_SIZE is not None
-        #     and isinstance(N, int)
-        #     and N > _JAX_GALSIM_PHOTON_ARRAY_SIZE
-        # ):
-        #     raise GalSimValueError(
-        #         f"The given photon array size {N} is larger than "
-        #         f"the allowed total size {_JAX_GALSIM_PHOTON_ARRAY_SIZE}."
-        #     )
+        if _JAX_GALSIM_PHOTON_ARRAY_SIZE is not None:
+            try:
+                # this will raise a boolean conversion error in JAX
+                # which we swallow
+                err_cond = (N > _JAX_GALSIM_PHOTON_ARRAY_SIZE) or False
+            except Exception:
+                err_cond = False
+
+            if err_cond:
+                raise GalSimValueError(
+                    f"The given photon array size {N} is larger than "
+                    f"the allowed total size {_JAX_GALSIM_PHOTON_ARRAY_SIZE}."
+                )
         if _nokeep is not None:
             self._nokeep = _nokeep
         else:
@@ -241,7 +272,10 @@ class PhotonArray:
     @_num_keep.setter
     def _num_keep(self, num_keep):
         """Set the number of actual photons in the array."""
+        sinds = jnp.argsort(self._nokeep)
+        self._sort_by_nokeep(sinds=sinds)
         self._nokeep = jnp.arange(self._Ntot) >= num_keep
+        self._set_self_at_inds(sinds)
 
     @property
     def x(self):
@@ -278,7 +312,13 @@ class PhotonArray:
 
     @flux.setter
     def flux(self, value):
-        self._flux = self._flux.at[:].set(value)
+        self._flux = self._flux.at[:].set(
+            value
+            # scale it down to account for scaling in flux getter above
+            # this factor has to be computed after _nokeep is set above
+            # so that _num_keep is the right value
+            / (self._Ntot / self._num_keep)
+        )
 
     @property
     def dxdz(self):
@@ -457,9 +497,10 @@ class PhotonArray:
 
         return self
 
-    def _sort_by_nokeep(self):
+    def _sort_by_nokeep(self, sinds=None):
         # now sort things to keep to the left
-        sinds = jnp.argsort(self._nokeep)
+        if sinds is None:
+            sinds = jnp.argsort(self._nokeep)
         self._x = self._x.at[sinds].get()
         self._y = self._y.at[sinds].get()
         self._flux = self._flux.at[sinds].get()
@@ -470,6 +511,20 @@ class PhotonArray:
         self._pupil_u = self._pupil_u.at[sinds].get()
         self._pupil_v = self._pupil_v.at[sinds].get()
         self._time = self._time.at[sinds].get()
+
+        return self
+
+    def _set_self_at_inds(self, sinds):
+        self._x = self._x.at[sinds].set(self._x)
+        self._y = self._y.at[sinds].set(self._y)
+        self._flux = self._flux.at[sinds].set(self._flux)
+        self._nokeep = self._nokeep.at[sinds].set(self._nokeep)
+        self._dxdz = self._dxdz.at[sinds].set(self._dxdz)
+        self._dydz = self._dydz.at[sinds].set(self._dydz)
+        self._wave = self._wave.at[sinds].set(self._wave)
+        self._pupil_u = self._pupil_u.at[sinds].set(self._pupil_u)
+        self._pupil_v = self._pupil_v.at[sinds].set(self._pupil_v)
+        self._time = self._time.at[sinds].set(self._time)
 
         return self
 
@@ -487,18 +542,8 @@ class PhotonArray:
                 "The given rhs does not fit into this array starting at %d" % istart,
                 rhs,
             )
-        self._x = self._x.at[istart : istart + rhs.size()].set(rhs.x)
-        self._y = self._y.at[istart : istart + rhs.size()].set(rhs.y)
-        self._flux = self._flux.at[istart : istart + rhs.size()].set(rhs.flux)
-        self._nokeep = self._nokeep.at[istart : istart + rhs.size()].set(rhs._nokeep)
-        self._dxdz = self._dxdz.at[istart : istart + rhs.size()].set(rhs.dxdz)
-        self._dydz = self._dydz.at[istart : istart + rhs.size()].set(rhs.dydz)
-        self._wave = self._wave.at[istart : istart + rhs.size()].set(rhs.wavelength)
-        self._pupil_u = self._pupil_u.at[istart : istart + rhs.size()].set(rhs.pupil_u)
-        self._pupil_v = self._pupil_v.at[istart : istart + rhs.size()].set(rhs.pupil_v)
-        self._time = self._time.at[istart : istart + rhs.size()].set(rhs.time)
-
-        return self._sort_by_nokeep()
+        s = slice(istart, istart + rhs.size())
+        return self._copyFrom(rhs, s, slice(None))
 
     @_wraps(
         _galsim.PhotonArray.copyFrom,
@@ -543,12 +588,39 @@ class PhotonArray:
                 arr2,
             )
 
+        old_flux_ratio = self._Ntot / self._num_keep
+
+        if do_xy or do_flux or do_other:
+            self._nokeep = self._nokeep.at[s1].set(rhs._nokeep.at[s2].get())
+
+        new_flux_ratio = self._Ntot / self._num_keep
+
         if do_xy:
             self._x = self._x.at[s1].set(rhs.x.at[s2].get())
             self._y = self._y.at[s1].set(rhs.y.at[s2].get())
 
         if do_flux:
-            self._flux = self._flux.at[s1].set(rhs.flux.at[s2].get())
+            # we first scale the existing fluxes to account for the change in num_keep
+            self._flux = (
+                self._flux
+                # this factor gets us back to true flux
+                * old_flux_ratio
+                # this factor gets us back to the internal units
+                / new_flux_ratio
+            )
+
+            # next we assign the RHS fluxes accounting for the change in num_keep from the
+            # RHS to the new flux_ratio
+            self._flux = self._flux.at[s1].set(
+                rhs._flux.at[s2].get()
+                # these factors conserve the flux of the assigned photons
+                # gets us to the true flux of the photon
+                * (rhs._Ntot / rhs._num_keep)
+                # scale it back down to account for scaling later
+                # this factor has to be computed after _nokeep is set above
+                # so that _num_keep is the right value
+                / (self._Ntot / self._num_keep)
+            )
 
         if do_other:
             self._dxdz = _cond_set_indices(
@@ -570,20 +642,26 @@ class PhotonArray:
                 self._time, rhs.time, rhs.hasAllocatedTimes()
             )
 
-        if do_xy or do_flux or do_other:
-            self._nokeep = self._nokeep.at[s1].set(rhs._nokeep.at[s2].get())
-
-        return self._sort_by_nokeep()
+        return self
 
     def _assign_from_categorical_index(self, cat_inds, cat_ind_to_assign, rhs):
         """Assign the contents of another `PhotonArray` to this one at locations
         where cat_ind == cat_ind_to_assign.
         """
         msk = cat_ind_to_assign == cat_inds
+        old_flux_ratio = self._Ntot / self._num_keep
+        self._nokeep = jnp.where(msk, rhs._nokeep, self._nokeep)
+        new_flux_ratio = self._Ntot / self._num_keep
+
+        rhs_flux_ratio = rhs._Ntot / rhs._num_keep
+
         self._x = jnp.where(msk, rhs._x, self._x)
         self._y = jnp.where(msk, rhs._y, self._y)
-        self._flux = jnp.where(msk, rhs._flux, self._flux)
-        self._nokeep = jnp.where(msk, rhs._nokeep, self._nokeep)
+        self._flux = jnp.where(
+            msk,
+            rhs._flux * rhs_flux_ratio / new_flux_ratio,
+            self._flux * old_flux_ratio / new_flux_ratio,
+        )
 
         self._dxdz = jnp.where(msk, rhs._dxdz, self._dxdz)
         self._dydz = jnp.where(msk, rhs._dydz, self._dydz)
@@ -592,7 +670,7 @@ class PhotonArray:
         self._pupil_v = jnp.where(msk, rhs._pupil_v, self._pupil_v)
         self._time = jnp.where(msk, rhs._time, self._time)
 
-        return self._sort_by_nokeep()
+        return self
 
     def convolve(self, rhs, rng=None):
         """Convolve this `PhotonArray` with another.
@@ -606,6 +684,13 @@ class PhotonArray:
             raise GalSimIncompatibleValuesError(
                 "PhotonArray.convolve with unequal size arrays", self_pa=self, rhs=rhs
             )
+
+        # We need to make sure that the arrays are sorted by _nokeep before convolving
+        # we sort them back to their original order after convolving
+        self_sinds = jnp.argsort(self._nokeep)
+        rhs_sinds = jnp.argsort(rhs._nokeep)
+        self._sort_by_nokeep(sinds=self_sinds)
+        rhs._sort_by_nokeep(sinds=rhs_sinds)
 
         rng = BaseDeviate(rng)
         rsinds = jrng.choice(
@@ -683,6 +768,10 @@ class PhotonArray:
         self._x = self._x + rhs._x.at[sinds].get()
         self._y = self._y + rhs._y.at[sinds].get()
         self._flux = self._flux * rhs._flux.at[sinds].get() * self.size()
+
+        # sort the arrays back to their original order
+        self._set_self_at_inds(self_sinds)
+        rhs._set_self_at_inds(rhs_sinds)
 
         return self
 

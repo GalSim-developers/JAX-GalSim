@@ -11,20 +11,21 @@ from jax_galsim.position import PositionI
 from jax_galsim.utilities import parse_pos_args
 from jax_galsim.wcs import BaseWCS, PixelScale
 
-
-@_wraps(
-    _galsim.Image,
-    lax_description="""
+IMAGE_LAX_DOCS = """\
 Contrary to GalSim native Image, this implementation does not support
 sharing of the underlying numpy array between different Images or Views.
 This is due to the fact that in JAX numpy arrays are immutable, so any
 operation applied to this Image will create a new jnp.ndarray.
 
-    In particular the followong methods will create a copy of the Image:
-        - Image.view()
-        - Image.subImage()
+In particular the followong methods will create a copy of the Image:
+    - Image.view()
+    - Image.subImage()
+"""
 
-""",
+
+@_wraps(
+    _galsim.Image,
+    lax_description=IMAGE_LAX_DOCS,
 )
 @register_pytree_node_class
 class Image(object):
@@ -56,6 +57,7 @@ class Image(object):
 
     def __init__(self, *args, **kwargs):
         # this one is specific to jax-galsim and is used to disable bounds checking
+        # we use an underscore to denote that it is a private argument
         _check_bounds = kwargs.pop("_check_bounds", True)
 
         # Parse the args, kwargs
@@ -458,6 +460,7 @@ class Image(object):
             self.array.imag,
             bounds=self.bounds,
             wcs=self.wcs,
+            # for real images, the imaginary part is always zero and immutable
             make_const=self._is_const or (not self.iscomplex),
         )
 
@@ -1154,6 +1157,8 @@ class Image(object):
         # Define the children nodes of the PyTree that need tracing
         children = (self.array, self.wcs)
         aux_data = {"dtype": self.dtype, "bounds": self.bounds, "isconst": self.isconst}
+        # other routines may add these attributes to images on the fly
+        # we have to include them here so that JAX knows how to handle them in jitting etc.
         if hasattr(self, "added_flux"):
             children += (self.added_flux,)
         if hasattr(self, "header"):
@@ -1193,7 +1198,10 @@ class Image(object):
         return im
 
 
-@_wraps(_galsim._Image)
+@_wraps(
+    _galsim._Image,
+    lax_description=IMAGE_LAX_DOCS,
+)
 def _Image(array, bounds, wcs):
     ret = Image.__new__(Image)
     ret.wcs = wcs

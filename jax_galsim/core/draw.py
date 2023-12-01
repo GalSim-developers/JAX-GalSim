@@ -11,6 +11,7 @@ def draw_by_xValue(
     gsobject, image, jacobian=jnp.eye(2), offset=jnp.zeros(2), flux_scaling=1.0
 ):
     """Utility function to draw a real-space GSObject into an Image."""
+    # putting the import here to avoid circular imports
     from jax_galsim import Image, PositionD
 
     # Applies flux scaling to compensate for pixel scale
@@ -41,6 +42,7 @@ def draw_by_xValue(
 
 
 def draw_by_kValue(gsobject, image, jacobian=jnp.eye(2)):
+    # putting the import here to avoid circular imports
     from jax_galsim import Image, PositionD
 
     # Create an array of coordinates
@@ -59,6 +61,7 @@ def draw_by_kValue(gsobject, image, jacobian=jnp.eye(2)):
 
 
 def apply_kImage_phases(offset, image, jacobian=jnp.eye(2)):
+    # putting the import here to avoid circular imports
     from jax_galsim import Image, PositionD
 
     # Create an array of coordinates

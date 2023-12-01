@@ -25,7 +25,7 @@ JAX-GalSim PRNGs have some support for linking states, but it may not always wor
 
 Seeding the JAX-GalSim PRNG can be done in a few ways:
 
-  - pass seed=None (This is equivalent to passing seed=0)
+  - pass seed=None (This is equivalent to passing seed=0.)
   - pass an integer seed (This method will throw errors if the integer is traced by JAX.)
   - pass another JAX-GalSim PRNG
   - pass a JAX PRNG key made via `jax.random.key`.
