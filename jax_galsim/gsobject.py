@@ -7,7 +7,7 @@ import numpy as np
 from jax._src.numpy.util import _wraps
 
 import jax_galsim.photon_array as pa
-from jax_galsim.core.draw import NPhotonsData, get_n_photons
+from jax_galsim.core.draw import calculate_n_photons
 from jax_galsim.core.utils import is_equal_with_arrays
 from jax_galsim.errors import (
     GalSimError,
@@ -1159,16 +1159,15 @@ The JAX-GalSim version of `drawImage`
 
     @_wraps(_galsim.GSObject._calculate_nphotons)
     def _calculate_nphotons(self, n_photons, poisson_flux, max_extra_noise, rng):
-        npd = NPhotonsData(
+        n_photons, g, _rng = calculate_n_photons(
+            self.flux,
+            self._flux_per_photon,
+            self.max_sb,
             n_photons=n_photons,
-            poisson_flux=poisson_flux,
-            max_extra_noise=max_extra_noise,
             rng=rng,
-            flux=self.flux,
-            flux_per_photon=self._flux_per_photon,
-            max_sb=self.max_sb,
+            max_extra_noise=max_extra_noise,
+            poisson_flux=poisson_flux,
         )
-        n_photons, g, _rng = get_n_photons(npd)
         if rng is not None:
             rng._state = _rng._state
         return n_photons, g
