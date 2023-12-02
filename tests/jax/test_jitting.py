@@ -335,7 +335,7 @@ def test_jitting_draw_phot_fixed():
             final.max_sb,
             poisson_flux=False,
             rng=galsim.BaseDeviate(1234),
-        )[0]
+        )[0].item()
         gain = 1.0
         if jit:
             if maxn:
@@ -396,10 +396,10 @@ def test_jitting_draw_phot_fixed():
     with time_code_block("jit"):
         img4 = _build_and_draw(0.5, 1.0)
 
-    with time_code_block("warmup jit"):
+    with time_code_block("warmup jit+maxn"):
         img5 = _build_and_draw(0.5, 1.0, maxn=True)
 
-    with time_code_block("jit"):
+    with time_code_block("jit+maxn"):
         img6 = _build_and_draw(0.5, 1.0, maxn=True)
 
     np.testing.assert_allclose(img1.array, img2.array)
