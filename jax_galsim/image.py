@@ -17,7 +17,7 @@ sharing of the underlying numpy array between different Images or Views.
 This is due to the fact that in JAX numpy arrays are immutable, so any
 operation applied to this Image will create a new jnp.ndarray.
 
-In particular the followong methods will create a copy of the Image:
+In particular the following methods will create a copy of the Image:
     - Image.view()
     - Image.subImage()
 """
@@ -496,7 +496,7 @@ class Image(object):
     def _make_empty(self, shape, dtype):
         """Helper function to make an empty numpy array of the given shape."""
         if np.prod(shape) == 0:
-            # galsim forces degenrate images to have at least 1 pixel
+            # galsim forces degenerate images to have at least 1 pixel
             return jnp.zeros(shape=(1, 1), dtype=dtype)
         else:
             return jnp.zeros(shape=shape, dtype=dtype)

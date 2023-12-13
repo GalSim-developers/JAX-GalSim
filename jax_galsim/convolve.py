@@ -311,7 +311,7 @@ class Convolution(GSObject):
     def _shoot(self, photons, rng):
         self.obj_list[0]._shoot(photons, rng)
         # It may be necessary to shuffle when convolving because we do not have a
-        # gaurantee that the convolvee's photons are uncorrelated, e.g., they might
+        # guarantee that the convolvee's photons are uncorrelated, e.g., they might
         # both have their negative ones at the end.
         # However, this decision is now made by the convolve method.
         for obj in self.obj_list[1:]:

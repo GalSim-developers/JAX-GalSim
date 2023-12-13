@@ -277,7 +277,7 @@ class Interpolant:
         px = jnp.abs(self._xval_noraise(jnp.abs(x)))
         dx = x[1] - x[0]
         # cumulative trapezoidal rule
-        # see scipy.integrate.cumulative_trapezoidal
+        # see scipy.integrate.cumulative_trapezoid
         cdfx = jnp.concatenate(
             [jnp.array([0]), jnp.cumsum((px[1:] + px[:-1]) * 0.5 * dx)]
         )
@@ -285,6 +285,8 @@ class Interpolant:
         return x, cdfx
 
     def _shoot(self, photons, rng):
+        # this is a generic method used for kernels without easy
+        # analytic ways to draw from them (currently Cubic, Quintic, and Lanczos)
         x, cdfx = self._shoot_cdf
         ud = UniformDeviate(rng)
         ux = ud.generate(photons.x)
@@ -352,6 +354,8 @@ class Delta(Interpolant):
         return 0
 
     def _shoot(self, photons, rng):
+        # PhotonArray class does the correct thing here, setting
+        # the whole array to zero
         photons.x = 0.0
         photons.y = 0.0
         photons.flux = 1.0 / photons.size()

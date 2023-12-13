@@ -886,7 +886,7 @@ class _InterpolatedImageImpl(GSObject):
         #  - the total absolute flux in the image = (pos + neg)
         #  - the number of photons to draw = photons.size()
         #
-        # If you inpack it all, then you get
+        # If you unpack it all, then you get
         #
         #  sign * (1 - 2 neg / (pos + neg)) * (pos + neg) / photons.size()
         #  = sign * (pos + neg - 2 neg) / (pos + neg) * (pos + neg) / photons.size()
@@ -902,7 +902,7 @@ class _InterpolatedImageImpl(GSObject):
             / photons.size()
         )
 
-        # accounnt for offset - we add the offset to get to
+        # account for offset - we add the offset to get to
         # image pixels in the xValue method
         # here we generate photons from the image and
         # so we need to subtract it to get back to get to x as

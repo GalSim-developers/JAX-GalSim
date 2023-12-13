@@ -19,8 +19,8 @@ enabled_tests:
     - test_random.py
     - test_noise.py
     - test_image.py
-    - test_phpton_array.py
-    - "*"
+    - test_photon_array.py
+    - "*"  # means all tests from galsim
   coord:
     - test_angle.py
     - test_angleunit.py

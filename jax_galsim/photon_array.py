@@ -619,7 +619,7 @@ class PhotonArray:
                 # scale it back down to account for scaling later
                 # this factor has to be computed after _nokeep is set above
                 # so that _num_keep is the right value
-                / (self._Ntot / self._num_keep)
+                / new_flux_ratio
             )
 
         if do_other:
@@ -994,7 +994,7 @@ def _add_photons_to_image(x, y, flux, xmin, ymin, arr):
     xinds = jnp.floor(x - xmin + 0.5).astype(int)
     yinds = jnp.floor(y - ymin + 0.5).astype(int)
     # the jax documentation says that they drop out of bounds indices,
-    # but the galsim unit tests reveal that withoout the check below,
+    # but the galsim unit tests reveal that without the check below,
     # the indices are not dropped.
     # I think maybe it is only indices beyond the end of the array that are
     # dropped and negative indices wrap around

@@ -362,22 +362,6 @@ def _sample_nonzero(n_photons_data):
 
 @jax.jit
 def _sample_poisson_flux(flux, eta_factor, rng):
-    # If we have both positive and negative photons, then the mix of these
-    # already gives us some variation in the flux value from the variance
-    # of how many are positive and how many are negative.
-    # The number of negative photons varies as a binomial distribution.
-    # <F-> = eta * Ntot * g
-    # <F+> = (1-eta) * Ntot * g
-    # <F+ - F-> = (1-2eta) * Ntot * g = flux
-    # Var(F-) = eta * (1-eta) * Ntot * g^2
-    # F+ = Ntot * g - F- is not an independent variable, so
-    # Var(F+ - F-) = Var(Ntot*g - 2*F-)
-    #              = 4 * Var(F-)
-    #              = 4 * eta * (1-eta) * Ntot * g^2
-    #              = 4 * eta * (1-eta) * flux
-    # We want the variance to be equal to flux, so we need an extra:
-    # delta Var = (1 - 4*eta + 4*eta^2) * flux
-    #           = (1-2eta)^2 * flux
     absflux = jnp.abs(flux)
     mean = eta_factor * eta_factor * absflux
     pd = PoissonDeviate(rng, mean)

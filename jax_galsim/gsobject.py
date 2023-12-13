@@ -1225,6 +1225,8 @@ The JAX-GalSim version of `makePhot`
                 "Deconvolve objects.\nOriginal error: %r" % (e)
             )
 
+        # jax.lax.cond doesn't evaluate both of the branches
+        # and this call can save computations for common cases.
         photons = jax.lax.cond(
             g == 1.0,
             lambda photons, g: photons,
@@ -1301,6 +1303,8 @@ The JAX-GalSim version of `drawPhot`
 
             Ntot, g = self._calculate_nphotons(0.0, poisson_flux, max_extra_noise, rng)
 
+        # this call can save computations for the 
+        # common case of gain == 1.0
         g = jax.lax.cond(
             gain != 1.0,
             lambda g, gain: g / gain,
