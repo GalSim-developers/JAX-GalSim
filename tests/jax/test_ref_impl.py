@@ -38,7 +38,7 @@ def test_ref_impl_convolve():
         conv2(ref_galsim),
         conv2(jax_galsim),
         5,
-        err_msg=" GSObject Convolve(psf,pixel) disagrees with expected result",
+        err_msg="GSObject Convolve(psf,pixel) disagrees with expected result",
     )
 
 
