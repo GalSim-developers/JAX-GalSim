@@ -330,12 +330,7 @@ class PhotonArray:
     @dxdz.setter
     def dxdz(self, value):
         self._dxdz = self._dxdz.at[:].set(value)
-        self._dydz = jax.lax.cond(
-            jnp.any(jnp.isfinite(self._dxdz)) & jnp.all(~jnp.isfinite(self._dydz)),
-            lambda dydz: jnp.zeros_like(dydz),
-            lambda dydz: dydz,
-            self._dydz,
-        )
+        self._dydz = _zero_if_needed_on_set(self._dxdz, self._dydz)
 
     @property
     def dydz(self):
@@ -345,12 +340,7 @@ class PhotonArray:
     @dydz.setter
     def dydz(self, value):
         self._dydz = self._dydz.at[:].set(value)
-        self._dxdz = jax.lax.cond(
-            jnp.any(jnp.isfinite(self._dydz)) & jnp.all(~jnp.isfinite(self._dxdz)),
-            lambda dxdz: jnp.zeros_like(dxdz),
-            lambda dxdz: dxdz,
-            self._dxdz,
-        )
+        self._dxdz = _zero_if_needed_on_set(self._dydz, self._dxdz)
 
     @property
     def wavelength(self):
@@ -369,13 +359,7 @@ class PhotonArray:
     @pupil_u.setter
     def pupil_u(self, value):
         self._pupil_u = self._pupil_u.at[:].set(value)
-        self._pupil_v = jax.lax.cond(
-            jnp.any(jnp.isfinite(self._pupil_u))
-            & jnp.all(~jnp.isfinite(self._pupil_v)),
-            lambda pupil_v: jnp.zeros_like(pupil_v),
-            lambda pupil_v: pupil_v,
-            self._pupil_v,
-        )
+        self._pupil_v = _zero_if_needed_on_set(self._pupil_u, self._pupil_v)
 
     @property
     def pupil_v(self):
@@ -385,13 +369,7 @@ class PhotonArray:
     @pupil_v.setter
     def pupil_v(self, value):
         self._pupil_v = self._pupil_v.at[:].set(value)
-        self._pupil_u = jax.lax.cond(
-            jnp.any(jnp.isfinite(self._pupil_v))
-            & jnp.all(~jnp.isfinite(self._pupil_u)),
-            lambda pupil_u: jnp.zeros_like(pupil_u),
-            lambda pupil_u: pupil_u,
-            self._pupil_u,
-        )
+        self._pupil_u = _zero_if_needed_on_set(self._pupil_v, self._pupil_u)
 
     @property
     def time(self):
@@ -1035,3 +1013,12 @@ def _add_photons_to_image(x, y, flux, xmin, ymin, arr):
     _arr = arr.at[yinds, xinds].add(_flux.astype(arr.dtype))
 
     return _arr, _flux.sum()
+
+
+def _zero_if_needed_on_set(arr_to_test, arr_to_zero):
+    return jax.lax.cond(
+        jnp.any(jnp.isfinite(arr_to_test)) & jnp.all(~jnp.isfinite(arr_to_zero)),
+        lambda atz: jnp.zeros_like(atz),
+        lambda atz: atz,
+        arr_to_zero,
+    )
