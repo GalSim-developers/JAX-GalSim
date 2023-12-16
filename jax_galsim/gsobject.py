@@ -1303,7 +1303,7 @@ The JAX-GalSim version of `drawPhot`
 
             Ntot, g = self._calculate_nphotons(0.0, poisson_flux, max_extra_noise, rng)
 
-        # this call can save computations for the 
+        # this call can save computations for the
         # common case of gain == 1.0
         g = jax.lax.cond(
             gain != 1.0,

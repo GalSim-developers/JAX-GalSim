@@ -32,7 +32,6 @@ def test_photon_shooting_jax_make_from_image_notranspose():
     image2 = jax_galsim.Image(np.zeros_like(ref_array))
     photons.addTo(image2)
 
-
     np.testing.assert_allclose(image2.array, ref_array)
 
 
@@ -141,7 +140,6 @@ def test_photon_shooting_jax_offset(offset):
             for k, v in jax_galsim.utilities.unweighted_moments(img_phot).items()
         ),
     )
-
 
     np.testing.assert_almost_equal(
         jnp.argmax(img_fft.array),
