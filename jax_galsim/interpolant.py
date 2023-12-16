@@ -468,6 +468,7 @@ class SincInterpolant(Interpolant):
         narr = jnp.arange(n)
 
         val = (si(jnp.pi * (narr + 1)) - si(jnp.pi * (narr))) / jnp.pi
+        # this computed flux is a constant and so we do not propagate gradients
         self._positive_flux = (
             jax.lax.stop_gradient(jnp.sum(jnp.where(val > 0, val, 0.0))) * 2.0
         )

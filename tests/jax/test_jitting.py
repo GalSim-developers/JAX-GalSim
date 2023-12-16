@@ -213,14 +213,18 @@ def test_jitting_draw_fft():
 
     with time_code_block("warmup no-jit"):
         img = _build_and_draw(0.5, 1.0, jit=False)
+    np.testing.assert_array_almost_equal(img.array.sum(), 1000.0, 0)
+
     with time_code_block("no-jit"):
         img = _build_and_draw(0.5, 1.0, jit=False)
+    np.testing.assert_array_almost_equal(img.array.sum(), 1000.0, 0)
 
     with time_code_block("warmup jit"):
         img = _build_and_draw(0.5, 1.0)
+    np.testing.assert_array_almost_equal(img.array.sum(), 1000.0, 0)
+
     with time_code_block("jit"):
         img = _build_and_draw(0.5, 1.0)
-
     np.testing.assert_array_almost_equal(img.array.sum(), 1000.0, 0)
 
 

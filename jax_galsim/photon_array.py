@@ -302,6 +302,8 @@ class PhotonArray:
     @property
     def flux(self):
         """The flux of the photons."""
+        # we use jax.lax.cond to save some multiplications when
+        # there are no masked photos.
         return jax.lax.cond(
             self._Ntot == self._num_keep,
             lambda flux, ratio: flux,
@@ -838,6 +840,8 @@ class PhotonArray:
         _arr, _flux_sum = _add_photons_to_image(
             self._x,
             self._y,
+            # this computation is the same as self.flux, but we've left it duplicated here
+            # so that we don't change this line to self._flux only by accident in the future
             jnp.where(self._nokeep, 0.0, self._flux) * self._Ntot / self._num_keep,
             image.bounds.xmin,
             image.bounds.ymin,
