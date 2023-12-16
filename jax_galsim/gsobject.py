@@ -1,3 +1,4 @@
+from collections import namedtuple
 from functools import partial
 
 import galsim as _galsim
@@ -1330,62 +1331,46 @@ The JAX-GalSim version of `drawPhot`
         if maxN is None:
             # if neither maxN nor _JAX_GALSIM_PHOTON_ARRAY_SIZE are set
             # we drae Ntot photons all at once
-            (
-                added_flux,
-                _image,
-                _sensor,
-                _photon_ops,
-                _rng,
-                _,
-                photons,
-            ) = _draw_phot_while_loop_shoot(
-                Ntot,
-                Ntot,
-                Ntot,
-                self,
-                rng,
-                g,
-                image,
-                photon_ops,
-                sensor,
-                orig_center,
-                local_wcs,
-                False,
-                0.0,
+            _dfret = _draw_phot_while_loop_shoot(
+                maxN=Ntot,
+                thisN=Ntot,
+                Ntot=Ntot,
+                obj=self,
+                rng=rng,
+                g=g,
+                image=image,
+                photon_ops=photon_ops,
+                sensor=sensor,
+                orig_center=orig_center,
+                local_wcs=local_wcs,
+                resume=False,
+                added_flux=0.0,
             )
         else:
             # if maxN or _JAX_GALSIM_PHOTON_ARRAY_SIZE is set
             # we draw a fixed number of photons at a time in a while
             # loop until we have drawn Ntot photons
-            (
-                photons,
-                _rng,
-                added_flux,
-                _Nleft,
-                _image,
-                _photon_ops,
-                _sensor,
-            ) = _draw_phot_while_loop(
-                PhotonArray(maxN),
-                rng,
-                self,
-                image,
-                g,
-                Ntot,
-                maxN,
-                photon_ops,
-                local_wcs,
-                sensor,
-                orig_center,
+            _dfret = _draw_phot_while_loop(
+                photons=PhotonArray(maxN),
+                rng=rng,
+                obj=self,
+                image=image,
+                g=g,
+                Ntot=Ntot,
+                maxN=maxN,
+                photon_ops=photon_ops,
+                local_wcs=local_wcs,
+                sensor=sensor,
+                orig_center=orig_center,
             )
         if rng is not None:
-            rng._state = _rng._state
+            rng._state = _dfret.rng._state
         else:
-            rng = _rng
+            rng = _dfret.rng
         for i in range(len(photon_ops)):
-            photon_ops[i] = _photon_ops[i]
+            photon_ops[i] = _dfret.photon_ops[i]
 
-        image._array = _image._array
+        image._array = _dfret.image._array
 
         # TODO: how to update the sensor?
         # https://github.com/GalSim-developers/JAX-GalSim/issues/85
@@ -1394,7 +1379,7 @@ The JAX-GalSim version of `drawPhot`
                 "Non-default sensors that carry state are not yet supported in jax-galsim."
             )
 
-        return added_flux, photons
+        return _dfret.added_flux, _dfret.photons
 
     @_wraps(_galsim.GSObject.shoot)
     def shoot(self, n_photons, rng=None):
@@ -1460,7 +1445,22 @@ The JAX-GalSim version of `drawPhot`
         return cls(**(children[0]), **aux_data)
 
 
+_DrawPhotReturnTuple = namedtuple(
+    "_DrawPhotReturnTuple",
+    [
+        "photons",
+        "rng",
+        "added_flux",
+        "image",
+        "photon_ops",
+        "sensor",
+        "resume",
+    ],
+)
+
+
 def _draw_phot_while_loop_shoot(
+    *,
     maxN,
     thisN,
     Ntot,
@@ -1474,6 +1474,8 @@ def _draw_phot_while_loop_shoot(
     local_wcs,
     resume,
     added_flux,
+    Nleft=0,
+    photons=None,
 ):
     """This helper function shoots thisN photons and accumulates them into the image."""
     try:
@@ -1523,11 +1525,14 @@ def _draw_phot_while_loop_shoot(
         added_flux += sensor.accumulate(photons, im1, orig_center)
         image += im1
 
-    return added_flux, image, sensor, photon_ops, rng, resume, photons
+    return _DrawPhotReturnTuple(
+        photons, rng, added_flux, image, photon_ops, sensor, resume
+    )
 
 
 @partial(jax.jit, static_argnames=("maxN",))
 def _draw_phot_while_loop(
+    *,
     photons,
     rng,
     obj,
@@ -1542,116 +1547,57 @@ def _draw_phot_while_loop(
 ):
     """This helper function shoots photons until Ntot is reached."""
 
-    def _cond_fun(args):
-        (
-            photons,
-            rng,
-            added_flux,
-            obj,
-            Nleft,
-            resume,
-            image,
-            g,
-            photon_ops,
-            local_wcs,
-            sensor,
-            orig_center,
-        ) = args
-        return Nleft > 0
+    def _cond_fun(kwargs):
+        return kwargs["Nleft"] > 0
 
-    def _body_fun(args):
-        (
-            photons,
-            rng,
-            added_flux,
-            obj,
-            Nleft,
-            resume,
-            image,
-            g,
-            photon_ops,
-            local_wcs,
-            sensor,
-            orig_center,
-        ) = args
+    def _body_fun(kwargs):
         # Shoot at most maxN at a time
-        thisN = jnp.minimum(maxN, Nleft)
+        thisN = jnp.minimum(maxN, kwargs["Nleft"])
 
-        (
-            _added_flux,
-            _image,
-            _sensor,
-            _photon_ops,
-            _rng,
-            _resume,
-            _photons,
-        ) = _draw_phot_while_loop_shoot(
-            maxN,
-            thisN,
-            Ntot,
-            obj,
-            rng,
-            g,
-            image,
-            photon_ops,
-            sensor,
-            orig_center,
-            local_wcs,
-            resume,
-            added_flux,
+        _dfret = _draw_phot_while_loop_shoot(maxN=maxN, thisN=thisN, **kwargs)
+
+        return dict(
+            photons=_dfret.photons,
+            rng=_dfret.rng,
+            added_flux=_dfret.added_flux,
+            obj=kwargs["obj"],
+            Nleft=kwargs["Nleft"] - thisN,
+            resume=_dfret.resume,
+            image=_dfret.image,
+            g=kwargs["g"],
+            photon_ops=_dfret.photon_ops,
+            local_wcs=kwargs["local_wcs"],
+            sensor=_dfret.sensor,
+            orig_center=kwargs["orig_center"],
+            Ntot=kwargs["Ntot"],
         )
 
-        Nleft -= thisN
-
-        return (
-            _photons,
-            _rng,
-            _added_flux,
-            obj,
-            Nleft,
-            _resume,
-            _image,
-            g,
-            _photon_ops,
-            local_wcs,
-            _sensor,
-            orig_center,
-        )
-
-    added_flux = jnp.array(0)
-    Nleft = jnp.array(Ntot)
-    resume = jnp.array(False)
-    rng = BaseDeviate(rng)
-    (
-        photons,
-        rng,
-        added_flux,
-        obj,
-        Nleft,
-        resume,
-        image,
-        g,
-        photon_ops,
-        local_wcs,
-        sensor,
-        orig_center,
-    ) = jax.lax.while_loop(
+    ret_kwargs = jax.lax.while_loop(
         _cond_fun,
         _body_fun,
-        (
-            photons,
-            rng,
-            added_flux,
-            obj,
-            Nleft,
-            resume,
-            image,
-            g,
-            photon_ops,
-            local_wcs,
-            sensor,
-            orig_center,
+        dict(
+            photons=photons,
+            rng=BaseDeviate(rng),
+            added_flux=jnp.array(0),
+            obj=obj,
+            Nleft=jnp.array(Ntot),
+            resume=jnp.array(False),
+            image=image,
+            g=g,
+            photon_ops=photon_ops,
+            local_wcs=local_wcs,
+            sensor=sensor,
+            orig_center=orig_center,
+            Ntot=Ntot,
         ),
     )
 
-    return photons, rng, added_flux, Nleft, image, photon_ops, sensor
+    return _DrawPhotReturnTuple(
+        ret_kwargs["photons"],
+        ret_kwargs["rng"],
+        ret_kwargs["added_flux"],
+        ret_kwargs["image"],
+        ret_kwargs["photon_ops"],
+        ret_kwargs["sensor"],
+        False,
+    )
