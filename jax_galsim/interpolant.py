@@ -294,7 +294,7 @@ class Interpolant:
         photons.x = jnp.interp(ux, cdfx, x)
         photons.y = jnp.interp(uy, cdfx, x)
         if photons.size() > 0:
-            # remember we are using a product of 1D interpolants in eahc direction
+            # remember we are using a product of 1D interpolants in each direction
             # thus the total flux is an integral over x and y of the product of the
             # 1D interpolants. Thus we square the total absolute flux of the 1D interpolants
             # to get the total absolute flux of the 2D interpolant.
