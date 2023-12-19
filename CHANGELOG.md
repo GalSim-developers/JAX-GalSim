@@ -11,19 +11,25 @@
     * `Shear`
     * `Convolve`
     * `InterpolatedImage` and `Interpolant`
+    * `PhotonArray`
+    * `Sensor`
+    * `AngleUnit`, `Angle`, and `CelestialCoord`
+    * `BaseDeviate` and child classes
+    * `BaseNoise` and child classes
   * Added implementation of fundamental operations:
     * `drawImage`
     * `drawReal`
     * `drawFFT`
     * `drawKImage`
+    * `makePhot`
+    * `drawPhot`
   * Added implementation of simple light profiles:
-    * `Gaussian`, `Exponential`, `Pixel`, `Box`, `Moffat`
+    * `Gaussian`, `Exponential`, `Pixel`, `Box`, `Moffat`, `DeltaFunction`
   * Added implementation of simple WCS:
-    * `PixelScale`, `OffsetWCS`, `JacobianWCS`, `AffineTransform`, `ShearWCS`, `OffsetShearWCS`
-  * Added automated suite of tests against reference GalSim
+    * `PixelScale`, `OffsetWCS`, `JacobianWCS`, `AffineTransform`, `ShearWCS`, `OffsetShearWCS`, `GSFitsWCS`, `FitsWCS`, `TanWCS`
+  * Added automated suite of tests using the reference GalSim and LSSTDESC-Coord test suites
   * Added support for the `galsim.fits` module
   * Added a `from_galsim` method to convert from GalSim objects to JAX-GalSim objects
 
 * Caveats
-  * Real space convolution and photon shooting methods are not
-  yet implemented in drawImage.
+  * Real space convolution are not yet implemented in `drawImage``.

@@ -6,6 +6,7 @@ from jax.tree_util import register_pytree_node_class
 from jax_galsim.core.draw import draw_by_kValue, draw_by_xValue
 from jax_galsim.core.utils import ensure_hashable
 from jax_galsim.gsobject import GSObject
+from jax_galsim.random import GaussianDeviate
 
 
 @_wraps(_galsim.Gaussian)
@@ -146,3 +147,12 @@ class Gaussian(GSObject):
     @_wraps(_galsim.Gaussian.withFlux)
     def withFlux(self, flux):
         return Gaussian(sigma=self.sigma, flux=flux, gsparams=self.gsparams)
+
+    @_wraps(_galsim.Gaussian._shoot)
+    def _shoot(self, photons, rng):
+        gd = GaussianDeviate(rng, sigma=self.sigma)
+
+        # this does not fill arrays like in galsim
+        photons.x = gd.generate(photons.x)
+        photons.y = gd.generate(photons.y)
+        photons.flux = self.flux / photons.size()

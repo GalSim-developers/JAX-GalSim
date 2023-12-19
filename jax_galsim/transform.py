@@ -380,6 +380,13 @@ class Transformation(GSObject):
         image = image * self._flux_scaling
         return image
 
+    def _shoot(self, photons, rng):
+        self._original._shoot(photons, rng)
+        photons.x, photons.y = self._fwd(photons.x, photons.y)
+        photons.x += self._offset.x
+        photons.y += self._offset.y
+        photons.scaleFlux(self._flux_scaling)
+
     def tree_flatten(self):
         """This function flattens the Transform into a list of children
         nodes that will be traced by JAX and auxiliary static data."""
@@ -395,7 +402,11 @@ class Transformation(GSObject):
     @classmethod
     def tree_unflatten(cls, aux_data, children):
         """Recreates an instance of the class from flatten representation"""
-        return cls(children[0], **(children[1]), **aux_data)
+        obj = cls.__new__(cls)
+        obj._gsparams = aux_data["gsparams"]
+        obj._propagate_gsparams = aux_data["propagate_gsparams"]
+        obj._original, obj._params = children
+        return obj
 
 
 def _Transform(

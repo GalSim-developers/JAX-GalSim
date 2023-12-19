@@ -6,24 +6,26 @@ from jax.tree_util import register_pytree_node_class
 
 from jax_galsim.bounds import Bounds, BoundsD, BoundsI
 from jax_galsim.core.utils import ensure_hashable
+from jax_galsim.errors import GalSimImmutableError
 from jax_galsim.position import PositionI
 from jax_galsim.utilities import parse_pos_args
 from jax_galsim.wcs import BaseWCS, PixelScale
 
-
-@_wraps(
-    _galsim.Image,
-    lax_description="""
+IMAGE_LAX_DOCS = """\
 Contrary to GalSim native Image, this implementation does not support
 sharing of the underlying numpy array between different Images or Views.
 This is due to the fact that in JAX numpy arrays are immutable, so any
 operation applied to this Image will create a new jnp.ndarray.
 
-    In particular the followong methods will create a copy of the Image:
-        - Image.view()
-        - Image.subImage()
+In particular the following methods will create a copy of the Image:
+    - Image.view()
+    - Image.subImage()
+"""
 
-""",
+
+@_wraps(
+    _galsim.Image,
+    lax_description=IMAGE_LAX_DOCS,
 )
 @register_pytree_node_class
 class Image(object):
@@ -54,6 +56,10 @@ class Image(object):
     valid_dtypes = _valid_dtypes
 
     def __init__(self, *args, **kwargs):
+        # this one is specific to jax-galsim and is used to disable bounds checking
+        # we use an underscore to denote that it is a private argument
+        _check_bounds = kwargs.pop("_check_bounds", True)
+
         # Parse the args, kwargs
         ncol = None
         nrow = None
@@ -70,15 +76,21 @@ class Image(object):
         elif len(args) == 1:
             if isinstance(args[0], np.ndarray):
                 array = jnp.array(args[0])
-                array, xmin, ymin = self._get_xmin_ymin(array, kwargs)
+                array, xmin, ymin = self._get_xmin_ymin(
+                    array, kwargs, check_bounds=_check_bounds
+                )
             elif isinstance(args[0], jnp.ndarray):
                 array = args[0]
-                array, xmin, ymin = self._get_xmin_ymin(array, kwargs)
+                array, xmin, ymin = self._get_xmin_ymin(
+                    array, kwargs, check_bounds=_check_bounds
+                )
             elif isinstance(args[0], BoundsI):
                 bounds = args[0]
             elif isinstance(args[0], (list, tuple)):
                 array = jnp.array(args[0])
-                array, xmin, ymin = self._get_xmin_ymin(array, kwargs)
+                array, xmin, ymin = self._get_xmin_ymin(
+                    array, kwargs, check_bounds=_check_bounds
+                )
             elif isinstance(args[0], Image):
                 image = args[0]
             else:
@@ -88,9 +100,8 @@ class Image(object):
         else:
             if "array" in kwargs:
                 array = kwargs.pop("array")
-                check_bounds = kwargs.pop("check_bounds", True)
                 array, xmin, ymin = self._get_xmin_ymin(
-                    array, kwargs, check_bounds=check_bounds
+                    array, kwargs, check_bounds=_check_bounds
                 )
             elif "bounds" in kwargs:
                 bounds = kwargs.pop("bounds")
@@ -107,6 +118,7 @@ class Image(object):
         init_value = kwargs.pop("init_value", None)
         scale = kwargs.pop("scale", None)
         wcs = kwargs.pop("wcs", None)
+        self._is_const = kwargs.pop("make_const", False)
 
         # Check that we got them all
         if kwargs:
@@ -117,11 +129,6 @@ class Image(object):
             else:
                 # remove it since we used it
                 kwargs.pop("copy", None)
-
-            if "make_const" in kwargs.keys():
-                raise TypeError(
-                    "'make_const' is not a valid keyword argument for the JAX-GalSim version of the Image constructor"
-                )
 
             if kwargs:
                 raise TypeError(
@@ -218,7 +225,6 @@ class Image(object):
                 self._dtype = dtype
             self._array = image.array.astype(self._dtype)
         else:
-            # TODO: remove this possiblity of creating an empty image.
             self._array = jnp.zeros(shape=(1, 1), dtype=self._dtype)
             self._bounds = BoundsI()
             if init_value is not None:
@@ -255,7 +261,7 @@ class Image(object):
             b = kwargs.pop("bounds")
             if not isinstance(b, BoundsI):
                 raise TypeError("bounds must be a galsim.BoundsI instance")
-            if check_bounds:
+            if check_bounds and b.isDefined():
                 # We need to disable this when jitting
                 if b.xmax - b.xmin + 1 != array.shape[1]:
                     raise _galsim.GalSimIncompatibleValuesError(
@@ -269,6 +275,7 @@ class Image(object):
                         array=array,
                         bounds=b,
                     )
+
             if b.isDefined():
                 xmin = b.xmin
                 ymin = b.ymin
@@ -293,6 +300,8 @@ class Image(object):
         if self.bounds.isDefined():
             s += ", array=\n%r" % np.array(self.array)
         s += ", wcs=%r" % self.wcs
+        if self.isconst:
+            s += ", make_const=True"
         s += ")"
         return s
 
@@ -332,9 +341,19 @@ class Image(object):
         return self._array
 
     @property
+    def nrow(self):
+        """The number of rows in the image"""
+        return self._array.shape[0]
+
+    @property
+    def ncol(self):
+        """The number of columns in the image"""
+        return self._array.shape[1]
+
+    @property
     def isconst(self):
         """Whether the `Image` is constant.  I.e. modifying its values is an error."""
-        return True
+        return self._is_const
 
     @property
     def iscomplex(self):
@@ -424,7 +443,9 @@ class Image(object):
 
         This works for real or complex.  For real images, it acts the same as `view`.
         """
-        return self.__class__(self.array.real, bounds=self.bounds, wcs=self.wcs)
+        return self.__class__(
+            self.array.real, bounds=self.bounds, wcs=self.wcs, make_const=self._is_const
+        )
 
     @property
     def imag(self):
@@ -435,7 +456,13 @@ class Image(object):
         This works for real or complex.  For real images, the returned array is read-only and
         all elements are 0.
         """
-        return self.__class__(self.array.imag, bounds=self.bounds, wcs=self.wcs)
+        return self.__class__(
+            self.array.imag,
+            bounds=self.bounds,
+            wcs=self.wcs,
+            # for real images, the imaginary part is always zero and immutable
+            make_const=self._is_const or (not self.iscomplex),
+        )
 
     @property
     def conjugate(self):
@@ -468,7 +495,11 @@ class Image(object):
 
     def _make_empty(self, shape, dtype):
         """Helper function to make an empty numpy array of the given shape."""
-        return jnp.zeros(shape=shape, dtype=dtype)
+        if np.prod(shape) == 0:
+            # galsim forces degenerate images to have at least 1 pixel
+            return jnp.zeros(shape=(1, 1), dtype=dtype)
+        else:
+            return jnp.zeros(shape=shape, dtype=dtype)
 
     def resize(self, bounds, wcs=None):
         """Resize the image to have a new bounds (must be a `BoundsI` instance)
@@ -483,6 +514,8 @@ class Image(object):
             wcs:        If provided, also update the wcs to the given value. [default: None,
                         which means keep the existing wcs]
         """
+        if self.isconst:
+            raise GalSimImmutableError("Cannot modify an immutable Image", self)
         if not isinstance(bounds, BoundsI):
             raise TypeError("bounds must be a galsim.BoundsI instance")
         self._array = self._make_empty(shape=bounds.numpyShape(), dtype=self.dtype)
@@ -521,6 +554,8 @@ class Image(object):
 
         This is equivalent to self[bounds] = rhs
         """
+        if self.isconst:
+            raise GalSimImmutableError("Cannot modify an immutable Image", self)
         if not isinstance(bounds, BoundsI):
             raise TypeError("bounds must be a galsim.BoundsI instance")
         if not self.bounds.isDefined():
@@ -816,6 +851,8 @@ class Image(object):
 
     def copyFrom(self, rhs):
         """Copy the contents of another image"""
+        if self.isconst:
+            raise GalSimImmutableError("Cannot modify an immutable Image", self)
         if not isinstance(rhs, Image):
             raise TypeError("Trying to copyFrom a non-image")
         if self.bounds.numpyShape() != rhs.bounds.numpyShape():
@@ -862,7 +899,7 @@ class Image(object):
 
         # If currently empty, just return a new empty image.
         if not self.bounds.isDefined():
-            return Image(wcs=wcs, dtype=dtype)
+            return Image(wcs=wcs, dtype=dtype, make_const=make_const)
 
         # Recast the array type if necessary
         if dtype != self.array.dtype:
@@ -873,7 +910,7 @@ class Image(object):
             array = self.array
 
         # Make the return Image
-        ret = self.__class__(array, bounds=self.bounds, wcs=wcs)
+        ret = self.__class__(array, bounds=self.bounds, wcs=wcs, make_const=make_const)
 
         # Update the origin if requested
         if origin is not None:
@@ -955,6 +992,8 @@ class Image(object):
 
     @_wraps(_galsim.Image.setValue)
     def setValue(self, *args, **kwargs):
+        if self.isconst:
+            raise GalSimImmutableError("Cannot modify an immutable Image", self)
         if not self.bounds.isDefined():
             raise _galsim.GalSimUndefinedBoundsError(
                 "Attempt to set value of an undefined image"
@@ -981,6 +1020,8 @@ class Image(object):
 
     @_wraps(_galsim.Image.addValue)
     def addValue(self, *args, **kwargs):
+        if self.isconst:
+            raise GalSimImmutableError("Cannot modify an immutable Image", self)
         if not self.bounds.isDefined():
             raise _galsim.GalSimUndefinedBoundsError(
                 "Attempt to set value of an undefined image"
@@ -1011,6 +1052,8 @@ class Image(object):
         Parameter:
             value:  The value to set all the pixels to.
         """
+        if self.isconst:
+            raise GalSimImmutableError("Cannot modify an immutable Image", self)
         if not self.bounds.isDefined():
             raise _galsim.GalSimUndefinedBoundsError(
                 "Attempt to set values of an undefined image"
@@ -1023,6 +1066,8 @@ class Image(object):
 
     def setZero(self):
         """Set all pixel values to zero."""
+        if self.isconst:
+            raise GalSimImmutableError("Cannot modify an immutable Image", self)
         self._fill(0)
 
     def invertSelf(self):
@@ -1031,6 +1076,8 @@ class Image(object):
         Note: any pixels whose value is 0 originally are ignored.  They remain equal to 0
         on the output, rather than turning into inf.
         """
+        if self.isconst:
+            raise GalSimImmutableError("Cannot modify an immutable Image", self)
         if not self.bounds.isDefined():
             raise _galsim.GalSimUndefinedBoundsError(
                 "Attempt to set values of an undefined image"
@@ -1052,6 +1099,8 @@ class Image(object):
         Parameters:
             replace_value:  The value with which to replace any negative pixels. [default: 0]
         """
+        if self.isconst:
+            raise GalSimImmutableError("Cannot modify an immutable Image", self)
         self._array = self.array.at[self.array < 0].set(replace_value)
 
     def __eq__(self, other):
@@ -1076,11 +1125,47 @@ class Image(object):
     def __ne__(self, other):
         return not self.__eq__(other)
 
+    @_wraps(_galsim.Image.transpose)
+    def transpose(self):
+        bT = BoundsI(self.ymin, self.ymax, self.xmin, self.xmax)
+        return _Image(self.array.T, bT, None)
+
+    @_wraps(_galsim.Image.flip_lr)
+    def flip_lr(self):
+        return _Image(self.array.at[:, ::-1].get(), self._bounds, None)
+
+    @_wraps(_galsim.Image.flip_ud)
+    def flip_ud(self):
+        return _Image(self.array.at[::-1, :].get(), self._bounds, None)
+
+    @_wraps(_galsim.Image.rot_cw)
+    def rot_cw(self):
+        bT = BoundsI(self.ymin, self.ymax, self.xmin, self.xmax)
+        return _Image(self.array.T.at[::-1, :].get(), bT, None)
+
+    @_wraps(_galsim.Image.rot_ccw)
+    def rot_ccw(self):
+        bT = BoundsI(self.ymin, self.ymax, self.xmin, self.xmax)
+        return _Image(self.array.T.at[:, ::-1].get(), bT, None)
+
+    @_wraps(_galsim.Image.rot_180)
+    def rot_180(self):
+        return _Image(self.array.at[::-1, ::-1].get(), self._bounds, None)
+
     def tree_flatten(self):
         """Flatten the image into a list of values."""
         # Define the children nodes of the PyTree that need tracing
         children = (self.array, self.wcs)
-        aux_data = {"dtype": self.dtype, "bounds": self.bounds}
+        aux_data = {"dtype": self.dtype, "bounds": self.bounds, "isconst": self.isconst}
+        # other routines may add these attributes to images on the fly
+        # we have to include them here so that JAX knows how to handle them in jitting etc.
+        if hasattr(self, "added_flux"):
+            children += (self.added_flux,)
+        if hasattr(self, "header"):
+            aux_data["header"] = self.header
+        if hasattr(self, "photons"):
+            children += (self.photons,)
+
         return (children, aux_data)
 
     @classmethod
@@ -1091,6 +1176,13 @@ class Image(object):
         obj.wcs = children[1]
         obj._bounds = aux_data["bounds"]
         obj._dtype = aux_data["dtype"]
+        obj._is_const = aux_data["isconst"]
+        if len(children) > 2:
+            obj.added_flux = children[2]
+        if "header" in aux_data:
+            obj.header = aux_data["header"]
+        if len(children) > 3:
+            obj.photons = children[3]
         return obj
 
     @classmethod
@@ -1104,6 +1196,22 @@ class Image(object):
         if hasattr(galsim_image, "header"):
             im.header = galsim_image.header
         return im
+
+
+@_wraps(
+    _galsim._Image,
+    lax_description=IMAGE_LAX_DOCS,
+)
+def _Image(array, bounds, wcs):
+    ret = Image.__new__(Image)
+    ret.wcs = wcs
+    ret._dtype = array.dtype.type
+    if ret._dtype in Image._alias_dtypes:
+        ret._dtype = Image._alias_dtypes[ret._dtype]
+        array = array.astype(ret._dtype)
+    ret._array = array
+    ret._bounds = bounds
+    return ret
 
 
 # These are essentially aliases for the regular Image with the correct dtype

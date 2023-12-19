@@ -6,6 +6,7 @@ from jax.tree_util import register_pytree_node_class
 
 from jax_galsim.gsobject import GSObject
 from jax_galsim.gsparams import GSParams
+from jax_galsim.photon_array import PhotonArray
 
 
 @_wraps(
@@ -308,7 +309,15 @@ class Convolution(GSObject):
         raise NotImplementedError("Real-space convolutions are not implemented")
 
     def _shoot(self, photons, rng):
-        raise NotImplementedError("Photon shooting convolutions are not implemented")
+        self.obj_list[0]._shoot(photons, rng)
+        # It may be necessary to shuffle when convolving because we do not have a
+        # guarantee that the convolvee's photons are uncorrelated, e.g., they might
+        # both have their negative ones at the end.
+        # However, this decision is now made by the convolve method.
+        for obj in self.obj_list[1:]:
+            p1 = PhotonArray(len(photons))
+            obj._shoot(p1, rng)
+            photons.convolve(p1, rng)
 
     def _drawKImage(self, image, jac=None):
         image = self.obj_list[0]._drawKImage(image, jac)

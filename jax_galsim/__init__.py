@@ -44,6 +44,7 @@ from .image import (
     ImageS,
     ImageUI,
     ImageUS,
+    _Image,
 )
 
 # GSObject
@@ -55,6 +56,7 @@ from .moffat import Moffat
 from .sum import Add, Sum
 from .transform import Transform, Transformation
 from .convolve import Convolve, Convolution, Deconvolution, Deconvolve
+from .deltafunction import DeltaFunction
 
 # WCS
 from .wcs import (
@@ -85,6 +87,10 @@ from .interpolant import (
     Lanczos,
 )
 from .interpolatedimage import InterpolatedImage, _InterpolatedImage
+
+# Photon Shooting
+from .photon_array import PhotonArray
+from .sensor import Sensor
 
 # packages kept separate
 from . import bessel

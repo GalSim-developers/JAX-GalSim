@@ -15,10 +15,56 @@ except (ModuleNotFoundError, ImportError):
 
 from jax_galsim.core.utils import ensure_hashable
 
-LAX_FUNCTIONAL_RNG = (
-    "The JAX version of the this class is purely function and thus cannot "
-    "share state with any other version of this class. Also no type checking is done on the inputs."
-)
+LAX_FUNCTIONAL_RNG = """\
+JAX-GalSim PRNGs have some support for linking states, but it may not always work and/or may cause issues.
+
+ - Linked states across JIT boundaries or devices will not work.
+ - Within a single routine linking may work.
+ - You may encounter errors related to global side effects for some combinations of linked states
+   and jitted/vmapped routines.
+
+Seeding the JAX-GalSim PRNG can be done in a few ways:
+
+  - pass seed=None (This is equivalent to passing seed=0.)
+  - pass an integer seed (This method will throw errors if the integer is traced by JAX.)
+  - pass another JAX-GalSim PRNG
+  - pass a JAX PRNG key made via `jax.random.key`.
+
+**JAX PRNG keys made via `jax.random.PRNGKey` are not supported.**
+
+When using JAX-GalSim PRNGs and JIT, you should always return the PRNG from the function
+and then set the state on input PRNG via `prng.reset(new_prng)`. This will ensure that the
+PRNG state is propagated correctly outside the JITed code.
+"""
+
+
+@register_pytree_node_class
+class _DeviateState:
+    """This class holds the RNG state for a JAX-GalSim PRNG.
+
+    **This class is not intended to be used directly.**
+
+    Parameters
+    ----------
+    key : key data with dtype `jax.dtypes.prng_key`
+        The JAX PRNG key made via `jrandom.key`
+    """
+
+    def __init__(self, key):
+        self.key = key
+
+    def split_one(self):
+        self.key, subkey = jrandom.split(self.key)
+        return subkey
+
+    def tree_flatten(self):
+        children = (self.key,)
+        aux_data = {}
+        return (children, aux_data)
+
+    @classmethod
+    def tree_unflatten(cls, aux_data, children):
+        return cls(children[0])
 
 
 @_wraps(
@@ -46,37 +92,46 @@ class BaseDeviate:
         _galsim.BaseDeviate.seed,
         lax_description="The JAX version of this method does no type checking.",
     )
-    def seed(self, seed=0):
+    def seed(self, seed=None):
         self._seed(seed=seed)
 
     @_wraps(_galsim.BaseDeviate._seed)
-    def _seed(self, seed=0):
+    def _seed(self, seed=None):
         _initial_seed = seed or secrets.randbelow(2**31)
-        self._key = jrandom.PRNGKey(_initial_seed)
+        self._state.key = jrandom.key(_initial_seed)
 
     @_wraps(
         _galsim.BaseDeviate.reset,
-        lax_description=(
-            "The JAX version of this method does no type checking. Also, the JAX version of this "
-            "class cannot be linked to another JAX version of this class so ``reset`` is equivalent "
-            "to ``seed``. If another ``BaseDeviate`` is supplied, that deviate's current state is used."
-        ),
+        lax_description=("The JAX version of this method does no type checking."),
     )
     def reset(self, seed=None):
-        if isinstance(seed, BaseDeviate):
-            self._reset(seed)
-        elif isinstance(seed, jax.Array):
-            self._key = wrap_key_data(seed)
+        if isinstance(seed, _DeviateState):
+            self._state = seed
+        elif isinstance(seed, BaseDeviate):
+            self._state = seed._state
+        elif hasattr(seed, "dtype") and jax.dtypes.issubdtype(
+            seed.dtype, jax.dtypes.prng_key
+        ):
+            self._state = _DeviateState(seed)
         elif isinstance(seed, str):
-            self._key = wrap_key_data(jnp.array(eval(seed), dtype=jnp.uint32))
+            self._state = _DeviateState(
+                wrap_key_data(jnp.array(eval(seed), dtype=jnp.uint32))
+            )
         elif isinstance(seed, tuple):
-            self._key = wrap_key_data(jnp.array(seed, dtype=jnp.uint32))
+            self._state = _DeviateState(
+                wrap_key_data(jnp.array(seed, dtype=jnp.uint32))
+            )
         else:
-            self._seed(seed=seed)
+            _initial_seed = seed or secrets.randbelow(2**31)
+            self._state = _DeviateState(jrandom.key(_initial_seed))
 
-    @_wraps(_galsim.BaseDeviate._reset)
-    def _reset(self, rng):
-        self._key = rng._key
+    @property
+    def _key(self):
+        return self._state.key
+
+    @_key.setter
+    def _key(self, key):
+        self._state.key = key
 
     def serialize(self):
         return repr(ensure_hashable(jrandom.key_data(self._key)))
@@ -158,7 +213,7 @@ class BaseDeviate:
     @_wraps(_galsim.BaseDeviate.duplicate)
     def duplicate(self):
         ret = self.__class__.__new__(self.__class__)
-        ret._key = self._key
+        ret._state = _DeviateState(self._state.key)
         ret._params = self._params.copy()
         return ret
 
@@ -183,7 +238,7 @@ class BaseDeviate:
         """This function flattens the PRNG into a list of children
         nodes that will be traced by JAX and auxiliary static data."""
         # Define the children nodes of the PyTree that need tracing
-        children = (jrandom.key_data(self._key), self._params)
+        children = (self._state, self._params)
         # Define auxiliary static data that doesn’t need to be traced
         aux_data = {}
         return (children, aux_data)

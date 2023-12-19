@@ -1,12 +1,27 @@
+from collections import namedtuple
+from functools import partial
+
 import galsim as _galsim
 import jax
 import jax.numpy as jnp
 import numpy as np
 from jax._src.numpy.util import _wraps
 
+import jax_galsim.photon_array as pa
+from jax_galsim.core.draw import calculate_n_photons
 from jax_galsim.core.utils import is_equal_with_arrays
+from jax_galsim.errors import (
+    GalSimError,
+    GalSimIncompatibleValuesError,
+    GalSimNotImplementedError,
+    GalSimValueError,
+    galsim_warn,
+)
 from jax_galsim.gsparams import GSParams
+from jax_galsim.photon_array import PhotonArray
 from jax_galsim.position import Position, PositionD, PositionI
+from jax_galsim.random import BaseDeviate
+from jax_galsim.sensor import Sensor
 from jax_galsim.utilities import parse_pos_args
 
 
@@ -15,6 +30,18 @@ class GSObject:
     def __init__(self, *, gsparams=None, **params):
         self._params = params  # Dictionary containing all traced parameters
         self._gsparams = GSParams.check(gsparams)  # Non-traced static parameters
+        self._workspace = {}  # used by lazy_property
+
+    def __getstate__(self):
+        d = self.__dict__.copy()
+        d["had_workspace"] = "_workspace" in d
+        d.pop("_workspace", None)
+        return d
+
+    def __setstate__(self, d):
+        if d.pop("had_workspace", False):
+            d["_workspace"] = {}
+        self.__dict__ = d
 
     @property
     def flux(self):
@@ -615,7 +642,16 @@ class GSObject:
 
     @_wraps(
         _galsim.GSObject.drawImage,
-        lax_description="The JAX-GalSim version of `drawImage` does not do extensive (any?) checking of the input settings.",
+        lax_description="""\
+The JAX-GalSim version of `drawImage`
+
+  - does not do extensive (any?) checking of the input settings.
+  - uses a default of ``n_photons=None`` instead of ``n_photons=0``
+    to indicate that the number of photons should be determined
+    from the flux and gain
+  - requires that the maxN option be a constant since PhotonArrays are allocated
+    with `maxN` photons when this option is used and arrays in JAX must have static sizes.
+""",
     )
     def drawImage(
         self,
@@ -634,7 +670,7 @@ class GSObject:
         center=None,
         use_true_center=True,
         offset=None,
-        n_photons=0.0,
+        n_photons=None,
         rng=None,
         max_extra_noise=0.0,
         poisson_flux=None,
@@ -648,12 +684,82 @@ class GSObject:
         surface_ops=None,
     ):
         from jax_galsim.box import Pixel
-        from jax_galsim.convolve import Convolve
+        from jax_galsim.convolve import Convolution, Convolve
         from jax_galsim.image import Image
         from jax_galsim.wcs import PixelScale
 
+        if surface_ops is not None:
+            from .deprecated import depr
+
+            depr("surface_ops", 2.3, "photon_ops")
+            photon_ops = surface_ops
+
         if image is not None and not isinstance(image, Image):
             raise TypeError("image is not an Image instance", image)
+
+        if method == "phot" and save_photons and maxN is not None:
+            raise GalSimIncompatibleValuesError(
+                "Setting maxN is incompatible with save_photons=True"
+            )
+
+        if method not in ("auto", "fft", "real_space", "phot", "no_pixel", "sb"):
+            raise GalSimValueError(
+                "Invalid method name",
+                method,
+                ("auto", "fft", "real_space", "phot", "no_pixel", "sb"),
+            )
+
+        # Check that the user isn't convolving by a Pixel already.  This is almost always an error.
+        if method == "auto" and isinstance(self, Convolution):
+            if any([isinstance(obj, Pixel) for obj in self.obj_list]):
+                galsim_warn(
+                    "You called drawImage with ``method='auto'`` "
+                    "for an object that includes convolution by a Pixel.  "
+                    "This is probably an error.  Normally, you should let GalSim "
+                    "handle the Pixel convolution for you.  If you want to handle the Pixel "
+                    "convolution yourself, you can use method=no_pixel.  Or if you really meant "
+                    "for your profile to include the Pixel and also have GalSim convolve by "
+                    "an _additional_ Pixel, you can suppress this warning by using method=fft."
+                )
+
+        if method != "phot":
+            if n_photons is not None:
+                raise GalSimIncompatibleValuesError(
+                    "n_photons is only relevant for method='phot'",
+                    method=method,
+                    sensor=sensor,
+                    n_photons=n_photons,
+                )
+            if poisson_flux is not None:
+                raise GalSimIncompatibleValuesError(
+                    "poisson_flux is only relevant for method='phot'",
+                    method=method,
+                    sensor=sensor,
+                    poisson_flux=poisson_flux,
+                )
+
+        if method != "phot" and sensor is None:
+            if rng is not None:
+                raise GalSimIncompatibleValuesError(
+                    "rng is only relevant for method='phot' or when using a sensor",
+                    method=method,
+                    sensor=sensor,
+                    rng=rng,
+                )
+            if maxN is not None:
+                raise GalSimIncompatibleValuesError(
+                    "maxN is only relevant for method='phot' or when using a sensor",
+                    method=method,
+                    sensor=sensor,
+                    maxN=maxN,
+                )
+            if save_photons:
+                raise GalSimIncompatibleValuesError(
+                    "save_photons is only valid for method='phot' or when using a sensor",
+                    method=method,
+                    sensor=sensor,
+                    save_photons=save_photons,
+                )
 
         # Figure out what wcs we are going to use.
         wcs = self._determine_wcs(scale, wcs, image)
@@ -678,7 +784,7 @@ class GSObject:
             flux_scale /= local_wcs.pixelArea()
         # Only do the gain here if not photon shooting, since need the number of photons to
         # reflect that actual photons, not ADU.
-        if gain != 1 and method != "phot" and sensor is None:
+        if method != "phot" and sensor is None:
             flux_scale /= gain
 
         # Determine the offset, and possibly fix the centering for even-sized images
@@ -715,26 +821,44 @@ class GSObject:
             image.added_flux = 0.0
             return image
 
-        if method == "phot":
-            raise NotImplementedError("Phot shooting not yet implemented in drawImage")
-        if sensor is not None:
-            raise NotImplementedError("Sensor not yet implemented in drawImage")
-
         # Making a view of the image lets us change the center without messing up the original.
         original_center = image.center
         wcs = image.wcs
         image.setCenter(0, 0)
         image.wcs = PixelScale(1.0)
 
-        if prof.is_analytic_x:
-            added_photons = prof.drawReal(image, add_to_image)
+        if method == "phot":
+            added_photons, photons = prof.drawPhot(
+                image,
+                gain,
+                add_to_image,
+                n_photons,
+                rng,
+                max_extra_noise,
+                poisson_flux,
+                sensor,
+                photon_ops,
+                maxN,
+                original_center,
+                local_wcs,
+            )
         else:
-            added_photons = prof.drawFFT(image, add_to_image)
+            if sensor is not None or photon_ops:
+                raise NotImplementedError(
+                    "Sensor/photon_ops not yet implemented in drawImage for method != 'phot'."
+                )
+
+            if prof.is_analytic_x:
+                added_photons = prof.drawReal(image, add_to_image)
+            else:
+                added_photons = prof.drawFFT(image, add_to_image)
 
         image.added_flux = added_photons / flux_scale
         # Restore the original center and wcs
         image.shift(original_center)
         image.wcs = wcs
+        if save_photons:
+            image.photons = photons
 
         # Update image_in to satisfy GalSim API
         image_in._array = image._array
@@ -742,6 +866,9 @@ class GSObject:
         image_in._bounds = image._bounds
         image_in.wcs = image.wcs
         image_in._dtype = image._dtype
+        if save_photons:
+            image_in.photons = photons
+
         return image
 
     @_wraps(_galsim.GSObject.drawReal)
@@ -1032,6 +1159,277 @@ class GSObject:
             "%s does not implement drawKImage" % self.__class__.__name__
         )
 
+    @_wraps(_galsim.GSObject._calculate_nphotons)
+    def _calculate_nphotons(self, n_photons, poisson_flux, max_extra_noise, rng):
+        n_photons, g, _rng = calculate_n_photons(
+            self.flux,
+            self._flux_per_photon,
+            self.max_sb,
+            n_photons=n_photons,
+            rng=rng,
+            max_extra_noise=max_extra_noise,
+            poisson_flux=poisson_flux,
+        )
+        if rng is not None:
+            rng._state = _rng._state
+        return n_photons, g
+
+    @_wraps(
+        _galsim.GSObject.makePhot,
+        lax_description="""\
+The JAX-GalSim version of `makePhot`
+
+  - does little to no error checking on the inputs
+  - uses a default of ``n_photons=None`` instead of ``n_photons=0``
+    to indicate that the number of photons should be determined
+    from the flux and gain
+""",
+    )
+    def makePhot(
+        self,
+        n_photons=None,
+        rng=None,
+        max_extra_noise=0.0,
+        poisson_flux=None,
+        photon_ops=(),
+        local_wcs=None,
+        surface_ops=None,
+    ):
+        if surface_ops is not None:
+            from .deprecated import depr
+
+            depr("surface_ops", 2.3, "photon_ops")
+            photon_ops = surface_ops
+
+        if poisson_flux is None:
+            # If n_photons is given, poisson_flux = False
+            poisson_flux = n_photons is None
+
+        if n_photons is not None:
+            # n_photons is the length of an array so it is a python int and
+            # and thus a constant wrt to JIT
+            Ntot = int(n_photons + 0.5)
+            _, g = self._calculate_nphotons(
+                n_photons, poisson_flux, max_extra_noise, rng
+            )
+        else:
+            # here Ntot can be a traced value
+            # one thus must use the fixed_photon_array_size context manager
+            # to ensure that the size of the photon array is fixed if using JIT
+            Ntot, g = self._calculate_nphotons(0.0, poisson_flux, max_extra_noise, rng)
+
+        try:
+            photons = self.shoot(Ntot, rng)
+        except (GalSimError, NotImplementedError) as e:
+            raise GalSimNotImplementedError(
+                "Unable to draw this GSObject with photon shooting.  Perhaps it "
+                "is a Deconvolve or is a compound including one or more "
+                "Deconvolve objects.\nOriginal error: %r" % (e)
+            )
+
+        # jax.lax.cond doesn't evaluate both of the branches
+        # and this call can save computations for common cases.
+        photons = jax.lax.cond(
+            g == 1.0,
+            lambda photons, g: photons,
+            lambda photons, g: photons.scaleFlux(g),
+            photons,
+            g,
+        )
+
+        for op in photon_ops:
+            op.applyTo(photons, local_wcs, rng)
+
+        return photons
+
+    @_wraps(
+        _galsim.GSObject.drawPhot,
+        lax_description="""\
+The JAX-GalSim version of `drawPhot`
+
+  - does little to no error checking on the inputs
+  - uses a default of ``n_photons=None`` instead of ``n_photons=0``
+    to indicate that the number of photons should be determined
+    from the flux and gain
+  - requires that the maxN option must be a constant
+""",
+    )
+    def drawPhot(
+        self,
+        image,
+        gain=1.0,
+        add_to_image=False,
+        n_photons=None,
+        rng=None,
+        max_extra_noise=0.0,
+        poisson_flux=None,
+        sensor=None,
+        photon_ops=(),
+        maxN=None,
+        orig_center=PositionI(0, 0),
+        local_wcs=None,
+        surface_ops=None,
+    ):
+        if surface_ops is not None:
+            from .deprecated import depr
+
+            depr("surface_ops", 2.3, "photon_ops")
+            photon_ops = surface_ops
+
+        # If n_photons is given and poisson_flux is None, poisson_flux = False
+        if poisson_flux is None:
+            poisson_flux = n_photons is None
+
+        # Make sure the image is set up to have unit pixel scale and centered at 0,0.
+        if image.wcs is None or not image.wcs._isPixelScale:
+            raise GalSimValueError(
+                "drawPhot requires an image with a PixelScale wcs", image
+            )
+
+        if sensor is None:
+            sensor = Sensor()
+        elif not isinstance(sensor, Sensor):
+            raise TypeError("The sensor provided is not a Sensor instance")
+
+        if n_photons is not None:
+            # n_photons is the length of an array so it is a python int and
+            # and thus a constant wrt to JIT
+            Ntot = int(n_photons + 0.5)
+            _, g = self._calculate_nphotons(
+                n_photons, poisson_flux, max_extra_noise, rng
+            )
+        else:
+            # here Ntot can be a traced value
+            # one thus must use the fixed_photon_array_size context manager
+            # or the maxN option to ensure that the size of the photon array is fixed if using JIT
+
+            Ntot, g = self._calculate_nphotons(0.0, poisson_flux, max_extra_noise, rng)
+
+        # this call can save computations for the
+        # common case of gain == 1.0
+        g = jax.lax.cond(
+            gain != 1.0,
+            lambda g, gain: g / gain,
+            lambda g, gain: g,
+            g,
+            gain,
+        )
+
+        if not add_to_image:
+            image.setZero()
+
+        # both maxN and _JAX_GALSIM_PHOTON_ARRAY_SIZE can be used to fix the sizes
+        # of the photon arrays for use with JIT
+        if maxN is not None and pa._JAX_GALSIM_PHOTON_ARRAY_SIZE is not None:
+            # if both maxN and _JAX_GALSIM_PHOTON_ARRAY_SIZE are set, we use the smaller
+            # of the two
+            maxN = min(maxN, pa._JAX_GALSIM_PHOTON_ARRAY_SIZE)
+        else:
+            # otherwise we use the one that is set
+            maxN = pa._JAX_GALSIM_PHOTON_ARRAY_SIZE or maxN
+
+        if maxN is None:
+            # if neither maxN nor _JAX_GALSIM_PHOTON_ARRAY_SIZE are set
+            # we drae Ntot photons all at once
+            _dfret = _draw_phot_while_loop_shoot(
+                maxN=Ntot,
+                thisN=Ntot,
+                Ntot=Ntot,
+                obj=self,
+                rng=rng,
+                g=g,
+                image=image,
+                photon_ops=photon_ops,
+                sensor=sensor,
+                orig_center=orig_center,
+                local_wcs=local_wcs,
+                resume=False,
+                added_flux=0.0,
+            )
+        else:
+            # if maxN or _JAX_GALSIM_PHOTON_ARRAY_SIZE is set
+            # we draw a fixed number of photons at a time in a while
+            # loop until we have drawn Ntot photons
+            _dfret = _draw_phot_while_loop(
+                photons=PhotonArray(maxN),
+                rng=rng,
+                obj=self,
+                image=image,
+                g=g,
+                Ntot=Ntot,
+                maxN=maxN,
+                photon_ops=photon_ops,
+                local_wcs=local_wcs,
+                sensor=sensor,
+                orig_center=orig_center,
+            )
+        if rng is not None:
+            rng._state = _dfret.rng._state
+        else:
+            rng = _dfret.rng
+        for i in range(len(photon_ops)):
+            photon_ops[i] = _dfret.photon_ops[i]
+
+        image._array = _dfret.image._array
+
+        # TODO: how to update the sensor?
+        # https://github.com/GalSim-developers/JAX-GalSim/issues/85
+        if sensor.__class__ is not Sensor:
+            raise GalSimNotImplementedError(
+                "Non-default sensors that carry state are not yet supported in jax-galsim."
+            )
+
+        return _dfret.added_flux, _dfret.photons
+
+    @_wraps(_galsim.GSObject.shoot)
+    def shoot(self, n_photons, rng=None):
+        photons = pa.PhotonArray(n_photons)
+
+        if photons.x.shape[0] > 0:
+            _rng = BaseDeviate(rng)
+            self._shoot(photons, _rng)
+            if rng is not None:
+                rng._state = _rng._state
+
+        return photons
+
+    @_wraps(_galsim.GSObject._shoot)
+    def _shoot(self, photons, rng):
+        raise NotImplementedError(
+            "%s does not implement shoot" % self.__class__.__name__
+        )
+
+    @_wraps(_galsim.GSObject.applyTo)
+    def applyTo(self, photon_array, local_wcs=None, rng=None):
+        # galsim does not deal with dxdz and dydz here - IDK why
+        p1 = pa.PhotonArray(len(photon_array))
+        p1._wave = jax.lax.cond(
+            photon_array.hasAllocatedWavelengths(),
+            lambda pa_wave, p1_wave: pa_wave,
+            lambda pa_wave, p1_wave: p1_wave,
+            photon_array._wave,
+            p1._wave,
+        )
+        p1._pupil_u, p1._pupil_v = jax.lax.cond(
+            photon_array.hasAllocatedPupil(),
+            lambda pa_u, pa_v, p1_u, p1_v: (pa_u, pa_v),
+            lambda pa_u, pa_v, p1_u, p1_v: (p1_u, p1_v),
+            photon_array._pupil_u,
+            photon_array._pupil_v,
+            p1._pupil_u,
+            p1._pupil_v,
+        )
+        p1._time = jax.lax.cond(
+            photon_array.hasAllocatedTimes(),
+            lambda pa_time, p1_time: pa_time,
+            lambda pa_time, p1_time: p1_time,
+            photon_array._time,
+            p1._time,
+        )
+        obj = local_wcs.toImage(self) if local_wcs is not None else self
+        obj._shoot(p1, rng)
+        photon_array.convolve(p1, rng)
+
     def tree_flatten(self):
         """This function flattens the GSObject into a list of children
         nodes that will be traced by JAX and auxiliary static data."""
@@ -1045,3 +1443,161 @@ class GSObject:
     def tree_unflatten(cls, aux_data, children):
         """Recreates an instance of the class from flatten representation"""
         return cls(**(children[0]), **aux_data)
+
+
+_DrawPhotReturnTuple = namedtuple(
+    "_DrawPhotReturnTuple",
+    [
+        "photons",
+        "rng",
+        "added_flux",
+        "image",
+        "photon_ops",
+        "sensor",
+        "resume",
+    ],
+)
+
+
+def _draw_phot_while_loop_shoot(
+    *,
+    maxN,
+    thisN,
+    Ntot,
+    obj,
+    rng,
+    g,
+    image,
+    photon_ops,
+    sensor,
+    orig_center,
+    local_wcs,
+    resume,
+    added_flux,
+    Nleft=0,
+    photons=None,
+):
+    """This helper function shoots thisN photons and accumulates them into the image."""
+    try:
+        photons = obj.shoot(maxN, rng)
+    except (GalSimError, NotImplementedError) as e:
+        raise GalSimNotImplementedError(
+            "Unable to draw this GSObject with photon shooting.  Perhaps it "
+            "is a Deconvolve or is a compound including one or more "
+            "Deconvolve objects.\nOriginal error: %r" % (e)
+        )
+    # we drew maxN, but only keep thisN of them
+    photons._num_keep = thisN
+
+    photons = jax.lax.cond(
+        # weird way to say gain == 1 and thisN == Ntot
+        jnp.abs(g - 1.0) + jnp.abs(thisN - Ntot) == 0,
+        lambda photons, g, thisN, Ntot: photons,
+        # the factor here is thisN / Ntot since we drew thisN photons, but use a total of Ntot photons
+        lambda photons, g, thisN, Ntot: photons.scaleFlux(g * thisN / Ntot),
+        photons,
+        g,
+        thisN,
+        Ntot,
+    )
+
+    photons = jax.lax.cond(
+        image.scale != 1.0,
+        lambda photons, scale: photons.scaleXY(
+            1.0 / scale
+        ),  # Convert x,y to image coords if necessary
+        lambda photons, scale: photons,
+        photons,
+        image.scale,
+    )
+
+    for op in photon_ops:
+        op.applyTo(photons, local_wcs, rng)
+
+    if image.dtype in (jnp.float32, jnp.float64):
+        added_flux += sensor.accumulate(photons, image, orig_center, resume=resume)
+        resume = True  # Resume from this point if there are any further iterations.
+    else:
+        # Need a temporary
+        from jax_galsim.image import ImageD
+
+        im1 = ImageD(bounds=image.bounds)
+        added_flux += sensor.accumulate(photons, im1, orig_center)
+        image += im1
+
+    return _DrawPhotReturnTuple(
+        photons, rng, added_flux, image, photon_ops, sensor, resume
+    )
+
+
+@partial(jax.jit, static_argnames=("maxN",))
+def _draw_phot_while_loop(
+    *,
+    photons,
+    rng,
+    obj,
+    image,
+    g,
+    Ntot,
+    maxN,
+    photon_ops,
+    local_wcs,
+    sensor,
+    orig_center,
+):
+    """This helper function shoots photons until Ntot is reached."""
+
+    def _cond_fun(kwargs):
+        return kwargs["Nleft"] > 0
+
+    def _body_fun(kwargs):
+        # Shoot at most maxN at a time
+        thisN = jnp.minimum(maxN, kwargs["Nleft"])
+
+        _dfret = _draw_phot_while_loop_shoot(maxN=maxN, thisN=thisN, **kwargs)
+
+        return dict(
+            photons=_dfret.photons,
+            rng=_dfret.rng,
+            added_flux=_dfret.added_flux,
+            obj=kwargs["obj"],
+            Nleft=kwargs["Nleft"] - thisN,
+            resume=_dfret.resume,
+            image=_dfret.image,
+            g=kwargs["g"],
+            photon_ops=_dfret.photon_ops,
+            local_wcs=kwargs["local_wcs"],
+            sensor=_dfret.sensor,
+            orig_center=kwargs["orig_center"],
+            Ntot=kwargs["Ntot"],
+        )
+
+    ret_kwargs = jax.lax.while_loop(
+        _cond_fun,
+        _body_fun,
+        dict(
+            photons=photons,
+            rng=BaseDeviate(rng),
+            added_flux=jnp.array(0),
+            obj=obj,
+            Nleft=jnp.array(Ntot),
+            resume=jnp.array(False),
+            image=image,
+            g=g,
+            photon_ops=photon_ops,
+            local_wcs=local_wcs,
+            sensor=sensor,
+            orig_center=orig_center,
+            Ntot=Ntot,
+        ),
+    )
+
+    return _DrawPhotReturnTuple(
+        ret_kwargs["photons"],
+        ret_kwargs["rng"],
+        ret_kwargs["added_flux"],
+        ret_kwargs["image"],
+        ret_kwargs["photon_ops"],
+        ret_kwargs["sensor"],
+        False,
+    )

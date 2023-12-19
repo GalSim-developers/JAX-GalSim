@@ -1,7 +1,13 @@
+from functools import partial
+
 import jax
 import jax.numpy as jnp
+import numpy as np
 
 import jax_galsim as galsim
+from jax_galsim.core.draw import calculate_n_photons
+from jax_galsim.core.testing import time_code_block
+from jax_galsim.photon_array import fixed_photon_array_size
 
 # Defining jitting identity
 identity = jax.jit(lambda x: x)
@@ -168,3 +174,245 @@ def test_shear_jitting():
 
     assert test_eq(identity(g), g)
     assert test_eq(identity(e), e)
+
+
+def test_jitting_draw_fft():
+    def _build_and_draw(hlr, fwhm, jit=True):
+        gal = galsim.Exponential(half_light_radius=hlr, flux=1000.0)
+        psf = galsim.Gaussian(fwhm=fwhm, flux=1.0)
+        final = galsim.Convolve(
+            [gal, psf],
+        )
+        n = final.getGoodImageSize(0.2).item()
+        n += 1
+        nfft = galsim.Image.good_fft_size(4 * n)
+        if jit:
+            return _draw_it_jit(final, n, nfft)
+        else:
+            final = final.withGSParams(
+                minimum_fft_size=128,
+                maximum_fft_size=128,
+            )
+            return final.drawImage(
+                nx=n,
+                ny=n,
+                scale=0.2,
+            )
+
+    @partial(jax.jit, static_argnums=(1, 2))
+    def _draw_it_jit(obj, n, nfft):
+        obj = obj.withGSParams(
+            minimum_fft_size=128,
+            maximum_fft_size=128,
+        )
+        return obj.drawImage(
+            nx=n,
+            ny=n,
+            scale=0.2,
+        )
+
+    with time_code_block("warmup no-jit"):
+        img = _build_and_draw(0.5, 1.0, jit=False)
+    np.testing.assert_array_almost_equal(img.array.sum(), 1000.0, 0)
+
+    with time_code_block("no-jit"):
+        img = _build_and_draw(0.5, 1.0, jit=False)
+    np.testing.assert_array_almost_equal(img.array.sum(), 1000.0, 0)
+
+    with time_code_block("warmup jit"):
+        img = _build_and_draw(0.5, 1.0)
+    np.testing.assert_array_almost_equal(img.array.sum(), 1000.0, 0)
+
+    with time_code_block("jit"):
+        img = _build_and_draw(0.5, 1.0)
+    np.testing.assert_array_almost_equal(img.array.sum(), 1000.0, 0)
+
+
+def test_jitting_draw_phot():
+    def _build_and_draw(hlr, fwhm, jit=True, maxn=False):
+        gal = galsim.Exponential(
+            half_light_radius=hlr, flux=1000.0
+        ) + galsim.Exponential(half_light_radius=hlr * 2.0, flux=100.0)
+        psf = galsim.Gaussian(fwhm=fwhm, flux=1.0)
+        final = galsim.Convolve(
+            [gal, psf],
+        )
+        n = final.getGoodImageSize(0.2).item()
+        n += 1
+        n_photons = calculate_n_photons(
+            final.flux,
+            final._flux_per_photon,
+            final.max_sb,
+            poisson_flux=False,
+            rng=galsim.BaseDeviate(1234),
+        )[0].item()
+        gain = 1.0
+        if jit:
+            if maxn:
+                return _draw_it_jit_maxn(final, n, n_photons, gain)
+            else:
+                return _draw_it_jit(final, n, n_photons, gain)
+        else:
+            return final.drawImage(
+                nx=n,
+                ny=n,
+                scale=0.2,
+                method="phot",
+                n_photons=n_photons,
+                poisson_flux=False,
+                gain=gain,
+                rng=galsim.BaseDeviate(42),
+            )
+
+    @partial(jax.jit, static_argnums=(1, 2))
+    def _draw_it_jit_maxn(obj, n, nphotons, gain):
+        return obj.drawImage(
+            nx=n,
+            ny=n,
+            scale=0.2,
+            n_photons=nphotons,
+            method="phot",
+            poisson_flux=False,
+            gain=gain,
+            maxN=101,
+            rng=galsim.BaseDeviate(2),
+        )
+
+    @partial(jax.jit, static_argnums=(1, 2))
+    def _draw_it_jit(obj, n, nphotons, gain):
+        return obj.drawImage(
+            nx=n,
+            ny=n,
+            scale=0.2,
+            n_photons=nphotons,
+            method="phot",
+            poisson_flux=False,
+            gain=gain,
+            maxN=None,
+            rng=galsim.BaseDeviate(42),
+        )
+
+    with time_code_block("warmup no-jit"):
+        img1 = _build_and_draw(0.5, 1.0, jit=False)
+
+    with time_code_block("no-jit"):
+        img2 = _build_and_draw(0.5, 1.0, jit=False)
+
+    with time_code_block("warmup jit"):
+        img3 = _build_and_draw(0.5, 1.0)
+
+    with time_code_block("jit"):
+        img4 = _build_and_draw(0.5, 1.0)
+
+    with time_code_block("warmup jit"):
+        img5 = _build_and_draw(0.5, 1.0, maxn=True)
+
+    with time_code_block("jit"):
+        img6 = _build_and_draw(0.5, 1.0, maxn=True)
+
+    np.testing.assert_allclose(img1.array, img2.array)
+    np.testing.assert_allclose(img1.array, img3.array)
+    np.testing.assert_allclose(img1.array, img4.array)
+
+    assert not np.allclose(img1.array, img5.array)
+
+    np.testing.assert_allclose(img5.array, img6.array)
+
+    np.testing.assert_allclose(img1.array.sum(), 1100.0)
+    np.testing.assert_allclose(img5.array.sum(), 1100.0)
+
+
+def test_jitting_draw_phot_fixed():
+    def _build_and_draw(hlr, fwhm, jit=True, maxn=False):
+        gal = galsim.Exponential(
+            half_light_radius=hlr, flux=1000.0
+        ) + galsim.Exponential(half_light_radius=hlr * 2.0, flux=100.0)
+        psf = galsim.Gaussian(fwhm=fwhm, flux=1.0)
+        final = galsim.Convolve(
+            [gal, psf],
+        )
+        n = final.getGoodImageSize(0.2).item()
+        n += 1
+        n_photons = calculate_n_photons(
+            final.flux,
+            final._flux_per_photon,
+            final.max_sb,
+            poisson_flux=False,
+            rng=galsim.BaseDeviate(1234),
+        )[0].item()
+        gain = 1.0
+        if jit:
+            if maxn:
+                return _draw_it_jit_maxn(final, n, n_photons, gain)
+            else:
+                return _draw_it_jit(final, n, n_photons, gain)
+        else:
+            with fixed_photon_array_size(2048):
+                return final.drawImage(
+                    nx=n,
+                    ny=n,
+                    scale=0.2,
+                    method="phot",
+                    n_photons=n_photons,
+                    poisson_flux=False,
+                    gain=gain,
+                    rng=galsim.BaseDeviate(42),
+                )
+
+    @partial(jax.jit, static_argnums=(1, 2))
+    def _draw_it_jit(obj, n, nphotons, gain):
+        with fixed_photon_array_size(2048):
+            return obj.drawImage(
+                nx=n,
+                ny=n,
+                scale=0.2,
+                n_photons=nphotons,
+                method="phot",
+                poisson_flux=False,
+                gain=gain,
+                rng=galsim.BaseDeviate(42),
+            )
+
+    @partial(jax.jit, static_argnums=(1, 2))
+    def _draw_it_jit_maxn(obj, n, nphotons, gain):
+        with fixed_photon_array_size(2048):
+            return obj.drawImage(
+                nx=n,
+                ny=n,
+                scale=0.2,
+                n_photons=nphotons,
+                method="phot",
+                poisson_flux=False,
+                gain=gain,
+                maxN=101,
+                rng=galsim.BaseDeviate(42),
+            )
+
+    with time_code_block("warmup no-jit"):
+        img1 = _build_and_draw(0.5, 1.0, jit=False)
+
+    with time_code_block("no-jit"):
+        img2 = _build_and_draw(0.5, 1.0, jit=False)
+
+    with time_code_block("warmup jit"):
+        img3 = _build_and_draw(0.5, 1.0)
+
+    with time_code_block("jit"):
+        img4 = _build_and_draw(0.5, 1.0)
+
+    with time_code_block("warmup jit+maxn"):
+        img5 = _build_and_draw(0.5, 1.0, maxn=True)
+
+    with time_code_block("jit+maxn"):
+        img6 = _build_and_draw(0.5, 1.0, maxn=True)
+
+    np.testing.assert_allclose(img1.array, img2.array)
+    np.testing.assert_allclose(img1.array, img3.array)
+    np.testing.assert_allclose(img1.array, img4.array)
+
+    assert not np.allclose(img1.array, img5.array)
+
+    np.testing.assert_allclose(img5.array, img6.array)
+
+    np.testing.assert_allclose(img1.array.sum(), 1100.0)
+    np.testing.assert_allclose(img5.array.sum(), 1100.0)

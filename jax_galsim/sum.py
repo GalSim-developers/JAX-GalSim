@@ -1,4 +1,5 @@
 import galsim as _galsim
+import jax
 import jax.numpy as jnp
 import numpy as np
 from jax._src.numpy.util import _wraps
@@ -7,6 +8,7 @@ from jax.tree_util import register_pytree_node_class
 from jax_galsim.gsobject import GSObject
 from jax_galsim.gsparams import GSParams
 from jax_galsim.position import PositionD
+from jax_galsim.random import BaseDeviate
 
 
 @_wraps(
@@ -171,6 +173,70 @@ class Sum(GSObject):
             for obj in self.obj_list[1:]:
                 image += obj._drawKImage(image, jac)
         return image
+
+    @property
+    def _positive_flux(self):
+        pflux_list = jnp.array([obj.positive_flux for obj in self.obj_list])
+        return jnp.sum(pflux_list)
+
+    @property
+    def _negative_flux(self):
+        nflux_list = jnp.array([obj.negative_flux for obj in self.obj_list])
+        return jnp.sum(nflux_list)
+
+    @property
+    def _flux_per_photon(self):
+        return self._calculate_flux_per_photon()
+
+    def _shoot(self, photons, rng):
+        tot_flux = self.positive_flux + self.negative_flux
+        fluxes = jnp.array(
+            [obj.positive_flux + obj.negative_flux for obj in self.obj_list]
+        )
+        # for a sum of objects, we use a slightly different approach than galsim did
+        # as of version 2.5
+        # galsim uses a binomial distribution to compute the number of photons per object
+        # we take an equivalent but different approach in order to use fixed size arrays
+        # of photons. it means we draw more photons but the code is JIT compilable and a bit simpler
+        #
+        # this all works as follows:
+        #
+        #   - for each photon, we draw from a categorical distribution with probabilities
+        #     proportional to the total absolute fluxes of the objects.
+        #   - we then shoot the photons from each object and rescale the fluxes (see comment below)
+        #   - finally, we get the photons that correspond to this object in the cetegorical distribution
+        #     and assign them to the photons object there is a special private method on the
+        #     PhotonArray that does this assignment
+        #
+        # one nice thing about this is that the photons come out pre-shuffled and so we don't have
+        # to mark them as correlated.
+        rng = BaseDeviate(rng)
+        key = rng._state.split_one()
+        cat_inds = jax.random.choice(
+            key,
+            len(self.obj_list),
+            shape=(len(photons),),
+            replace=True,
+            p=fluxes / tot_flux,
+        )
+        for i, obj in enumerate(self.obj_list):
+            pa = obj.shoot(photons.size(), rng=rng)
+            # now we rescale the fluxes of the photons
+            # in galsim, photons end up with a flux that is
+            #
+            #     fluxes[i] / thisN * tot_flux / photons.size() * thisN / fluxes[i]
+            #       = tot_flux / photons.size()
+            #
+            # our photons start with a flux of
+            #
+            #     flux[i] / photons.size()
+            #
+            # so we scale by a factor of
+            #
+            #     _scale_fac = tot_flux / fluxes[i]
+            _scale_fac = tot_flux / fluxes[i]
+            pa.scaleFlux(_scale_fac)
+            photons._assign_from_categorical_index(cat_inds, i, pa)
 
     def tree_flatten(self):
         """This function flattens the GSObject into a list of children

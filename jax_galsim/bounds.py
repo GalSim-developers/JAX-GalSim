@@ -7,16 +7,16 @@ from jax.tree_util import register_pytree_node_class
 from jax_galsim.core.utils import cast_to_float, cast_to_int, ensure_hashable
 from jax_galsim.position import Position, PositionD, PositionI
 
+BOUNDS_LAX_DESCR = """\
+The JAX implementation
+
+  - will not always test whether the bounds are valid
+  - will not always test whether BoundsI is initialized with integers
+"""
+
 
 # The reason for avoid these tests is that they are not easy to do for jitted code.
-@_wraps(
-    _galsim.Bounds,
-    lax_description=(
-        "The JAX implementation will not test whether the bounds are valid."
-        "This is defined as always true."
-        "It will also not test whether BoundsI is indeed initialized with integers."
-    ),
-)
+@_wraps(_galsim.Bounds, lax_description=BOUNDS_LAX_DESCR)
 @register_pytree_node_class
 class Bounds(_galsim.Bounds):
     def _parse_args(self, *args, **kwargs):
@@ -80,6 +80,16 @@ class Bounds(_galsim.Bounds):
                 )
             if kwargs:
                 raise TypeError("Got unexpected keyword arguments %s" % kwargs.keys())
+
+        # for simple inputs, we can check if the bounds are valid
+        if (
+            isinstance(self.xmin, (float, int))
+            and isinstance(self.xmax, (float, int))
+            and isinstance(self.ymin, (float, int))
+            and isinstance(self.ymax, (float, int))
+            and ((self.xmin > self.xmax) or (self.ymin > self.ymax))
+        ):
+            self._isdefined = False
 
     @property
     def true_center(self):
@@ -245,15 +255,18 @@ class Bounds(_galsim.Bounds):
                 "galsim_bounds must be either a %s or a %s"
                 % (_galsim.BoundsD.__name__, _galsim.BoundsI.__name__)
             )
-        return _cls(
-            galsim_bounds.xmin,
-            galsim_bounds.xmax,
-            galsim_bounds.ymin,
-            galsim_bounds.ymax,
-        )
+        if galsim_bounds.isDefined():
+            return _cls(
+                galsim_bounds.xmin,
+                galsim_bounds.xmax,
+                galsim_bounds.ymin,
+                galsim_bounds.ymax,
+            )
+        else:
+            return _cls()
 
 
-@_wraps(_galsim.BoundsD)
+@_wraps(_galsim.BoundsD, lax_description=BOUNDS_LAX_DESCR)
 @register_pytree_node_class
 class BoundsD(Bounds):
     _pos_class = PositionD
@@ -287,13 +300,28 @@ class BoundsD(Bounds):
         return PositionD((self.xmax + self.xmin) / 2.0, (self.ymax + self.ymin) / 2.0)
 
 
-@_wraps(_galsim.BoundsI)
+@_wraps(_galsim.BoundsI, lax_description=BOUNDS_LAX_DESCR)
 @register_pytree_node_class
 class BoundsI(Bounds):
     _pos_class = PositionI
 
     def __init__(self, *args, **kwargs):
         self._parse_args(*args, **kwargs)
+        # for simple inputs, we can check if the bounds are valid ints
+        if (
+            isinstance(self.xmin, (float, int))
+            and isinstance(self.xmax, (float, int))
+            and isinstance(self.ymin, (float, int))
+            and isinstance(self.ymax, (float, int))
+            and (
+                self.xmin != int(self.xmin)
+                or self.xmax != int(self.xmax)
+                or self.ymin != int(self.ymin)
+                or self.ymax != int(self.ymax)
+            )
+        ):
+            raise TypeError("BoundsI must be initialized with integer values")
+
         self.xmin = cast_to_int(self.xmin)
         self.xmax = cast_to_int(self.xmax)
         self.ymin = cast_to_int(self.ymin)

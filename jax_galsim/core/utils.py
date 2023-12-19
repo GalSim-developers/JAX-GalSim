@@ -2,6 +2,16 @@ from functools import partial
 
 import jax
 import jax.numpy as jnp
+import numpy as np
+from jax.tree_util import tree_flatten
+
+
+def has_tracers(x):
+    """Return True if the input item is a JAX tracer or object, False otherwise."""
+    for item in tree_flatten(x)[0]:
+        if isinstance(item, jax.core.Tracer) or type(item) is object:
+            return True
+    return False
 
 
 @jax.jit
@@ -13,54 +23,113 @@ def compute_major_minor_from_jacobian(jac):
     return major, minor
 
 
-def cast_to_float_array_scalar(x):
-    """Cast the input to a float array scalar. Works on python floats, iterables and jax arrays.
+def _cast_to_array_scalar(x, dtype=None):
+    """Cast the input to an array scalar. Works on python scalars, iterables and jax arrays.
     For iterables it always takes the first element after a call to .ravel()"""
+    if dtype is None:
+        if hasattr(x, "dtype"):
+            dtype = x.dtype
+        else:
+            dtype = float
+
     if isinstance(x, jax.Array):
-        return jnp.atleast_1d(x).astype(float).ravel()[0]
+        return jnp.atleast_1d(x).astype(dtype).ravel()[0]
     elif hasattr(x, "astype"):
-        return x.astype(float).ravel()[0]
+        return x.astype(dtype).ravel()[0]
     else:
-        return jnp.atleast_1d(jnp.array(x, dtype=float)).ravel()[0]
+        return jnp.atleast_1d(jnp.array(x, dtype=dtype)).ravel()[0]
 
 
 def cast_to_python_float(x):
     """Cast the input to a python float. Works on python floats and jax arrays.
     For jax arrays it always takes the first element after a call to .ravel()"""
     if isinstance(x, jax.Array):
-        return cast_to_float_array_scalar(x).item()
-    else:
-        return float(x)
-
-
-def cast_to_float(x):
-    """Cast the input to a float. Works on python floats and jax arrays."""
-    if isinstance(x, jax.Array):
-        return x.astype(float)
-    elif hasattr(x, "astype"):
-        return x.astype(float)
+        return _cast_to_array_scalar(x, dtype=float).item()
     else:
         try:
             return float(x)
-        except TypeError as e:
-            # needed so that tests of jax_galsim.angle pass
-            if "AngleUnit" in str(e):
+        except TypeError:
+            # this will return the same value for anything float-like that
+            # cannot be cast to float
+            # however, it will raise an error if something is not float-like
+            return 1.0 * x
+        except ValueError as e:
+            # we let NaNs through
+            if " NaN " in str(e):
+                # this will return the same value for anything float-like that
+                # cannot be cast to float
+                # however, it will raise an error if something is not float-like
+                return 1.0 * x
+            else:
                 raise e
 
-            return x
 
-
-def cast_to_int(x):
-    """Cast the input to an int. Works on python floats/ints and jax arrays."""
+def cast_to_python_int(x):
+    """Cast the input to a python int. Works on python ints and jax arrays.
+    For jax arrays it always takes the first element after a call to .ravel()"""
     if isinstance(x, jax.Array):
-        return x.astype(int)
-    elif hasattr(x, "astype"):
-        return x.astype(int)
+        return _cast_to_array_scalar(x, dtype=int).item()
     else:
         try:
             return int(x)
         except TypeError:
-            return x
+            # this will return the same value for anything int-like that
+            # cannot be cast to int
+            # however, it will raise an error if something is not int-like
+            return 1 * x
+        except ValueError as e:
+            # we let NaNs through
+            if " NaN " in str(e):
+                # this will return the same value for anything int-like that
+                # cannot be cast to int
+                # however, it will raise an error if something is not int-like
+                return 1 * x
+            else:
+                raise e
+
+
+def cast_to_float(x):
+    """Cast the input to a float. Works on python floats and jax arrays."""
+    try:
+        return float(x)
+    except Exception:
+        try:
+            return jnp.asarray(x, dtype=float)
+        except Exception:
+            # this will return the same value for anything float-like that
+            # cannot be cast to float
+            # however, it will raise an error if something is not float-like
+            # we exclude object types since they are used in JAX tracing
+            if type(x) is object:
+                return x
+            else:
+                return 1.0 * x
+
+
+def cast_to_int(x):
+    """Cast the input to an int. Works on python floats/ints and jax arrays."""
+    try:
+        return int(x)
+    except Exception:
+        try:
+            if not jnp.any(jnp.isnan(x)):
+                return jnp.asarray(x, dtype=int)
+            else:
+                # this will return the same value for anything int-like that
+                # cannot be cast to int
+                # however, it will raise an error if something is not int-like
+                if type(x) is object:
+                    return x
+                else:
+                    return 1 * x
+        except Exception:
+            # this will return the same value for anything int-like that
+            # cannot be cast to int
+            # however, it will raise an error if something is not int-like
+            if type(x) is object:
+                return x
+            else:
+                return 1 * x
 
 
 def is_equal_with_arrays(x, y):
@@ -111,26 +180,41 @@ def is_equal_with_arrays(x, y):
         return x == y
 
 
+def _convert_to_numpy_nan(x):
+    """Convert input to numpy.nan if it is a NaN, otherwise return it unchanged
+    so that we get consistent hashing."""
+    try:
+        if np.isnan(x):
+            return np.nan
+        else:
+            return x
+    except Exception:
+        return x
+
+
 def _recurse_list_to_tuple(x):
     if isinstance(x, list):
         return tuple(_recurse_list_to_tuple(v) for v in x)
     else:
-        return x
+        return _convert_to_numpy_nan(x)
 
 
 def ensure_hashable(v):
     """Ensure that the input is hashable. If it is a jax array,
-    convert it to a possibly nested tuple or python scalar."""
+    convert it to a possibly nested tuple or python scalar.
+
+    All NaNs are converted to numpy.nan to get consistent hashing.
+    """
     if isinstance(v, jax.Array):
         try:
             if len(v.shape) > 0:
                 return _recurse_list_to_tuple(v.tolist())
             else:
-                return v.item()
+                return _convert_to_numpy_nan(v.item())
         except Exception:
-            return v
+            return _convert_to_numpy_nan(v)
     else:
-        return v
+        return _convert_to_numpy_nan(v)
 
 
 @partial(jax.jit, static_argnames=("niter",))

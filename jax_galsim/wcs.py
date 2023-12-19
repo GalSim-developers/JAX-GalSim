@@ -147,11 +147,11 @@ class BaseWCS(_galsim.BaseWCS):
             image_pos = PositionD(0, 0)
 
         if self._isCelestial:
-            return jac.withOrigin(image_pos)
+            return jac.shiftOrigin(image_pos)
         else:
             if world_pos is None:
                 world_pos = self.toWorld(image_pos, color=color)
-            return jac.withOrigin(image_pos, world_pos, color=color)
+            return jac.shiftOrigin(image_pos, world_pos, color=color)
 
     @_wraps(_galsim.BaseWCS.shiftOrigin)
     def shiftOrigin(self, origin, world_origin=None, color=None):
@@ -160,6 +160,13 @@ class BaseWCS(_galsim.BaseWCS):
         if not isinstance(origin, Position):
             raise TypeError("origin must be a PositionD or PositionI argument")
         return self._shiftOrigin(origin, world_origin, color)
+
+    @_wraps(_galsim.BaseWCS.withOrigin)
+    def withOrigin(self, origin, world_origin=None, color=None):
+        from .deprecated import depr
+
+        depr("withOrigin", 2.3, "shiftOrigin")
+        return self.shiftOrigin(origin, world_origin, color)
 
     # A lot of classes will need these checks, so consolidate them here
     def _set_origin(self, origin, world_origin=None):
@@ -837,6 +844,8 @@ class PixelScale(LocalWCS):
     _isPixelScale = True
 
     def __init__(self, scale):
+        if isinstance(scale, BaseWCS):
+            raise TypeError("Cannot initialize PixelScale from a BaseWCS")
         self._params = {"scale": scale}
         self._color = None
 
@@ -1629,9 +1638,8 @@ def readFromFitsHeader(header, suppress_warning=True):
         a tuple (wcs, origin) of the wcs from the header and the image origin.
     """
     from . import fits
+    from .fitswcs import FitsWCS
 
-    # FIXME: Enable FitsWCS
-    # from .fitswcs import FitsWCS
     if not isinstance(header, fits.FitsHeader):
         header = fits.FitsHeader(header)
     xmin = header.get("GS_XMIN", 1)
@@ -1644,9 +1652,8 @@ def readFromFitsHeader(header, suppress_warning=True):
         wcs_type = eval("jax_galsim." + wcs_name, gdict)
         wcs = wcs_type._readHeader(header)
     else:
-        raise NotImplementedError("FitsWCS is not implemented for jax_galsim.")
         # If we aren't told which type to use, this should find something appropriate
-        # wcs = FitsWCS(header=header, suppress_warning=suppress_warning)
+        wcs = FitsWCS(header=header, suppress_warning=suppress_warning)
 
     if xmin != 1 or ymin != 1:
         # ds9 always assumes the image has an origin at (1,1), so convert back to actual

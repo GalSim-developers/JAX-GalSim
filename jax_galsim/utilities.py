@@ -5,6 +5,7 @@ import jax
 import jax.numpy as jnp
 from jax._src.numpy.util import _wraps
 
+from jax_galsim.core.utils import has_tracers
 from jax_galsim.errors import GalSimIncompatibleValuesError, GalSimValueError
 from jax_galsim.position import PositionD, PositionI
 
@@ -16,22 +17,41 @@ printoptions = _galsim.utilities.printoptions
     lax_description=(
         "The LAX version of this decorator uses an `_workspace` attribute "
         "attached to the object so that the cache can easily be discarded "
-        "for certain operations."
+        "for certain operations. It also will not cache jax.core.Tracer objects "
+        "in order to avoid side-effects in jit/grad/vmap transformations "
+        "unless `cache_jax_tracers=True` is given."
     ),
 )
-def lazy_property(func):
-    attname = func.__name__ + "_cached"
+def lazy_property(func_=None, cache_jax_tracers=False):
+    # the extra layer of indirection here allows the decorator to
+    # take keyword arguments and also be used without them.
+    # see https://stackoverflow.com/a/57268935
+    def _decorator(func):
+        attname = func.__name__ + "_cached"
 
-    @property
-    @functools.wraps(func)
-    def _func(self):
-        if not hasattr(self, "_workspace"):
-            self._workspace = {}
-        if attname not in self._workspace:
-            self._workspace[attname] = func(self)
-        return self._workspace[attname]
+        @property
+        @functools.wraps(func)
+        def wrapper(self):
+            if not hasattr(self, "_workspace"):
+                self._workspace = {}
+            if attname not in self._workspace:
+                val = func(self)
+                if cache_jax_tracers or (not has_tracers(val)):
+                    self._workspace[attname] = val
+            else:
+                val = self._workspace[attname]
+            return val
 
-    return _func
+        return wrapper
+
+    if callable(func_):
+        return _decorator(func_)
+    elif func_ is None:
+        return _decorator
+    else:
+        raise RuntimeWarning(
+            "Positional arguments are not supported for the lazy_property decorator"
+        )
 
 
 @_wraps(_galsim.utilities.parse_pos_args)

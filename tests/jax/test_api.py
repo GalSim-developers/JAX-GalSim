@@ -125,7 +125,7 @@ def _run_object_checks(obj, cls, kind):
 
         # check that we can hash the object
         hash(obj)
-    elif kind == "pickle-eval-repr-img":
+    elif kind == "pickle-eval-repr-img" or kind == "pickle-eval-repr-nohash":
         from numpy import array  # noqa: F401
 
         # eval repr is identity mapping
@@ -147,6 +147,9 @@ def _run_object_checks(obj, cls, kind):
 
         # check that we cannot hash the object
         hash(obj)
+    elif kind == "jax-compatible":
+        # JAX tracing should be an identity
+        assert cls.tree_unflatten(*((obj.tree_flatten())[::-1])) == obj
     elif kind == "vmap-jit-grad":
         # JAX tracing should be an identity
         assert cls.tree_unflatten(*((obj.tree_flatten())[::-1])) == obj
@@ -362,7 +365,15 @@ def _run_object_checks(obj, cls, kind):
                                 line.strip()
                                 and line not in _galsim.utilities.lazy_property.__doc__
                             ):
-                                assert line.strip() in getattr(cls, method).__doc__
+                                assert line.strip() in getattr(cls, method).__doc__, (
+                                    cls.__name__
+                                    + "."
+                                    + method
+                                    + " doc string does not match galsim."
+                                    + gscls.__name__
+                                    + "."
+                                    + method
+                                )
                 else:
                     assert method not in dir(gscls), cls.__name__ + "." + method
     else:
@@ -912,4 +923,144 @@ def test_api_noise():
         "DeviateNoise",
         "VariableGaussianNoise",
         "CCDNoise",
+    } <= tested
+
+
+@pytest.mark.parametrize(
+    "obj1",
+    [
+        jax_galsim.Gaussian(fwhm=1.0),
+        jax_galsim.Pixel(scale=1.0),
+        jax_galsim.Exponential(scale_radius=1.0),
+        jax_galsim.Exponential(half_light_radius=1.0),
+        jax_galsim.Moffat(fwhm=1.0, beta=3),
+        jax_galsim.Moffat(scale_radius=1.0, beta=3),
+        jax_galsim.Shear(g1=0.1, g2=0.2),
+        jax_galsim.PositionD(x=0.1, y=0.2),
+        jax_galsim.BoundsI(xmin=0, xmax=1, ymin=0, ymax=1),
+        jax_galsim.BoundsD(xmin=0, xmax=1, ymin=0, ymax=1),
+        jax_galsim.ShearWCS(0.2, jax_galsim.Shear(g1=0.1, g2=0.2)),
+        jax_galsim.Delta(),
+        jax_galsim.Nearest(),
+        jax_galsim.Lanczos(3),
+        jax_galsim.Lanczos(3, conserve_dc=False),
+        jax_galsim.Quintic(),
+        jax_galsim.Linear(),
+        jax_galsim.Cubic(),
+        jax_galsim.SincInterpolant(),
+    ],
+)
+def test_api_pickling_eval_repr_basic(obj1):
+    # test copied from galsim
+    import copy
+    import pickle
+    from collections.abc import Hashable
+    from numbers import Complex, Integral, Real  # noqa: F401
+
+    # In case the repr uses these:
+    from numpy import (  # noqa: F401
+        array,
+        complex64,
+        complex128,
+        float32,
+        float64,
+        int16,
+        int32,
+        ndarray,
+        uint16,
+        uint32,
+    )
+
+    def func(x):
+        return x
+
+    print("Try pickling ", str(obj1))
+
+    # print('pickled obj1 = ',pickle.dumps(obj1))
+    obj2 = pickle.loads(pickle.dumps(obj1))
+    assert obj2 is not obj1
+    # print('obj1 = ',repr(obj1))
+    # print('obj2 = ',repr(obj2))
+    f1 = func(obj1)
+    f2 = func(obj2)
+    # print('func(obj1) = ',repr(f1))
+    # print('func(obj2) = ',repr(f2))
+    assert f1 == f2
+
+    # Check that == works properly if the other thing isn't the same type.
+    assert f1 != object()
+    assert object() != f1
+
+    # Test the hash values are equal for two equivalent objects.
+    if isinstance(obj1, Hashable):
+        # print('hash = ',hash(obj1),hash(obj2))
+        assert hash(obj1) == hash(obj2)
+
+    obj3 = copy.copy(obj1)
+    assert obj3 is not obj1
+    random = hasattr(obj1, "rng") or "rng" in repr(obj1)
+    if not random:  # Things with an rng attribute won't be identical on copy.
+        f3 = func(obj3)
+        assert f3 == f1
+
+    obj4 = copy.deepcopy(obj1)
+    assert obj4 is not obj1
+    f4 = func(obj4)
+    if random:
+        f1 = func(obj1)
+    # print('func(obj1) = ',repr(f1))
+    # print('func(obj4) = ',repr(f4))
+    assert f4 == f1  # But everything should be identical with deepcopy.
+
+    # Also test that the repr is an accurate representation of the object.
+    # The gold standard is that eval(repr(obj)) == obj.  So check that here as well.
+    # A few objects we don't expect to work this way in GalSim; when testing these, we set the
+    # `irreprable` kwarg to true.  Also, we skip anything with random deviates since these don't
+    # respect the eval/repr roundtrip.
+
+    if not random:
+        # A further complication is that the default numpy print options do not lead to sufficient
+        # precision for the eval string to exactly reproduce the original object, and start
+        # truncating the output for relatively small size arrays.  So we temporarily bump up the
+        # precision and truncation threshold for testing.
+        # print(repr(obj1))
+        with _galsim.utilities.printoptions(precision=20, threshold=np.inf):
+            obj5 = eval(repr(obj1))
+        # print('obj1 = ',repr(obj1))
+        # print('obj5 = ',repr(obj5))
+        f5 = func(obj5)
+        # print('f1 = ',f1)
+        # print('f5 = ',f5)
+        assert f5 == f1, "func(obj1) = %r\nfunc(obj5) = %r" % (f1, f5)
+    else:
+        # Even if we're not actually doing the test, still make the repr to check for syntax errors.
+        repr(obj1)
+
+
+def test_api_photon_array():
+    pa = jax_galsim.PhotonArray(101)
+
+    _run_object_checks(pa, pa.__class__, "docs-methods")
+    _run_object_checks(pa, pa.__class__, "pickle-eval-repr-nohash")
+    _run_object_checks(pa, pa.__class__, "jax-compatible")
+
+
+def test_api_sensor():
+    classes = []
+    for item in sorted(dir(jax_galsim)):
+        cls = getattr(jax_galsim, item)
+        if inspect.isclass(cls) and issubclass(cls, jax_galsim.sensor.Sensor):
+            classes.append(getattr(jax_galsim.sensor, item))
+
+    tested = set()
+    for cls in classes:
+        obj = cls()
+        print(obj)
+        tested.add(cls.__name__)
+        _run_object_checks(obj, obj.__class__, "docs-methods")
+        _run_object_checks(obj, obj.__class__, "pickle-eval-repr")
+        _run_object_checks(obj, obj.__class__, "jax-compatible")
+
+    assert {
+        "Sensor",
     } <= tested

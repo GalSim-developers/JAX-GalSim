@@ -4,6 +4,8 @@ interpolant classes. The code here assumes that all properties of the
 interpolants themselves (e.g., the coefficients that define the kernel
 shapes, the integrals of the kernels, etc.) are constants.
 """
+import math
+
 import galsim as _galsim
 import jax
 import jax.numpy as jnp
@@ -13,7 +15,10 @@ from jax.tree_util import register_pytree_node_class
 
 from jax_galsim.bessel import si
 from jax_galsim.core.utils import is_equal_with_arrays
+from jax_galsim.errors import GalSimError
 from jax_galsim.gsparams import GSParams
+from jax_galsim.random import UniformDeviate
+from jax_galsim.utilities import lazy_property
 
 
 @_wraps(_galsim.interpolant.Interpolant)
@@ -24,6 +29,17 @@ class Interpolant:
             "The Interpolant base class should not be instantiated directly. "
             "Use one of the subclasses instead, or use the `from_name` factory function."
         )
+
+    def __getstate__(self):
+        d = self.__dict__.copy()
+        d["had_workspace"] = "_workspace" in d
+        d.pop("_workspace", None)
+        return d
+
+    def __setstate__(self, d):
+        if d.pop("had_workspace", False):
+            d["_workspace"] = {}
+        self.__dict__ = d
 
     @staticmethod
     def from_name(name, tol=None, gsparams=None):
@@ -241,7 +257,7 @@ class Interpolant:
     @property
     def ixrange(self):
         """The total integral range of the interpolant.  Typically 2 * xrange."""
-        return 2 * int(jnp.ceil(self.xrange))
+        return 2 * int(math.ceil(self.xrange))
 
     @property
     def krange(self):
@@ -253,6 +269,44 @@ class Interpolant:
         raise NotImplementedError(
             "urange() is not implemented for interpolant type %s."
             % self.__class__.__name__
+        )
+
+    @lazy_property
+    def _shoot_cdf(self):
+        x = jnp.linspace(-self.xrange, self.xrange, 10000)
+        px = jnp.abs(self._xval_noraise(jnp.abs(x)))
+        dx = x[1] - x[0]
+        # cumulative trapezoidal rule
+        # see scipy.integrate.cumulative_trapezoid
+        cdfx = jnp.concatenate(
+            [jnp.array([0]), jnp.cumsum((px[1:] + px[:-1]) * 0.5 * dx)]
+        )
+        cdfx /= cdfx[-1]
+        return x, cdfx
+
+    def _shoot(self, photons, rng):
+        # this is a generic method used for kernels without easy
+        # analytic ways to draw from them (currently Cubic, Quintic, and Lanczos)
+        x, cdfx = self._shoot_cdf
+        ud = UniformDeviate(rng)
+        ux = ud.generate(photons.x)
+        uy = ud.generate(photons.y)
+        photons.x = jnp.interp(ux, cdfx, x)
+        photons.y = jnp.interp(uy, cdfx, x)
+        if photons.size() > 0:
+            # remember we are using a product of 1D interpolants in each direction
+            # thus the total flux is an integral over x and y of the product of the
+            # 1D interpolants. Thus we square the total absolute flux of the 1D interpolants
+            # to get the total absolute flux of the 2D interpolant.
+            flux_per_photon = (
+                self.positive_flux + self.negative_flux
+            ) ** 2 / photons.size()
+        else:
+            flux_per_photon = 0.0
+        photons.flux = (
+            flux_per_photon
+            * jnp.sign(self._xval_noraise(photons.x))
+            * jnp.sign(self._xval_noraise(photons.y))
         )
 
     # subclasses should implement __init__, _xval, _uval,
@@ -303,6 +357,13 @@ class Delta(Interpolant):
         """The total integral range of the interpolant.  Typically 2 * xrange."""
         return 0
 
+    def _shoot(self, photons, rng):
+        # PhotonArray class does the correct thing here, setting
+        # the whole array to zero
+        photons.x = 0.0
+        photons.y = 0.0
+        photons.flux = 1.0 / photons.size()
+
 
 @_wraps(_galsim.interpolant.Nearest)
 @register_pytree_node_class
@@ -340,6 +401,12 @@ class Nearest(Interpolant):
     def ixrange(self):
         """The total integral range of the interpolant.  Typically 2 * xrange."""
         return 1
+
+    def _shoot(self, photons, rng):
+        ud = UniformDeviate(rng)
+        photons.x = ud.generate(photons.x) - 0.5
+        photons.y = ud.generate(photons.y) - 0.5
+        photons.flux = 1.0 / photons.size()
 
 
 @_wraps(_galsim.interpolant.SincInterpolant)
@@ -405,8 +472,17 @@ class SincInterpolant(Interpolant):
         narr = jnp.arange(n)
 
         val = (si(jnp.pi * (narr + 1)) - si(jnp.pi * (narr))) / jnp.pi
-        self._positive_flux = jax.lax.stop_gradient(jnp.sum(val[val > 0])).item() * 2.0
+        # this computed flux is a constant and so we do not propagate gradients
+        self._positive_flux = (
+            jax.lax.stop_gradient(jnp.sum(jnp.where(val > 0, val, 0.0))) * 2.0
+        )
         self._negative_flux = self._positive_flux - 1.0
+
+    def _shoot(self, photons, rng):
+        raise GalSimError(
+            "%s does not implement shoot since the "
+            "kernel is not compact in real-space." % self.__class__.__name__
+        )
 
 
 @_wraps(_galsim.interpolant.Linear)
@@ -453,6 +529,12 @@ class Linear(Interpolant):
     def ixrange(self):
         """The total integral range of the interpolant.  Typically 2 * xrange."""
         return 2
+
+    def _shoot(self, photons, rng):
+        ud = UniformDeviate(rng)
+        photons.x = ud.generate(photons.x) + ud.generate(photons.x) - 1.0
+        photons.y = ud.generate(photons.y) + ud.generate(photons.y) - 1.0
+        photons.flux = 1.0 / photons.size()
 
 
 @_wraps(_galsim.interpolant.Cubic)

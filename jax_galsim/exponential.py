@@ -6,6 +6,8 @@ from jax.tree_util import register_pytree_node_class
 from jax_galsim.core.draw import draw_by_kValue, draw_by_xValue
 from jax_galsim.core.utils import ensure_hashable
 from jax_galsim.gsobject import GSObject
+from jax_galsim.random import UniformDeviate
+from jax_galsim.utilities import lazy_property
 
 
 @_wraps(_galsim.Exponential)
@@ -145,3 +147,60 @@ class Exponential(GSObject):
         return Exponential(
             scale_radius=self.scale_radius, flux=flux, gsparams=self.gsparams
         )
+
+    @lazy_property
+    def _shoot_cdf(self):
+        # Comments on the math here:
+        #
+        # We are looking to draw from a distribution that is r * exp(-r).
+        # This distribution is the radial PDF of an Exponential profile.
+        # The factor of r comes from the area element r * dr.
+        #
+        # We can compute the CDF of this distribution analytically, but we cannot
+        # invert the CDF in closed form. Thus we invert it numerically using a table.
+        #
+        # One final detail is that we want the inversion to be accurate and are using
+        # linear interpolation. Thus we use a change of variables r = -ln(1 - u)
+        # to make the CDF more linear and map it's domain to [0, 1) instead of [0, inf).
+        #
+        # Putting this all together, we get
+        #
+        #     r * exp(-r) dr = -ln(1-u) (1-u) dr/du du
+        #                    = -ln(1-u) (1-u)  * 1 / (1-u)
+        #                    = -ln(1-u)
+        #
+        # The new range of integration is u = 0 to u = 1. Thus the CDF is
+        #
+        #     CDF = -int_0^u ln(1-u') du'
+        #         =  u - (u - 1) ln(1 - u)
+        #
+        # The final detail is that galsim defines a shoot accuracy and draws photons
+        # between r = 0 and rmax = -log(shoot_accuracy). Thus we normalize the CDF to
+        # its value at umax = 1 - exp(-rmax) and then finally invert the CDF numerically.
+        _rmax = -jnp.log(self.gsparams.shoot_accuracy)
+        _umax = 1.0 - jnp.exp(-_rmax)
+        _u_cdf = jnp.linspace(0, _umax, 10000)
+        _cdf = _u_cdf - (_u_cdf - 1) * jnp.log(1 - _u_cdf)
+        _cdf /= _cdf[-1]
+        return _u_cdf, _cdf
+
+    @_wraps(_galsim.Exponential._shoot)
+    def _shoot(self, photons, rng):
+        ud = UniformDeviate(rng)
+
+        u = ud.generate(
+            photons.x
+        )  # this does not fill arrays like in galsim so is safe
+        _u_cdf, _cdf = self._shoot_cdf
+        # this interpolation inverts the CDF
+        u = jnp.interp(u, _cdf, _u_cdf)
+        # this converts from u (see above) to r and scales by the actual size of
+        # the object r0.
+        r = -jnp.log(1.0 - u) * self._r0
+
+        ang = (
+            ud.generate(photons.x) * 2.0 * jnp.pi
+        )  # this does not fill arrays like in galsim so is safe
+        photons.x = r * jnp.cos(ang)
+        photons.y = r * jnp.sin(ang)
+        photons.flux = self.flux / photons.size()

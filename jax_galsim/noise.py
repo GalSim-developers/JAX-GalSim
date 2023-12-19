@@ -47,7 +47,8 @@ class BaseNoise:
         else:
             if not isinstance(rng, BaseDeviate):
                 raise TypeError("rng must be a galsim.BaseDeviate instance.")
-            self._rng = rng.duplicate()
+            # we link the noise fields to the RNG state
+            self._rng = rng
 
     @property
     def rng(self):
