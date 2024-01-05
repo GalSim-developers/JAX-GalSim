@@ -4,6 +4,7 @@ enabled_tests:
     - test_gaussian.py
     - test_exponential.py
     - test_moffat.py
+    - test_spergel.py
     - test_sum.py
     - test_transforms.py
     - test_convolve.py
