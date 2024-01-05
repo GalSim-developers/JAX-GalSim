@@ -66,7 +66,7 @@ def test_moffat_vmapping():
         ),
     ]
 
-    # Test equality function from original galsim exponential.py
+    # Test equality function from original galsim moffat.py
     def test_eq(self, other):
         return (
             self.scale_radius == jnp.array([other.scale_radius, other.scale_radius])
@@ -77,6 +77,23 @@ def test_moffat_vmapping():
         [test_eq(jax.vmap(galsim.Moffat)(**duplicate(o.params)), o) for o in objects]
     )
 
+def test_spergel_vmapping():
+    # Test Spergel objects
+    objects = [ 
+        galsim.Spergel(nu=-0.85, flux=1.0, scale_radius=1.0, gsparams=gsparams),
+        galsim.Spergel(nu=4.0, flux=0.2, half_light_radius = 1.0, gsparams=gsparams),
+    ]
+
+    # Test equality function from original galsim spergel.py
+    def test_eq(self, other):
+        return (
+            self.scale_radius == jnp.array([other.scale_radius, other.scale_radius])
+        ).all() and (self.flux == jnp.array([other.flux, other.flux])).all()
+
+    # Check that after vmapping the oject is still the same
+    assert all(
+        [test_eq(jax.vmap(galsim.Spergel)(**duplicate(o.params)), o) for o in objects]
+    )
 
 def eq_pos(pos, other):
     return (pos.x == jnp.array([other.x, other.x])).all() and (
