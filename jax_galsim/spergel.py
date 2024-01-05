@@ -7,10 +7,8 @@ from jax.tree_util import Partial as partial
 from jax.tree_util import register_pytree_node_class
 
 from jax_galsim.core.draw import draw_by_kValue, draw_by_xValue
-from jax_galsim.core.integrate import ClenshawCurtisQuad, quad_integral
 from jax_galsim.core.utils import bisect_for_root, ensure_hashable
 from jax_galsim.gsobject import GSObject
-from jax_galsim.position import PositionD
 
 
 @jax.jit
@@ -191,8 +189,8 @@ def calculateFluxRadius(alpha, nu):
               \times \left(\frac{r}{r_0}\right)^\nu K_\nu\left(\frac{r}{r_0}\right)
 
         where :math:`r_0` is the ``scale_radius``, and :math: `\nu` is in [-0.85,4.0] 
-    """
-    )
+    """,
+)
 @register_pytree_node_class
 class Spergel(GSObject):
     _has_hard_edges = False
@@ -350,12 +348,12 @@ class Spergel(GSObject):
         r = jnp.sqrt(pos.x**2 + pos.y**2) * self._inv_r0
         res = jnp.where(r == 0, self._xnorm0(self.nu), fz_nu(r, self.nu))
         return self._xnorm * res
-    
+
     @jax.jit
     def _kValue(self, kpos):
         ksq = (kpos.x**2 + kpos.y**2) * self._r0_sq
-        return self.flux * jnp.power(1.+ ksq, 1.0 + self.nu)
-    
+        return self.flux * jnp.power(1.0 + ksq, 1.0 + self.nu)
+
     def _drawReal(self, image, jac=None, offset=(0.0, 0.0), flux_scaling=1.0):
         _jac = jnp.eye(2) if jac is None else jac
         return draw_by_xValue(self, image, _jac, jnp.asarray(offset), flux_scaling)
@@ -372,7 +370,7 @@ class Spergel(GSObject):
             flux=flux,
             gsparams=self.gsparams,
         )
-    
+
     @_wraps(_galsim.Spergel._shoot)
     def _shoot(self, photons, rng):
         raise NotImplementedError("Shooting photons is not yet implemented")
