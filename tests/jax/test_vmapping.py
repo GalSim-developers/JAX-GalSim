@@ -80,8 +80,8 @@ def test_moffat_vmapping():
 def test_spergel_vmapping():
     # Test Spergel objects
     objects = [ 
-        galsim.Spergel(nu=-0.85, flux=1.0, scale_radius=1.0, gsparams=gsparams),
-        galsim.Spergel(nu=4.0, flux=0.2, half_light_radius = 1.0, gsparams=gsparams),
+        galsim.Spergel(nu=-0.85, flux=1.0, scale_radius=1.0),
+        galsim.Spergel(nu=4.0, flux=0.2, half_light_radius = 1.0),
     ]
 
     # Test equality function from original galsim spergel.py
