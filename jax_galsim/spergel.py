@@ -182,13 +182,18 @@ def calculateFluxRadius(alpha, nu):
 @_wraps(
     _galsim.Spergel,
     lax_description="""
-    The JAX version uses this profile function
+    The JAX version uses the following profile
         .. math::
         
             I(r) = flux \times \left(2\pi 2^\nu \Gamma(1+\nu) r_0^2\right)^{-1} 
               \times \left(\frac{r}{r_0}\right)^\nu K_\nu\left(\frac{r}{r_0}\right)
 
-        where :math:`r_0` is the ``scale_radius``, and :math: `\nu` is in [-0.85,4.0] 
+    with the following Fourier expression
+        .. math::
+
+            \hat{I}(k) = flux / (1 + (k r_0)^2)^{1+\nu}
+
+    where :math:`r_0` is the ``scale_radius``, and :math: `\nu` mandatory to be in [-0.85,4.0] 
     """,
 )
 @register_pytree_node_class
