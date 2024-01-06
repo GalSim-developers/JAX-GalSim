@@ -9,6 +9,7 @@ from jax.tree_util import register_pytree_node_class
 from jax_galsim.core.draw import draw_by_kValue, draw_by_xValue
 from jax_galsim.core.utils import bisect_for_root, ensure_hashable
 from jax_galsim.gsobject import GSObject
+from jax_galsim.random import UniformDeviate
 
 
 @jax.jit
@@ -19,8 +20,12 @@ def _Knu(nu, x):
 
 @jax.jit
 def _gamma(nu):
-    """Gamma(nu)"""
-    return jnp.exp(jax.lax.lgamma(nu * 1.0))
+    """Gamma(nu) with care for integer nu in [0,5]"""
+    return jnp.select(
+        [nu == 0, nu == 1, nu == 2, nu == 3, nu == 4, nu == 5],
+        [jnp.inf, 1.0, 1.0, 2.0, 6.0, 24.0],
+        default=jnp.exp(jax.lax.lgamma(nu * 1.0)),
+    )
 
 
 @jax.jit
@@ -127,9 +132,9 @@ def fsmallz_nup1(z, nu):
         c1 = -jnp.power(2.0, -4.0 - nu)
         c2 = _gamma(-2.0 - nu)
         c3 = c1 * c2 * (8.0 + 4.0 * nu + z2) * jnp.power(z, 2.0 * (1.0 + nu))
-        c4 = jnp.power(2.0, -5.0 + nu)
-        c5 = _gammap1(nu) / (nu * (-1.0 + nu))
-        c6 = c4 * c5 * (32.0 * nu * (-1.0 + nu) - 8.0 * z2 * (-1.0 + nu) + z4)
+        c4 = jnp.power(2.0, nu)
+        c5 = _gammap1(nu)
+        c6 = c4 * c5 * (1.0 - 0.25 * z2 / nu + z4 * 0.03125 / (nu * (nu - 1.0)))
         return c3 + c6
 
     return jnp.select(
@@ -151,8 +156,14 @@ def fz_nup1(z, nu):
 
 @jax.jit
 def fluxfractionFunc(z, nu, alpha):
-    """Return  z^(nu+1) K_{nu+1}(z) / (2^nu Gamma(nu+1)) - (1-alpha)"""
-    return fz_nup1(z, nu) / (jnp.power(2.0, nu) * _gammap1(nu)) - (1.0 - alpha)
+    """Return  1 - z^(nu+1) K_{nu+1}(z) / (2^nu Gamma(nu+1)) - alpha"""
+    return 1.0 - fz_nup1(z, nu) / (jnp.power(2.0, nu) * _gammap1(nu)) - alpha
+
+
+@jax.jit
+def reducedfluxfractionFunc(z, nu, norm):
+    """Return (1 - z^(nu+1) K_{nu+1}(z) / (2^nu Gamma(nu+1)))/norm"""
+    return fluxfractionFunc(z, nu, alpha=0.0) / norm
 
 
 @jax.jit
@@ -164,7 +175,7 @@ def calculateFluxRadius(alpha, nu):
     F(R)/F =  int( 1/(2^nu Gamma(nu+1)) (r/r0)^(nu+1) K_nu(r/r0) dr/r0; r=0..R) = alpha
     =>
     z=R/r0 such that
-    z^(nu+1) K_{nu+1}(z) / (2^nu Gamma(nu+1)) = 1-alpha
+    1 - z^(nu+1) K_{nu+1}(z) / (2^nu Gamma(nu+1)) = alpha
 
     Typical use cases:
      o alpha = 1/2 => R = Half-Light-Radius,
@@ -326,19 +337,13 @@ class Spergel(GSObject):
     @property
     def _maxk(self):
         """(1+ (k r0)^2)^(-1-nu) = maxk_threshold"""
-        return (
-            jnp.sqrt(
-                jnp.power(self.gsparams.maxk_threshold, -1.0 / (1.0 + self.nu)) - 1.0
-            )
-            / self._r0
-        )
+        res = jnp.power(self.gsparams.maxk_threshold, -1.0 / (1.0 + self.nu)) - 1.0
+        return jnp.sqrt(res) / self._r0
 
     @property
     def _stepk(self):
-        R = (
-            calculateFluxRadius(1.0 - self.gsparams.folding_threshold, self.nu)
-            * self._r0
-        )
+        R = calculateFluxRadius(1.0 - self.gsparams.folding_threshold, self.nu)
+        R *= self._r0
         # Go to at least 5*hlr
         R = jnp.maximum(R, self.gsparams.stepk_minimum_hlr * self.half_light_radius)
         return jnp.pi / R
@@ -378,4 +383,35 @@ class Spergel(GSObject):
 
     @_wraps(_galsim.Spergel._shoot)
     def _shoot(self, photons, rng):
-        raise NotImplementedError("Shooting photons is not yet implemented")
+        # from  SpergelInfo::shoot C++ code
+        # Range [0, Rmax] or  z=R/r0 => [0, zmax], with
+        # zmax = FluxRadius(1.0 - self.gsparams.shoot_accuracy)
+        # So the fluxfractionFunc(z) function is rescaled such that it is 1 at z=zmax
+        # Then, proceeds as followed:
+        # u shoot as random Uniform(0,1)
+        # slove fluxfractionFunc(z) = u by bisection
+        # r = u * r0
+        # generate angle as Uniform(0,2 Pi)
+        # x = r * cos(ang); y = r * sin(ang)
+
+        ud = UniformDeviate(rng)
+
+        u = ud.generate(photons.x)
+        zmax = calculateFluxRadius(1.0 - self.gsparams.shoot_accuracy, self.nu)
+        flux_max = fluxfractionFunc(zmax, self.nu, alpha=0.0)
+        preducedfluxfractionFunc = partial(
+            reducedfluxfractionFunc, nu=self.nu, norm=flux_max
+        )
+
+        def shoot_f(z, val):
+            return preducedfluxfractionFunc(z) - val
+
+        def zshoot(u, zmax):
+            return bisect_for_root(partial(shoot_f, val=u), 0.0, zmax, niter=75)
+
+        r = jax.vmap(zshoot, (0, None), 0)(u, zmax) * self._r0
+
+        ang = ud.generate(photons.x) * 2.0 * jnp.pi
+        photons.x = r * jnp.cos(ang)
+        photons.y = r * jnp.sin(ang)
+        photons.flux = self.flux / photons.size()
