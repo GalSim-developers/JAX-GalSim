@@ -362,7 +362,7 @@ class Spergel(GSObject):
     @jax.jit
     def _kValue(self, kpos):
         ksq = (kpos.x**2 + kpos.y**2) * self._r0_sq
-        return self.flux * jnp.power(1.0 + ksq, 1.0 + self.nu)
+        return self.flux * jnp.power(1.0 + ksq, - 1.0 - self.nu)
 
     def _drawReal(self, image, jac=None, offset=(0.0, 0.0), flux_scaling=1.0):
         _jac = jnp.eye(2) if jac is None else jac
