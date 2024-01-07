@@ -305,6 +305,14 @@ class Spergel(GSObject):
             self.nu > 0, _gamma(self.nu) * jnp.power(2.0, self.nu - 1.0), jnp.inf
         )
 
+    def calculateFluxRadius(self, f):
+        """Return the radius within which the total flux is f"""
+        return calculateFluxRadius(f, self.nu)
+
+    def calculateIntegratedFlux(self, r):
+        """Return the integrated flux out to a given radius, r (unit of scale radius)"""
+        return fluxfractionFunc(r, self.nu, 0.0)
+
     def __hash__(self):
         return hash(
             (
@@ -362,7 +370,7 @@ class Spergel(GSObject):
     @jax.jit
     def _kValue(self, kpos):
         ksq = (kpos.x**2 + kpos.y**2) * self._r0_sq
-        return self.flux * jnp.power(1.0 + ksq, - 1.0 - self.nu)
+        return self.flux * jnp.power(1.0 + ksq, -1.0 - self.nu)
 
     def _drawReal(self, image, jac=None, offset=(0.0, 0.0), flux_scaling=1.0):
         _jac = jnp.eye(2) if jac is None else jac
