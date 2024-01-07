@@ -77,11 +77,12 @@ def test_moffat_vmapping():
         [test_eq(jax.vmap(galsim.Moffat)(**duplicate(o.params)), o) for o in objects]
     )
 
+
 def test_spergel_vmapping():
     # Test Spergel objects
-    objects = [ 
+    objects = [
         galsim.Spergel(nu=-0.85, flux=1.0, scale_radius=1.0),
-        galsim.Spergel(nu=4.0, flux=0.2, half_light_radius = 1.0),
+        galsim.Spergel(nu=4.0, flux=0.2, half_light_radius=1.0),
     ]
 
     # Test equality function from original galsim spergel.py
@@ -94,6 +95,7 @@ def test_spergel_vmapping():
     assert all(
         [test_eq(jax.vmap(galsim.Spergel)(**duplicate(o.params)), o) for o in objects]
     )
+
 
 def eq_pos(pos, other):
     return (pos.x == jnp.array([other.x, other.x])).all() and (
