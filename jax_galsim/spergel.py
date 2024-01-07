@@ -291,7 +291,7 @@ class Spergel(GSObject):
     @property
     def _shootxnorm(self):
         """Normalization for photon shooting"""
-        return 1.0 / (2.0 * jnp.pi * jnp.power(2.0, self.nu) + _gammap1(self.nu))
+        return 1.0 / (2.0 * jnp.pi * jnp.power(2.0, self.nu) * _gammap1(self.nu))
 
     @property
     def _xnorm(self):
