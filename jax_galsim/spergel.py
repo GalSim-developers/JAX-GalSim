@@ -356,7 +356,7 @@ class Spergel(GSObject):
     @jax.jit
     def _xValue(self, pos):
         r = jnp.sqrt(pos.x**2 + pos.y**2) * self._inv_r0
-        res = jnp.where(r == 0, self._xnorm0(self.nu), fz_nu(r, self.nu))
+        res = jnp.where(r == 0, self._xnorm0, fz_nu(r, self.nu))
         return self._xnorm * res
 
     @jax.jit
