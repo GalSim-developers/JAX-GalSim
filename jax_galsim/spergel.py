@@ -190,23 +190,25 @@ def calculateFluxRadius(alpha, nu):
     )
 
 
-@_wraps(
-    _galsim.Spergel,
-    lax_description="""
-    The JAX version uses the following profile
-        .. math::
-        
-            I(r) = flux \times \left(2\pi 2^\nu \Gamma(1+\nu) r_0^2\right)^{-1} 
-              \times \left(\frac{r}{r_0}\right)^\nu K_\nu\left(\frac{r}{r_0}\right)
+##
+#    lax_description="""
+#    The JAX version uses the following profile
+#        .. math::
+#
+#            I(r) = flux \times \left(2\pi 2^\nu \Gamma(1+\nu) r_0^2\right)^{-1}
+#              \times \left(\frac{r}{r_0}\right)^\nu K_\nu\left(\frac{r}{r_0}\right)
+#
+#    with the following Fourier expression
+#        .. math::
+#
+#
+#            \hat{I}(k) = flux / (1 + (k r_0)^2)^{1+\nu}
+#
+#    where :math:`r_0` is the ``scale_radius``, and :math: `\nu` mandatory to be in [-0.85,4.0]
+#    """,
 
-    with the following Fourier expression
-        .. math::
 
-            \hat{I}(k) = flux / (1 + (k r_0)^2)^{1+\nu}
-
-    where :math:`r_0` is the ``scale_radius``, and :math: `\nu` mandatory to be in [-0.85,4.0] 
-    """,
-)
+@_wraps(_galsim.Spergel)
 @register_pytree_node_class
 class Spergel(GSObject):
     _has_hard_edges = False
@@ -218,16 +220,13 @@ class Spergel(GSObject):
     _maximum_nu = 4.0
 
     def __init__(
-        self, nu, half_light_radius=None, scale_radius=None, flux=1.0, gsparams=None
+        self,
+        nu,
+        scale_radius=None,
+        half_light_radius=None,
+        flux=1.0,
+        gsparams=None,
     ):
-        # Todo: how to implement this check
-        # if self._nu < Spergel._minimum_nu:
-        #    raise _galsim.GalSimRangeError("Requested Spergel index is too small",
-        #                           self._nu, Spergel._minimum_nu, Spergel._maximum_nu)
-        # if self._nu > Spergel._maximum_nu:
-        #    raise _galsimGalSimRangeError("Requested Spergel index is too large",
-        #                           self._nu, Spergel._minimum_nu, Spergel._maximum_nu)
-
         # Parse the radius options
         if half_light_radius is not None:
             if scale_radius is not None:
