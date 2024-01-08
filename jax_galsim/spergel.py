@@ -326,7 +326,7 @@ class Spergel(GSObject):
 
     def __repr__(self):
         return "galsim.Spergel(nu=%r, scale_radius=%r, flux=%r, gsparams=%r)" % (
-            ensure_hashable(self.beta),
+            ensure_hashable(self.nu),
             ensure_hashable(self.scale_radius),
             ensure_hashable(self.flux),
             self.gsparams,
