@@ -100,6 +100,7 @@ def f5(z):
 def fsmallz_nu(z, nu):
     def fnu(z, nu):
         """z^nu K_nu[z] z -> 0 O(z^4) z > 0"""
+        nu += 1.e-10   #to garanty that nu is not an integer
         z2 = z * z
         z4 = z2 * z2
         c1 = jnp.power(2.0, -6.0 - nu)
