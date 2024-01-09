@@ -107,7 +107,7 @@ def fsmallz_nu(z, nu):
         c3 = _gamma(-2.0 + nu)
         c4 = jnp.power(z, 2.0 * nu)
         c5 = z4 * 8.0 * z2 * (2.0 + nu) + 32.0 * (1.0 + nu) * (2.0 + nu)
-        c6 = z2 * (16.0 + z2 - 8.0 * nu)
+        c6 = z2 * (16.0 + z2 - 8.0 * nu) * c3
         return c1 * (c4 * c5 * c2 + jnp.power(4.0, nu) * (c6 + 32.0 * _gamma(nu)))
 
     return jnp.select(
