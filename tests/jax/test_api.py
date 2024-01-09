@@ -398,7 +398,7 @@ def test_api_gsobject(kind):
             if inspect.isclass(_attr) and issubclass(_attr, jax_galsim.GSObject):
                 classes.append(_attr)
     cls_tested = set()
-    for cls in classes:        
+    for cls in classes:
         for scale_type in [
             None,
             "fwhm",
