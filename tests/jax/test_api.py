@@ -36,7 +36,7 @@ OK_ERRORS = [
     "Either scale_radius or half_light_radius must be specified",
     "One of sigma, fwhm, and half_light_radius must be specified",
     "One of scale_radius, half_light_radius, or fwhm must be specified",
-    "One of scale_radius, half_light_radius must be specified"
+    "One of scale_radius, half_light_radius must be specified",
     "Arguments to Sum must be GSObjects",
     "'ArrayImpl' object has no attribute 'gsparams'",
     "Supplied image must be an Image or file name",
