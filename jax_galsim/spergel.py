@@ -168,7 +168,7 @@ def reducedfluxfractionFunc(z, nu, norm):
 
 
 @jax.jit
-def calculateFluxRadius(alpha, nu):
+def calculateFluxRadius(alpha, nu, zmin=0.0, zmax=30.0):
     """Return radius R enclosing flux fraction alpha  in unit of the scale radius r0
 
     Method: Solve  F(R/r0=z)/Flux - alpha = 0 using bisection algorithm
@@ -187,29 +187,27 @@ def calculateFluxRadius(alpha, nu):
      nb. it is supposed that nu is in [-0.85, 4.0] checked in the Spergel class init
     """
     return bisect_for_root(
-        partial(fluxfractionFunc, nu=nu, alpha=alpha), 0.0, 5.0, niter=75
+        partial(fluxfractionFunc, nu=nu, alpha=alpha), zmin, zmax, niter=75
     )
 
 
-##
-#    lax_description="""
-#    The JAX version uses the following profile
-#        .. math::
-#
-#            I(r) = flux \times \left(2\pi 2^\nu \Gamma(1+\nu) r_0^2\right)^{-1}
-#              \times \left(\frac{r}{r_0}\right)^\nu K_\nu\left(\frac{r}{r_0}\right)
-#
-#    with the following Fourier expression
-#        .. math::
-#
-#
-#            \hat{I}(k) = flux / (1 + (k r_0)^2)^{1+\nu}
-#
-#    where :math:`r_0` is the ``scale_radius``, and :math: `\nu` mandatory to be in [-0.85,4.0]
-#    """,
+@_wraps(
+    _galsim.Spergel,
+    lax_description="""
+    The JAX version uses the following profile
+        .. math::
 
+            I(r) = flux \times \left(2\pi 2^\nu \Gamma(1+\nu) r_0^2\right)^{-1}
+              \times \left(\frac{r}{r_0}\right)^\nu K_\nu\left(\frac{r}{r_0}\right)
 
-@_wraps(_galsim.Spergel)
+    with the following Fourier expression
+        .. math::
+
+            \hat{I}(k) = flux / (1 + (k r_0)^2)^{1+\nu}
+
+    where :math:`r_0` is the ``scale_radius``, and :math: `\nu` mandatory to be in [-0.85,4.0]
+    """,
+)
 @register_pytree_node_class
 class Spergel(GSObject):
     _has_hard_edges = False
@@ -405,8 +403,11 @@ class Spergel(GSObject):
         ud = UniformDeviate(rng)
 
         u = ud.generate(photons.x)
-        zmax = calculateFluxRadius(1.0 - self.gsparams.shoot_accuracy, self.nu)
+        zmax = calculateFluxRadius(
+            1.0 - self.gsparams.shoot_accuracy, self.nu, zmax=30.0
+        )
         flux_max = fluxfractionFunc(zmax, self.nu, alpha=0.0)
+
         preducedfluxfractionFunc = partial(
             reducedfluxfractionFunc, nu=self.nu, norm=flux_max
         )
