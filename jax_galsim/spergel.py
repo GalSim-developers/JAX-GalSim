@@ -387,9 +387,8 @@ class Spergel(GSObject):
             gsparams=self.gsparams,
         )
 
-    @_wraps(_galsim.Spergel._shoot)
-    def _shoot(self, photons, rng):
-        # from  SpergelInfo::shoot C++ code
+    def _shoot_pos(self, u, zmax, flux_max):
+        # for nu>0
         # Range [0, Rmax] or  z=R/r0 => [0, zmax], with
         # zmax = FluxRadius(1.0 - self.gsparams.shoot_accuracy)
         # So the fluxfractionFunc(z) function is rescaled such that it is 1 at z=zmax
@@ -399,14 +398,6 @@ class Spergel(GSObject):
         # r = u * r0
         # generate angle as Uniform(0,2 Pi)
         # x = r * cos(ang); y = r * sin(ang)
-
-        ud = UniformDeviate(rng)
-
-        u = ud.generate(photons.x)
-        zmax = calculateFluxRadius(
-            1.0 - self.gsparams.shoot_accuracy, self.nu, zmax=30.0
-        )
-        flux_max = fluxfractionFunc(zmax, self.nu, alpha=0.0)
 
         preducedfluxfractionFunc = partial(
             reducedfluxfractionFunc, nu=self.nu, norm=flux_max
@@ -419,6 +410,57 @@ class Spergel(GSObject):
             return bisect_for_root(partial(shoot_f, val=u), 0.0, zmax, niter=75)
 
         r = jax.vmap(zshoot, (0, None), 0)(u, zmax) * self._r0
+        return r
+
+    def _shoot_neg(self, u, zmax):
+        # for nu<=0
+        # computes as in Galsim even if suspicious code
+        # this code is not optimized, used to see if we pass the test
+        flux_target = self.gsparams.shoot_accuracy
+        shoot_rmin = calculateFluxRadius(flux_target,self.nu)
+        knur = fz_nu(shoot_rmin, self.nu)
+        b = 3.0 / shoot_rmin * (knur - flux_target / (jnp.pi * shoot_rmin * shoot_rmin))
+        a = knur - shoot_rmin * b
+
+        def cumulflux(z, a, b, zmin, nu, norm=1.0):
+            Nnu = jnp.power(2.0, nu) * _gammap1(nu)
+            flux_min = a / 3.0 * zmin * zmin * zmin + b / 2.0 * zmin * zmin
+            c1 = fz_nup1(zmin, nu)
+            res = jnp.where(
+                z <= zmin,
+                a / 3.0 * z * z * z + b / 2.0 * z * z,
+                flux_min + c1 - fz_nup1(z, nu),
+            )
+            return Nnu * res / norm
+
+        flux_max = cumulflux(zmax, a, b, shoot_rmin, self.nu)
+
+        preducedfluxfractionFunc = partial(
+            cumulflux, a=a, b=b, zmin=shoot_rmin, nu=self.nu, norm=flux_max
+        )
+
+        def shoot_f(z, val):
+            return preducedfluxfractionFunc(z) - val
+
+        def zshoot(u, zmax):
+            return bisect_for_root(partial(shoot_f, val=u), 0.0, zmax, niter=75)
+
+        r = jax.vmap(zshoot, (0, None), 0)(u, zmax) * self._r0
+        return r
+
+    @_wraps(_galsim.Spergel._shoot)
+    def _shoot(self, photons, rng):
+        ud = UniformDeviate(rng)
+
+        u = ud.generate(photons.x)
+        zmax = calculateFluxRadius(
+            1.0 - self.gsparams.shoot_accuracy, self.nu, zmax=30.0
+        )
+        flux_max = fluxfractionFunc(zmax, self.nu, alpha=0.0)
+
+        r = jax.lax.select(
+            self.nu > 0, self._shoot_pos(u, zmax, flux_max), self._shoot_neg(u, zmax)
+        )
 
         ang = ud.generate(photons.x) * 2.0 * jnp.pi
         photons.x = r * jnp.cos(ang)
