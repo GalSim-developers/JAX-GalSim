@@ -417,7 +417,7 @@ class Spergel(GSObject):
         # computes as in Galsim even if suspicious code
         # this code is not optimized, used to see if we pass the test
         flux_target = self.gsparams.shoot_accuracy
-        shoot_rmin = calculateFluxRadius(flux_target,self.nu)
+        shoot_rmin = calculateFluxRadius(flux_target, self.nu)
         knur = fz_nu(shoot_rmin, self.nu)
         b = 3.0 / shoot_rmin * (knur - flux_target / (jnp.pi * shoot_rmin * shoot_rmin))
         a = knur - shoot_rmin * b
