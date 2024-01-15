@@ -24,7 +24,7 @@
     * `makePhot`
     * `drawPhot`
   * Added implementation of simple light profiles:
-    * `Gaussian`, `Exponential`, `Pixel`, `Box`, `Moffat`, `DeltaFunction`
+    * `Gaussian`, `Exponential`, `Pixel`, `Box`, `Moffat`, `Spergel`, `DeltaFunction`
   * Added implementation of simple WCS:
     * `PixelScale`, `OffsetWCS`, `JacobianWCS`, `AffineTransform`, `ShearWCS`, `OffsetShearWCS`, `GSFitsWCS`, `FitsWCS`, `TanWCS`
   * Added automated suite of tests using the reference GalSim and LSSTDESC-Coord test suites
