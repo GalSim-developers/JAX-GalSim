@@ -193,7 +193,7 @@ def calculateFluxRadius(alpha, nu, zmin=0.0, zmax=30.0):
 @_wraps(
     _galsim.Spergel,
     lax_description="""
-    The JAX version uses the following profile
+    The fully normalized Spergel profile (used in both standard GalSim and JAX-GalSim) is
         .. math::
 
             I(r) = flux \times \left(2\pi 2^\nu \Gamma(1+\nu) r_0^2\right)^{-1}
