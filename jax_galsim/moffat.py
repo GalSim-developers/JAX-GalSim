@@ -1,7 +1,6 @@
 import galsim as _galsim
 import jax
 import jax.numpy as jnp
-import tensorflow_probability as tfp
 from jax._src.numpy.util import _wraps
 from jax.tree_util import Partial as partial
 from jax.tree_util import register_pytree_node_class
