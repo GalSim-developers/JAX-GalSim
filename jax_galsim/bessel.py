@@ -1,8 +1,8 @@
 import galsim as _galsim
 import jax
 import jax.numpy as jnp
-from jax._src.numpy.util import _wraps
 import tensorflow_probability as tfp
+from jax._src.numpy.util import _wraps
 
 
 # the code here for Si, f, g and _si_small_pade is taken from galsim/src/math/Sinc.cpp
