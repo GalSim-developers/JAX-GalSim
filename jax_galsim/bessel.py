@@ -107,10 +107,6 @@ def si(x):
 @jax.jit
 def kv(nu, x):
     """Modified Bessel 2nd kind"""
-    return tfp.substrates.jax.math.bessel_kve(nu * 1.0, x) / jnp.exp(jnp.abs(x))
-
-
-@jax.jit
-def gamma(x):
-    """Gamma(x)"""
-    return jnp.exp(jax.lax.lgamma(x * 1.0))
+    nu = 1.0 * nu
+    x = 1.0 * x
+    return tfp.substrates.jax.math.bessel_kve(nu, x) / jnp.exp(jnp.abs(x))
