@@ -7,6 +7,7 @@ from jax.tree_util import Partial as partial
 from jax.tree_util import register_pytree_node_class
 
 from jax_galsim.core.bessel import j0
+from jax_galsim.bessel import kv
 from jax_galsim.core.draw import draw_by_kValue, draw_by_xValue
 from jax_galsim.core.integrate import ClenshawCurtisQuad, quad_integral
 from jax_galsim.core.utils import bisect_for_root, ensure_hashable
@@ -18,7 +19,7 @@ from jax_galsim.random import UniformDeviate
 @jax.jit
 def _Knu(nu, x):
     """Modified Bessel 2nd kind for Untruncated Moffat"""
-    return tfp.substrates.jax.math.bessel_kve(nu * 1.0, x) / jnp.exp(jnp.abs(x))
+    return kv(nu, x)
 
 
 @jax.jit

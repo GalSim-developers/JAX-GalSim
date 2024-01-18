@@ -1,22 +1,16 @@
 import galsim as _galsim
 import jax
 import jax.numpy as jnp
-import tensorflow_probability as tfp
 from jax._src.numpy.util import _wraps
 from jax.tree_util import Partial as partial
 from jax.tree_util import register_pytree_node_class
 
 from jax_galsim.core.draw import draw_by_kValue, draw_by_xValue
 from jax_galsim.core.utils import bisect_for_root, ensure_hashable
+from jax_galsim.bessel import kv, gamma
 from jax_galsim.gsobject import GSObject
 from jax_galsim.random import UniformDeviate
 from jax_galsim.utilities import lazy_property
-
-
-@jax.jit
-def _Knu(nu, x):
-    """Modified Bessel 2nd kind"""
-    return tfp.substrates.jax.math.bessel_kve(nu * 1.0, x) / jnp.exp(jnp.abs(x))
 
 
 @jax.jit
@@ -25,7 +19,7 @@ def _gamma(nu):
     return jnp.select(
         [nu == 0, nu == 1, nu == 2, nu == 3, nu == 4, nu == 5],
         [jnp.inf, 1.0, 1.0, 2.0, 6.0, 24.0],
-        default=jnp.exp(jax.lax.lgamma(nu * 1.0)),
+        default=gamma(nu),
     )
 
 
@@ -43,7 +37,7 @@ def z2lz(z):
 
 @jax.jit
 def f0(z):
-    """K_0[z] z -> 0  O(z^4)"""
+    """K_0[z] with z -> 0  O(z^4)"""
     z2 = z * z
     z4 = z2 * z2
     c0 = 0.11593151565841244881
@@ -54,7 +48,7 @@ def f0(z):
 
 @jax.jit
 def f1(z):
-    """z^1 K_1[z] z -> 0  O(z^4)"""
+    """z^1 K_1[z] with z -> 0  O(z^4)"""
     z2 = z * z
     z4 = z2 * z2
     c0 = z2lz(z)  # z^2 log(z)
@@ -65,7 +59,7 @@ def f1(z):
 
 @jax.jit
 def f2(z):
-    """z^2 K_2[z] z -> 0  O(z^4)"""
+    """z^2 K_2[z] with z -> 0  O(z^4)"""
     c1 = 0.10824143945730155610
     z2 = z * z
     z4 = z2 * z2
@@ -75,7 +69,7 @@ def f2(z):
 
 @jax.jit
 def f3(z):
-    """z^3 K_3[z] z -> 0  O(z^4)"""
+    """z^3 K_3[z] with z -> 0  O(z^4)"""
     z2 = z * z
     z4 = z2 * z2
     return 8.0 - z2 + 0.125 * z4
@@ -83,7 +77,7 @@ def f3(z):
 
 @jax.jit
 def f4(z):
-    """z^4 K_4[z] z -> 0 O(z^4)"""
+    """z^4 K_4[z] with z -> 0 O(z^4)"""
     z2 = z * z
     z4 = z2 * z2
     return 48.0 - 4 * z2 + 0.25 * z4
@@ -91,7 +85,7 @@ def f4(z):
 
 @jax.jit
 def f5(z):
-    """z^5 K_5[z] z -> 0 O(z^4)"""
+    """z^5 K_5[z] with z -> 0 O(z^4)"""
     z2 = z * z
     z4 = z2 * z2
     return 384.0 - 24.0 * z2 + z4
@@ -100,7 +94,7 @@ def f5(z):
 @jax.jit
 def fsmallz_nu(z, nu):
     def fnu(z, nu):
-        """z^nu K_nu[z] z -> 0 O(z^4) z > 0"""
+        """z^nu K_nu[z] with z -> 0 O(z^4) z > 0"""
         nu += 1.0e-10  # to garanty that nu is not an integer
         z2 = z * z
         z4 = z2 * z2
@@ -121,14 +115,14 @@ def fsmallz_nu(z, nu):
 
 @jax.jit
 def fz_nu(z, nu):
-    """z^nu K_nu[z], z > 0"""
-    return jnp.where(z <= 1.0e-10, fsmallz_nu(z, nu), jnp.power(z, nu) * _Knu(nu, z))
+    """z^nu K_nu[z] with z > 0"""
+    return jnp.where(z <= 1.0e-10, fsmallz_nu(z, nu), jnp.power(z, nu) * kv(nu, z))
 
 
 @jax.jit
 def fsmallz_nup1(z, nu):
     def fnu(z, nu):
-        """z^(nu+1) K_(nu+1)[z] z -> 0"""
+        """z^(nu+1) K_(nu+1)[z] with  z -> 0"""
         z2 = z * z
         z4 = z2 * z2
         c1 = -jnp.power(2.0, -4.0 - nu)
@@ -150,7 +144,7 @@ def fsmallz_nup1(z, nu):
 def fz_nup1(z, nu):
     """z^(nu+1) K_{nu+1}(z)"""
     return jnp.where(
-        z <= 1.0e-10, fsmallz_nup1(z, nu), jnp.power(z, nu + 1.0) * _Knu(nu + 1.0, z)
+        z <= 1.0e-10, fsmallz_nup1(z, nu), jnp.power(z, nu + 1.0) * kv(nu + 1.0, z)
     )
 
 

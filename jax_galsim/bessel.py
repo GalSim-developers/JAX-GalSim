@@ -2,6 +2,7 @@ import galsim as _galsim
 import jax
 import jax.numpy as jnp
 from jax._src.numpy.util import _wraps
+import tensorflow_probability as tfp
 
 
 # the code here for Si, f, g and _si_small_pade is taken from galsim/src/math/Sinc.cpp
@@ -101,3 +102,15 @@ def si(x):
         - _g_pade(x, x2) * jnp.sin(x),
         _si_small_pade(x, x2),
     )
+
+
+@jax.jit
+def kv(nu, x):
+    """Modified Bessel 2nd kind"""
+    return tfp.substrates.jax.math.bessel_kve(nu * 1.0, x) / jnp.exp(jnp.abs(x))
+
+
+@jax.jit
+def gamma(x):
+    """Gamma(x)"""
+    return jnp.exp(jax.lax.lgamma(x * 1.0))
