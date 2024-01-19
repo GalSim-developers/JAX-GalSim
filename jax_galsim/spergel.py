@@ -16,7 +16,8 @@ from jax_galsim.utilities import lazy_property
 @jax.jit
 def gamma(x):
     """Gamma(x)"""
-    return jnp.exp(jax.lax.lgamma(x * 1.0))
+    x = x * 1.0
+    return jnp.exp(jax.lax.lgamma(x))
 
 
 @jax.jit
