@@ -79,6 +79,25 @@ def test_moffat_jitting():
     assert all([test_eq(identity(o), o) for o in objects])
 
 
+def test_spergel_jitting():
+    # Test Spergel objects
+    objects = [
+        galsim.Spergel(nu=-0.85, flux=1.0, scale_radius=1.0, gsparams=gsparams),
+        galsim.Spergel(nu=4.0, flux=0.2, half_light_radius=1.0, gsparams=gsparams),
+    ]
+
+    # Test equality function from original galsim spergel.py
+    def test_eq(self, other):
+        return (
+            self.scale_radius == other.scale_radius
+            and self.flux == other.flux
+            and self.gsparams == other.gsparams
+        )
+
+    # Check that after jitting the oject is still the same
+    assert all([test_eq(identity(o), o) for o in objects])
+
+
 def test_pixel_jitting():
     objects = [
         galsim.Pixel(scale=0.2, flux=100, gsparams=gsparams),

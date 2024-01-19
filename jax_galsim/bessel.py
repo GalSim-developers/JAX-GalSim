@@ -1,6 +1,7 @@
 import galsim as _galsim
 import jax
 import jax.numpy as jnp
+import tensorflow_probability as tfp
 from jax._src.numpy.util import _wraps
 
 
@@ -101,3 +102,11 @@ def si(x):
         - _g_pade(x, x2) * jnp.sin(x),
         _si_small_pade(x, x2),
     )
+
+
+@jax.jit
+def kv(nu, x):
+    """Modified Bessel 2nd kind"""
+    nu = 1.0 * nu
+    x = 1.0 * x
+    return tfp.substrates.jax.math.bessel_kve(nu, x) / jnp.exp(jnp.abs(x))

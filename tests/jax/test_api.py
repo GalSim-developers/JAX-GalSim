@@ -36,6 +36,7 @@ OK_ERRORS = [
     "Either scale_radius or half_light_radius must be specified",
     "One of sigma, fwhm, and half_light_radius must be specified",
     "One of scale_radius, half_light_radius, or fwhm must be specified",
+    "One of scale_radius, half_light_radius must be specified",
     "Arguments to Sum must be GSObjects",
     "'ArrayImpl' object has no attribute 'gsparams'",
     "Supplied image must be an Image or file name",
@@ -434,6 +435,7 @@ def test_api_gsobject(kind):
     assert "Exponential" in cls_tested
     assert "Gaussian" in cls_tested
     assert "Moffat" in cls_tested
+    assert "Spergel" in cls_tested
     assert "Box" in cls_tested
     assert "Pixel" in cls_tested
     assert "InterpolatedImage" in cls_tested
@@ -935,6 +937,8 @@ def test_api_noise():
         jax_galsim.Exponential(half_light_radius=1.0),
         jax_galsim.Moffat(fwhm=1.0, beta=3),
         jax_galsim.Moffat(scale_radius=1.0, beta=3),
+        jax_galsim.Spergel(nu=0.0, scale_radius=1.0),
+        jax_galsim.Spergel(nu=0.0, half_light_radius=1.0),
         jax_galsim.Shear(g1=0.1, g2=0.2),
         jax_galsim.PositionD(x=0.1, y=0.2),
         jax_galsim.BoundsI(xmin=0, xmax=1, ymin=0, ymax=1),

@@ -53,6 +53,7 @@ from .gaussian import Gaussian
 from .box import Box, Pixel
 from .gsobject import GSObject
 from .moffat import Moffat
+from .spergel import Spergel
 from .sum import Add, Sum
 from .transform import Transform, Transformation
 from .convolve import Convolve, Convolution, Deconvolution, Deconvolve
