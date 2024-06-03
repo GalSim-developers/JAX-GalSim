@@ -2,7 +2,7 @@ import galsim as _galsim
 import jax
 import jax.numpy as jnp
 import numpy as np
-from jax._src.numpy.util import _wraps
+from jax._src.numpy.util import implements
 from jax.tree_util import register_pytree_node_class
 
 from jax_galsim.gsobject import GSObject
@@ -11,14 +11,14 @@ from jax_galsim.position import PositionD
 from jax_galsim.random import BaseDeviate
 
 
-@_wraps(
+@implements(
     _galsim.Add, lax_description="Does not support `ChromaticObject` at this point."
 )
 def Add(*args, **kwargs):
     return Sum(*args, **kwargs)
 
 
-@_wraps(
+@implements(
     _galsim.Sum, lax_description="Does not support `ChromaticObject` at this point."
 )
 @register_pytree_node_class
@@ -74,12 +74,12 @@ class Sum(GSObject):
         return self._params["obj_list"]
 
     @property
-    @_wraps(_galsim.Sum.flux)
+    @implements(_galsim.Sum.flux)
     def flux(self):
         flux_list = jnp.array([obj.flux for obj in self.obj_list])
         return jnp.sum(flux_list)
 
-    @_wraps(_galsim.Sum.withGSParams)
+    @implements(_galsim.Sum.withGSParams)
     def withGSParams(self, gsparams=None, **kwargs):
         if gsparams == self.gsparams:
             return self

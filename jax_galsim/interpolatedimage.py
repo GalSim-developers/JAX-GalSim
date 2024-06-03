@@ -14,7 +14,7 @@ from galsim.errors import (
     GalSimValueError,
 )
 from galsim.utilities import doc_inherit
-from jax._src.numpy.util import _wraps
+from jax._src.numpy.util import implements
 from jax.tree_util import register_pytree_node_class
 
 from jax_galsim import fits
@@ -52,7 +52,7 @@ class DirMeta(type):
         return list(keys)
 
 
-@_wraps(
+@implements(
     _galsim.InterpolatedImage,
     lax_description=textwrap.dedent(
         """The JAX equivalent of galsim.InterpolatedImage does not support
@@ -337,7 +337,7 @@ class InterpolatedImage(Transformation, metaclass=DirMeta):
         val.update(children[1])
         return cls(children[0], **val)
 
-    @_wraps(_galsim.InterpolatedImage.withGSParams)
+    @implements(_galsim.InterpolatedImage.withGSParams)
     def withGSParams(self, gsparams=None, **kwargs):
         if gsparams == self.gsparams:
             return self
@@ -916,7 +916,7 @@ class _InterpolatedImageImpl(GSObject):
         photons.convolve(x_photons)
 
 
-@_wraps(_galsim._InterpolatedImage)
+@implements(_galsim._InterpolatedImage)
 def _InterpolatedImage(
     image,
     x_interpolant=Quintic(),

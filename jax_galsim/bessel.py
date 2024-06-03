@@ -2,7 +2,7 @@ import galsim as _galsim
 import jax
 import jax.numpy as jnp
 import tensorflow_probability as tfp
-from jax._src.numpy.util import _wraps
+from jax._src.numpy.util import implements
 
 
 # the code here for Si, f, g and _si_small_pade is taken from galsim/src/math/Sinc.cpp
@@ -91,7 +91,7 @@ def _si_small_pade(x, x2):
     # fmt: on
 
 
-@_wraps(_galsim.bessel.si)
+@implements(_galsim.bessel.si)
 @jax.jit
 def si(x):
     x2 = x * x

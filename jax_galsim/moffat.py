@@ -1,7 +1,7 @@
 import galsim as _galsim
 import jax
 import jax.numpy as jnp
-from jax._src.numpy.util import _wraps
+from jax._src.numpy.util import implements
 from jax.tree_util import Partial as partial
 from jax.tree_util import register_pytree_node_class
 
@@ -68,7 +68,7 @@ def _MoffatCalculateSRFromHLR(re, rm, beta):
     return rd
 
 
-@_wraps(_galsim.Moffat)
+@implements(_galsim.Moffat)
 @register_pytree_node_class
 class Moffat(GSObject):
     _is_axisymmetric = True
@@ -372,7 +372,7 @@ class Moffat(GSObject):
         _jac = jnp.eye(2) if jac is None else jac
         return draw_by_kValue(self, image, _jac)
 
-    @_wraps(_galsim.Moffat.withFlux)
+    @implements(_galsim.Moffat.withFlux)
     def withFlux(self, flux):
         return Moffat(
             beta=self.beta,
@@ -382,7 +382,7 @@ class Moffat(GSObject):
             gsparams=self.gsparams,
         )
 
-    @_wraps(_galsim.Moffat.shoot)
+    @implements(_galsim.Moffat.shoot)
     def _shoot(self, photons, rng):
         # from the galsim C++ in SBMoffat.cpp
         ud = UniformDeviate(rng)

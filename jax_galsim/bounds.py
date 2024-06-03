@@ -1,7 +1,7 @@
 import galsim as _galsim
 import jax
 import jax.numpy as jnp
-from jax._src.numpy.util import _wraps
+from jax._src.numpy.util import implements
 from jax.tree_util import register_pytree_node_class
 
 from jax_galsim.core.utils import cast_to_float, cast_to_int, ensure_hashable
@@ -16,7 +16,7 @@ The JAX implementation
 
 
 # The reason for avoid these tests is that they are not easy to do for jitted code.
-@_wraps(_galsim.Bounds, lax_description=BOUNDS_LAX_DESCR)
+@implements(_galsim.Bounds, lax_description=BOUNDS_LAX_DESCR)
 @register_pytree_node_class
 class Bounds(_galsim.Bounds):
     def _parse_args(self, *args, **kwargs):
@@ -104,7 +104,7 @@ class Bounds(_galsim.Bounds):
             )
         return PositionD((self.xmax + self.xmin) / 2.0, (self.ymax + self.ymin) / 2.0)
 
-    @_wraps(_galsim.Bounds.includes)
+    @implements(_galsim.Bounds.includes)
     def includes(self, *args):
         if len(args) == 1:
             if isinstance(args[0], Bounds):
@@ -138,7 +138,7 @@ class Bounds(_galsim.Bounds):
         else:
             raise TypeError("include takes at most 2 arguments (%d given)" % len(args))
 
-    @_wraps(_galsim.Bounds.expand)
+    @implements(_galsim.Bounds.expand)
     def expand(self, factor_x, factor_y=None):
         if factor_y is None:
             factor_y = factor_x
@@ -266,7 +266,7 @@ class Bounds(_galsim.Bounds):
             return _cls()
 
 
-@_wraps(_galsim.BoundsD, lax_description=BOUNDS_LAX_DESCR)
+@implements(_galsim.BoundsD, lax_description=BOUNDS_LAX_DESCR)
 @register_pytree_node_class
 class BoundsD(Bounds):
     _pos_class = PositionD
@@ -300,7 +300,7 @@ class BoundsD(Bounds):
         return PositionD((self.xmax + self.xmin) / 2.0, (self.ymax + self.ymin) / 2.0)
 
 
-@_wraps(_galsim.BoundsI, lax_description=BOUNDS_LAX_DESCR)
+@implements(_galsim.BoundsI, lax_description=BOUNDS_LAX_DESCR)
 @register_pytree_node_class
 class BoundsI(Bounds):
     _pos_class = PositionI

@@ -1,6 +1,6 @@
 import galsim as _galsim
 import jax.numpy as jnp
-from jax._src.numpy.util import _wraps
+from jax._src.numpy.util import implements
 from jax.tree_util import register_pytree_node_class
 
 from jax_galsim.core.draw import draw_by_kValue, draw_by_xValue
@@ -9,7 +9,7 @@ from jax_galsim.gsobject import GSObject
 from jax_galsim.random import UniformDeviate
 
 
-@_wraps(_galsim.Box)
+@implements(_galsim.Box)
 @register_pytree_node_class
 class Box(GSObject):
     _has_hard_edges = True
@@ -100,7 +100,7 @@ class Box(GSObject):
         _jac = jnp.eye(2) if jac is None else jac
         return draw_by_kValue(self, image, _jac)
 
-    @_wraps(_galsim.Box.withFlux)
+    @implements(_galsim.Box.withFlux)
     def withFlux(self, flux):
         return Box(
             width=self.width, height=self.height, flux=flux, gsparams=self.gsparams
@@ -116,7 +116,7 @@ class Box(GSObject):
             **aux_data
         )
 
-    @_wraps(_galsim.Box._shoot)
+    @implements(_galsim.Box._shoot)
     def _shoot(self, photons, rng):
         ud = UniformDeviate(rng)
 
@@ -126,7 +126,7 @@ class Box(GSObject):
         photons.flux = self.flux / photons.size()
 
 
-@_wraps(_galsim.Pixel)
+@implements(_galsim.Pixel)
 @register_pytree_node_class
 class Pixel(Box):
     def __init__(self, scale, flux=1.0, gsparams=None):
@@ -153,7 +153,7 @@ class Pixel(Box):
         s += ")"
         return s
 
-    @_wraps(_galsim.Pixel.withFlux)
+    @implements(_galsim.Pixel.withFlux)
     def withFlux(self, flux):
         return Pixel(scale=self.scale, flux=flux, gsparams=self.gsparams)
 

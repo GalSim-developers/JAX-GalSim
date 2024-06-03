@@ -1,6 +1,6 @@
 import galsim as _galsim
 import jax.numpy as jnp
-from jax._src.numpy.util import _wraps
+from jax._src.numpy.util import implements
 from jax.tree_util import register_pytree_node_class
 
 from jax_galsim.core.draw import draw_by_kValue, draw_by_xValue
@@ -10,7 +10,7 @@ from jax_galsim.random import UniformDeviate
 from jax_galsim.utilities import lazy_property
 
 
-@_wraps(_galsim.Exponential)
+@implements(_galsim.Exponential)
 @register_pytree_node_class
 class Exponential(GSObject):
     # The half-light-radius is not analytic, but can be calculated numerically
@@ -142,7 +142,7 @@ class Exponential(GSObject):
         _jac = jnp.eye(2) if jac is None else jac
         return draw_by_kValue(self, image, _jac)
 
-    @_wraps(_galsim.Exponential.withFlux)
+    @implements(_galsim.Exponential.withFlux)
     def withFlux(self, flux):
         return Exponential(
             scale_radius=self.scale_radius, flux=flux, gsparams=self.gsparams
@@ -184,7 +184,7 @@ class Exponential(GSObject):
         _cdf /= _cdf[-1]
         return _u_cdf, _cdf
 
-    @_wraps(_galsim.Exponential._shoot)
+    @implements(_galsim.Exponential._shoot)
     def _shoot(self, photons, rng):
         ud = UniformDeviate(rng)
 

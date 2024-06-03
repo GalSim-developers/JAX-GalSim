@@ -1,7 +1,7 @@
 import galsim as _galsim
 import jax
 import jax.numpy as jnp
-from jax._src.numpy.util import _wraps
+from jax._src.numpy.util import implements
 from jax.tree_util import register_pytree_node_class
 
 from jax_galsim.core.utils import cast_to_float, ensure_hashable
@@ -10,13 +10,13 @@ from jax_galsim.image import Image, ImageD
 from jax_galsim.random import BaseDeviate, GaussianDeviate, PoissonDeviate
 
 
-@_wraps(_galsim.noise.addNoise)
+@implements(_galsim.noise.addNoise)
 def addNoise(self, noise):
     # This will be inserted into the Image class as a method.  So self = image.
     noise.applyTo(self)
 
 
-@_wraps(_galsim.noise.addNoiseSNR)
+@implements(_galsim.noise.addNoiseSNR)
 def addNoiseSNR(self, noise, snr, preserve_flux=False):
     # This will be inserted into the Image class as a method.  So self = image.
     noise_var = noise.getVariance()
@@ -38,7 +38,7 @@ Image.addNoise = addNoise
 Image.addNoiseSNR = addNoiseSNR
 
 
-@_wraps(_galsim.noise.BaseNoise)
+@implements(_galsim.noise.BaseNoise)
 @register_pytree_node_class
 class BaseNoise:
     def __init__(self, rng=None):
@@ -162,7 +162,7 @@ class BaseNoise:
         return cls(rng=children[0])
 
 
-@_wraps(_galsim.noise.GaussianNoise)
+@implements(_galsim.noise.GaussianNoise)
 @register_pytree_node_class
 class GaussianNoise(BaseNoise):
     def __init__(self, rng=None, sigma=1.0):
@@ -188,7 +188,7 @@ class GaussianNoise(BaseNoise):
     def _withScaledVariance(self, variance_ratio):
         return GaussianNoise(self.rng, self.sigma * jnp.sqrt(variance_ratio))
 
-    @_wraps(
+    @implements(
         _galsim.noise.GaussianNoise.copy,
         lax_description="JAX-GalSim RNGs cannot be shared so a copy is made if None is given.",
     )
@@ -221,7 +221,7 @@ class GaussianNoise(BaseNoise):
         return cls(sigma=children[0], rng=children[1])
 
 
-@_wraps(_galsim.noise.PoissonNoise)
+@implements(_galsim.noise.PoissonNoise)
 @register_pytree_node_class
 class PoissonNoise(BaseNoise):
     def __init__(self, rng=None, sky_level=0.0):
@@ -282,7 +282,7 @@ class PoissonNoise(BaseNoise):
     def _withScaledVariance(self, variance_ratio):
         return PoissonNoise(self.rng, self.sky_level * variance_ratio)
 
-    @_wraps(
+    @implements(
         _galsim.noise.PoissonNoise.copy,
         lax_description="JAX-GalSim RNGs cannot be shared so a copy is made if None is given.",
     )
@@ -312,7 +312,7 @@ class PoissonNoise(BaseNoise):
         return cls(sky_level=children[0], rng=children[1])
 
 
-@_wraps(_galsim.noise.CCDNoise)
+@implements(_galsim.noise.CCDNoise)
 @register_pytree_node_class
 class CCDNoise(BaseNoise):
     def __init__(self, rng=None, sky_level=0.0, gain=1.0, read_noise=0.0):
@@ -435,7 +435,7 @@ class CCDNoise(BaseNoise):
             read_noise=self.read_noise * jnp.sqrt(variance_ratio),
         )
 
-    @_wraps(
+    @implements(
         _galsim.noise.CCDNoise.copy,
         lax_description="JAX-GalSim RNGs cannot be shared so a copy is made if None is given.",
     )
@@ -479,7 +479,7 @@ class CCDNoise(BaseNoise):
         )
 
 
-@_wraps(_galsim.noise.DeviateNoise)
+@implements(_galsim.noise.DeviateNoise)
 @register_pytree_node_class
 class DeviateNoise(BaseNoise):
     def __init__(self, dev):
@@ -499,7 +499,7 @@ class DeviateNoise(BaseNoise):
     def _withScaledVariance(self, variance):
         raise GalSimError("Changing the variance is not allowed for DeviateNoise")
 
-    @_wraps(
+    @implements(
         _galsim.noise.DeviateNoise.copy,
         lax_description="JAX-GalSim RNGs cannot be shared so a copy is made if None is given.",
     )
@@ -534,7 +534,7 @@ class DeviateNoise(BaseNoise):
         return cls(rng=children[0])
 
 
-@_wraps(_galsim.noise.VariableGaussianNoise)
+@implements(_galsim.noise.VariableGaussianNoise)
 @register_pytree_node_class
 class VariableGaussianNoise(BaseNoise):
     def __init__(self, rng, var_image):
@@ -550,7 +550,7 @@ class VariableGaussianNoise(BaseNoise):
 
     # Repeat this here, since we want to add an extra sanity check, which should go in the
     # non-underscore version.
-    @_wraps(_galsim.noise.VariableGaussianNoise.applyTo)
+    @implements(_galsim.noise.VariableGaussianNoise.applyTo)
     def applyTo(self, image):
         if not isinstance(image, Image):
             raise TypeError("Provided image must be a galsim.Image")
@@ -567,7 +567,7 @@ class VariableGaussianNoise(BaseNoise):
         noise_array = self._rng.generate_from_variance(self.var_image.array)
         image._array = image._array + noise_array.astype(image.dtype)
 
-    @_wraps(
+    @implements(
         _galsim.noise.VariableGaussianNoise.copy,
         lax_description="JAX-GalSim RNGs cannot be shared so a copy is made if None is given.",
     )

@@ -1,7 +1,7 @@
 import galsim as _galsim
 import jax.numpy as jnp
 from galsim.errors import GalSimIncompatibleValuesError
-from jax._src.numpy.util import _wraps
+from jax._src.numpy.util import implements
 from jax.tree_util import register_pytree_node_class
 
 from jax_galsim.angle import Angle, _Angle, radians
@@ -9,7 +9,7 @@ from jax_galsim.core.utils import ensure_hashable
 
 
 @register_pytree_node_class
-@_wraps(
+@implements(
     _galsim.Shear,
     lax_description="""\
 The jax_galsim implementation of ``Shear`` does not perform range checking of the \
@@ -254,13 +254,13 @@ class Shear(object):
     def __ne__(self, other):
         return not self.__eq__(other)
 
-    @_wraps(_galsim.Shear.getMatrix)
+    @implements(_galsim.Shear.getMatrix)
     def getMatrix(self):
         return jnp.array(
             [[1.0 + self.g1, self.g2], [self.g2, 1.0 - self.g1]]
         ) / jnp.sqrt(1.0 - self.g**2)
 
-    @_wraps(_galsim.Shear.rotationWith)
+    @implements(_galsim.Shear.rotationWith)
     def rotationWith(self, other):
         # Save a little time by only working on the first column.
         S3 = self.getMatrix().dot(other.getMatrix()[:, :1])
@@ -297,7 +297,7 @@ class Shear(object):
         return cls(g1=galsim_shear.g1, g2=galsim_shear.g2)
 
 
-@_wraps(_galsim._Shear)
+@implements(_galsim._Shear)
 def _Shear(shear):
     ret = Shear.__new__(Shear)
     ret._g = shear

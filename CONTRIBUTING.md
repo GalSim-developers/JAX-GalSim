@@ -137,14 +137,14 @@ And that's all you need to do from now on.
 
 JAX-GalSim follows the NumPy/SciPy format: <https://numpydoc.readthedocs.io/en/latest/format.html>
 
-However, most JAX-GalSim function will directly inherit the documentation from the reference GalSim project. We recommend avoid copy/pasting documentation, and instead using the `_wraps` utility to automatically reuse GalSim documentation:
+However, most JAX-GalSim function will directly inherit the documentation from the reference GalSim project. We recommend avoid copy/pasting documentation, and instead using the `implements` utility to automatically reuse GalSim documentation:
 
 ```python
 import galsim as _galsim
-from jax._src.numpy.util import _wraps
+from jax._src.numpy.util import implements
 from jax.tree_util import register_pytree_node_class
 
-@_wraps(_galsim.Add,
+@implements(_galsim.Add,
         lax_description="Does not support `ChromaticObject` at this point.")
 def Add(*args, **kwargs):
     return Sum(*args, **kwargs)

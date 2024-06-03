@@ -3,7 +3,7 @@ import functools
 import galsim as _galsim
 import jax
 import jax.numpy as jnp
-from jax._src.numpy.util import _wraps
+from jax._src.numpy.util import implements
 
 from jax_galsim.core.utils import has_tracers
 from jax_galsim.errors import GalSimIncompatibleValuesError, GalSimValueError
@@ -12,7 +12,7 @@ from jax_galsim.position import PositionD, PositionI
 printoptions = _galsim.utilities.printoptions
 
 
-@_wraps(
+@implements(
     _galsim.utilities.lazy_property,
     lax_description=(
         "The LAX version of this decorator uses an `_workspace` attribute "
@@ -54,7 +54,7 @@ def lazy_property(func_=None, cache_jax_tracers=False):
         )
 
 
-@_wraps(_galsim.utilities.parse_pos_args)
+@implements(_galsim.utilities.parse_pos_args)
 def parse_pos_args(args, kwargs, name1, name2, integer=False, others=[]):
     def canindex(arg):
         try:
@@ -120,7 +120,7 @@ def parse_pos_args(args, kwargs, name1, name2, integer=False, others=[]):
         return pos
 
 
-@_wraps(_galsim.utilities.g1g2_to_e1e2)
+@implements(_galsim.utilities.g1g2_to_e1e2)
 def g1g2_to_e1e2(g1, g2):
     # Conversion:
     # e = (a^2-b^2) / (a^2+b^2)
@@ -139,7 +139,7 @@ def g1g2_to_e1e2(g1, g2):
         return e1, e2
 
 
-@_wraps(_galsim.utilities.convert_interpolant)
+@implements(_galsim.utilities.convert_interpolant)
 def convert_interpolant(interpolant):
     from jax_galsim.interpolant import Interpolant
 
@@ -150,7 +150,7 @@ def convert_interpolant(interpolant):
         return Interpolant.from_name(interpolant)
 
 
-@_wraps(_galsim.utilities.unweighted_moments)
+@implements(_galsim.utilities.unweighted_moments)
 def unweighted_moments(image, origin=None):
     from jax_galsim.position import PositionD
 
@@ -171,7 +171,7 @@ def unweighted_moments(image, origin=None):
     return dict(M0=M0, Mx=Mx, My=My, Mxx=Mxx, Myy=Myy, Mxy=Mxy)
 
 
-@_wraps(_galsim.utilities.unweighted_shape)
+@implements(_galsim.utilities.unweighted_shape)
 def unweighted_shape(arg):
     from jax_galsim.image import Image
 
@@ -183,7 +183,7 @@ def unweighted_shape(arg):
     )
 
 
-@_wraps(_galsim.utilities.horner)
+@implements(_galsim.utilities.horner)
 def horner(x, coef, dtype=None):
     x = jnp.array(x)
     coef = jnp.atleast_1d(coef)
@@ -212,7 +212,7 @@ def horner(x, coef, dtype=None):
     )
 
 
-@_wraps(_galsim.utilities.horner2d)
+@implements(_galsim.utilities.horner2d)
 def horner2d(x, y, coefs, dtype=None, triangle=False):
     x = jnp.array(x)
     y = jnp.array(y)

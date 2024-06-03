@@ -24,7 +24,7 @@ import coord as _coord
 import galsim as _galsim
 import jax
 import jax.numpy as jnp
-from jax._src.numpy.util import _wraps
+from jax._src.numpy.util import implements
 from jax.tree_util import register_pytree_node_class
 
 from jax_galsim.angle import Angle, _Angle, arcsec, degrees, radians
@@ -33,7 +33,7 @@ from jax_galsim.core.utils import ensure_hashable
 
 # we have to copy this one since JAX sends in `t` as a traced array
 # and the coord.Angle classes don't know how to handle that
-@_wraps(_coord.util.ecliptic_obliquity)
+@implements(_coord.util.ecliptic_obliquity)
 def _ecliptic_obliquity(epoch):
     # We need to figure out the time in Julian centuries from J2000 for this epoch.
     t = (epoch - 2000.0) / 100.0
@@ -53,7 +53,7 @@ def _sun_position_ecliptic(date):
     return _Angle(_coord.util.sun_position_ecliptic(date).rad)
 
 
-@_wraps(
+@implements(
     _galsim.celestial.CelestialCoord,
     lax_description=(
         "The JAX version of this object does not check that the declination is between -90 and 90."
@@ -116,13 +116,13 @@ class CelestialCoord(object):
             self._z,
         ) = aux
 
-    @_wraps(_galsim.celestial.CelestialCoord.get_xyz)
+    @implements(_galsim.celestial.CelestialCoord.get_xyz)
     def get_xyz(self):
         return self._get_aux()[4:]
 
     @staticmethod
     @jax.jit
-    @_wraps(
+    @implements(
         _galsim.celestial.CelestialCoord.from_xyz,
         lax_description=(
             "The JAX version of this static method does not check that the norm of the input "
@@ -156,7 +156,7 @@ class CelestialCoord(object):
 
     @staticmethod
     @jax.jit
-    @_wraps(_galsim.celestial.CelestialCoord.radec_to_xyz)
+    @implements(_galsim.celestial.CelestialCoord.radec_to_xyz)
     def radec_to_xyz(ra, dec, r=1.0):
         cosdec = jnp.cos(dec)
         x = cosdec * jnp.cos(ra) * r
@@ -166,7 +166,7 @@ class CelestialCoord(object):
 
     @staticmethod
     @partial(jax.jit, static_argnames=("return_r",))
-    @_wraps(_galsim.celestial.CelestialCoord.xyz_to_radec)
+    @implements(_galsim.celestial.CelestialCoord.xyz_to_radec)
     def xyz_to_radec(x, y, z, return_r=False):
         xy2 = x**2 + y**2
         ra = jnp.arctan2(y, x)
@@ -182,7 +182,7 @@ class CelestialCoord(object):
         else:
             return ra, dec
 
-    @_wraps(_galsim.celestial.CelestialCoord.normal)
+    @implements(_galsim.celestial.CelestialCoord.normal)
     def normal(self):
         return _CelestialCoord(self.ra.wrap(_Angle(jnp.pi)), self.dec)
 
@@ -206,7 +206,7 @@ class CelestialCoord(object):
             c1_x * c2_y - c2_x * c1_y,
         )
 
-    @_wraps(_galsim.celestial.CelestialCoord.distanceTo)
+    @implements(_galsim.celestial.CelestialCoord.distanceTo)
     @jax.jit
     def distanceTo(self, coord2):
         # The easiest way to do this in a way that is stable for small separations
@@ -240,7 +240,7 @@ class CelestialCoord(object):
 
         return _Angle(theta)
 
-    @_wraps(
+    @implements(
         _galsim.celestial.CelestialCoord.greatCirclePoint,
         lax_description=(
             "The JAX version of this method does not check that coord2 defines a unique great "
@@ -349,7 +349,7 @@ class CelestialCoord(object):
         dsq_AB = self._raw_dsq(auxc2, auxc3)
         return 0.5 * (dsq_AC + dsq_BC - dsq_AB - 0.5 * dsq_AC * dsq_BC)
 
-    @_wraps(_galsim.celestial.CelestialCoord.angleBetween)
+    @implements(_galsim.celestial.CelestialCoord.angleBetween)
     @jax.jit
     def angleBetween(self, coord2, coord3):
         # Call A = coord2, B = coord3, C = self
@@ -374,7 +374,7 @@ class CelestialCoord(object):
         C = jnp.arctan2(sinC, cosC)
         return _Angle(C)
 
-    @_wraps(_galsim.celestial.CelestialCoord.area)
+    @implements(_galsim.celestial.CelestialCoord.area)
     @jax.jit
     def area(self, coord2, coord3):
         # The area of a spherical triangle is defined by the "spherical excess", E.
@@ -419,7 +419,7 @@ class CelestialCoord(object):
 
     _valid_projections = [None, "gnomonic", "stereographic", "lambert", "postel"]
 
-    @_wraps(_galsim.celestial.CelestialCoord.project)
+    @implements(_galsim.celestial.CelestialCoord.project)
     def project(self, coord2, projection=None):
         if projection not in CelestialCoord._valid_projections:
             raise ValueError("Unknown projection: %s" % projection)
@@ -429,7 +429,7 @@ class CelestialCoord(object):
 
         return u * radians, v * radians
 
-    @_wraps(_galsim.celestial.CelestialCoord.project_rad)
+    @implements(_galsim.celestial.CelestialCoord.project_rad)
     def project_rad(self, ra, dec, projection=None):
         if projection not in CelestialCoord._valid_projections:
             raise ValueError("Unknown projection: %s" % projection)
@@ -501,7 +501,7 @@ class CelestialCoord(object):
 
         return u, v
 
-    @_wraps(_galsim.celestial.CelestialCoord.deproject)
+    @implements(_galsim.celestial.CelestialCoord.deproject)
     def deproject(self, u, v, projection=None):
         if projection not in CelestialCoord._valid_projections:
             raise ValueError("Unknown projection: %s" % projection)
@@ -511,7 +511,7 @@ class CelestialCoord(object):
 
         return CelestialCoord(_Angle(ra), _Angle(dec))
 
-    @_wraps(_galsim.celestial.CelestialCoord.deproject_rad)
+    @implements(_galsim.celestial.CelestialCoord.deproject_rad)
     def deproject_rad(self, u, v, projection=None):
         if projection not in CelestialCoord._valid_projections:
             raise ValueError("Unknown projection: %s" % projection)
@@ -587,14 +587,14 @@ class CelestialCoord(object):
 
         return ra, dec
 
-    @_wraps(_galsim.celestial.CelestialCoord.jac_deproject)
+    @implements(_galsim.celestial.CelestialCoord.jac_deproject)
     def jac_deproject(self, u, v, projection=None):
         if projection not in CelestialCoord._valid_projections:
             raise ValueError("Unknown projection: %s" % projection)
 
         return self._jac_deproject(u.rad, v.rad, projection)
 
-    @_wraps(_galsim.celestial.CelestialCoord.jac_deproject_rad)
+    @implements(_galsim.celestial.CelestialCoord.jac_deproject_rad)
     def jac_deproject_rad(self, u, v, projection=None):
         if projection not in CelestialCoord._valid_projections:
             raise ValueError("Unknown projection: %s" % projection)
@@ -709,13 +709,13 @@ class CelestialCoord(object):
         drdv *= cosdec
         return jnp.array([[drdu, drdv], [dddu, dddv]])
 
-    @_wraps(_galsim.celestial.CelestialCoord.precess)
+    @implements(_galsim.celestial.CelestialCoord.precess)
     def precess(self, from_epoch, to_epoch):
         return CelestialCoord._precess(
             from_epoch, to_epoch, self._ra.rad, self._dec.rad
         )
 
-    @_wraps(_galsim.celestial.CelestialCoord.galactic)
+    @implements(_galsim.celestial.CelestialCoord.galactic)
     def galactic(self, epoch=2000.0):
         # cf. Lang, Astrophysical Formulae, page 13
         # cos(b) cos(el-33) = cos(dec) cos(ra-282.25)
@@ -742,7 +742,7 @@ class CelestialCoord(object):
         return (el, b)
 
     @staticmethod
-    @_wraps(_galsim.celestial.CelestialCoord.from_galactic)
+    @implements(_galsim.celestial.CelestialCoord.from_galactic)
     def from_galactic(el, b, epoch=2000.0):
         el0 = 32.93191857 * degrees
         r0 = 282.859481208 * degrees
@@ -763,7 +763,7 @@ class CelestialCoord(object):
         return CelestialCoord(temp.ra + r0, temp.dec).normal()
 
     @partial(jax.jit, static_argnames=("date",))
-    @_wraps(_galsim.celestial.CelestialCoord.ecliptic)
+    @implements(_galsim.celestial.CelestialCoord.ecliptic)
     def ecliptic(self, epoch=2000.0, date=None):
         # We are going to work in terms of the (x, y, z) projections.
         _x, _y, _z = self._get_aux()[4:]
@@ -794,7 +794,7 @@ class CelestialCoord(object):
 
     @staticmethod
     @partial(jax.jit, static_argnames=("date",))
-    @_wraps(_galsim.celestial.CelestialCoord.from_ecliptic)
+    @implements(_galsim.celestial.CelestialCoord.from_ecliptic)
     def from_ecliptic(lam, beta, epoch=2000.0, date=None):
         if date is not None:
             lam += _sun_position_ecliptic(date)

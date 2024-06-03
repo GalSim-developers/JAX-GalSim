@@ -1,7 +1,7 @@
 import galsim as _galsim
 import jax
 import jax.numpy as jnp
-from jax._src.numpy.util import _wraps
+from jax._src.numpy.util import implements
 from jax.tree_util import Partial as partial
 from jax.tree_util import register_pytree_node_class
 
@@ -191,7 +191,7 @@ def calculateFluxRadius(alpha, nu, zmin=0.0, zmax=30.0):
     )
 
 
-@_wraps(
+@implements(
     _galsim.Spergel,
     lax_description=r"""The fully normalized Spergel profile (used in both standard GalSim and JAX-GalSim) is
         .. math::
@@ -377,7 +377,7 @@ class Spergel(GSObject):
         _jac = jnp.eye(2) if jac is None else jac
         return draw_by_kValue(self, image, _jac)
 
-    @_wraps(_galsim.Spergel.withFlux)
+    @implements(_galsim.Spergel.withFlux)
     def withFlux(self, flux):
         return Spergel(
             nu=self.nu,
@@ -459,7 +459,7 @@ class Spergel(GSObject):
         r = z * self._r0
         return r
 
-    @_wraps(_galsim.Spergel._shoot)
+    @implements(_galsim.Spergel._shoot)
     def _shoot(self, photons, rng):
         ud = UniformDeviate(rng)
         u = ud.generate(photons.x)

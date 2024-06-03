@@ -5,7 +5,7 @@ import galsim as _galsim
 import jax
 import jax.numpy as jnp
 import numpy as np
-from jax._src.numpy.util import _wraps
+from jax._src.numpy.util import implements
 from jax.tree_util import register_pytree_node_class
 
 from jax_galsim import fits
@@ -47,7 +47,7 @@ from jax_galsim.wcs import (
 #########################################################################################
 
 
-@_wraps(
+@implements(
     _galsim.fitswcs.GSFitsWCS,
     lax_description=(
         "The JAX-GalSim version of this class does not raise errors if inverting the WCS to "
@@ -866,7 +866,7 @@ class GSFitsWCS(CelestialWCS):
         return hash(repr(self))
 
 
-@_wraps(_galsim.fitswcs.TanWCS)
+@implements(_galsim.fitswcs.TanWCS)
 def TanWCS(affine, world_origin, units=arcsec):
     # These will raise the appropriate errors if affine is not the right type.
     dudx = affine.dudx * units / degrees
@@ -911,7 +911,7 @@ fits_wcs_types = [
 ]
 
 
-@_wraps(
+@implements(
     _galsim.fitswcs.FitsWCS,
     lax_description="JAX-GalSim only supports the GSFitsWCS class for celestial WCS types.",
 )

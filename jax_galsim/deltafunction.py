@@ -1,7 +1,7 @@
 import galsim as _galsim
 import jax
 import jax.numpy as jnp
-from jax._src.numpy.util import _wraps
+from jax._src.numpy.util import implements
 from jax.tree_util import register_pytree_node_class
 
 from jax_galsim.core.draw import draw_by_kValue, draw_by_xValue
@@ -9,7 +9,7 @@ from jax_galsim.core.utils import ensure_hashable
 from jax_galsim.gsobject import GSObject
 
 
-@_wraps(_galsim.DeltaFunction)
+@implements(_galsim.DeltaFunction)
 @register_pytree_node_class
 class DeltaFunction(GSObject):
     _opt_params = {"flux": float}
@@ -80,6 +80,6 @@ class DeltaFunction(GSObject):
         _jac = jnp.eye(2) if jac is None else jac
         return draw_by_kValue(self, image, _jac)
 
-    @_wraps(_galsim.DeltaFunction.withFlux)
+    @implements(_galsim.DeltaFunction.withFlux)
     def withFlux(self, flux):
         return DeltaFunction(flux=flux, gsparams=self.gsparams)

@@ -1,10 +1,10 @@
 from dataclasses import dataclass
 
 import galsim as _galsim
-from jax._src.numpy.util import _wraps
+from jax._src.numpy.util import implements
 
 
-@_wraps(_galsim.GSParams)
+@implements(_galsim.GSParams)
 @dataclass(frozen=True, repr=False)
 class GSParams:
     minimum_fft_size: int = 128

@@ -19,13 +19,13 @@
 # SOFTWARE.
 import galsim as _galsim
 import jax.numpy as jnp
-from jax._src.numpy.util import _wraps
+from jax._src.numpy.util import implements
 from jax.tree_util import register_pytree_node_class
 
 from jax_galsim.core.utils import cast_to_float, ensure_hashable
 
 
-@_wraps(_galsim.AngleUnit)
+@implements(_galsim.AngleUnit)
 @register_pytree_node_class
 class AngleUnit(object):
     valid_names = ["rad", "deg", "hr", "hour", "arcmin", "arcsec"]
@@ -61,7 +61,7 @@ class AngleUnit(object):
     __truediv__ = __div__
 
     @staticmethod
-    @_wraps(_galsim.AngleUnit.from_name)
+    @implements(_galsim.AngleUnit.from_name)
     def from_name(unit):
         unit = unit.strip().lower()
         if unit.startswith("rad"):
@@ -127,7 +127,7 @@ arcmin = AngleUnit(jnp.pi / 10800.0)
 arcsec = AngleUnit(jnp.pi / 648000.0)
 
 
-@_wraps(_galsim.Angle)
+@implements(_galsim.Angle)
 @register_pytree_node_class
 class Angle(object):
     def __init__(self, theta, unit=None):
@@ -198,7 +198,7 @@ class Angle(object):
 
     __truediv__ = __div__
 
-    @_wraps(_galsim.Angle.wrap)
+    @implements(_galsim.Angle.wrap)
     def wrap(self, center=None):
         if center is None:
             center = _Angle(0.0)
@@ -329,7 +329,7 @@ class Angle(object):
             string = string + sep3
         return string
 
-    @_wraps(_galsim.Angle.hms)
+    @implements(_galsim.Angle.hms)
     def hms(self, sep=":", prec=None, pad=True, plus_sign=False):
         if not len(sep) <= 3:
             raise ValueError("sep must be a string or tuple of length <= 3")
@@ -337,7 +337,7 @@ class Angle(object):
             raise ValueError("prec must be >= 0")
         return self._make_dms_string(self / hours, sep, prec, pad, plus_sign)
 
-    @_wraps(_galsim.Angle.dms)
+    @implements(_galsim.Angle.dms)
     def dms(self, sep=":", prec=None, pad=True, plus_sign=False):
         if not len(sep) <= 3:
             raise ValueError("sep must be a string or tuple of length <= 3")
@@ -346,12 +346,12 @@ class Angle(object):
         return self._make_dms_string(self / degrees, sep, prec, pad, plus_sign)
 
     @staticmethod
-    @_wraps(_galsim.Angle.from_hms)
+    @implements(_galsim.Angle.from_hms)
     def from_hms(str):
         return Angle._parse_dms(str) * hours
 
     @staticmethod
-    @_wraps(_galsim.Angle.from_dms)
+    @implements(_galsim.Angle.from_dms)
     def from_dms(str):
         return Angle._parse_dms(str) * degrees
 
@@ -400,7 +400,7 @@ class Angle(object):
         return ret
 
 
-@_wraps(_galsim._Angle)
+@implements(_galsim._Angle)
 def _Angle(theta):
     ret = Angle.__new__(Angle)
     ret._rad = theta
