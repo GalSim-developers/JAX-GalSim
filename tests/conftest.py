@@ -1,7 +1,7 @@
 # Define the accuracy for running the tests
-from jax.config import config
+import jax 
 
-config.update("jax_enable_x64", True)
+jax.config.update("jax_enable_x64", True)
 
 import inspect  # noqa: E402
 import os  # noqa: E402
