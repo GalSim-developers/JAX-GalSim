@@ -1,8 +1,8 @@
 import galsim as _galsim
 import jax
 import jax.numpy as jnp
-from tensorflow_probability.substrates.jax.math import bessel_kve as _tfp_bessel_kve
 from jax._src.numpy.util import implements
+from tensorflow_probability.substrates.jax.math import bessel_kve as _tfp_bessel_kve
 
 
 # the code here for Si, f, g and _si_small_pade is taken from galsim/src/math/Sinc.cpp
