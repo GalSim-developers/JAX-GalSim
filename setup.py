@@ -14,7 +14,7 @@ setup(
         "jax",
         "jaxlib",
         "astropy >= 2.0",
-        "tensorflow-probability >= 0.21.0",
+        "tensorflow-probability == 0.23.0",
     ],
     tests_require=["pytest"],
 )
