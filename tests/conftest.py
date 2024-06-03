@@ -1,5 +1,5 @@
 # Define the accuracy for running the tests
-import jax 
+import jax
 
 jax.config.update("jax_enable_x64", True)
 

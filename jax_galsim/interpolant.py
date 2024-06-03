@@ -4,6 +4,7 @@ interpolant classes. The code here assumes that all properties of the
 interpolants themselves (e.g., the coefficients that define the kernel
 shapes, the integrals of the kernels, etc.) are constants.
 """
+
 import math
 
 import galsim as _galsim

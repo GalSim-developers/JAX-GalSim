@@ -89,9 +89,11 @@ def writeMulti(*args, **kwargs):
     if len(args) >= 1:
         with ExitStack() as stack:
             gsimage_list = [
-                stack.enter_context(_image_as_numpy(image))
-                if isinstance(image, Image)
-                else image
+                (
+                    stack.enter_context(_image_as_numpy(image))
+                    if isinstance(image, Image)
+                    else image
+                )
                 for image in args[0]
             ]
             _galsim.fits.writeMulti(gsimage_list, *args[1:], **kwargs)
@@ -105,9 +107,11 @@ def writeCube(*args, **kwargs):
         with ExitStack() as stack:
             if isinstance(args[0], list):
                 gsimage_list = [
-                    stack.enter_context(_image_as_numpy(image))
-                    if (isinstance(image, Image) or isinstance(image, jax.Array))
-                    else image
+                    (
+                        stack.enter_context(_image_as_numpy(image))
+                        if (isinstance(image, Image) or isinstance(image, jax.Array))
+                        else image
+                    )
                     for image in args[0]
                 ]
             else:

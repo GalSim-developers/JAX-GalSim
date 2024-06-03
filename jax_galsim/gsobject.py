@@ -630,9 +630,9 @@ class GSObject:
         if wcs.isPixelScale() and wcs.isLocal():
             wcs = jax.lax.cond(
                 wcs.scale <= 0,
-                lambda wcs, nqs: PixelScale(jnp.float_(nqs))
-                if default_wcs is None
-                else default_wcs,
+                lambda wcs, nqs: (
+                    PixelScale(jnp.float_(nqs)) if default_wcs is None else default_wcs
+                ),
                 lambda wcs, nqs: PixelScale(jnp.float_(wcs.scale)),
                 wcs,
                 self.nyquist_scale,
