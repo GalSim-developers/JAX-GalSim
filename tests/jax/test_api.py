@@ -39,6 +39,7 @@ OK_ERRORS = [
     "One of scale_radius, half_light_radius must be specified",
     "Arguments to Sum must be GSObjects",
     "'ArrayImpl' object has no attribute 'gsparams'",
+    "'jaxlib.xla_extension.ArrayImpl' object has no attribute 'gsparams'"
     "Supplied image must be an Image or file name",
     "Argument to Deconvolution must be a GSObject.",
 ]
