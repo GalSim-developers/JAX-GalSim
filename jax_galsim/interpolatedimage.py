@@ -283,6 +283,12 @@ class InterpolatedImage(Transformation, metaclass=DirMeta):
         return self._hash
 
     def __repr__(self):
+        # this can happen due to incomplete initialization
+        _original = getattr(self, "_original", None)
+
+        if _original is None:
+            return "galsim.InterpolatedImage(None)"
+
         s = "galsim.InterpolatedImage(%r, %r, %r, wcs=%r" % (
             self._original.image,
             self.x_interpolant,
