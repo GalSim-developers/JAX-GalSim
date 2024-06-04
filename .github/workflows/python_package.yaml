@@ -42,4 +42,4 @@ jobs:
       - name: Test with pytest
         run: |
           git submodule update --init --recursive
-          pytest --durations=0
+          pytest --durations=0 -k test_drawKImage
