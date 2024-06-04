@@ -640,6 +640,7 @@ OK_ERRORS_WCS = [
     "'ArrayImpl' object has no attribute 'lower'",
     "expected str, bytes or os.PathLike object, not",
     "__init__() got an unexpected keyword argument 'dir'",
+    "'jaxlib.xla_extension.ArrayImpl' object has no attribute 'lower'",
 ]
 
 
