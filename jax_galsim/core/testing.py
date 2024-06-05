@@ -11,7 +11,7 @@ class TimingResult:
             return "- ms"
         else:
             if self.dt > 10000:
-                return f"{self.dt/1000} s"
+                return f"{self.dt / 1000} s"
             else:
                 return f"{self.dt} ms"
 

@@ -1,7 +1,7 @@
 import galsim as _galsim
 import jax
 import jax.numpy as jnp
-from jax._src.numpy.util import _wraps
+from jax._src.numpy.util import implements
 from jax.tree_util import register_pytree_node_class
 
 from jax_galsim.core.utils import compute_major_minor_from_jacobian, ensure_hashable
@@ -10,7 +10,7 @@ from jax_galsim.gsparams import GSParams
 from jax_galsim.position import PositionD
 
 
-@_wraps(
+@implements(
     _galsim.Transform,
     lax_description="Does not support Chromatic Objects or Convolutions.",
 )
@@ -36,7 +36,7 @@ def Transform(
         )
 
 
-@_wraps(_galsim.Transformation)
+@implements(_galsim.Transformation)
 @register_pytree_node_class
 class Transformation(GSObject):
     def __init__(
@@ -126,7 +126,7 @@ class Transformation(GSObject):
     def _flux(self):
         return self._flux_scaling * self._original.flux
 
-    @_wraps(_galsim.Transformation.withGSParams)
+    @implements(_galsim.Transformation.withGSParams)
     def withGSParams(self, gsparams=None, **kwargs):
         """Create a version of the current object with the given gsparams
 

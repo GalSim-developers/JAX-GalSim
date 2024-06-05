@@ -1,6 +1,6 @@
 import galsim as _galsim
 import jax.numpy as jnp
-from jax._src.numpy.util import _wraps
+from jax._src.numpy.util import implements
 from jax.tree_util import register_pytree_node_class
 
 from jax_galsim.angle import AngleUnit, arcsec, radians
@@ -16,7 +16,7 @@ from jax_galsim.transform import _Transform
 # We inherit from the reference BaseWCS and only redefine the methods that
 # make references to jax_galsim objects.
 class BaseWCS(_galsim.BaseWCS):
-    @_wraps(_galsim.BaseWCS.toWorld)
+    @implements(_galsim.BaseWCS.toWorld)
     def toWorld(self, *args, **kwargs):
         if len(args) == 1:
             if isinstance(args[0], GSObject):
@@ -33,7 +33,7 @@ class BaseWCS(_galsim.BaseWCS):
         else:
             raise TypeError("toWorld() takes either 1 or 2 positional arguments")
 
-    @_wraps(_galsim.BaseWCS.posToWorld)
+    @implements(_galsim.BaseWCS.posToWorld)
     def posToWorld(self, image_pos, color=None, **kwargs):
         if color is None:
             color = self._color
@@ -41,7 +41,7 @@ class BaseWCS(_galsim.BaseWCS):
             raise TypeError("image_pos must be a PositionD or PositionI argument")
         return self._posToWorld(image_pos, color=color, **kwargs)
 
-    @_wraps(_galsim.BaseWCS.profileToWorld)
+    @implements(_galsim.BaseWCS.profileToWorld)
     def profileToWorld(
         self,
         image_profile,
@@ -57,13 +57,13 @@ class BaseWCS(_galsim.BaseWCS):
             image_profile, flux_ratio, PositionD(offset)
         )
 
-    @_wraps(_galsim.BaseWCS.shearToWorld)
+    @implements(_galsim.BaseWCS.shearToWorld)
     def shearToWorld(self, image_shear, image_pos=None, world_pos=None, color=None):
         if color is None:
             color = self._color
         return self.local(image_pos, world_pos, color=color)._shearToWorld(image_shear)
 
-    @_wraps(_galsim.BaseWCS.toImage)
+    @implements(_galsim.BaseWCS.toImage)
     def toImage(self, *args, **kwargs):
         if len(args) == 1:
             if isinstance(args[0], GSObject):
@@ -80,7 +80,7 @@ class BaseWCS(_galsim.BaseWCS):
         else:
             raise TypeError("toImage() takes either 1 or 2 positional arguments")
 
-    @_wraps(_galsim.BaseWCS.posToImage)
+    @implements(_galsim.BaseWCS.posToImage)
     def posToImage(self, world_pos, color=None):
         if color is None:
             color = self._color
@@ -90,7 +90,7 @@ class BaseWCS(_galsim.BaseWCS):
             raise TypeError("world_pos must be a PositionD or PositionI argument")
         return self._posToImage(world_pos, color=color)
 
-    @_wraps(_galsim.BaseWCS.profileToImage)
+    @implements(_galsim.BaseWCS.profileToImage)
     def profileToImage(
         self,
         world_profile,
@@ -106,13 +106,13 @@ class BaseWCS(_galsim.BaseWCS):
             world_profile, flux_ratio, PositionD(offset)
         )
 
-    @_wraps(_galsim.BaseWCS.shearToImage)
+    @implements(_galsim.BaseWCS.shearToImage)
     def shearToImage(self, world_shear, image_pos=None, world_pos=None, color=None):
         if color is None:
             color = self._color
         return self.local(image_pos, world_pos, color=color)._shearToImage(world_shear)
 
-    @_wraps(_galsim.BaseWCS.local)
+    @implements(_galsim.BaseWCS.local)
     def local(self, image_pos=None, world_pos=None, color=None):
         if color is None:
             color = self._color
@@ -128,13 +128,13 @@ class BaseWCS(_galsim.BaseWCS):
             raise TypeError("image_pos must be a PositionD or PositionI argument")
         return self._local(image_pos, color)
 
-    @_wraps(_galsim.BaseWCS.jacobian)
+    @implements(_galsim.BaseWCS.jacobian)
     def jacobian(self, image_pos=None, world_pos=None, color=None):
         if color is None:
             color = self._color
         return self.local(image_pos, world_pos, color=color)._toJacobian()
 
-    @_wraps(_galsim.BaseWCS.affine)
+    @implements(_galsim.BaseWCS.affine)
     def affine(self, image_pos=None, world_pos=None, color=None):
         if color is None:
             color = self._color
@@ -153,7 +153,7 @@ class BaseWCS(_galsim.BaseWCS):
                 world_pos = self.toWorld(image_pos, color=color)
             return jac.shiftOrigin(image_pos, world_pos, color=color)
 
-    @_wraps(_galsim.BaseWCS.shiftOrigin)
+    @implements(_galsim.BaseWCS.shiftOrigin)
     def shiftOrigin(self, origin, world_origin=None, color=None):
         if color is None:
             color = self._color
@@ -161,7 +161,7 @@ class BaseWCS(_galsim.BaseWCS):
             raise TypeError("origin must be a PositionD or PositionI argument")
         return self._shiftOrigin(origin, world_origin, color)
 
-    @_wraps(_galsim.BaseWCS.withOrigin)
+    @implements(_galsim.BaseWCS.withOrigin)
     def withOrigin(self, origin, world_origin=None, color=None):
         from .deprecated import depr
 
@@ -557,7 +557,7 @@ class LocalWCS(UniformWCS):
     as (0,0) in world coordinates
     """
 
-    @_wraps(_galsim.wcs.LocalWCS.isLocal)
+    @implements(_galsim.wcs.LocalWCS.isLocal)
     def isLocal(self):
         return True
 
@@ -652,7 +652,7 @@ class CelestialWCS(BaseWCS):
     def radecToxy(self, ra, dec, units, color=None):
         """Convert ra,dec from world coordinates to image coordinates.
 
-        This is equivalent to ``wcs.toWorld(ra,dec, units=units)``.
+        This is equivalent to ``wcs.toImage(ra,dec, units=units)``.
 
         It is also equivalent to ``wcs.posToImage(galsim.CelestialCoord(ra * units, dec * units))``
         when ra and dec are scalars; however, this routine allows ra and dec to be numpy arrays,
@@ -838,7 +838,7 @@ class CelestialWCS(BaseWCS):
 #########################################################################################
 
 
-@_wraps(_galsim.PixelScale)
+@implements(_galsim.PixelScale)
 @register_pytree_node_class
 class PixelScale(LocalWCS):
     _isPixelScale = True
@@ -937,7 +937,7 @@ class PixelScale(LocalWCS):
         return hash(repr(self))
 
 
-@_wraps(_galsim.ShearWCS)
+@implements(_galsim.ShearWCS)
 @register_pytree_node_class
 class ShearWCS(LocalWCS):
     _req_params = {"scale": float, "shear": Shear}
@@ -1063,7 +1063,7 @@ class ShearWCS(LocalWCS):
         return cls(*children)
 
 
-@_wraps(_galsim.JacobianWCS)
+@implements(_galsim.JacobianWCS)
 @register_pytree_node_class
 class JacobianWCS(LocalWCS):
     def __init__(self, dudx, dudy, dvdx, dvdy):
@@ -1161,7 +1161,7 @@ class JacobianWCS(LocalWCS):
         """
         return jnp.array([[self.dudx, self.dudy], [self.dvdx, self.dvdy]], dtype=float)
 
-    @_wraps(_galsim.JacobianWCS.getDecomposition)
+    @implements(_galsim.JacobianWCS.getDecomposition)
     def getDecomposition(self):
         from .angle import radians
 
@@ -1297,7 +1297,7 @@ class JacobianWCS(LocalWCS):
 #########################################################################################
 
 
-@_wraps(_galsim.OffsetWCS)
+@implements(_galsim.OffsetWCS)
 @register_pytree_node_class
 class OffsetWCS(UniformWCS):
     _isPixelScale = True
@@ -1369,7 +1369,7 @@ class OffsetWCS(UniformWCS):
         return hash(repr(self))
 
 
-@_wraps(_galsim.OffsetShearWCS)
+@implements(_galsim.OffsetShearWCS)
 @register_pytree_node_class
 class OffsetShearWCS(UniformWCS):
     _req_params = {"scale": float, "shear": Shear}
@@ -1452,7 +1452,7 @@ class OffsetShearWCS(UniformWCS):
         return cls(*children)
 
 
-@_wraps(_galsim.AffineTransform)
+@implements(_galsim.AffineTransform)
 @register_pytree_node_class
 class AffineTransform(UniformWCS):
     def __init__(self, dudx, dudy, dvdx, dvdy, origin=None, world_origin=None):

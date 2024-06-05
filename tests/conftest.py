@@ -1,7 +1,7 @@
 # Define the accuracy for running the tests
-from jax.config import config
+import jax
 
-config.update("jax_enable_x64", True)
+jax.config.update("jax_enable_x64", True)
 
 import inspect  # noqa: E402
 import os  # noqa: E402
@@ -141,6 +141,11 @@ def pytest_pycollect_makemodule(module_path, path, parent):
         module.obj.arcmin = __import__("jax_galsim").arcmin
         module.obj.arcsec = __import__("jax_galsim").arcsec
 
+    if str(module_path).endswith(
+        "tests/GalSim/tests/test_interpolatedimage.py"
+    ) and hasattr(module.obj, "setup"):
+        module.obj.setup()
+
     # Overwrites galsim in the galsim_test_helpers module
     for k, v in module.obj.__dict__.items():
         if (
@@ -171,7 +176,7 @@ def pytest_pycollect_makemodule(module_path, path, parent):
 
     # the galsim WCS tests have some items that are galsim objects that need conversions
     # to jax_galsim objects
-    if module.name.endswith("tests/GalSim/tests/test_wcs.py"):
+    if str(module_path).endswith("tests/GalSim/tests/test_wcs.py"):
         for k, v in module.obj.__dict__.items():
             if isinstance(v, __import__("galsim").GSObject):
                 module.obj.__dict__[k] = _convert_galsim_to_jax_galsim(v)

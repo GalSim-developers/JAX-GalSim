@@ -38,9 +38,10 @@ OK_ERRORS = [
     "One of scale_radius, half_light_radius, or fwhm must be specified",
     "One of scale_radius, half_light_radius must be specified",
     "Arguments to Sum must be GSObjects",
-    "'ArrayImpl' object has no attribute 'gsparams'",
+    "object has no attribute 'gsparams'",
     "Supplied image must be an Image or file name",
     "Argument to Deconvolution must be a GSObject.",
+    "object has no attribute 'lower'",
 ]
 
 
@@ -635,7 +636,7 @@ OK_ERRORS_WCS = [
     "__init__() takes 2 positional arguments but 3 were given",
     "__init__() takes 2 positional arguments but 5 were given",
     "__init__() takes 3 positional arguments but 5 were given",
-    "'ArrayImpl' object has no attribute 'lower'",
+    "object has no attribute 'lower'",
     "expected str, bytes or os.PathLike object, not",
     "__init__() got an unexpected keyword argument 'dir'",
 ]

@@ -1,18 +1,18 @@
 import galsim as _galsim
-from jax._src.numpy.util import _wraps
+from jax._src.numpy.util import implements
 from jax.tree_util import register_pytree_node_class
 
 from jax_galsim.errors import GalSimUndefinedBoundsError
 from jax_galsim.position import PositionI
 
 
-@_wraps(_galsim.Sensor)
+@implements(_galsim.Sensor)
 @register_pytree_node_class
 class Sensor:
     def __init__(self):
         pass
 
-    @_wraps(_galsim.Sensor.accumulate)
+    @implements(_galsim.Sensor.accumulate)
     def accumulate(self, photons, image, orig_center=None, resume=False):
         if not image.bounds.isDefined():
             raise GalSimUndefinedBoundsError(
@@ -20,7 +20,7 @@ class Sensor:
             )
         return photons.addTo(image)
 
-    @_wraps(_galsim.Sensor.calculate_pixel_areas)
+    @implements(_galsim.Sensor.calculate_pixel_areas)
     def calculate_pixel_areas(self, image, orig_center=PositionI(0, 0), use_flux=True):
         return 1.0
 

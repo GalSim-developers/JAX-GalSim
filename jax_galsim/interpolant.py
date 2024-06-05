@@ -4,13 +4,14 @@ interpolant classes. The code here assumes that all properties of the
 interpolants themselves (e.g., the coefficients that define the kernel
 shapes, the integrals of the kernels, etc.) are constants.
 """
+
 import math
 
 import galsim as _galsim
 import jax
 import jax.numpy as jnp
 from galsim.errors import GalSimValueError
-from jax._src.numpy.util import _wraps
+from jax._src.numpy.util import implements
 from jax.tree_util import register_pytree_node_class
 
 from jax_galsim.bessel import si
@@ -21,7 +22,7 @@ from jax_galsim.random import UniformDeviate
 from jax_galsim.utilities import lazy_property
 
 
-@_wraps(_galsim.interpolant.Interpolant)
+@implements(_galsim.interpolant.Interpolant)
 @register_pytree_node_class
 class Interpolant:
     def __init__(self):
@@ -313,7 +314,7 @@ class Interpolant:
     # _unit_integrals, _positive_flux, _negative_flux, urange, and xrange
 
 
-@_wraps(_galsim.interpolant.Delta)
+@implements(_galsim.interpolant.Delta)
 @register_pytree_node_class
 class Delta(Interpolant):
     _positive_flux = 1.0
@@ -365,7 +366,7 @@ class Delta(Interpolant):
         photons.flux = 1.0 / photons.size()
 
 
-@_wraps(_galsim.interpolant.Nearest)
+@implements(_galsim.interpolant.Nearest)
 @register_pytree_node_class
 class Nearest(Interpolant):
     _positive_flux = 1.0
@@ -409,7 +410,7 @@ class Nearest(Interpolant):
         photons.flux = 1.0 / photons.size()
 
 
-@_wraps(_galsim.interpolant.SincInterpolant)
+@implements(_galsim.interpolant.SincInterpolant)
 @register_pytree_node_class
 class SincInterpolant(Interpolant):
     def __init__(self, tol=None, gsparams=None):
@@ -485,7 +486,7 @@ class SincInterpolant(Interpolant):
         )
 
 
-@_wraps(_galsim.interpolant.Linear)
+@implements(_galsim.interpolant.Linear)
 @register_pytree_node_class
 class Linear(Interpolant):
     _positive_flux = 1.0
@@ -537,7 +538,7 @@ class Linear(Interpolant):
         photons.flux = 1.0 / photons.size()
 
 
-@_wraps(_galsim.interpolant.Cubic)
+@implements(_galsim.interpolant.Cubic)
 @register_pytree_node_class
 class Cubic(Interpolant):
     # these constants are from galsim itself in the cpp layer
@@ -602,7 +603,7 @@ class Cubic(Interpolant):
         return 4
 
 
-@_wraps(_galsim.interpolant.Quintic)
+@implements(_galsim.interpolant.Quintic)
 @register_pytree_node_class
 class Quintic(Interpolant):
     # these constants are from galsim itself in the cpp layer
@@ -697,7 +698,7 @@ class Quintic(Interpolant):
         return 6
 
 
-@_wraps(_galsim.interpolant.Lanczos)
+@implements(_galsim.interpolant.Lanczos)
 @register_pytree_node_class
 class Lanczos(Interpolant):
     # this data was generated in the dev notebook at

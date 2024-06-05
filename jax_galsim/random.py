@@ -5,7 +5,7 @@ import galsim as _galsim
 import jax
 import jax.numpy as jnp
 import jax.random as jrandom
-from jax._src.numpy.util import _wraps
+from jax._src.numpy.util import implements
 from jax.tree_util import register_pytree_node_class
 
 try:
@@ -67,7 +67,7 @@ class _DeviateState:
         return cls(children[0])
 
 
-@_wraps(
+@implements(
     _galsim.BaseDeviate,
     lax_description=LAX_FUNCTIONAL_RNG,
 )
@@ -79,28 +79,28 @@ class BaseDeviate:
         self._params = {}
 
     @property
-    @_wraps(_galsim.BaseDeviate.has_reliable_discard)
+    @implements(_galsim.BaseDeviate.has_reliable_discard)
     def has_reliable_discard(self):
         return True
 
     @property
-    @_wraps(_galsim.BaseDeviate.generates_in_pairs)
+    @implements(_galsim.BaseDeviate.generates_in_pairs)
     def generates_in_pairs(self):
         return False
 
-    @_wraps(
+    @implements(
         _galsim.BaseDeviate.seed,
         lax_description="The JAX version of this method does no type checking.",
     )
     def seed(self, seed=None):
         self._seed(seed=seed)
 
-    @_wraps(_galsim.BaseDeviate._seed)
+    @implements(_galsim.BaseDeviate._seed)
     def _seed(self, seed=None):
         _initial_seed = seed or secrets.randbelow(2**31)
         self._state.key = jrandom.key(_initial_seed)
 
-    @_wraps(
+    @implements(
         _galsim.BaseDeviate.reset,
         lax_description=("The JAX version of this method does no type checking."),
     )
@@ -137,26 +137,26 @@ class BaseDeviate:
         return repr(ensure_hashable(jrandom.key_data(self._key)))
 
     @property
-    @_wraps(_galsim.BaseDeviate.np)
+    @implements(_galsim.BaseDeviate.np)
     def np(self):
         raise NotImplementedError(
             "The JAX galsim.BaseDeviate does not support being used as a numpy PRNG."
         )
 
-    @_wraps(_galsim.BaseDeviate.as_numpy_generator)
+    @implements(_galsim.BaseDeviate.as_numpy_generator)
     def as_numpy_generator(self):
         raise NotImplementedError(
             "The JAX galsim.BaseDeviate does not support being used as a numpy PRNG."
         )
 
-    @_wraps(
+    @implements(
         _galsim.BaseDeviate.clearCache,
         lax_description="This method is a no-op for the JAX version of this class.",
     )
     def clearCache(self):
         pass
 
-    @_wraps(
+    @implements(
         _galsim.BaseDeviate.discard,
         lax_description=(
             "The JAX version of this class has reliable discarding and uses one key per value "
@@ -174,7 +174,7 @@ class BaseDeviate:
 
         return jax.lax.fori_loop(0, n, __discard, key)
 
-    @_wraps(
+    @implements(
         _galsim.BaseDeviate.raw,
         lax_description=(
             "The JAX version of this class does not use the raw value to "
@@ -185,7 +185,7 @@ class BaseDeviate:
         self._key, subkey = jrandom.split(self._key)
         return jrandom.bits(subkey, dtype=jnp.uint32)
 
-    @_wraps(
+    @implements(
         _galsim.BaseDeviate.generate,
         lax_description=(
             "JAX arrays cannot be changed in-place, so the JAX version of "
@@ -196,7 +196,7 @@ class BaseDeviate:
         self._key, array = self.__class__._generate(self._key, array)
         return array
 
-    @_wraps(
+    @implements(
         _galsim.BaseDeviate.add_generate,
         lax_description=(
             "JAX arrays cannot be changed in-place, so the JAX version of "
@@ -210,7 +210,7 @@ class BaseDeviate:
         self._key, val = self.__class__._generate_one(self._key, None)
         return val
 
-    @_wraps(_galsim.BaseDeviate.duplicate)
+    @implements(_galsim.BaseDeviate.duplicate)
     def duplicate(self):
         ret = self.__class__.__new__(self.__class__)
         ret._state = _DeviateState(self._state.key)
@@ -257,7 +257,7 @@ class BaseDeviate:
         return self.__repr__()
 
 
-@_wraps(
+@implements(
     _galsim.UniformDeviate,
     lax_description=LAX_FUNCTIONAL_RNG,
 )
@@ -285,7 +285,7 @@ class UniformDeviate(BaseDeviate):
         return "galsim.UniformDeviate()"
 
 
-@_wraps(
+@implements(
     _galsim.GaussianDeviate,
     lax_description=LAX_FUNCTIONAL_RNG,
 )
@@ -297,16 +297,16 @@ class GaussianDeviate(BaseDeviate):
         self._params["sigma"] = sigma
 
     @property
-    @_wraps(_galsim.GaussianDeviate.mean)
+    @implements(_galsim.GaussianDeviate.mean)
     def mean(self):
         return self._params["mean"]
 
     @property
-    @_wraps(_galsim.GaussianDeviate.sigma)
+    @implements(_galsim.GaussianDeviate.sigma)
     def sigma(self):
         return self._params["sigma"]
 
-    @_wraps(
+    @implements(
         _galsim.GaussianDeviate.generate,
         lax_description=(
             "JAX arrays cannot be changed in-place, so the JAX version of "
@@ -334,7 +334,7 @@ class GaussianDeviate(BaseDeviate):
         _key, subkey = jrandom.split(key)
         return _key, jrandom.normal(subkey, dtype=float)
 
-    @_wraps(_galsim.GaussianDeviate.generate_from_variance)
+    @implements(_galsim.GaussianDeviate.generate_from_variance)
     def generate_from_variance(self, array):
         self._key, _array = self.__class__._generate(self._key, array)
         return _array * jnp.sqrt(array)
@@ -353,7 +353,7 @@ class GaussianDeviate(BaseDeviate):
         )
 
 
-@_wraps(
+@implements(
     _galsim.BinomialDeviate,
     lax_description=LAX_FUNCTIONAL_RNG,
 )
@@ -365,16 +365,16 @@ class BinomialDeviate(BaseDeviate):
         self._params["p"] = p
 
     @property
-    @_wraps(_galsim.BinomialDeviate.n)
+    @implements(_galsim.BinomialDeviate.n)
     def n(self):
         return self._params["N"]
 
     @property
-    @_wraps(_galsim.BinomialDeviate.p)
+    @implements(_galsim.BinomialDeviate.p)
     def p(self):
         return self._params["p"]
 
-    @_wraps(
+    @implements(
         _galsim.BinomialDeviate.generate,
         lax_description=(
             "JAX arrays cannot be changed in-place, so the JAX version of "
@@ -425,7 +425,7 @@ class BinomialDeviate(BaseDeviate):
         )
 
 
-@_wraps(
+@implements(
     _galsim.PoissonDeviate,
     lax_description=LAX_FUNCTIONAL_RNG,
 )
@@ -436,11 +436,11 @@ class PoissonDeviate(BaseDeviate):
         self._params["mean"] = mean
 
     @property
-    @_wraps(_galsim.PoissonDeviate.mean)
+    @implements(_galsim.PoissonDeviate.mean)
     def mean(self):
         return self._params["mean"]
 
-    @_wraps(
+    @implements(
         _galsim.PoissonDeviate.generate,
         lax_description=(
             "JAX arrays cannot be changed in-place, so the JAX version of "
@@ -480,7 +480,7 @@ class PoissonDeviate(BaseDeviate):
         )
         return _key, val
 
-    @_wraps(_galsim.PoissonDeviate.generate_from_expectation)
+    @implements(_galsim.PoissonDeviate.generate_from_expectation)
     def generate_from_expectation(self, array):
         self._key, _array = self.__class__._generate_from_exp(self._key, array)
         return _array
@@ -506,7 +506,7 @@ class PoissonDeviate(BaseDeviate):
         return "galsim.PoissonDeviate(mean=%r)" % (ensure_hashable(self.mean),)
 
 
-@_wraps(
+@implements(
     _galsim.WeibullDeviate,
     lax_description=LAX_FUNCTIONAL_RNG,
 )
@@ -518,16 +518,16 @@ class WeibullDeviate(BaseDeviate):
         self._params["b"] = b
 
     @property
-    @_wraps(_galsim.WeibullDeviate.a)
+    @implements(_galsim.WeibullDeviate.a)
     def a(self):
         return self._params["a"]
 
     @property
-    @_wraps(_galsim.WeibullDeviate.b)
+    @implements(_galsim.WeibullDeviate.b)
     def b(self):
         return self._params["b"]
 
-    @_wraps(
+    @implements(
         _galsim.WeibullDeviate.generate,
         lax_description=(
             "JAX arrays cannot be changed in-place, so the JAX version of "
@@ -576,7 +576,7 @@ class WeibullDeviate(BaseDeviate):
         )
 
 
-@_wraps(
+@implements(
     _galsim.GammaDeviate,
     lax_description=LAX_FUNCTIONAL_RNG,
 )
@@ -588,16 +588,16 @@ class GammaDeviate(BaseDeviate):
         self._params["theta"] = theta
 
     @property
-    @_wraps(_galsim.GammaDeviate.k)
+    @implements(_galsim.GammaDeviate.k)
     def k(self):
         return self._params["k"]
 
     @property
-    @_wraps(_galsim.GammaDeviate.theta)
+    @implements(_galsim.GammaDeviate.theta)
     def theta(self):
         return self._params["theta"]
 
-    @_wraps(
+    @implements(
         _galsim.GammaDeviate.generate,
         lax_description=(
             "JAX arrays cannot be changed in-place, so the JAX version of "
@@ -642,7 +642,7 @@ class GammaDeviate(BaseDeviate):
         )
 
 
-@_wraps(
+@implements(
     _galsim.Chi2Deviate,
     lax_description=LAX_FUNCTIONAL_RNG,
 )
@@ -653,11 +653,11 @@ class Chi2Deviate(BaseDeviate):
         self._params["n"] = n
 
     @property
-    @_wraps(_galsim.Chi2Deviate.n)
+    @implements(_galsim.Chi2Deviate.n)
     def n(self):
         return self._params["n"]
 
-    @_wraps(
+    @implements(
         _galsim.Chi2Deviate.generate,
         lax_description=(
             "JAX arrays cannot be changed in-place, so the JAX version of "
@@ -940,7 +940,7 @@ class Chi2Deviate(BaseDeviate):
 #                  self._npoints == other._npoints))
 
 
-@_wraps(
+@implements(
     _galsim.random.permute,
     lax_description="The JAX implementation of this function cannot operate in-place and so returns a new list of arrays.",
 )

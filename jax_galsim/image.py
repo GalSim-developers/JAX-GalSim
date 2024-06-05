@@ -1,7 +1,7 @@
 import galsim as _galsim
 import jax.numpy as jnp
 import numpy as np
-from jax._src.numpy.util import _wraps
+from jax._src.numpy.util import implements
 from jax.tree_util import register_pytree_node_class
 
 from jax_galsim.bounds import Bounds, BoundsD, BoundsI
@@ -23,7 +23,7 @@ In particular the following methods will create a copy of the Image:
 """
 
 
-@_wraps(
+@implements(
     _galsim.Image,
     lax_description=IMAGE_LAX_DOCS,
 )
@@ -630,7 +630,7 @@ class Image(object):
         else:
             raise TypeError("image[..] requires either 1 or 2 args")
 
-    @_wraps(_galsim.Image.wrap)
+    @implements(_galsim.Image.wrap)
     def wrap(self, bounds, hermitian=False):
         if not isinstance(bounds, BoundsI):
             raise TypeError("bounds must be a galsim.BoundsI instance")
@@ -715,7 +715,7 @@ class Image(object):
 
         return self.subImage(bounds)
 
-    @_wraps(
+    @implements(
         _galsim.Image.calculate_fft,
         lax_description="JAX-GalSim does not support forward FFTs of complex dtypes.",
     )
@@ -770,7 +770,7 @@ class Image(object):
         out.setOrigin(0, -No2)
         return out
 
-    @_wraps(_galsim.Image.calculate_inverse_fft)
+    @implements(_galsim.Image.calculate_inverse_fft)
     def calculate_inverse_fft(self):
         if not self.bounds.isDefined():
             raise _galsim.GalSimUndefinedBoundsError(
@@ -863,7 +863,7 @@ class Image(object):
             )
         self._array = rhs._array
 
-    @_wraps(
+    @implements(
         _galsim.Image.view,
         lax_description="Contrary to GalSim, this will create a copy of the orginal image.",
     )
@@ -920,7 +920,7 @@ class Image(object):
 
         return ret
 
-    @_wraps(_galsim.Image.shift)
+    @implements(_galsim.Image.shift)
     def shift(self, *args, **kwargs):
         delta = parse_pos_args(args, kwargs, "dx", "dy", integer=True)
         self._shift(delta)
@@ -936,28 +936,28 @@ class Image(object):
         if self.wcs is not None:
             self.wcs = self.wcs.shiftOrigin(delta)
 
-    @_wraps(_galsim.Image.setCenter)
+    @implements(_galsim.Image.setCenter)
     def setCenter(self, *args, **kwargs):
         cen = parse_pos_args(args, kwargs, "xcen", "ycen", integer=True)
         self._shift(cen - self.center)
 
-    @_wraps(_galsim.Image.setOrigin)
+    @implements(_galsim.Image.setOrigin)
     def setOrigin(self, *args, **kwargs):
         origin = parse_pos_args(args, kwargs, "x0", "y0", integer=True)
         self._shift(origin - self.origin)
 
     @property
-    @_wraps(_galsim.Image.center)
+    @implements(_galsim.Image.center)
     def center(self):
         return self.bounds.center
 
     @property
-    @_wraps(_galsim.Image.true_center)
+    @implements(_galsim.Image.true_center)
     def true_center(self):
         return self.bounds.true_center
 
     @property
-    @_wraps(_galsim.Image.origin)
+    @implements(_galsim.Image.origin)
     def origin(self):
         return self.bounds.origin
 
@@ -970,7 +970,7 @@ class Image(object):
         pos = parse_pos_args(args, kwargs, "x", "y", integer=True)
         return self.getValue(pos.x, pos.y)
 
-    @_wraps(_galsim.Image.getValue)
+    @implements(_galsim.Image.getValue)
     def getValue(self, x, y):
         if not self.bounds.isDefined():
             raise _galsim.GalSimUndefinedBoundsError(
@@ -990,7 +990,7 @@ class Image(object):
         """
         return self.array[y - self.ymin, x - self.xmin]
 
-    @_wraps(_galsim.Image.setValue)
+    @implements(_galsim.Image.setValue)
     def setValue(self, *args, **kwargs):
         if self.isconst:
             raise GalSimImmutableError("Cannot modify an immutable Image", self)
@@ -1018,7 +1018,7 @@ class Image(object):
         """
         self._array = self._array.at[y - self.ymin, x - self.xmin].set(value)
 
-    @_wraps(_galsim.Image.addValue)
+    @implements(_galsim.Image.addValue)
     def addValue(self, *args, **kwargs):
         if self.isconst:
             raise GalSimImmutableError("Cannot modify an immutable Image", self)
@@ -1125,30 +1125,30 @@ class Image(object):
     def __ne__(self, other):
         return not self.__eq__(other)
 
-    @_wraps(_galsim.Image.transpose)
+    @implements(_galsim.Image.transpose)
     def transpose(self):
         bT = BoundsI(self.ymin, self.ymax, self.xmin, self.xmax)
         return _Image(self.array.T, bT, None)
 
-    @_wraps(_galsim.Image.flip_lr)
+    @implements(_galsim.Image.flip_lr)
     def flip_lr(self):
         return _Image(self.array.at[:, ::-1].get(), self._bounds, None)
 
-    @_wraps(_galsim.Image.flip_ud)
+    @implements(_galsim.Image.flip_ud)
     def flip_ud(self):
         return _Image(self.array.at[::-1, :].get(), self._bounds, None)
 
-    @_wraps(_galsim.Image.rot_cw)
+    @implements(_galsim.Image.rot_cw)
     def rot_cw(self):
         bT = BoundsI(self.ymin, self.ymax, self.xmin, self.xmax)
         return _Image(self.array.T.at[::-1, :].get(), bT, None)
 
-    @_wraps(_galsim.Image.rot_ccw)
+    @implements(_galsim.Image.rot_ccw)
     def rot_ccw(self):
         bT = BoundsI(self.ymin, self.ymax, self.xmin, self.xmax)
         return _Image(self.array.T.at[:, ::-1].get(), bT, None)
 
-    @_wraps(_galsim.Image.rot_180)
+    @implements(_galsim.Image.rot_180)
     def rot_180(self):
         return _Image(self.array.at[::-1, ::-1].get(), self._bounds, None)
 
@@ -1198,7 +1198,7 @@ class Image(object):
         return im
 
 
-@_wraps(
+@implements(
     _galsim._Image,
     lax_description=IMAGE_LAX_DOCS,
 )

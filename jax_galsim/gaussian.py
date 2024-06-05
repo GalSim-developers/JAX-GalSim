@@ -1,6 +1,6 @@
 import galsim as _galsim
 import jax.numpy as jnp
-from jax._src.numpy.util import _wraps
+from jax._src.numpy.util import implements
 from jax.tree_util import register_pytree_node_class
 
 from jax_galsim.core.draw import draw_by_kValue, draw_by_xValue
@@ -9,7 +9,7 @@ from jax_galsim.gsobject import GSObject
 from jax_galsim.random import GaussianDeviate
 
 
-@_wraps(_galsim.Gaussian)
+@implements(_galsim.Gaussian)
 @register_pytree_node_class
 class Gaussian(GSObject):
     # The FWHM of a Gaussian is 2 sqrt(2 ln2) sigma
@@ -144,11 +144,11 @@ class Gaussian(GSObject):
         _jac = jnp.eye(2) if jac is None else jac
         return draw_by_kValue(self, image, _jac)
 
-    @_wraps(_galsim.Gaussian.withFlux)
+    @implements(_galsim.Gaussian.withFlux)
     def withFlux(self, flux):
         return Gaussian(sigma=self.sigma, flux=flux, gsparams=self.gsparams)
 
-    @_wraps(_galsim.Gaussian._shoot)
+    @implements(_galsim.Gaussian._shoot)
     def _shoot(self, photons, rng):
         gd = GaussianDeviate(rng, sigma=self.sigma)
 

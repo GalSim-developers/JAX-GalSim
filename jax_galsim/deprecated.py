@@ -1,12 +1,12 @@
 import warnings
 
 import galsim as _galsim
-from jax._src.numpy.util import _wraps
+from jax._src.numpy.util import implements
 
 from jax_galsim.errors import GalSimDeprecationWarning
 
 
-@_wraps(
+@implements(
     _galsim.deprecated.depr,
     lax_description="""\
 The JAX version of this function uses `stacklevel=3` to show where the

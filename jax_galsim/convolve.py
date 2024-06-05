@@ -1,7 +1,7 @@
 import galsim as _galsim
 import jax.numpy as jnp
 from galsim.errors import galsim_warn
-from jax._src.numpy.util import _wraps
+from jax._src.numpy.util import implements
 from jax.tree_util import register_pytree_node_class
 
 from jax_galsim.gsobject import GSObject
@@ -9,7 +9,7 @@ from jax_galsim.gsparams import GSParams
 from jax_galsim.photon_array import PhotonArray
 
 
-@_wraps(
+@implements(
     _galsim.Convolve,
     lax_description="""Does not support ChromaticConvolutions""",
 )
@@ -31,7 +31,7 @@ def Convolve(*args, **kwargs):
     return Convolution(*args, **kwargs)
 
 
-@_wraps(
+@implements(
     _galsim.Convolution,
     lax_description="""Only supports 'fft' convolution.""",
 )
@@ -345,7 +345,7 @@ class Convolution(GSObject):
         return cls(children[0]["obj_list"], **aux_data)
 
 
-@_wraps(
+@implements(
     _galsim.convolve.Deconvolve,
     lax_description="Does not support ChromaticDeconvolution",
 )
@@ -364,7 +364,7 @@ def Deconvolve(obj, gsparams=None, propagate_gsparams=True):
         )
 
 
-@_wraps(_galsim.convolve.Deconvolution)
+@implements(_galsim.convolve.Deconvolution)
 @register_pytree_node_class
 class Deconvolution(GSObject):
     _has_hard_edges = False

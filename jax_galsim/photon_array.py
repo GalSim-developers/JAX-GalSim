@@ -4,7 +4,7 @@ import galsim as _galsim
 import jax
 import jax.numpy as jnp
 import jax.random as jrng
-from jax._src.numpy.util import _wraps
+from jax._src.numpy.util import implements
 from jax.tree_util import register_pytree_node_class
 
 from jax_galsim.core.utils import cast_to_python_int
@@ -33,7 +33,7 @@ def fixed_photon_array_size(size):
         _JAX_GALSIM_PHOTON_ARRAY_SIZE = old_size
 
 
-@_wraps(
+@implements(
     _galsim.PhotonArray,
     lax_description="""\
 JAX-GalSim PhotonArrays have significant differences from the original GalSim.
@@ -138,7 +138,7 @@ class PhotonArray:
             self.time = time
 
     @classmethod
-    @_wraps(
+    @implements(
         _galsim.PhotonArray.fromArrays,
         lax_description="JAX-GalSim does not do input type/size checking.",
     )
@@ -160,7 +160,7 @@ class PhotonArray:
         )
 
     @classmethod
-    @_wraps(_galsim.PhotonArray._fromArrays)
+    @implements(_galsim.PhotonArray._fromArrays)
     def _fromArrays(
         cls,
         x,
@@ -508,7 +508,7 @@ class PhotonArray:
 
         return self
 
-    @_wraps(_galsim.PhotonArray.assignAt)
+    @implements(_galsim.PhotonArray.assignAt)
     def assignAt(self, istart, rhs):
         from .deprecated import depr
 
@@ -525,7 +525,7 @@ class PhotonArray:
         s = slice(istart, istart + rhs.size())
         return self._copyFrom(rhs, s, slice(None))
 
-    @_wraps(
+    @implements(
         _galsim.PhotonArray.copyFrom,
         lax_description="The JAX version of PhotonArray.copyFrom does not raise for out of bounds indices.",
     )
@@ -833,7 +833,7 @@ class PhotonArray:
     def __ne__(self, other):
         return not self == other
 
-    @_wraps(
+    @implements(
         _galsim.PhotonArray.addTo,
         lax_description="The JAX equivalent of galsim.PhotonArray.addTo may not raise for undefined bounds.",
     )

@@ -5,7 +5,7 @@ import galsim as _galsim
 import jax
 import jax.numpy as jnp
 import numpy as np
-from jax._src.numpy.util import _wraps
+from jax._src.numpy.util import implements
 
 import jax_galsim.photon_array as pa
 from jax_galsim.core.draw import calculate_n_photons
@@ -25,7 +25,7 @@ from jax_galsim.sensor import Sensor
 from jax_galsim.utilities import parse_pos_args
 
 
-@_wraps(_galsim.GSObject)
+@implements(_galsim.GSObject)
 class GSObject:
     def __init__(self, *, gsparams=None, **params):
         self._params = params  # Dictionary containing all traced parameters
@@ -115,12 +115,12 @@ class GSObject:
         return PositionD(0, 0)
 
     @property
-    @_wraps(_galsim.GSObject.positive_flux)
+    @implements(_galsim.GSObject.positive_flux)
     def positive_flux(self):
         return self._positive_flux
 
     @property
-    @_wraps(_galsim.GSObject.negative_flux)
+    @implements(_galsim.GSObject.negative_flux)
     def negative_flux(self):
         return self._negative_flux
 
@@ -146,7 +146,7 @@ class GSObject:
         return 1.0 - 2.0 * eta
 
     @property
-    @_wraps(_galsim.GSObject.max_sb)
+    @implements(_galsim.GSObject.max_sb)
     def max_sb(self):
         return self._max_sb
 
@@ -209,7 +209,7 @@ class GSObject:
             and is_equal_with_arrays(self.tree_flatten(), other.tree_flatten())
         )
 
-    @_wraps(_galsim.GSObject.xValue)
+    @implements(_galsim.GSObject.xValue)
     def xValue(self, *args, **kwargs):
         pos = parse_pos_args(args, kwargs, "x", "y")
         return self._xValue(pos)
@@ -227,7 +227,7 @@ class GSObject:
             "%s does not implement xValue" % self.__class__.__name__
         )
 
-    @_wraps(_galsim.GSObject.kValue)
+    @implements(_galsim.GSObject.kValue)
     def kValue(self, *args, **kwargs):
         kpos = parse_pos_args(args, kwargs, "kx", "ky")
         return self._kValue(kpos)
@@ -238,7 +238,7 @@ class GSObject:
             "%s does not implement kValue" % self.__class__.__name__
         )
 
-    @_wraps(_galsim.GSObject.withGSParams)
+    @implements(_galsim.GSObject.withGSParams)
     def withGSParams(self, gsparams=None, **kwargs):
         if gsparams == self.gsparams:
             return self
@@ -249,34 +249,34 @@ class GSObject:
         aux_data["gsparams"] = gsparams
         return self.tree_unflatten(aux_data, children)
 
-    @_wraps(_galsim.GSObject.withFlux)
+    @implements(_galsim.GSObject.withFlux)
     def withFlux(self, flux):
         return self.withScaledFlux(flux / self.flux)
 
-    @_wraps(_galsim.GSObject.withScaledFlux)
+    @implements(_galsim.GSObject.withScaledFlux)
     def withScaledFlux(self, flux_ratio):
         from jax_galsim.transform import Transform
 
         return Transform(self, flux_ratio=flux_ratio)
 
-    @_wraps(_galsim.GSObject.expand)
+    @implements(_galsim.GSObject.expand)
     def expand(self, scale):
         from jax_galsim.transform import Transform
 
         return Transform(self, jac=[scale, 0.0, 0.0, scale])
 
-    @_wraps(_galsim.GSObject.dilate)
+    @implements(_galsim.GSObject.dilate)
     def dilate(self, scale):
         from jax_galsim.transform import Transform
 
         # equivalent to self.expand(scale) * (1./scale**2)
         return Transform(self, jac=[scale, 0.0, 0.0, scale], flux_ratio=scale**-2)
 
-    @_wraps(_galsim.GSObject.magnify)
+    @implements(_galsim.GSObject.magnify)
     def magnify(self, mu):
         return self.expand(jnp.sqrt(mu))
 
-    @_wraps(_galsim.GSObject.shear)
+    @implements(_galsim.GSObject.shear)
     def shear(self, *args, **kwargs):
         from jax_galsim.shear import Shear
         from jax_galsim.transform import Transform
@@ -385,13 +385,13 @@ class GSObject:
         s, c = theta.sincos()
         return Transform(self, jac=[c, -s, s, c])
 
-    @_wraps(_galsim.GSObject.transform)
+    @implements(_galsim.GSObject.transform)
     def transform(self, dudx, dudy, dvdx, dvdy):
         from jax_galsim.transform import Transform
 
         return Transform(self, jac=[dudx, dudy, dvdx, dvdy])
 
-    @_wraps(_galsim.GSObject.shift)
+    @implements(_galsim.GSObject.shift)
     def shift(self, *args, **kwargs):
         from jax_galsim.transform import Transform
 
@@ -630,9 +630,9 @@ class GSObject:
         if wcs.isPixelScale() and wcs.isLocal():
             wcs = jax.lax.cond(
                 wcs.scale <= 0,
-                lambda wcs, nqs: PixelScale(jnp.float_(nqs))
-                if default_wcs is None
-                else default_wcs,
+                lambda wcs, nqs: (
+                    PixelScale(jnp.float_(nqs)) if default_wcs is None else default_wcs
+                ),
                 lambda wcs, nqs: PixelScale(jnp.float_(wcs.scale)),
                 wcs,
                 self.nyquist_scale,
@@ -640,7 +640,7 @@ class GSObject:
 
         return wcs
 
-    @_wraps(
+    @implements(
         _galsim.GSObject.drawImage,
         lax_description="""\
 The JAX-GalSim version of `drawImage`
@@ -871,7 +871,7 @@ The JAX-GalSim version of `drawImage`
 
         return image
 
-    @_wraps(_galsim.GSObject.drawReal)
+    @implements(_galsim.GSObject.drawReal)
     def drawReal(self, image, add_to_image=False):
         if image.wcs is None or not image.wcs.isPixelScale():
             raise _galsim.GalSimValueError(
@@ -897,7 +897,7 @@ The JAX-GalSim version of `drawImage`
             "%s does not implement drawReal" % self.__class__.__name__
         )
 
-    @_wraps(_galsim.GSObject.getGoodImageSize)
+    @implements(_galsim.GSObject.getGoodImageSize)
     def getGoodImageSize(self, pixel_scale):
         # Start with a good size from stepk and the pixel scale
         Nd = 2.0 * jnp.pi / (pixel_scale * self.stepk)
@@ -910,7 +910,7 @@ The JAX-GalSim version of `drawImage`
         N = 2 * ((N + 1) // 2)
         return N
 
-    @_wraps(_galsim.GSObject.drawFFT_makeKImage)
+    @implements(_galsim.GSObject.drawFFT_makeKImage)
     def drawFFT_makeKImage(self, image):
         from jax_galsim.bounds import BoundsI
         from jax_galsim.image import ImageCD, ImageCF
@@ -1045,7 +1045,7 @@ The JAX-GalSim version of `drawImage`
         kimage = self._drawKImage(kimage)
         return self.drawFFT_finish(image, kimage, wrap_size, add_to_image)
 
-    @_wraps(_galsim.GSObject.drawKImage)
+    @implements(_galsim.GSObject.drawKImage)
     def drawKImage(
         self,
         image=None,
@@ -1151,7 +1151,7 @@ The JAX-GalSim version of `drawImage`
 
         return image
 
-    @_wraps(_galsim.GSObject._drawKImage)
+    @implements(_galsim.GSObject._drawKImage)
     def _drawKImage(
         self, image, jac=None
     ):  # pragma: no cover  (all our classes override this)
@@ -1159,7 +1159,7 @@ The JAX-GalSim version of `drawImage`
             "%s does not implement drawKImage" % self.__class__.__name__
         )
 
-    @_wraps(_galsim.GSObject._calculate_nphotons)
+    @implements(_galsim.GSObject._calculate_nphotons)
     def _calculate_nphotons(self, n_photons, poisson_flux, max_extra_noise, rng):
         n_photons, g, _rng = calculate_n_photons(
             self.flux,
@@ -1174,7 +1174,7 @@ The JAX-GalSim version of `drawImage`
             rng._state = _rng._state
         return n_photons, g
 
-    @_wraps(
+    @implements(
         _galsim.GSObject.makePhot,
         lax_description="""\
 The JAX-GalSim version of `makePhot`
@@ -1242,7 +1242,7 @@ The JAX-GalSim version of `makePhot`
 
         return photons
 
-    @_wraps(
+    @implements(
         _galsim.GSObject.drawPhot,
         lax_description="""\
 The JAX-GalSim version of `drawPhot`
@@ -1381,7 +1381,7 @@ The JAX-GalSim version of `drawPhot`
 
         return _dfret.added_flux, _dfret.photons
 
-    @_wraps(_galsim.GSObject.shoot)
+    @implements(_galsim.GSObject.shoot)
     def shoot(self, n_photons, rng=None):
         photons = pa.PhotonArray(n_photons)
 
@@ -1393,13 +1393,13 @@ The JAX-GalSim version of `drawPhot`
 
         return photons
 
-    @_wraps(_galsim.GSObject._shoot)
+    @implements(_galsim.GSObject._shoot)
     def _shoot(self, photons, rng):
         raise NotImplementedError(
             "%s does not implement shoot" % self.__class__.__name__
         )
 
-    @_wraps(_galsim.GSObject.applyTo)
+    @implements(_galsim.GSObject.applyTo)
     def applyTo(self, photon_array, local_wcs=None, rng=None):
         # galsim does not deal with dxdz and dydz here - IDK why
         p1 = pa.PhotonArray(len(photon_array))
