@@ -41,7 +41,7 @@ OK_ERRORS = [
     "object has no attribute 'gsparams'",
     "Supplied image must be an Image or file name",
     "Argument to Deconvolution must be a GSObject.",
-    "'jaxlib.xla_extension.ArrayImpl' object has no attribute 'lower'",
+    "object has no attribute 'lower'",
 ]
 
 
