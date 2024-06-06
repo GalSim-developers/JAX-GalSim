@@ -1,7 +1,7 @@
 import re
 import textwrap
 from functools import partial
-from typing import Any, Callable, NamedTuple
+from typing import NamedTuple
 
 import jax
 import jax.numpy as jnp
@@ -290,11 +290,11 @@ class ParsedDoc(NamedTuple):
     sections: dictionary of section titles to section content.
     """
 
-    docstr: str = ""
-    signature: str = ""
-    summary: str = ""
-    front_matter: str = ""
-    sections: dict[str, str] = {}
+    docstr = ""
+    signature = ""
+    summary = ""
+    front_matter = ""
+    sections = {}
 
 
 def _break_off_body_section_by_newline(body):
@@ -322,7 +322,7 @@ def _break_off_body_section_by_newline(body):
     return firstline, body
 
 
-def _parse_galsimdoc(docstr: str | None) -> ParsedDoc:
+def _parse_galsimdoc(docstr):
     """Parse a standard galsim-style docstring.
 
     Args:
@@ -380,10 +380,10 @@ def _parse_galsimdoc(docstr: str | None) -> ParsedDoc:
 
 
 def implements(
-    original_fun: Callable[..., Any] | None,
-    lax_description: str = "",
-    module: str | None = None,
-) -> Callable[..., Any]:
+    original_fun,
+    lax_description="",
+    module=None,
+):
     """Decorator for JAX functions which implement a specified GalSim function.
 
     This mainly contains logic to copy and modify the docstring of the original
