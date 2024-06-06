@@ -290,11 +290,11 @@ class ParsedDoc(NamedTuple):
     sections: dictionary of section titles to section content.
     """
 
-    docstr = ""
-    signature = ""
-    summary = ""
-    front_matter = ""
-    sections = {}
+    docstr: str = ""
+    signature: str = ""
+    summary: str = ""
+    front_matter: str = ""
+    sections: dict[str, str] = {}
 
 
 def _break_off_body_section_by_newline(body):
