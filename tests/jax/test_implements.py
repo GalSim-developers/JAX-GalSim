@@ -1,5 +1,6 @@
-from jax_galsim.core.utils import implements, _parse_galsimdoc
 from galsim import Gaussian as _Gaussian
+
+from jax_galsim.core.utils import _parse_galsimdoc, implements
 
 
 def test_implements_parse_galsimdoc():
@@ -22,7 +23,9 @@ class TestImplements:
     Parameters:
         blah:    here we go again
     """
+
     pass
+
 
 @implements(TestImplements, lax_description="This is a lax description")
 class LAXTestImplements:
