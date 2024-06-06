@@ -1,11 +1,10 @@
 import galsim as _galsim
 import jax.numpy as jnp
-from jax._src.numpy.util import implements
 from jax.tree_util import register_pytree_node_class
 
 from jax_galsim.angle import AngleUnit, arcsec, radians
 from jax_galsim.celestial import CelestialCoord
-from jax_galsim.core.utils import cast_to_python_float, ensure_hashable
+from jax_galsim.core.utils import cast_to_python_float, ensure_hashable, implements
 from jax_galsim.errors import GalSimValueError
 from jax_galsim.gsobject import GSObject
 from jax_galsim.position import Position, PositionD, PositionI

@@ -5,11 +5,10 @@ import galsim as _galsim
 import jax
 import jax.numpy as jnp
 import numpy as np
-from jax._src.numpy.util import implements
 
 import jax_galsim.photon_array as pa
 from jax_galsim.core.draw import calculate_n_photons
-from jax_galsim.core.utils import is_equal_with_arrays
+from jax_galsim.core.utils import implements, is_equal_with_arrays
 from jax_galsim.errors import (
     GalSimError,
     GalSimIncompatibleValuesError,

@@ -5,13 +5,17 @@ import galsim as _galsim
 import jax
 import jax.numpy as jnp
 import numpy as np
-from jax._src.numpy.util import implements
 from jax.tree_util import register_pytree_node_class
 
 from jax_galsim import fits
 from jax_galsim.angle import AngleUnit, arcsec, degrees, radians
 from jax_galsim.celestial import CelestialCoord
-from jax_galsim.core.utils import cast_to_float, cast_to_python_float, ensure_hashable
+from jax_galsim.core.utils import (
+    cast_to_float,
+    cast_to_python_float,
+    ensure_hashable,
+    implements,
+)
 from jax_galsim.errors import (
     GalSimError,
     GalSimIncompatibleValuesError,
@@ -51,7 +55,7 @@ from jax_galsim.wcs import (
     _galsim.fitswcs.GSFitsWCS,
     lax_description=(
         "The JAX-GalSim version of this class does not raise errors if inverting the WCS to "
-        "map ra,dec to (x,y) fails. Instead it returns NaNs.",
+        "map ra,dec to (x,y) fails. Instead it returns NaNs."
     ),
 )
 @register_pytree_node_class

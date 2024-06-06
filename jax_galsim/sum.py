@@ -2,9 +2,9 @@ import galsim as _galsim
 import jax
 import jax.numpy as jnp
 import numpy as np
-from jax._src.numpy.util import implements
 from jax.tree_util import register_pytree_node_class
 
+from jax_galsim.core.utils import implements
 from jax_galsim.gsobject import GSObject
 from jax_galsim.gsparams import GSParams
 from jax_galsim.position import PositionD

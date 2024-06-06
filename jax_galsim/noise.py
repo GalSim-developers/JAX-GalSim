@@ -1,10 +1,9 @@
 import galsim as _galsim
 import jax
 import jax.numpy as jnp
-from jax._src.numpy.util import implements
 from jax.tree_util import register_pytree_node_class
 
-from jax_galsim.core.utils import cast_to_float, ensure_hashable
+from jax_galsim.core.utils import cast_to_float, ensure_hashable, implements
 from jax_galsim.errors import GalSimError, GalSimIncompatibleValuesError
 from jax_galsim.image import Image, ImageD
 from jax_galsim.random import BaseDeviate, GaussianDeviate, PoissonDeviate

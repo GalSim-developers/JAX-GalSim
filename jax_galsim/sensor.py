@@ -1,7 +1,7 @@
 import galsim as _galsim
-from jax._src.numpy.util import implements
 from jax.tree_util import register_pytree_node_class
 
+from jax_galsim.core.utils import implements
 from jax_galsim.errors import GalSimUndefinedBoundsError
 from jax_galsim.position import PositionI
 

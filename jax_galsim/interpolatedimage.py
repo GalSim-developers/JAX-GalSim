@@ -14,12 +14,15 @@ from galsim.errors import (
     GalSimValueError,
 )
 from galsim.utilities import doc_inherit
-from jax._src.numpy.util import implements
 from jax.tree_util import register_pytree_node_class
 
 from jax_galsim import fits
 from jax_galsim.bounds import BoundsI
-from jax_galsim.core.utils import compute_major_minor_from_jacobian, ensure_hashable
+from jax_galsim.core.utils import (
+    compute_major_minor_from_jacobian,
+    ensure_hashable,
+    implements,
+)
 from jax_galsim.gsobject import GSObject
 from jax_galsim.gsparams import GSParams
 from jax_galsim.image import Image

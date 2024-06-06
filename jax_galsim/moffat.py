@@ -1,7 +1,6 @@
 import galsim as _galsim
 import jax
 import jax.numpy as jnp
-from jax._src.numpy.util import implements
 from jax.tree_util import Partial as partial
 from jax.tree_util import register_pytree_node_class
 
@@ -9,7 +8,7 @@ from jax_galsim.bessel import kv
 from jax_galsim.core.bessel import j0
 from jax_galsim.core.draw import draw_by_kValue, draw_by_xValue
 from jax_galsim.core.integrate import ClenshawCurtisQuad, quad_integral
-from jax_galsim.core.utils import bisect_for_root, ensure_hashable
+from jax_galsim.core.utils import bisect_for_root, ensure_hashable, implements
 from jax_galsim.gsobject import GSObject
 from jax_galsim.position import PositionD
 from jax_galsim.random import UniformDeviate

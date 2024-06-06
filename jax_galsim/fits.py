@@ -6,8 +6,8 @@ import jax.numpy as jnp
 import numpy as np
 from galsim.fits import FitsHeader, closeHDUList, readFile, writeFile  # noqa: F401
 from galsim.utilities import galsim_warn
-from jax._src.numpy.util import implements
 
+from jax_galsim.core.utils import implements
 from jax_galsim.image import Image
 
 # We wrap the galsim FITS read functions to return jax_galsim Image objects.
