@@ -290,7 +290,7 @@ class ParsedDoc(NamedTuple):
     sections: dictionary of section titles to section content.
     """
 
-    docstr: str | None
+    docstr: str = ""
     signature: str = ""
     summary: str = ""
     front_matter: str = ""
