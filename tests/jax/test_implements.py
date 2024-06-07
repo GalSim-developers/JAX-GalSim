@@ -9,7 +9,7 @@ def test_implements_parse_galsimdoc():
 
     assert p.signature == ""
     assert p.summary == "A class describing a 2D Gaussian surface brightness profile."
-    assert "is characterized by two propertie" in p.front_matter
+    assert "is characterized by two properties" in p.front_matter
     assert "Parameters:" in p.front_matter
     assert p.sections == {}
 

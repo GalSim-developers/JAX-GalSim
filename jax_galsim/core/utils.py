@@ -258,7 +258,7 @@ def bisect_for_root(func, low, high, niter=75):
 
 
 # start of code from https://github.com/google/jax/blob/main/jax/_src/numpy/util.py #
-# used with modifications for galsim under the following licnese:
+# used with modifications for galsim under the following license:
 # fmt: off
 #
 #    Copyright 2020 The JAX Authors.
