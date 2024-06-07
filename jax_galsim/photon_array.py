@@ -4,10 +4,9 @@ import galsim as _galsim
 import jax
 import jax.numpy as jnp
 import jax.random as jrng
-from jax._src.numpy.util import implements
 from jax.tree_util import register_pytree_node_class
 
-from jax_galsim.core.utils import cast_to_python_int
+from jax_galsim.core.utils import cast_to_python_int, implements
 from jax_galsim.errors import (
     GalSimIncompatibleValuesError,
     GalSimRangeError,

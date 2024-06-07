@@ -1,11 +1,10 @@
 import galsim as _galsim
 import jax.numpy as jnp
 import numpy as np
-from jax._src.numpy.util import implements
 from jax.tree_util import register_pytree_node_class
 
 from jax_galsim.bounds import Bounds, BoundsD, BoundsI
-from jax_galsim.core.utils import ensure_hashable
+from jax_galsim.core.utils import ensure_hashable, implements
 from jax_galsim.errors import GalSimImmutableError
 from jax_galsim.position import PositionI
 from jax_galsim.utilities import parse_pos_args

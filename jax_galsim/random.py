@@ -5,8 +5,9 @@ import galsim as _galsim
 import jax
 import jax.numpy as jnp
 import jax.random as jrandom
-from jax._src.numpy.util import implements
 from jax.tree_util import register_pytree_node_class
+
+from jax_galsim.core.utils import implements
 
 try:
     from jax.extend.random import wrap_key_data

@@ -1,8 +1,8 @@
 import warnings
 
 import galsim as _galsim
-from jax._src.numpy.util import implements
 
+from jax_galsim.core.utils import implements
 from jax_galsim.errors import GalSimDeprecationWarning
 
 

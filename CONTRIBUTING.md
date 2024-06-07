@@ -141,7 +141,7 @@ However, most JAX-GalSim function will directly inherit the documentation from t
 
 ```python
 import galsim as _galsim
-from jax._src.numpy.util import implements
+from jax_galsim.core.utils import implements
 from jax.tree_util import register_pytree_node_class
 
 @implements(_galsim.Add,
@@ -157,7 +157,7 @@ Note that this tool has the option of providing a `lax_description` which will b
 
 ### Flattening and Unflattening of objects
 
-In order to be able to use JAX transformations, we need to be able to flatten and unflatten objects. This happens within the `tree_flatten` and `tree_unflatten` methods. 
+In order to be able to use JAX transformations, we need to be able to flatten and unflatten objects. This happens within the `tree_flatten` and `tree_unflatten` methods.
 The unflattening can fail to work as expected when type checks are performed in the `__init__` method of a given object. To avoid this issue, the following strategy can used:
 
 https://jax.readthedocs.io/en/latest/pytrees.html#custom-pytrees-and-initialization

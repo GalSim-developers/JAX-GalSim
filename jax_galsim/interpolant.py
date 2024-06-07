@@ -11,11 +11,10 @@ import galsim as _galsim
 import jax
 import jax.numpy as jnp
 from galsim.errors import GalSimValueError
-from jax._src.numpy.util import implements
 from jax.tree_util import register_pytree_node_class
 
 from jax_galsim.bessel import si
-from jax_galsim.core.utils import is_equal_with_arrays
+from jax_galsim.core.utils import implements, is_equal_with_arrays
 from jax_galsim.errors import GalSimError
 from jax_galsim.gsparams import GSParams
 from jax_galsim.random import UniformDeviate

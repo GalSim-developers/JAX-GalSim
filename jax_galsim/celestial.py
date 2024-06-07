@@ -24,11 +24,10 @@ import coord as _coord
 import galsim as _galsim
 import jax
 import jax.numpy as jnp
-from jax._src.numpy.util import implements
 from jax.tree_util import register_pytree_node_class
 
 from jax_galsim.angle import Angle, _Angle, arcsec, degrees, radians
-from jax_galsim.core.utils import ensure_hashable
+from jax_galsim.core.utils import ensure_hashable, implements
 
 
 # we have to copy this one since JAX sends in `t` as a traced array
