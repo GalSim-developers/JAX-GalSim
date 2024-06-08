@@ -123,6 +123,10 @@ def test_image_wrapping_autodiff():
         for j in range(-N, N + 1):
             assert im(i, j) == im(-i, -j).conjugate()
 
+    # make sure it runs once
+    b3 = galsim.BoundsI(0, K, -L + 1, L)
+    im.wrap(b3)
+
     @jax.jit
     def _wrapit(im):
         b3 = galsim.BoundsI(0, K, -L + 1, L)
