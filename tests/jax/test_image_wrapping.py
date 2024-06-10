@@ -4,6 +4,8 @@ from galsim_test_helpers import timer
 
 import jax_galsim as galsim
 from jax_galsim.core.wrap_image import (
+    _block_reduce_index,
+    _block_reduce_loop,
     contract_hermitian_x,
     contract_hermitian_y,
     expand_hermitian_x,
@@ -146,3 +148,16 @@ def test_image_wrapping_autodiff():
     p, grad = jax.vjp(_wrapit, im3)
     grad(p)
     jax.jvp(_wrapit, (im3,), (im3 * 2,))
+
+
+def test_image_wrapping_block_vs_index_reduce():
+    nxwrap, nywrap = 16, 10
+    nx = 4
+    ny = 5
+    Nx, Ny = nxwrap * nx, nywrap * ny
+    im = jax.random.normal(jax.random.PRNGKey(1), (Ny, Nx))
+    np.testing.assert_allclose(
+        _block_reduce_index(im, nxwrap, nywrap),
+        _block_reduce_loop(im, nx, ny, nxwrap, nywrap),
+        err_msg="block_reduce_index() did not match block_reduce_loop()",
+    )

@@ -4,6 +4,45 @@ import jax
 import jax.numpy as jnp
 
 
+@partial(jax.jit, static_argnames=("nxwrap", "nywrap"))
+def _block_reduce_index(sim, nxwrap, nywrap):
+    def rolling_window_i(arr, wind):
+        idx = (
+            jnp.arange(arr.shape[0] - wind + 1)[::wind, None]
+            + jnp.arange(wind)[None, :]
+        )
+        return arr[idx]
+
+    y = rolling_window_i(sim, nywrap)
+    y = jnp.moveaxis(y, -1, -2)
+    y = jax.vmap(partial(rolling_window_i, wind=nxwrap))(y)
+    y = y.reshape(-1, nxwrap, nywrap)
+    return jnp.moveaxis(y, -1, -2).sum(axis=0)
+
+
+@partial(jax.jit, static_argnames=("nx", "ny", "nxwrap", "nywrap"))
+def _block_reduce_loop(sim, nx, ny, nxwrap, nywrap):
+    # we do the reduction into another array and then set the final result in im at the end
+    fim = jnp.zeros((nywrap, nxwrap), dtype=sim.dtype)
+
+    # this set of loops will be explicitly unrolled by JAX when it compiles the function
+    # via JIT
+    # the number of iterations (i.e., blocks) should be small enough that this is OK
+    yl = 0
+    for _ in range(ny):
+        yh = yl + nywrap
+
+        xl = 0
+        for _ in range(nx):
+            xh = xl + nxwrap
+            fim = fim + sim[yl:yh, xl:xh]
+            xl = xh
+
+        yl = yh
+
+    return fim
+
+
 @partial(jax.jit, static_argnames=("xmin", "ymin", "nxwrap", "nywrap"))
 def wrap_nonhermitian(im, xmin, ymin, nxwrap, nywrap):
     # these bits compute how many total blocks we need to cover the image
@@ -23,22 +62,12 @@ def wrap_nonhermitian(im, xmin, ymin, nxwrap, nywrap):
     sim = jnp.roll(sim, (-ymin, -xmin), axis=(0, 1))
 
     # we do the reduction into another array and then set the final result in im at the end
-    fim = jnp.zeros((nywrap, nxwrap), dtype=im.dtype)
-
-    # this set of loops will be explicitly unrolled by JAX when it compiles the function
-    # via JIT
-    # the number of iterations (i.e., blocks) should be small enough that this is OK
-    yl = 0
-    for _ in range(ny):
-        yh = yl + nywrap
-
-        xl = 0
-        for _ in range(nx):
-            xh = xl + nxwrap
-            fim = fim + sim[yl:yh, xl:xh]
-            xl = xh
-
-        yl = yh
+    # the compile time can be a lot for big values of nbx * ny, so we branch here to a
+    # index-based algorithm if needed
+    if nx * ny > 50:
+        fim = _block_reduce_index(sim, nxwrap, nywrap)
+    else:
+        fim = _block_reduce_loop(sim, nx, ny, nxwrap, nywrap)
 
     im = im.at[ymin : ymin + nywrap, xmin : xmin + nxwrap].set(fim)
     return im
