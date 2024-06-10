@@ -13,11 +13,22 @@ def _block_reduce_index(sim, nxwrap, nywrap):
         )
         return arr[idx]
 
+    # the starting array shape is (Ny, Nx) with Nx = sim.shape[1] and Ny = sim.shape[0]
+    # and below nx = Nx // nxwrap and ny = Ny // nywrap
     y = rolling_window_i(sim, nywrap)
+    # now the array shape is (ny, nywrap, Nx)
     y = jnp.moveaxis(y, -1, -2)
+    # now the array shape is (ny, Nx, nywrap)
+    # this vampped function acts on the second to first axis since
+    # the original function acts on the first axis and vmap adds an axis at the end
     y = jax.vmap(partial(rolling_window_i, wind=nxwrap))(y)
+    # now the array shape is (ny, nx, nxwrap, nywrap)
     y = y.reshape(-1, nxwrap, nywrap)
-    return jnp.moveaxis(y, -1, -2).sum(axis=0)
+    # now the array shape is (ny * nx, nxwrap, nywrap)
+    y = jnp.moveaxis(y, -1, -2)
+    # now the array shape is (ny * nx, nywrap, nxwrap)
+    # then we sum on axis 0 to get the final shape (nywrap, nxwrap)
+    return y.sum(axis=0)
 
 
 @partial(jax.jit, static_argnames=("nx", "ny", "nxwrap", "nywrap"))
