@@ -6,6 +6,7 @@ import jax.numpy as jnp
 
 @partial(jax.jit, static_argnames=("nxwrap", "nywrap"))
 def _block_reduce_index(sim, nxwrap, nywrap):
+    # this routine was written by Jean-Eric Campagne w/ edits and comments by Matthew Becker
     def rolling_window_i(arr, wind):
         idx = (
             jnp.arange(arr.shape[0] - wind + 1)[::wind, None]
