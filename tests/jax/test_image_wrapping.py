@@ -1,9 +1,12 @@
 import jax
 import numpy as np
+import pytest
 from galsim_test_helpers import timer
 
 import jax_galsim as galsim
 from jax_galsim.core.wrap_image import (
+    _block_reduce_index,
+    _block_reduce_loop,
     contract_hermitian_x,
     contract_hermitian_y,
     expand_hermitian_x,
@@ -78,14 +81,16 @@ def test_image_wrapping_expand_contract():
     )
 
 
+# the sizes here are to exercise both branches of the wrapping code which
+# diverge for the number of blocks tilling the image greater than 50
+@pytest.mark.parametrize("func", ["wrap", "vjp", "jvp", "vjp-jit", "jvp-jit"])
+@pytest.mark.parametrize("K,L", [(5, 3), (19, 17)])
 @timer
-def test_image_wrapping_autodiff():
+def test_image_wrapping_autodiff(func, K, L):
     # For complex images (in particular k-space images), we often want the image to be implicitly
     # Hermitian, so we only need to keep around half of it.
     M = 38
     N = 25
-    K = 8
-    L = 5
     im = galsim.ImageCD(2 * M + 1, 2 * N + 1, xmin=-M, ymin=-N)  # Explicitly Hermitian
     im2 = galsim.ImageCD(
         2 * M + 1, N + 1, xmin=-M, ymin=0
@@ -123,22 +128,48 @@ def test_image_wrapping_autodiff():
         for j in range(-N, N + 1):
             assert im(i, j) == im(-i, -j).conjugate()
 
-    @jax.jit
-    def _wrapit(im):
+    # make sure these run without error
+    if func == "wrap":
         b3 = galsim.BoundsI(0, K, -L + 1, L)
-        return im.wrap(b3)
+        im.wrap(b3)
+    elif func == "vjp-jit" or func == "jvp-jit":
 
-    # make sure this runs
-    p, grad = jax.vjp(_wrapit, im3)
-    grad = jax.jit(grad)
-    grad(p)
-    jax.jvp(_wrapit, (im3,), (im3 * 2,))
+        @jax.jit
+        def _wrapit(im):
+            b3 = galsim.BoundsI(0, K, -L + 1, L)
+            return im.wrap(b3)
 
-    def _wrapit(im):
-        b3 = galsim.BoundsI(0, K, -L + 1, L)
-        return im.wrap(b3)
+        if func == "vjp-jit":
+            p, grad = jax.vjp(_wrapit, im3)
+            grad = jax.jit(grad)
+            grad(p)
+        else:
+            jax.jvp(_wrapit, (im3,), (im3 * 2,))
+    elif func == "vjp" or func == "jvp":
 
-    # make sure this runs
-    p, grad = jax.vjp(_wrapit, im3)
-    grad(p)
-    jax.jvp(_wrapit, (im3,), (im3 * 2,))
+        def _wrapit(im):
+            b3 = galsim.BoundsI(0, K, -L + 1, L)
+            return im.wrap(b3)
+
+        if func == "vjp":
+            p, grad = jax.vjp(_wrapit, im3)
+            grad(p)
+        else:
+            jax.jvp(_wrapit, (im3,), (im3 * 2,))
+    else:
+        raise ValueError(
+            f"Unknown function {func} for testing image wrapping w/ grads!"
+        )
+
+
+def test_image_wrapping_block_vs_index_reduce():
+    nxwrap, nywrap = 16, 10
+    nx = 3
+    ny = 5
+    Nx, Ny = nxwrap * nx, nywrap * ny
+    im = jax.random.normal(jax.random.PRNGKey(1), (Ny, Nx))
+    np.testing.assert_allclose(
+        _block_reduce_index(im, nxwrap, nywrap),
+        _block_reduce_loop(im, nx, ny, nxwrap, nywrap),
+        err_msg="block_reduce_index() did not match block_reduce_loop()",
+    )
