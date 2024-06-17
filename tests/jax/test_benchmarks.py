@@ -11,9 +11,9 @@ def test_benchmarks_interpolated_image_jit_compile(benchmark):
     )
 
     def f():
-        igal.drawImage(nx=32, ny=32, scale=0.2)._array.block_until_ready()
+        return igal.drawImage(nx=32, ny=32, scale=0.2)
 
-    benchmark(lambda: jax.jit(f)())
+    benchmark(lambda: jax.jit(f)().array.block_until_ready())
 
 
 def test_benchmarks_interpolated_image_jit_run(benchmark):
@@ -24,12 +24,12 @@ def test_benchmarks_interpolated_image_jit_run(benchmark):
     )
 
     def f():
-        igal.drawImage(nx=32, ny=32, scale=0.2)._array.block_until_ready()
+        return igal.drawImage(nx=32, ny=32, scale=0.2)
 
     jitf = jax.jit(f)
 
     # run once to compile
-    jitf()
+    jitf().array.block_until_ready()
 
     # now benchmark
-    benchmark(jitf)
+    benchmark(lambda: jitf().array.block_until_ready())
