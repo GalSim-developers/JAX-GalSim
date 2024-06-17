@@ -16,5 +16,5 @@ setup(
         "astropy >= 2.0",
         "tensorflow-probability >= 0.21.0",
     ],
-    tests_require=["pytest"],
+    tests_require=["pytest", "pytest-codspeed"],
 )
