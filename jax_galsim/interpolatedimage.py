@@ -998,61 +998,32 @@ def _draw_with_interpolant_xval(x, y, xmin, ymin, zp, interp):
     yp = yi + ymin
     ny = zp.shape[0]
 
-    # this function is the inner loop over the x direction
-    # the variables are
-    #  i: the index of the location in the interpolation kernel
-    #  z: the final interpolated values
-    #  wy: the weight of the interpolation kernel in the y direction
-    #  msky: a mask that is true if the y index is in bounds
-    #  yind: the y index of the interpolation point needed by the kernel
-    def _body_1d(i, args):
-        z, wy, msky, yind, xi, xp, zp = args
+    xrange_interp = int(interp.xrange)
 
+    z = jnp.zeros(x.shape, dtype=float)
+    for iy in range(-xrange_interp, xrange_interp + 1):
         # this block computes the x weight using the
         # offset in the interpolation kernel i
-        xind = xi + i
-        mskx = (xind >= 0) & (xind < nx)
-        _x = x - (xp + i)
-        wx = interp._xval_noraise(_x)
-
-        # the actual interpolation is done here.
-        # we use jnp.where to only do the interpolation
-        # where the x and y indices are in bounds.
-        # the total weight is the product of the x and y weights.
-        w = wx * wy
-        msk = msky & mskx
-        z += jnp.where(msk, zp[yind, xind] * w, 0)
-
-        return [z, wy, msky, yind, xi, xp, zp]
-
-    # this function is the outer loop over the y direction
-    # the variables are
-    #  i: the index of the location in the interpolation kernel
-    #  z: the final interpolated values
-    def _body(i, args):
-        z, xi, yi, xp, yp, zp = args
-
-        # this block computes the x weight using the
-        # offset in the interpolation kernel i
-        yind = yi + i
-        msk = (yind >= 0) & (yind < ny)
-        _y = y - (yp + i)
+        yind = yi + iy
+        msky = (yind >= 0) & (yind < ny)
+        _y = y - (yp + iy)
         wy = interp._xval_noraise(_y)
 
-        # this call computes the interpolant for each x locatoon that gets
-        # paired with this y location
-        z = jax.lax.fori_loop(
-            -interp.xrange, interp.xrange + 1, _body_1d, [z, wy, msk, yind, xi, xp, zp]
-        )[0]
-        return [z, xi, yi, xp, yp, zp]
+        for ix in range(-xrange_interp, xrange_interp + 1):
+            # this block computes the x weight using the
+            # offset in the interpolation kernel i
+            xind = xi + ix
+            mskx = (xind >= 0) & (xind < nx)
+            _x = x - (xp + ix)
+            wx = interp._xval_noraise(_x)
 
-    # the actual loop call for y is here
-    z = jax.lax.fori_loop(
-        -interp.xrange,
-        interp.xrange + 1,
-        _body,
-        [jnp.zeros(x.shape, dtype=float), xi, yi, xp, yp, zp],
-    )[0]
+            # the actual interpolation is done here.
+            # we use jnp.where to only do the interpolation
+            # where the x and y indices are in bounds.
+            # the total weight is the product of the x and y weights.
+            w = wx * wy
+            msk = msky & mskx
+            z += jnp.where(msk, zp[yind, xind] * w, 0)
 
     # we reshape on the way out to match the input shape
     return z.reshape(orig_shape)
@@ -1126,51 +1097,36 @@ def _draw_with_interpolant_kval(kx, ky, kxmin, kymin, zp, interp):
     kyp = kyi + kymin
     nky = zp.shape[0]
 
-    def _body_1d(i, args):
-        z, wky, kyind, kxi, nkx, nkx_2, kxp, zp = args
+    xrange_interp = int(interp.xrange)
 
-        kxind = (kxi + i) % nkx
-        _kx = kx - (kxp + i)
-        wkx = interp._xval_noraise(_kx)
-
-        # this is the key difference from the xval function
-        # we need to use the Hermitian symmetry to get the
-        # values that are not in memory
-        # in memory we have the values at nkx_2 to nkx - 1
-        # the Hermitian symmetry is that
-        #   f(ky, kx) = conjugate(f(-kx, -ky))
-        # In indices this is a symmetric flip about the central
-        # pixels at kx = ky = 0.
-        # we do not need to mask any values that run off the edge of the image
-        # since we rewrap them using the periodicity of the image.
-        val = jnp.where(
-            kxind < nkx_2,
-            zp[(nky - kyind) % nky, nkx - kxind - nkx_2].conjugate(),
-            zp[kyind, kxind - nkx_2],
-        )
-        z += val * wkx * wky
-
-        return [z, wky, kyind, kxi, nkx, nkx_2, kxp, zp]
-
-    def _body(i, args):
-        z, kxi, kyi, nky, nkx, nkx_2, kxp, kyp, zp = args
-        kyind = (kyi + i) % nky
-        _ky = ky - (kyp + i)
+    z = jnp.zeros(kx.shape, dtype=complex)
+    for iy in range(-xrange_interp, xrange_interp + 1):
+        kyind = (kyi + iy) % nky
+        _ky = ky - (kyp + iy)
         wky = interp._xval_noraise(_ky)
-        z = jax.lax.fori_loop(
-            -interp.xrange,
-            interp.xrange + 1,
-            _body_1d,
-            [z, wky, kyind, kxi, nkx, nkx_2, kxp, zp],
-        )[0]
-        return [z, kxi, kyi, nky, nkx, nkx_2, kxp, kyp, zp]
 
-    z = jax.lax.fori_loop(
-        -interp.xrange,
-        interp.xrange + 1,
-        _body,
-        [jnp.zeros(kx.shape, dtype=complex), kxi, kyi, nky, nkx, nkx_2, kxp, kyp, zp],
-    )[0]
+        for ix in range(-xrange_interp, xrange_interp + 1):
+            kxind = (kxi + ix) % nkx
+            _kx = kx - (kxp + ix)
+            wkx = interp._xval_noraise(_kx)
+
+            # this is the key difference from the xval function
+            # we need to use the Hermitian symmetry to get the
+            # values that are not in memory
+            # in memory we have the values at nkx_2 to nkx - 1
+            # the Hermitian symmetry is that
+            #   f(ky, kx) = conjugate(f(-kx, -ky))
+            # In indices this is a symmetric flip about the central
+            # pixels at kx = ky = 0.
+            # we do not need to mask any values that run off the edge of the image
+            # since we rewrap them using the periodicity of the image.
+            val = jnp.where(
+                kxind < nkx_2,
+                zp[(nky - kyind) % nky, nkx - kxind - nkx_2].conjugate(),
+                zp[kyind, kxind - nkx_2],
+            )
+            z += val * wkx * wky
+
     return z.reshape(orig_shape)
 
 
