@@ -1,4 +1,4 @@
-name: Python package
+name: benchmarks
 
 env:
   PY_COLORS: "1"
@@ -20,7 +20,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.9", "3.10", "3.11", "3.12"]
+        python-version: ["3.11",]
 
     steps:
       - uses: actions/checkout@v3
@@ -36,7 +36,10 @@ jobs:
           python -m pip install pytest pytest-codspeed
           python -m pip install .
 
-      - name: Test with pytest
-        run: |
-          git submodule update --init --recursive
-          pytest -v --durations=0
+      - name: Run benchmarks
+        uses: CodSpeedHQ/action@v2
+        with:
+          token: ${{ secrets.CODSPEED_TOKEN }}
+          run: |
+            git submodule update --init --recursive
+            pytest -vvs --codspeed
