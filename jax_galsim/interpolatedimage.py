@@ -1046,7 +1046,7 @@ def _draw_with_interpolant_xval(x, y, xmin, ymin, zp, interp):
             interp.xrange + 1,
             _body_1d,
             [z, wy, msk, yind, xi, xp, zp],
-            unroll=int(interp.xrange),
+            unroll=int(interp.xrange) * 2 + 1,
         )[0]
         return [z, xi, yi, xp, yp, zp]
 
@@ -1056,7 +1056,7 @@ def _draw_with_interpolant_xval(x, y, xmin, ymin, zp, interp):
         interp.xrange + 1,
         _body,
         [jnp.zeros(x.shape, dtype=float), xi, yi, xp, yp, zp],
-        unroll=int(interp.xrange),
+        unroll=int(interp.xrange) * 2 + 1,
     )[0]
 
     # we reshape on the way out to match the input shape
@@ -1167,7 +1167,7 @@ def _draw_with_interpolant_kval(kx, ky, kxmin, kymin, zp, interp):
             interp.xrange + 1,
             _body_1d,
             [z, wky, kyind, kxi, nkx, nkx_2, kxp, zp],
-            unroll=int(interp.xrange),
+            unroll=int(interp.xrange) * 2 + 1,
         )[0]
         return [z, kxi, kyi, nky, nkx, nkx_2, kxp, kyp, zp]
 
@@ -1176,7 +1176,7 @@ def _draw_with_interpolant_kval(kx, ky, kxmin, kymin, zp, interp):
         interp.xrange + 1,
         _body,
         [jnp.zeros(kx.shape, dtype=complex), kxi, kyi, nky, nkx, nkx_2, kxp, kyp, zp],
-        unroll=int(interp.xrange),
+        unroll=int(interp.xrange) * 2 + 1,
     )[0]
     return z.reshape(orig_shape)
 
