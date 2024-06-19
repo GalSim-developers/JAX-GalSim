@@ -333,13 +333,14 @@ def test_metacal_vmap():
             {},
             {},
             128,
+            5,
         )
     gt0 = time.time() - gt0
     print("Galsim time: ", gt0 * 1e3, " [ms]")
 
     vmap_mcal = jax.vmap(
         _metacal_jax_galsim,
-        in_axes=(0, 0, 0, None, None, None, None),
+        in_axes=(0, 0, 0, None, None, None, None, None),
     )
 
     for i in range(2):
@@ -357,6 +358,7 @@ def test_metacal_vmap():
             target_fwhm,
             g1,
             128,
+            5,
         )
         jgt0 = time.time() - jgt0
         print("Jax-Galsim time (%s): " % msg, jgt0 * 1e3, " [ms]")
