@@ -6,14 +6,17 @@ shapes, the integrals of the kernels, etc.) are constants.
 """
 
 import math
+from functools import partial
 
 import galsim as _galsim
 import jax
 import jax.numpy as jnp
+import numpy as np
 from galsim.errors import GalSimValueError
 from jax.tree_util import register_pytree_node_class
 
 from jax_galsim.bessel import si
+from jax_galsim.core.interpolate import akima_interp, akima_interp_coeffs
 from jax_galsim.core.utils import implements, is_equal_with_arrays
 from jax_galsim.errors import GalSimError
 from jax_galsim.gsparams import GSParams
@@ -262,7 +265,7 @@ class Interpolant:
     @property
     def krange(self):
         """The maximum extent of the interpolant in Fourier space (in 1/pixels)."""
-        return 2.0 * jnp.pi * self.urange()
+        return 2.0 * np.pi * self.urange()
 
     def urange(self):
         """The maximum extent of the interpolant in Fourier space (in 2pi/pixels)."""
@@ -390,7 +393,7 @@ class Nearest(Interpolant):
 
     def urange(self):
         """The maximum extent of the interpolant in Fourier space (in 2pi/pixels)."""
-        return 1.0 / (jnp.pi * self._gsparams.kvalue_accuracy)
+        return 1.0 / (np.pi * self._gsparams.kvalue_accuracy)
 
     @property
     def xrange(self):
@@ -407,6 +410,11 @@ class Nearest(Interpolant):
         photons.x = ud.generate(photons.x) - 0.5
         photons.y = ud.generate(photons.y) - 0.5
         photons.flux = 1.0 / photons.size()
+
+
+@np.vectorize
+def _gs_si(x):
+    return _galsim.bessel.si(x)
 
 
 @implements(_galsim.interpolant.SincInterpolant)
@@ -441,7 +449,7 @@ class SincInterpolant(Interpolant):
     def xrange(self):
         """The maximum extent of the interpolant from the origin (in pixels)."""
         # Technically infinity, but truncated by the tolerance.
-        return 1.0 / (jnp.pi * self._gsparams.kvalue_accuracy)
+        return 1.0 / (np.pi * self._gsparams.kvalue_accuracy)
 
     def unit_integrals(self, max_len=None):
         """Compute the unit integrals of the real-space kernel.
@@ -456,26 +464,21 @@ class SincInterpolant(Interpolant):
         """
         n = self.ixrange // 2 + 1
         n = n if max_len is None else min(n, max_len)
-        if not hasattr(self, "_unit_integrals") or n > len(self._unit_integrals):
-            narr = jnp.arange(n)
-            # these are constants so we do not propagate gradients
-            self._unit_integrals = jax.lax.stop_gradient(
-                (si(jnp.pi * (narr + 0.5)) - si(jnp.pi * (narr - 0.5))) / jnp.pi
-            )
-        return self._unit_integrals[:n]
+        narr = np.arange(n)
+        _unit_integrals = (
+            _gs_si(np.pi * (narr + 0.5)) - _gs_si(np.pi * (narr - 0.5))
+        ) / np.pi
+        return _unit_integrals[:n]
 
     def _comp_fluxes(self):
         # the sinc function oscillates so we want to integrate over an even number of periods
         n = self.ixrange // 2 + 1
         if n % 2 != 0:
             n += 1
-        narr = jnp.arange(n)
+        narr = np.arange(n)
+        val = (_gs_si(np.pi * (narr + 1)) - _gs_si(np.pi * (narr))) / np.pi
 
-        val = (si(jnp.pi * (narr + 1)) - si(jnp.pi * (narr))) / jnp.pi
-        # this computed flux is a constant and so we do not propagate gradients
-        self._positive_flux = (
-            jax.lax.stop_gradient(jnp.sum(jnp.where(val > 0, val, 0.0))) * 2.0
-        )
+        self._positive_flux = np.sum(np.where(val > 0, val, 0.0)) * 2.0
         self._negative_flux = self._positive_flux - 1.0
 
     def _shoot(self, photons, rng):
@@ -518,7 +521,7 @@ class Linear(Interpolant):
 
     def urange(self):
         """The maximum extent of the interpolant in Fourier space (in 2pi/pixels)."""
-        return 1.0 / jnp.sqrt(self._gsparams.kvalue_accuracy) / jnp.pi
+        return 1.0 / np.sqrt(self._gsparams.kvalue_accuracy) / np.pi
 
     @property
     def xrange(self):
@@ -545,7 +548,7 @@ class Cubic(Interpolant):
     _positive_flux = 13.0 / 12.0
     _negative_flux = 1.0 / 12.0
     # from galsim itself via the source at galsim.interpolant.Cubic
-    _unit_integrals = jnp.array([161.0 / 192, 3.0 / 32, -5.0 / 384], dtype=float)
+    _unit_integrals = np.array([161.0 / 192, 3.0 / 32, -5.0 / 384], dtype=float)
 
     def __init__(self, tol=None, gsparams=None):
         if tol is not None:
@@ -585,10 +588,10 @@ class Cubic(Interpolant):
         """The maximum extent of the interpolant in Fourier space (in 2pi/pixels)."""
         # magic formula from galsim CPP layer in src/Interpolant.cpp
         return (
-            jnp.power(
-                (3.0 * jnp.sqrt(3.0) / 8.0) / self._gsparams.kvalue_accuracy, 1.0 / 3.0
+            np.power(
+                (3.0 * np.sqrt(3.0) / 8.0) / self._gsparams.kvalue_accuracy, 1.0 / 3.0
             )
-            / jnp.pi
+            / np.pi
         )
 
     @property
@@ -610,7 +613,7 @@ class Quintic(Interpolant):
     _positive_flux = 1.1293413499280066555
     _negative_flux = 0.1293413499280066555
     # from galsim itself via `galsim.Quintic().unit_integrals()`
-    _unit_integrals = jnp.array(
+    _unit_integrals = np.array(
         [
             0.8724826228119177,
             0.07332899380883082,
@@ -679,11 +682,11 @@ class Quintic(Interpolant):
         """The maximum extent of the interpolant in Fourier space (in 2pi/pixels)."""
         # magic formula from galsim CPP layer in src/Interpolant.cpp
         return (
-            jnp.power(
-                (25.0 * jnp.sqrt(5.0) / 108.0) / self._gsparams.kvalue_accuracy,
+            np.power(
+                (25.0 * np.sqrt(5.0) / 108.0) / self._gsparams.kvalue_accuracy,
                 1.0 / 3.0,
             )
-            / jnp.pi
+            / np.pi
         )
 
     @property
@@ -1421,24 +1424,18 @@ class Lanczos(Interpolant):
         self._n = n
         self._conserve_dc = conserve_dc
         self._gsparams = GSParams.check(gsparams)
-
-    @property
-    def _C_arr(self):
-        return self._C_arr_vals[self._n]
-
-    @property
-    def _K_arr(self):
-        return self._K_arr_vals[self._n]
+        self._C_arr = self._C_arr_vals[n]
+        self._K_arr = self._K_arr_vals[n]
 
     @property
     def _du(self):
         return (
             self._gsparams.table_spacing
-            * jnp.power(self._gsparams.kvalue_accuracy / 200.0, 0.25)
+            * np.power(self._gsparams.kvalue_accuracy / 200.0, 0.25)
             / self._n
         )
 
-    @property
+    @lazy_property
     def _umax(self):
         return _find_umax_lanczos(
             self._du,
@@ -1482,7 +1479,7 @@ class Lanczos(Interpolant):
 
     # this is a pure function and we apply JIT ahead of time since this
     # one is pretty slow
-    @jax.jit
+    @partial(jax.jit, static_argnames=("conserve_dc", "n", "_K"))
     def _xval(x, n, conserve_dc, _K):
         x = jnp.abs(x)
 
@@ -1511,21 +1508,8 @@ class Lanczos(Interpolant):
             n,
         )
 
-        def _low_s(x, n):
-            pix = jnp.pi * x
-            temp = (1.0 / 6.0) * pix * pix
-            return pix * (1.0 - temp)
-
-        def _high_s(x, n):
-            return jnp.sin(jnp.pi * x)
-
-        def _dcval(val, x, n, _K):
-            s = jnp.piecewise(
-                x,
-                [msk_s],
-                [_low_s, _high_s],
-                n,
-            )
+        if conserve_dc:
+            s = jnp.sin(jnp.pi * x)
             ssq = s * s
             factor = (
                 1.0
@@ -1540,24 +1524,12 @@ class Lanczos(Interpolant):
             )
             val = val / factor
 
-            return val
-
-        def _no_dcval(val, x, n, _K):
-            return val
-
-        return jax.lax.cond(
-            conserve_dc,
-            _dcval,
-            _no_dcval,
-            val,
-            x,
-            n,
-            _K,
-        )
+        return val
 
     def _xval_noraise(self, x):
         return Lanczos._xval(x, self._n, self._conserve_dc, self._K_arr)
 
+    @partial(jax.jit, static_argnames=("n",))
     def _raw_uval(u, n):
         # this function is used in the init and so was causing a recursion depth error
         # when jitted, so I made it a pure function - MRB
@@ -1566,21 +1538,25 @@ class Lanczos(Interpolant):
         # //          (vm-1) Si((vm-1)pi) - (vm+1) Si((vm+1)pi) ) / 2pi
         vp = n * (2.0 * u + 1.0)
         vm = n * (2.0 * u - 1.0)
+        vpp1 = vp + 1.0
+        vpm1 = vp - 1.0
+        vmp1 = vm + 1.0
+        vmm1 = vm - 1.0
         retval = (
-            (vm - 1.0) * si(jnp.pi * (vm - 1.0))
-            - (vm + 1.0) * si(jnp.pi * (vm + 1.0))
-            - (vp - 1.0) * si(jnp.pi * (vp - 1.0))
-            + (vp + 1.0) * si(jnp.pi * (vp + 1.0))
+            vmm1 * si(jnp.pi * vmm1)
+            - vmp1 * si(jnp.pi * vmp1)
+            - vpm1 * si(jnp.pi * vpm1)
+            + vpp1 * si(jnp.pi * vpp1)
         )
         return retval / (2.0 * jnp.pi)
 
     # this is a pure function and we apply JIT ahead of time since this
     # one is pretty slow
-    @jax.jit
+    @partial(jax.jit, static_argnames=("conserve_dc", "n", "_C"))
     def _uval(u, n, conserve_dc, _C):
         retval = Lanczos._raw_uval(u, n)
 
-        def _dcval(retval, u, n, _C):
+        if conserve_dc:
             retval *= _C[0]
             retval += _C[1] * (
                 Lanczos._raw_uval(u + 1.0, n) + Lanczos._raw_uval(u - 1.0, n)
@@ -1597,23 +1573,19 @@ class Lanczos(Interpolant):
             retval += _C[5] * (
                 Lanczos._raw_uval(u + 5.0, n) + Lanczos._raw_uval(u - 5.0, n)
             )
-            return retval
 
-        def _no_dcval(retval, u, n, _C):
-            return retval
+        return retval
 
-        return jax.lax.cond(
-            conserve_dc,
-            _dcval,
-            _no_dcval,
-            retval,
-            u,
-            n,
-            _C,
-        )
+    @lazy_property
+    def _kval_interp_table(self):
+        dk = self._du * 2.0 * np.pi
+        k = jnp.linspace(0, self.krange, int(self.krange / dk) + 1)
+        kv = Lanczos._uval(k / 2.0 / jnp.pi, self._n, self._conserve_dc, self._C_arr)
+        coeffs = akima_interp_coeffs(k, kv)
+        return k, kv, coeffs
 
     def _kval_noraise(self, k):
-        return Lanczos._uval(k / 2.0 / jnp.pi, self._n, self._conserve_dc, self._C_arr)
+        return akima_interp(jnp.abs(k), *self._kval_interp_table)
 
     def urange(self):
         """The maximum extent of the interpolant in Fourier space (in 2pi/pixels)."""
@@ -1676,54 +1648,69 @@ class Lanczos(Interpolant):
             return self._unit_integrals_no_conserve_dc[self._n][:n]
 
 
-# we apply JIT here to esnure the class init is fast
-@jax.jit
+@np.vectorize(excluded={1})
+def _gs_raw_uval(u, n):
+    # from galsim
+    # // F(u) = ( (vp+1) Si((vp+1)pi) - (vp-1) Si((vp-1)pi) +
+    # //          (vm-1) Si((vm-1)pi) - (vm+1) Si((vm+1)pi) ) / 2pi
+    vp = n * (2.0 * u + 1.0)
+    vm = n * (2.0 * u - 1.0)
+    vpp1 = vp + 1.0
+    vpm1 = vp - 1.0
+    vmp1 = vm + 1.0
+    vmm1 = vm - 1.0
+    retval = (
+        vmm1 * _galsim.bessel.si(np.pi * vmm1)
+        - vmp1 * _galsim.bessel.si(np.pi * vmp1)
+        - vpm1 * _galsim.bessel.si(np.pi * vpm1)
+        + vpp1 * _galsim.bessel.si(np.pi * vpp1)
+    )
+    return retval / (2.0 * np.pi)
+
+
+@np.vectorize(excluded={1, 2})
+def _gs_uval(u, n, conserve_dc):
+    _C = Lanczos._C_arr_vals[n]
+    retval = _gs_raw_uval(u, n)
+
+    if conserve_dc:
+        retval *= _C[0]
+        retval += _C[1] * (_gs_raw_uval(u + 1.0, n) + _gs_raw_uval(u - 1.0, n))
+        retval += _C[2] * (_gs_raw_uval(u + 2.0, n) + _gs_raw_uval(u - 2.0, n))
+        retval += _C[3] * (_gs_raw_uval(u + 3.0, n) + _gs_raw_uval(u - 3.0, n))
+        retval += _C[4] * (_gs_raw_uval(u + 4.0, n) + _gs_raw_uval(u - 4.0, n))
+        retval += _C[5] * (_gs_raw_uval(u + 5.0, n) + _gs_raw_uval(u - 5.0, n))
+
+    return retval
+
+
 def _find_umax_lanczos(_du, n, conserve_dc, _C, kva):
-    def _cond(vals):
-        umax, u = vals
-        return (u - umax < 1.0 / n) | (u < 1.1)
-
-    def _body(vals):
-        umax, u = vals
-        uval = Lanczos._uval(u, n, conserve_dc, _C)
-        umax = jax.lax.cond(
-            jnp.abs(uval) > kva,
-            lambda umax, u: u,
-            lambda umax, u: umax,
-            umax,
-            u,
-        )
-        return [umax, u + _du]
-
-    return jax.lax.while_loop(
-        _cond,
-        _body,
-        [0.0, 0.0],
-    )[0]
+    u = 0.0
+    umax = -np.inf
+    while (u - umax < 1.0 / n) or (u < 1.1):
+        uval = _gs_uval(u, n, conserve_dc)
+        if np.abs(uval) > kva:
+            umax = u
+        u += _du
+    return umax
 
 
-@jax.jit
 def _compute_C_K_lanczos(n):
-    _K = jnp.concatenate(
-        (jnp.zeros(1), Lanczos._raw_uval(jnp.arange(5) + 1.0, n)), axis=0
+    _K = np.concatenate((np.zeros(1), _gs_raw_uval(np.arange(5) + 1.0, n)), axis=0)
+    _C = np.zeros(6)
+    _C[0] = 1.0 + 2.0 * (
+        _K[1] * (1.0 + 3.0 * _K[1] + _K[2] + _K[3]) + _K[2] + _K[3] + _K[4] + _K[5]
     )
-    _C = jnp.zeros(6)
-    _C = _C.at[0].set(
-        1.0
-        + 2.0
-        * (_K[1] * (1.0 + 3.0 * _K[1] + _K[2] + _K[3]) + _K[2] + _K[3] + _K[4] + _K[5])
-    )
-    _C = _C.at[1].set(-_K[1] * (1.0 + 4.0 * _K[1] + _K[2] + 2.0 * _K[3]))
-    _C = _C.at[2].set(_K[1] * (_K[1] - 2.0 * _K[2] + _K[3]) - _K[2])
-    _C = _C.at[3].set(_K[1] * (_K[1] - 2.0 * _K[3]) - _K[3])
-    _C = _C.at[4].set(_K[1] * _K[3] - _K[4])
-    _C = _C.at[5].set(-_K[5])
+    _C[1] = -_K[1] * (1.0 + 4.0 * _K[1] + _K[2] + 2.0 * _K[3])
+    _C[2] = _K[1] * (_K[1] - 2.0 * _K[2] + _K[3]) - _K[2]
+    _C[3] = _K[1] * (_K[1] - 2.0 * _K[3]) - _K[3]
+    _C[4] = _K[1] * _K[3] - _K[4]
+    _C[5] = -_K[5]
 
-    return _C, _K
+    return tuple(_C.tolist()), tuple(_K.tolist())
 
 
 Lanczos._C_arr_vals = {}
 Lanczos._K_arr_vals = {}
 for n in range(1, 31):
-    Lanczos._C_arr_vals[n] = _compute_C_K_lanczos(n)[0]
-    Lanczos._K_arr_vals[n] = _compute_C_K_lanczos(n)[1]
+    Lanczos._C_arr_vals[n], Lanczos._K_arr_vals[n] = _compute_C_K_lanczos(n)
