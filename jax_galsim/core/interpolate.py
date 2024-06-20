@@ -39,7 +39,7 @@ def akima_interp_coeffs(x, y):
 
 @jax.jit
 def akima_interp(x, xp, yp, coeffs):
-    i = jnp.clip(jnp.searchsorted(xp, x, side='right'), 1, len(xp) - 1) - 1
+    i = jnp.clip(jnp.searchsorted(xp, x, side="right"), 1, len(xp) - 1) - 1
 
     # these coeffs are for
     # P(x) = a + b * (x-xi) + c * (x-xi)**2 + d * (x-xi)**3
