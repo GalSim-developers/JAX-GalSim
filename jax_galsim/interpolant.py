@@ -1708,7 +1708,8 @@ def _lanczos_kval_interp_table(n, du, krange, conserve_dc):
     k = np.linspace(0, krange, int(krange / dk) + 1)
     kv = _gs_uval(k / 2.0 / np.pi, n, conserve_dc)
     coeffs = akima_interp_coeffs_nojax(k, kv)
-    return tuple(k.tolist()), tuple(kv.tolist()), coeffs
+    # return tuple(k.tolist()), tuple(kv.tolist()), coeffs
+    return k, kv, tuple([np.array(c) for c in coeffs])
 
 
 def _compute_C_K_lanczos(n):
