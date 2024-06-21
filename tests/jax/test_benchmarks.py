@@ -23,6 +23,7 @@ def test_benchmarks_interpolated_image(benchmark, kind):
     jitf = jax.jit(f)
 
     if kind == "compile":
+        jax.clear_caches()
         benchmark(lambda: jitf().array.block_until_ready())
     elif kind == "run":
         jitf().array.block_until_ready()
@@ -119,6 +120,7 @@ def test_benchmarks_metacal(benchmark, kind):
         )
 
     if kind == "compile":
+        jax.clear_caches()
         benchmark(lambda: _run().array.block_until_ready())
     elif kind == "run":
         _run().array.block_until_ready()
