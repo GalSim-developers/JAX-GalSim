@@ -117,13 +117,13 @@ def test_benchmarks_metacal(benchmark, kind):
             target_fwhm,
             g1,
             128,
-        )
+        ).block_until_ready()
 
     if kind == "compile":
         jax.clear_caches()
-        benchmark(lambda: _run().array.block_until_ready())
+        benchmark(lambda: _run())
     elif kind == "run":
-        _run().array.block_until_ready()
-        benchmark(lambda: _run().array.block_until_ready())
+        _run()
+        benchmark(lambda: _run())
     else:
         raise ValueError(f"kind={kind} not recognized")
