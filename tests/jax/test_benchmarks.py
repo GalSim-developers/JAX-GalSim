@@ -1,3 +1,4 @@
+import time
 from functools import partial
 
 import galsim as _galsim
@@ -24,12 +25,18 @@ def test_benchmarks_interpolated_image(benchmark, kind):
 
     if kind == "compile":
         jax.clear_caches()
+        t0 = time.time()
         benchmark(lambda: jitf().array.block_until_ready())
+        t0 = time.time() - t0
     elif kind == "run":
         jitf().array.block_until_ready()
+        t0 = time.time()
         benchmark(lambda: jitf().array.block_until_ready())
+        t0 = time.time() - t0
     else:
         raise ValueError(f"kind={kind} not recognized")
+
+    print(f"time: {t0 / 1e-3:0.4g} ms", end=" ")
 
 
 @partial(jax.jit, static_argnames=("nk",))
@@ -121,9 +128,15 @@ def test_benchmarks_metacal(benchmark, kind):
 
     if kind == "compile":
         jax.clear_caches()
+        t0 = time.time()
         benchmark(lambda: _run())
+        t0 = time.time() - t0
     elif kind == "run":
+        t0 = time.time()
         _run()
         benchmark(lambda: _run())
+        t0 = time.time() - t0
     else:
         raise ValueError(f"kind={kind} not recognized")
+
+    print(f"time: {t0 / 1e-3:0.4g} ms", end=" ")
