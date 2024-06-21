@@ -34,12 +34,7 @@ def akima_interp_coeffs_nojax(x, y):
     c = (3 * mi - 2 * s[:-1] - s[1:]) / dx
     d = (s[:-1] + s[1:] - 2 * mi) / dx / dx
 
-    return (
-        tuple(a.tolist()),
-        tuple(b.tolist()),
-        tuple(c.tolist()),
-        tuple(d.tolist()),
-    )
+    return (a, b, c, d)
 
 
 @jax.jit
