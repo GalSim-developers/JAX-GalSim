@@ -5,6 +5,7 @@ interpolants themselves (e.g., the coefficients that define the kernel
 shapes, the integrals of the kernels, etc.) are constants.
 """
 
+import functools
 import math
 from functools import partial
 
@@ -16,7 +17,7 @@ from galsim.errors import GalSimValueError
 from jax.tree_util import register_pytree_node_class
 
 from jax_galsim.bessel import si
-from jax_galsim.core.interpolate import akima_interp, akima_interp_coeffs
+from jax_galsim.core.interpolate import akima_interp, akima_interp_coeffs_nojax
 from jax_galsim.core.utils import implements, is_equal_with_arrays
 from jax_galsim.errors import GalSimError
 from jax_galsim.gsparams import GSParams
@@ -1576,16 +1577,22 @@ class Lanczos(Interpolant):
 
         return retval
 
-    @lazy_property
-    def _kval_interp_table(self):
-        dk = self._du * 2.0 * np.pi
-        k = jnp.linspace(0, self.krange, int(self.krange / dk) + 1)
-        kv = Lanczos._uval(k / 2.0 / jnp.pi, self._n, self._conserve_dc, self._C_arr)
-        coeffs = akima_interp_coeffs(k, kv)
-        return k, kv, coeffs
+    # pure function that is jitted ahead of time
+    # it gets recompiled as needed for combinations of n, conserve_dc, du, and krange
+    @partial(jax.jit, static_argnames=("n", "conserve_dc", "du", "krange"))
+    def _interp_kval(k, n, conserve_dc, du, krange):
+        _idata = _lanczos_kval_interp_table(
+            n,
+            du,
+            krange,
+            conserve_dc,
+        )
+        return akima_interp(jnp.abs(k), *_idata)
 
     def _kval_noraise(self, k):
-        return akima_interp(jnp.abs(k), *self._kval_interp_table)
+        return Lanczos._interp_kval(
+            k, self._n, self._conserve_dc, self._du, self.krange
+        )
 
     def urange(self):
         """The maximum extent of the interpolant in Fourier space (in 2pi/pixels)."""
@@ -1693,6 +1700,15 @@ def _find_umax_lanczos(_du, n, conserve_dc, _C, kva):
             umax = u
         u += _du
     return umax
+
+
+@functools.lru_cache(maxsize=128)
+def _lanczos_kval_interp_table(n, du, krange, conserve_dc):
+    dk = du * 2.0 * np.pi
+    k = np.linspace(0, krange, int(krange / dk) + 1)
+    kv = _gs_uval(k / 2.0 / np.pi, n, conserve_dc)
+    coeffs = akima_interp_coeffs_nojax(k, kv)
+    return tuple(k.tolist()), tuple(kv.tolist()), coeffs
 
 
 def _compute_C_K_lanczos(n):
