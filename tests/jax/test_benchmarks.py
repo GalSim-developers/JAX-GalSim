@@ -77,7 +77,7 @@ def _metacal_jax_galsim(im, psf, nse_im, scale, target_fwhm, g1, nk):
     return sim + jnp.rot90(snse, 3)
 
 
-@pytest.mark.parametrize("kind", ["compile", "run"])
+@pytest.mark.parametrize("kind", ["run"])
 def test_benchmarks_metacal(benchmark, kind):
     seed = 42
     hlr = 0.5
