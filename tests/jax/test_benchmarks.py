@@ -1,4 +1,3 @@
-import time
 from functools import partial
 
 import galsim as _galsim
@@ -8,6 +7,37 @@ import numpy as np
 import pytest
 
 import jax_galsim as jgs
+from jax_galsim.core.testing import time_code_block
+
+
+@pytest.mark.parametrize("kind", ["compile", "run"])
+@pytest.mark.parametrize(
+    "conserve_dc", [True, False], ids=["conserve_dc", "no_conserve_dc"]
+)
+@pytest.mark.parametrize("method", ["xval", "kval"])
+def test_benchmarks_lanczos_interp(benchmark, kind, conserve_dc, method):
+    interp = jgs.Lanczos(5, conserve_dc=conserve_dc)
+    if method == "xval":
+        f = jax.jit(interp.xval)
+    elif method == "kval":
+        f = jax.jit(interp.kval)
+    else:
+        raise ValueError(f"method={method} not recognized")
+
+    k = jnp.linspace(0.3, 0.5, 10000)
+
+    if kind == "compile":
+        jax.clear_caches()
+        with time_code_block(quiet=True) as tr:
+            benchmark(lambda: f(k + 0.1).block_until_ready())
+    elif kind == "run":
+        f(k).block_until_ready()
+        with time_code_block(quiet=True) as tr:
+            benchmark(lambda: f(k + 0.1).block_until_ready())
+    else:
+        raise ValueError(f"kind={kind} not recognized")
+
+    print(f"time: {tr.dt:0.4g} ms", end=" ")
 
 
 @pytest.mark.parametrize("kind", ["compile", "run"])
@@ -25,18 +55,16 @@ def test_benchmarks_interpolated_image(benchmark, kind):
 
     if kind == "compile":
         jax.clear_caches()
-        t0 = time.time()
-        benchmark(lambda: jitf().array.block_until_ready())
-        t0 = time.time() - t0
+        with time_code_block(quiet=True) as tr:
+            benchmark(lambda: jitf().array.block_until_ready())
     elif kind == "run":
         jitf().array.block_until_ready()
-        t0 = time.time()
-        benchmark(lambda: jitf().array.block_until_ready())
-        t0 = time.time() - t0
+        with time_code_block(quiet=True) as tr:
+            benchmark(lambda: jitf().array.block_until_ready())
     else:
         raise ValueError(f"kind={kind} not recognized")
 
-    print(f"time: {t0 / 1e-3:0.4g} ms", end=" ")
+    print(f"time: {tr.dt:0.4g} ms", end=" ")
 
 
 @partial(jax.jit, static_argnames=("nk",))
@@ -128,15 +156,13 @@ def test_benchmarks_metacal(benchmark, kind):
 
     if kind == "compile":
         jax.clear_caches()
-        t0 = time.time()
-        benchmark(lambda: _run())
-        t0 = time.time() - t0
+        with time_code_block(quiet=True) as tr:
+            benchmark(lambda: _run())
     elif kind == "run":
-        t0 = time.time()
         _run()
-        benchmark(lambda: _run())
-        t0 = time.time() - t0
+        with time_code_block(quiet=True) as tr:
+            benchmark(lambda: _run())
     else:
         raise ValueError(f"kind={kind} not recognized")
 
-    print(f"time: {t0 / 1e-3:0.4g} ms", end=" ")
+    print(f"time: {tr.dt:0.4g} ms", end=" ")
