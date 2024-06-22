@@ -20,7 +20,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.11",]
+        python-version: ["3.12",]
 
     steps:
       - uses: actions/checkout@v3
@@ -35,11 +35,10 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install pytest pytest-codspeed
           python -m pip install .
+          git submodule update --init --recursive
 
       - name: Run benchmarks
         uses: CodSpeedHQ/action@v2
         with:
           token: ${{ secrets.CODSPEED_TOKEN }}
-          run: |
-            git submodule update --init --recursive
-            pytest -vvs --codspeed
+          run: pytest -vvs --codspeed
