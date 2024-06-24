@@ -141,7 +141,11 @@ def test_interpolant_jax_lanczos_perf(cdc):
     ]
     + [galsim.Lanczos(i, conserve_dc=False) for i in range(1, 31)]
     + [galsim.Lanczos(i, conserve_dc=True) for i in range(1, 31)],
-    ids=lambda x: str(x).replace("galsim.", "")
+    ids=lambda x: str(x)
+    .replace("galsim.", "")
+    .replace("(", "")
+    .replace(")", "")
+    .replace(", ", "-")
     + ("" if not isinstance(x, galsim.Lanczos) else f"-{x.conserve_dc}"),
 )
 @pytest.mark.parametrize("kind", ["fluxes", "ranges", "xval", "kval"])
