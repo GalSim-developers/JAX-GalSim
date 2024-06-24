@@ -17,7 +17,10 @@ from galsim.errors import GalSimValueError
 from jax.tree_util import register_pytree_node_class
 
 from jax_galsim.bessel import si
-from jax_galsim.core.interpolate import akima_interp, akima_interp_coeffs_nojax
+from jax_galsim.core.interpolate import (
+    akima_interp_coeffs_nojax,
+    akima_interp_fixedspacing,
+)
 from jax_galsim.core.utils import implements, is_equal_with_arrays
 from jax_galsim.errors import GalSimError
 from jax_galsim.gsparams import GSParams
@@ -1582,7 +1585,7 @@ class Lanczos(Interpolant):
             krange,
             conserve_dc,
         )
-        return akima_interp(jnp.abs(k), *_idata)
+        return akima_interp_fixedspacing(jnp.abs(k), *_idata)
 
     def _kval_noraise(self, k):
         return Lanczos._interp_kval(
