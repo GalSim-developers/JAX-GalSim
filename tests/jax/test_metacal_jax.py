@@ -243,7 +243,8 @@ def test_metacal_comp_to_galsim(nse):
     np.testing.assert_allclose(gim, jgim, rtol=0, atol=atol)
 
 
-def test_metacal_vmap():
+@pytest.mark.parametrize("ntest", [1, 10, 100])
+def test_metacal_vmap(ntest):
     start_seed = 42
     hlr = 0.5
     fwhm = 0.9
@@ -255,7 +256,8 @@ def test_metacal_vmap():
     ims = []
     nse_ims = []
     psfs = []
-    for _seed in range(10):
+    init_done = False
+    for _seed in range(ntest):
         seed = _seed + start_seed
         rng = np.random.RandomState(seed)
 
@@ -289,6 +291,40 @@ def test_metacal_vmap():
         psfs.append(psf)
         nse_ims.append(nse_im)
 
+        if not init_done:
+            init_done = True
+
+            # jax galsim and galsim set stepk and maxk differently due to slight
+            # algorithmic differences.  We force them to be the same here for this
+            # test so it passes.
+            iim = jax_galsim.InterpolatedImage(
+                jax_galsim.ImageD(im),
+                scale=scale,
+                x_interpolant=XINTERP,
+                gsparams=jax_galsim.GSParams(minimum_fft_size=128),
+            )
+            iim_kwargs = {
+                "_force_stepk": iim.stepk.item(),
+                "_force_maxk": iim.maxk.item(),
+            }
+            inse = jax_galsim.InterpolatedImage(
+                jax_galsim.ImageD(jnp.rot90(nse_im, 1)),
+                scale=scale,
+                x_interpolant=XINTERP,
+                gsparams=jax_galsim.GSParams(minimum_fft_size=128),
+            )
+            inse_kwargs = {
+                "_force_stepk": inse.stepk.item(),
+                "_force_maxk": inse.maxk.item(),
+            }
+            ipsf = jax_galsim.InterpolatedImage(
+                jax_galsim.ImageD(psf), scale=scale, x_interpolant=XINTERP
+            )
+            ipsf_kwargs = {
+                "_force_stepk": ipsf.stepk.item(),
+                "_force_maxk": ipsf.maxk.item(),
+            }
+
     ims = np.stack(ims)
     psfs = np.stack(psfs)
     nse_ims = np.stack(nse_ims)
@@ -302,9 +338,9 @@ def test_metacal_vmap():
             scale,
             target_fwhm,
             g1,
-            {},
-            {},
-            {},
+            iim_kwargs,
+            ipsf_kwargs,
+            inse_kwargs,
             128,
         )
     gt0 = time.time() - gt0
