@@ -175,7 +175,7 @@ def test_interpolant_jax_same_as_galsim(interp, kind):
         np.testing.assert_allclose(gs._i.urange(), jgs.urange())
         np.testing.assert_allclose(gs.krange, jgs.krange, atol=1e-5, rtol=1e-5)
     elif kind == "xval":
-        np.testing.assert_allclose(gs.xval(x), jgs.xval(x), rtol=0, atol=1e-10)
+        np.testing.assert_allclose(gs.xval(x), jgs.xval(x), rtol=0, atol=5e-5)
     elif kind == "kval":
         np.testing.assert_allclose(gs.kval(k), jgs.kval(k), rtol=0, atol=5.2e-5)
     else:
@@ -432,7 +432,7 @@ def test_interpolant_jax_smoke():
         true_xval[np.abs(x) < n] = np.sinc(x[np.abs(x) < n]) * np.sinc(
             x[np.abs(x) < n] / n
         )
-        np.testing.assert_allclose(ln.xval(x), true_xval, rtol=1.0e-5, atol=1.0e-10)
+        np.testing.assert_allclose(ln.xval(x), true_xval, rtol=5.0e-5, atol=2e-5)
         assert np.isclose(ln.xval(x[12]), true_xval[12])
 
         # Lanczos notably does not conserve dc flux
@@ -505,7 +505,7 @@ def test_interpolant_jax_unit_integrals():
         print("integrals: ", len(integrals), integrals)
 
         assert len(integrals) == n
-        np.testing.assert_allclose(integrals, direct_integrals, atol=1.0e-12)
+        np.testing.assert_allclose(integrals, direct_integrals, atol=2e-5, rtol=2e-4)
 
         if n > 10:
             print("n>10 for ", repr(interp))

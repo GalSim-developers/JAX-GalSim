@@ -1461,6 +1461,15 @@ class Lanczos(Interpolant):
             self._gsparams.kvalue_accuracy,
         )
 
+    @property
+    def _dx(self):
+        dx = self._gsparams.table_spacing * np.power(
+            self._gsparams.xvalue_accuracy / 10.0, 0.25
+        )
+        # these need to hit integer values since the function has to be either 0 or 1 there
+        dx = 1.0 / np.ceil(1.0 / dx)
+        return dx
+
     def tree_flatten(self):
         """This function flattens the Interpolant into a list of children
         nodes that will be traced by JAX and auxiliary static data."""
@@ -1525,8 +1534,27 @@ class Lanczos(Interpolant):
 
         return jnp.where(x < n, val, 0.0)
 
+    # pure function that is jitted ahead of time
+    # it gets recompiled as needed for combinations of n, conserve_dc, and dx
+    @partial(jax.jit, static_argnames=("n", "conserve_dc", "dx"))
+    def _interp_xval(x, n, conserve_dc, dx):
+        _idata = _lanczos_xval_interp_table(
+            n,
+            dx,
+            conserve_dc,
+        )
+        return akima_interp_fixedspacing(jnp.abs(x), *_idata)
+
     def _xval_noraise(self, x):
-        return Lanczos._xval(x, self._n, self._conserve_dc, self._K_arr)
+        return Lanczos._interp_xval(
+            x,
+            self._n,
+            self._conserve_dc,
+            self._dx,
+        )
+
+    # def _xval_noraise(self, x):
+    #     return Lanczos._xval(x, self._n, self._conserve_dc, self._K_arr)
 
     @partial(jax.jit, static_argnames=("n",))
     def _raw_uval(u, n):
@@ -1708,6 +1736,51 @@ def _lanczos_kval_interp_table(n, du, krange, conserve_dc):
     kv = _gs_uval(k / 2.0 / np.pi, n, conserve_dc)
     coeffs = akima_interp_coeffs_nojax(k, kv)
     return k, kv, coeffs
+
+
+@np.vectorize
+def _gs_sinc(x):
+    return _galsim.bessel.sinc(x)
+
+
+def _gs_xval(x, n, conserve_dc):
+    x = np.abs(x)
+
+    sincx = _gs_sinc(x)
+    if n == 1:
+        sincx_n = sincx
+    else:
+        sincx_n = _gs_sinc(x / n)
+    val = sincx * sincx_n
+
+    if conserve_dc:
+        _K = Lanczos._K_arr_vals[n]
+        pix = np.pi * x
+        s = sincx * pix
+
+        ssq = s * s
+        factor = (
+            1.0
+            - 4.0 * _K[1] * ssq
+            - 16.0 * _K[2] * ssq * (1.0 - ssq)
+            - 4.0 * _K[3] * ssq * (9.0 - ssq * (24.0 - 16.0 * ssq))
+            - 64.0 * _K[4] * ssq * (1.0 - ssq * (5.0 - ssq * (8.0 - 4.0 * ssq)))
+            - 4.0
+            * _K[5]
+            * ssq
+            * (25.0 - ssq * (200.0 - ssq * (560.0 - ssq * (640.0 - 256.0 * ssq))))
+        )
+        val = val / factor
+
+    return np.where(x < n, val, 0.0)
+
+
+@functools.lru_cache(maxsize=128)
+def _lanczos_xval_interp_table(n, dx, conserve_dc):
+    x = np.linspace(0, n, int(n / dx) + 1)
+    xv = _gs_xval(x, n, conserve_dc)
+    coeffs = akima_interp_coeffs_nojax(x, xv)
+    return x, xv, coeffs
 
 
 def _compute_C_K_lanczos(n):
