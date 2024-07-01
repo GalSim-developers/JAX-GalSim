@@ -1116,8 +1116,11 @@ def _draw_with_interpolant_kval(kx, ky, kxmin, kymin, zp, interp):
     kyp = kyi + kymin
     nky = zp.shape[0]
 
+    irange = interp.ixrange // 2
+    iinds = jnp.arange(-irange, irange + 1)
+
     wkx, kxind = _interp_weight_1d_kval(
-        jnp.arange(-interp.xrange, interp.xrange + 1),
+        iinds,
         kxi,
         kxp,
         kx,
@@ -1126,7 +1129,7 @@ def _draw_with_interpolant_kval(kx, ky, kxmin, kymin, zp, interp):
     )
 
     wky, kyind = _interp_weight_1d_kval(
-        jnp.arange(-interp.xrange, interp.xrange + 1),
+        iinds,
         kyi,
         kyp,
         ky,
