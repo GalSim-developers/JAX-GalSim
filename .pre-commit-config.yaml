@@ -11,7 +11,7 @@ ci:
 
 repos:
   - repo: https://github.com/psf/black
-    rev: 23.9.1
+    rev: 24.4.2
     hooks:
       - id: black
         language: python
@@ -24,7 +24,7 @@ repos:
         additional_dependencies: [pyproject-flake8]
         exclude: tests/Galsim/|tests/Coord/|tests/jax/galsim/
   - repo: https://github.com/pycqa/isort
-    rev: 5.12.0
+    rev: 5.13.2
     hooks:
       - id: isort
         exclude: tests/Galsim/|tests/Coord/|tests/jax/galsim/

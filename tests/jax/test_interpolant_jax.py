@@ -388,9 +388,7 @@ def test_interpolant_jax_smoke():
     np.testing.assert_allclose(q.xval(x), true_xval)
     sx = np.sinc(x / 2 / np.pi)
     cx = np.cos(x / 2)
-    true_kval = sx**5 * (
-        sx * (55.0 - 19.0 / 4.0 * x**2) + cx * (x**2 / 2.0 - 54.0)
-    )
+    true_kval = sx**5 * (sx * (55.0 - 19.0 / 4.0 * x**2) + cx * (x**2 / 2.0 - 54.0))
     np.testing.assert_allclose(q.kval(x), true_kval)
     assert np.isclose(q.xval(x[12]), true_xval[12])
     assert np.isclose(q.kval(x[12]), true_kval[12])
