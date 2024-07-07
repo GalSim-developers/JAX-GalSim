@@ -1009,8 +1009,11 @@ def _draw_with_interpolant_xval(x, y, xmin, ymin, zp, interp):
     yp = yi + ymin
     ny = zp.shape[0]
 
+    irange = interp.ixrange // 2
+    iinds = jnp.arange(-irange, irange + 1)
+
     wx, xind = _interp_weight_1d_xval(
-        jnp.arange(-interp.xrange, interp.xrange + 1),
+        iinds,
         xi,
         xp,
         x,
@@ -1019,7 +1022,7 @@ def _draw_with_interpolant_xval(x, y, xmin, ymin, zp, interp):
     )
 
     wy, yind = _interp_weight_1d_xval(
-        jnp.arange(-interp.xrange, interp.xrange + 1),
+        iinds,
         yi,
         yp,
         y,
@@ -1113,8 +1116,11 @@ def _draw_with_interpolant_kval(kx, ky, kxmin, kymin, zp, interp):
     kyp = kyi + kymin
     nky = zp.shape[0]
 
+    irange = interp.ixrange // 2
+    iinds = jnp.arange(-irange, irange + 1)
+
     wkx, kxind = _interp_weight_1d_kval(
-        jnp.arange(-interp.xrange, interp.xrange + 1),
+        iinds,
         kxi,
         kxp,
         kx,
@@ -1123,7 +1129,7 @@ def _draw_with_interpolant_kval(kx, ky, kxmin, kymin, zp, interp):
     )
 
     wky, kyind = _interp_weight_1d_kval(
-        jnp.arange(-interp.xrange, interp.xrange + 1),
+        iinds,
         kyi,
         kyp,
         ky,
