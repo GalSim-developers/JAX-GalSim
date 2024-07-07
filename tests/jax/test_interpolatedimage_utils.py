@@ -22,7 +22,7 @@ from jax_galsim.interpolatedimage import (
 @pytest.mark.parametrize(
     "interp",
     [
-        # Nearest(),
+        Nearest(),
         Linear(),
         # this is really slow right now and I am not sure why will fix later
         # SincInterpolant(),
@@ -62,7 +62,7 @@ def test_interpolatedimage_utils_draw_with_interpolant_xval(interp):
 @pytest.mark.parametrize(
     "interp",
     [
-        # Nearest(),
+        Nearest(),
         Linear(),
         # this is really slow right now and I am not sure why will fix later
         # SincInterpolant(),
