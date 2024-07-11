@@ -1572,9 +1572,6 @@ class Lanczos(Interpolant):
             self._dx,
         )
 
-    # def _xval_noraise(self, x):
-    #     return Lanczos._xval(x, self._n, self._conserve_dc, self._K_arr)
-
     @functools.partial(jax.jit, static_argnames=("n",))
     def _raw_uval(u, n):
         # this function is used in the init and so was causing a recursion depth error
