@@ -716,6 +716,26 @@ class Quintic(Interpolant):
         return 6
 
 
+@jax.jit
+def _sin_pi_absx(x):
+    x = jnp.abs(x)
+    msk_s = x <= 1e-4
+
+    def _low_s(x):
+        pix = jnp.pi * x
+        temp = (1.0 / 6.0) * pix * pix
+        return pix * (1.0 - temp)
+
+    def _high_s(x):
+        return jnp.sin(jnp.pi * x)
+
+    return jnp.piecewise(
+        x,
+        [msk_s],
+        [_low_s, _high_s],
+    )
+
+
 @implements(_galsim.interpolant.Lanczos)
 @register_pytree_node_class
 class Lanczos(Interpolant):
@@ -1504,7 +1524,7 @@ class Lanczos(Interpolant):
 
     # this is a pure function and we apply JIT ahead of time since this
     # one is pretty slow
-    @partial(jax.jit, static_argnames=("conserve_dc", "n", "_K"))
+    @functools.partial(jax.jit, static_argnames=("conserve_dc", "n", "_K"))
     def _xval(x, n, conserve_dc, _K):
         x = jnp.abs(x)
 
@@ -1556,7 +1576,7 @@ class Lanczos(Interpolant):
     # def _xval_noraise(self, x):
     #     return Lanczos._xval(x, self._n, self._conserve_dc, self._K_arr)
 
-    @partial(jax.jit, static_argnames=("n",))
+    @functools.partial(jax.jit, static_argnames=("n",))
     def _raw_uval(u, n):
         # this function is used in the init and so was causing a recursion depth error
         # when jitted, so I made it a pure function - MRB
@@ -1579,7 +1599,7 @@ class Lanczos(Interpolant):
 
     # this is a pure function and we apply JIT ahead of time since this
     # one is pretty slow
-    @partial(jax.jit, static_argnames=("conserve_dc", "n", "_C"))
+    @functools.partial(jax.jit, static_argnames=("n", "conserve_dc", "_C"))
     def _uval(u, n, conserve_dc, _C):
         retval = Lanczos._raw_uval(u, n)
 
