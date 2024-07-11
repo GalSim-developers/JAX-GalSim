@@ -1483,7 +1483,7 @@ class Lanczos(Interpolant):
     @property
     def _dx(self):
         dx = self._gsparams.table_spacing * np.power(
-            self._gsparams.xvalue_accuracy / 10.0, 0.25
+            self._gsparams.xvalue_accuracy / 160.0, 0.25
         )
         # these need to hit integer values since the function has to be either 0 or 1 there
         dx = 1.0 / np.ceil(1.0 / dx)
