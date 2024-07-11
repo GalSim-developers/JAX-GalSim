@@ -7,7 +7,6 @@ shapes, the integrals of the kernels, etc.) are constants.
 
 import functools
 import math
-from functools import partial
 
 import galsim as _galsim
 import jax
@@ -1556,7 +1555,7 @@ class Lanczos(Interpolant):
 
     # pure function that is jitted ahead of time
     # it gets recompiled as needed for combinations of n, conserve_dc, and dx
-    @partial(jax.jit, static_argnames=("n", "conserve_dc", "dx"))
+    @functools.partial(jax.jit, static_argnames=("n", "conserve_dc", "dx"))
     def _interp_xval(x, n, conserve_dc, dx):
         _idata = _lanczos_xval_interp_table(
             n,
@@ -1625,7 +1624,7 @@ class Lanczos(Interpolant):
 
     # pure function that is jitted ahead of time
     # it gets recompiled as needed for combinations of n, conserve_dc, du, and krange
-    @partial(jax.jit, static_argnames=("n", "conserve_dc", "du", "krange"))
+    @functools.partial(jax.jit, static_argnames=("n", "conserve_dc", "du", "krange"))
     def _interp_kval(k, n, conserve_dc, du, krange):
         _idata = _lanczos_kval_interp_table(
             n,
