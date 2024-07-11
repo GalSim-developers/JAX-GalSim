@@ -711,6 +711,26 @@ class Quintic(Interpolant):
         return 6
 
 
+@jax.jit
+def _sin_pi_absx(x):
+    x = jnp.abs(x)
+    msk_s = x <= 1e-4
+
+    def _low_s(x):
+        pix = jnp.pi * x
+        temp = (1.0 / 6.0) * pix * pix
+        return pix * (1.0 - temp)
+
+    def _high_s(x):
+        return jnp.sin(jnp.pi * x)
+
+    return jnp.piecewise(
+        x,
+        [msk_s],
+        [_low_s, _high_s],
+    )
+
+
 @implements(_galsim.interpolant.Lanczos)
 @register_pytree_node_class
 class Lanczos(Interpolant):
@@ -1519,21 +1539,9 @@ class Lanczos(Interpolant):
             n,
         )
 
-        def _low_s(x, n):
-            pix = jnp.pi * x
-            temp = (1.0 / 6.0) * pix * pix
-            return pix * (1.0 - temp)
+        if conserve_dc:
+            s = _sin_pi_absx(x)
 
-        def _high_s(x, n):
-            return jnp.sin(jnp.pi * x)
-
-        def _dcval(val, x, n, _K):
-            s = jnp.piecewise(
-                x,
-                [msk_s],
-                [_low_s, _high_s],
-                n,
-            )
             ssq = s * s
             factor = (
                 1.0
@@ -1548,20 +1556,7 @@ class Lanczos(Interpolant):
             )
             val = val / factor
 
-            return val
-
-        def _no_dcval(val, x, n, _K):
-            return val
-
-        return jax.lax.cond(
-            conserve_dc,
-            _dcval,
-            _no_dcval,
-            val,
-            x,
-            n,
-            _K,
-        )
+        return val
 
     def _xval_noraise(self, x):
         return Lanczos._xval(x, self._n, self._conserve_dc, self._K_arr)
@@ -1589,7 +1584,7 @@ class Lanczos(Interpolant):
     def _uval(u, n, conserve_dc, _C):
         retval = Lanczos._raw_uval(u, n)
 
-        def _dcval(retval, u, n, _C):
+        if conserve_dc:
             retval *= _C[0]
             retval += _C[1] * (
                 Lanczos._raw_uval(u + 1.0, n) + Lanczos._raw_uval(u - 1.0, n)
@@ -1608,18 +1603,7 @@ class Lanczos(Interpolant):
             )
             return retval
 
-        def _no_dcval(retval, u, n, _C):
-            return retval
-
-        return jax.lax.cond(
-            conserve_dc,
-            _dcval,
-            _no_dcval,
-            retval,
-            u,
-            n,
-            _C,
-        )
+        return retval
 
     def _kval_noraise(self, k):
         return Lanczos._uval(k / 2.0 / jnp.pi, self._n, self._conserve_dc, self._C_arr)
@@ -1745,7 +1729,7 @@ def _compute_C_K_lanczos(n):
     _C[4] = _K[1] * _K[3] - _K[4]
     _C[5] = -_K[5]
 
-    return _C, _K
+    return tuple(_C.tolist()), tuple(_K.tolist())
 
 
 Lanczos._C_arr_vals = {}
