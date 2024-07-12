@@ -59,11 +59,10 @@ def _akima_interp_coeffs_nojax(x, y):
     denom = wim1 + wi
     numer = wim1 * mi[1:-2] + wi * mi[2:-1]
 
-    smid = np.where(
-        np.abs(denom) >= 1e-12,
-        numer / denom,
-        (mi[1:-2] + mi[2:-1]) / 2.0,
-    )
+    msk_denom = np.abs(denom) >= 1e-12
+    smid = np.zeros_like(denom)
+    smid[msk_denom] = numer[msk_denom] / denom[msk_denom]
+    smid[~msk_denom] = (mi[1:-2][~msk_denom] + mi[2:-1][~msk_denom]) / 2.0
     s = np.concatenate([s0, s1, smid, snm2, snm1])
 
     # these coeffs are for
