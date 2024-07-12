@@ -1527,15 +1527,43 @@ class Lanczos(Interpolant):
     def _xval(x, n, conserve_dc, _K):
         x = jnp.abs(x)
 
-        sincx = jnp.sinc(x)
+        if conserve_dc or (n > 1 and n < 8):
+            pix = jnp.pi * x
+
+        sincx_n = jnp.sinc(x / n)
         if n == 1:
-            sincx_n = sincx
+            sincx = sincx_n
+        elif n == 2:
+            cospix_2 = jnp.cos(pix / 2)
+            sincx = sincx_n * cospix_2
+        elif n == 3:
+            sn = sincx_n * (pix / 3)
+            sincx = sincx_n * (1 - 4 / 3 * sn * sn)
+        elif n == 4:
+            pix4 = pix / 4
+            cospix_4 = jnp.cos(pix4)
+            sn = sincx_n * pix4
+            sincx = sincx_n * cospix_4 * (1 - 2 * sn * sn)
+        elif n == 5:
+            sn = sincx_n * (pix / 5)
+            snsq = sn * sn
+            sincx = sincx_n * (1.0 - snsq * (4 - 16 / 5 * snsq))
+        elif n == 6:
+            pix6 = pix / 6
+            cospix_6 = jnp.cos(pix6)
+            sn = sincx_n * pix6
+            snsq = sn * sn
+            sincx = sincx_n * cospix_6 * (1.0 - 16 / 3 * snsq * (1 - snsq))
+        elif n == 7:
+            sn = sincx_n * (pix / 7)
+            snsq = sn * sn
+            sincx = sincx_n * (1.0 - snsq / 7 * (56 - snsq * (112 - 64 * snsq)))
         else:
-            sincx_n = jnp.sinc(x / n)
+            sincx = jnp.sinc(x)
+
         val = sincx * sincx_n
 
         if conserve_dc:
-            pix = jnp.pi * x
             s = sincx * pix
             ssq = s * s
             factor = (
@@ -1565,12 +1593,13 @@ class Lanczos(Interpolant):
         return akima_interp_fixedspacing(jnp.abs(x), *_idata)
 
     def _xval_noraise(self, x):
-        return Lanczos._interp_xval(
-            x,
-            self._n,
-            self._conserve_dc,
-            self._dx,
-        )
+        return Lanczos._xval(x, self._n, self._conserve_dc, self._K_arr)
+        # return Lanczos._interp_xval(
+        #     x,
+        #     self._n,
+        #     self._conserve_dc,
+        #     self._dx,
+        # )
 
     @functools.partial(jax.jit, static_argnames=("n",))
     def _raw_uval(u, n):

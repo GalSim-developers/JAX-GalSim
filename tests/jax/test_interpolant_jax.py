@@ -79,10 +79,9 @@ def test_interpolant_jax_eq():
     _compare()
 
 
+@pytest.mark.parametrize("n", [3, 15])
 @pytest.mark.parametrize("cdc", [True, False])
-def test_interpolant_jax_lanczos_perf(cdc):
-    n = 15
-
+def test_interpolant_jax_lanczos_perf(cdc, n):
     t0 = time.time()
     jgs = galsim.Lanczos(n, conserve_dc=cdc)
     t0 = time.time() - t0
@@ -99,7 +98,7 @@ def test_interpolant_jax_lanczos_perf(cdc):
     print("galsim init    : %0.4e" % t0, flush=True)
 
     def _timeit(lz, ntest=10, jit=False, dox=False):
-        k = np.linspace(0.3, 0.5, 1000)
+        k = np.linspace(0.3, 0.5, 100000)
         if dox:
             if isinstance(lz, galsim.Lanczos) and jit:
                 f = jax.jit(lz.xval)
