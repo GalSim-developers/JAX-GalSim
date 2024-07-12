@@ -1,5 +1,4 @@
 import numpy as np
-
 import pytest
 
 from jax_galsim.core.interpolate import akima_interp, akima_interp_coeffs
