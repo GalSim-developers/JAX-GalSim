@@ -320,7 +320,7 @@ class Interpolant:
 class Delta(Interpolant):
     _positive_flux = 1.0
     _negative_flux = 0.0
-    _unit_integrals = jnp.array([1], dtype=float)
+    _unit_integrals = np.array([1], dtype=float)
 
     def __init__(self, tol=None, gsparams=None):
         if tol is not None:
@@ -372,7 +372,7 @@ class Delta(Interpolant):
 class Nearest(Interpolant):
     _positive_flux = 1.0
     _negative_flux = 0.0
-    _unit_integrals = jnp.array([1], dtype=float)
+    _unit_integrals = np.array([1], dtype=float)
 
     def __init__(self, tol=None, gsparams=None):
         if tol is not None:
@@ -709,26 +709,6 @@ class Quintic(Interpolant):
     def ixrange(self):
         """The total integral range of the interpolant.  Typically 2 * xrange."""
         return 6
-
-
-@jax.jit
-def _sin_pi_absx(x):
-    x = jnp.abs(x)
-    msk_s = x <= 1e-4
-
-    def _low_s(x):
-        pix = jnp.pi * x
-        temp = (1.0 / 6.0) * pix * pix
-        return pix * (1.0 - temp)
-
-    def _high_s(x):
-        return jnp.sin(jnp.pi * x)
-
-    return jnp.piecewise(
-        x,
-        [msk_s],
-        [_low_s, _high_s],
-    )
 
 
 @implements(_galsim.interpolant.Lanczos)
@@ -1514,34 +1494,44 @@ class Lanczos(Interpolant):
     def _xval(x, n, conserve_dc, _K):
         x = jnp.abs(x)
 
-        def _low(x, n):
-            # from galsim
-            # // res = n/(pi x)^2 * sin(pi x) * sin(pi x / n)
-            # //     ~= (1 - 1/6 pix^2) * (1 - 1/6 pix^2 / n^2)
-            # //     = 1 - 1/6 pix^2 ( 1 + 1/n^2 )
-            # // For x < 1.e-4, the errors in this approximation are less than 1.e-16.
+        if conserve_dc or (n > 1 and n < 8):
             pix = jnp.pi * x
-            temp = (1.0 / 6.0) * pix * pix
-            return 1.0 - temp * (1.0 + 1.0 / (n * n))
 
-        def _high(x, n):
-            pix = jnp.pi * x
-            s = jnp.sin(pix)
-            sn = jnp.sin(pix / n)
-            return n * s * sn / (pix * pix)
+        sincx_n = jnp.sinc(x / n)
+        if n == 1:
+            sincx = sincx_n
+        elif n == 2:
+            cospix_2 = jnp.cos(pix / 2)
+            sincx = sincx_n * cospix_2
+        elif n == 3:
+            sn = sincx_n * (pix / 3)
+            sincx = sincx_n * (1 - 4 / 3 * sn * sn)
+        elif n == 4:
+            pix4 = pix / 4
+            cospix_4 = jnp.cos(pix4)
+            sn = sincx_n * pix4
+            sincx = sincx_n * cospix_4 * (1 - 2 * sn * sn)
+        elif n == 5:
+            sn = sincx_n * (pix / 5)
+            snsq = sn * sn
+            sincx = sincx_n * (1.0 - snsq * (4 - 16 / 5 * snsq))
+        elif n == 6:
+            pix6 = pix / 6
+            cospix_6 = jnp.cos(pix6)
+            sn = sincx_n * pix6
+            snsq = sn * sn
+            sincx = sincx_n * cospix_6 * (1.0 - 16 / 3 * snsq * (1 - snsq))
+        elif n == 7:
+            sn = sincx_n * (pix / 7)
+            snsq = sn * sn
+            sincx = sincx_n * (1.0 - snsq / 7 * (56 - snsq * (112 - 64 * snsq)))
+        else:
+            sincx = jnp.sinc(x)
 
-        msk_s = x <= 1e-4
-        msk_l = x <= n
-        val = jnp.piecewise(
-            x,
-            [msk_s, (~msk_s) & msk_l],
-            [_low, _high, lambda x, n: jnp.array(0, dtype=float)],
-            n,
-        )
+        val = sincx * sincx_n
 
         if conserve_dc:
-            s = _sin_pi_absx(x)
-
+            s = sincx * pix
             ssq = s * s
             factor = (
                 1.0
@@ -1556,7 +1546,7 @@ class Lanczos(Interpolant):
             )
             val = val / factor
 
-        return val
+        return jnp.where(x < n, val, 0.0)
 
     def _xval_noraise(self, x):
         return Lanczos._xval(x, self._n, self._conserve_dc, self._K_arr)
