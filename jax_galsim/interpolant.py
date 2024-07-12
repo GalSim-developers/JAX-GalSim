@@ -715,26 +715,6 @@ class Quintic(Interpolant):
         return 6
 
 
-@jax.jit
-def _sin_pi_absx(x):
-    x = jnp.abs(x)
-    msk_s = x <= 1e-4
-
-    def _low_s(x):
-        pix = jnp.pi * x
-        temp = (1.0 / 6.0) * pix * pix
-        return pix * (1.0 - temp)
-
-    def _high_s(x):
-        return jnp.sin(jnp.pi * x)
-
-    return jnp.piecewise(
-        x,
-        [msk_s],
-        [_low_s, _high_s],
-    )
-
-
 @implements(_galsim.interpolant.Lanczos)
 @register_pytree_node_class
 class Lanczos(Interpolant):
