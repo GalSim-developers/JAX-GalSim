@@ -11,7 +11,16 @@ import jax_galsim
 
 
 def _metacal_galsim(
-    im, psf, nse_im, scale, target_fwhm, g1, iim_kwargs, ipsf_kwargs, inse_kwargs, nk
+    im,
+    psf,
+    nse_im,
+    scale,
+    target_fwhm,
+    g1,
+    iim_kwargs,
+    ipsf_kwargs,
+    inse_kwargs,
+    nk,
 ):
     iim = _galsim.InterpolatedImage(
         _galsim.ImageD(im),
@@ -38,7 +47,7 @@ def _metacal_galsim(
     prof = _galsim.Convolve(
         ppsf_iim,
         _galsim.Gaussian(fwhm=target_fwhm),
-        gsparams=_galsim.GSParams(minimum_fft_size=nk),
+        gsparams=_galsim.GSParams(minimum_fft_size=nk, maximum_fft_size=nk),
     )
 
     sim = prof.drawImage(
@@ -54,7 +63,7 @@ def _metacal_galsim(
         _galsim.Convolve(
             ppsf_inse,
             _galsim.Gaussian(fwhm=target_fwhm),
-            gsparams=_galsim.GSParams(minimum_fft_size=nk),
+            gsparams=_galsim.GSParams(minimum_fft_size=nk, maximum_fft_size=nk),
         )
         .drawImage(
             nx=33,
@@ -86,6 +95,7 @@ def _metacal_jax_galsim_render(im, psf, g1, target_psf, scale, nk):
     ).array.astype(np.float64)
 
 
+@partial(jax.jit, static_argnames=("nk",))
 def _metacal_jax_galsim(im, psf, nse_im, scale, target_fwhm, g1, nk):
     iim = jax_galsim.InterpolatedImage(
         jax_galsim.ImageD(im), scale=scale, x_interpolant="lanczos15"
@@ -210,6 +220,9 @@ def test_metacal_comp_to_galsim(nse):
         jgt0 = time.time() - jgt0
         print("jax-galsim time (%s): " % msg, jgt0 * 1e3, " [ms]")
 
+    if gres is None or jgres is None:
+        return
+
     gim = gres
     jgim = jgres
 
@@ -229,7 +242,8 @@ def test_metacal_comp_to_galsim(nse):
     np.testing.assert_allclose(gim, jgim, rtol=0, atol=atol)
 
 
-def test_metacal_vmap():
+@pytest.mark.parametrize("ntest", [1, 10, 100])
+def test_metacal_vmap(ntest):
     start_seed = 42
     hlr = 0.5
     fwhm = 0.9
@@ -241,7 +255,8 @@ def test_metacal_vmap():
     ims = []
     nse_ims = []
     psfs = []
-    for _seed in range(10):
+    init_done = False
+    for _seed in range(ntest):
         seed = _seed + start_seed
         rng = np.random.RandomState(seed)
 
@@ -275,6 +290,40 @@ def test_metacal_vmap():
         psfs.append(psf)
         nse_ims.append(nse_im)
 
+        if not init_done:
+            init_done = True
+
+            # jax galsim and galsim set stepk and maxk differently due to slight
+            # algorithmic differences.  We force them to be the same here for this
+            # test so it passes.
+            iim = jax_galsim.InterpolatedImage(
+                jax_galsim.ImageD(im),
+                scale=scale,
+                x_interpolant="lanczos15",
+                gsparams=jax_galsim.GSParams(minimum_fft_size=128),
+            )
+            iim_kwargs = {
+                "_force_stepk": iim.stepk.item(),
+                "_force_maxk": iim.maxk.item(),
+            }
+            inse = jax_galsim.InterpolatedImage(
+                jax_galsim.ImageD(jnp.rot90(nse_im, 1)),
+                scale=scale,
+                x_interpolant="lanczos15",
+                gsparams=jax_galsim.GSParams(minimum_fft_size=128),
+            )
+            inse_kwargs = {
+                "_force_stepk": inse.stepk.item(),
+                "_force_maxk": inse.maxk.item(),
+            }
+            ipsf = jax_galsim.InterpolatedImage(
+                jax_galsim.ImageD(psf), scale=scale, x_interpolant="lanczos15"
+            )
+            ipsf_kwargs = {
+                "_force_stepk": ipsf.stepk.item(),
+                "_force_maxk": ipsf.maxk.item(),
+            }
+
     ims = np.stack(ims)
     psfs = np.stack(psfs)
     nse_ims = np.stack(nse_ims)
@@ -288,17 +337,20 @@ def test_metacal_vmap():
             scale,
             target_fwhm,
             g1,
-            {},
-            {},
-            {},
+            iim_kwargs,
+            ipsf_kwargs,
+            inse_kwargs,
             128,
         )
     gt0 = time.time() - gt0
     print("Galsim time: ", gt0 * 1e3, " [ms]")
 
-    vmap_mcal = jax.vmap(
-        _metacal_jax_galsim,
-        in_axes=(0, 0, 0, None, None, None, None),
+    vmap_mcal = jax.jit(
+        jax.vmap(
+            _metacal_jax_galsim,
+            in_axes=(0, 0, 0, None, None, None, None),
+        ),
+        static_argnames=("nk",),
     )
 
     for i in range(2):

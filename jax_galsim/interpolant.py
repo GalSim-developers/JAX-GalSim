@@ -15,7 +15,7 @@ import numpy as np
 from galsim.errors import GalSimValueError
 from jax.tree_util import register_pytree_node_class
 
-from jax_galsim.bessel import si
+from jax_galsim.core.interpolate import akima_interp, akima_interp_coeffs
 from jax_galsim.core.utils import implements, is_equal_with_arrays
 from jax_galsim.errors import GalSimError
 from jax_galsim.gsparams import GSParams
@@ -1551,52 +1551,22 @@ class Lanczos(Interpolant):
     def _xval_noraise(self, x):
         return Lanczos._xval(x, self._n, self._conserve_dc, self._K_arr)
 
-    @functools.partial(jax.jit, static_argnames=("n",))
-    def _raw_uval(u, n):
-        # this function is used in the init and so was causing a recursion depth error
-        # when jitted, so I made it a pure function - MRB
-        # from galsim
-        # // F(u) = ( (vp+1) Si((vp+1)pi) - (vp-1) Si((vp-1)pi) +
-        # //          (vm-1) Si((vm-1)pi) - (vm+1) Si((vm+1)pi) ) / 2pi
-        vp = n * (2.0 * u + 1.0)
-        vm = n * (2.0 * u - 1.0)
-        retval = (
-            (vm - 1.0) * si(jnp.pi * (vm - 1.0))
-            - (vm + 1.0) * si(jnp.pi * (vm + 1.0))
-            - (vp - 1.0) * si(jnp.pi * (vp - 1.0))
-            + (vp + 1.0) * si(jnp.pi * (vp + 1.0))
+    # pure function that is jitted ahead of time
+    # it gets recompiled as needed for combinations of n, conserve_dc, du, and krange
+    @functools.partial(jax.jit, static_argnames=("n", "conserve_dc", "du", "krange"))
+    def _interp_kval(k, n, conserve_dc, du, krange):
+        _idata = _lanczos_kval_interp_table(
+            n,
+            du,
+            krange,
+            conserve_dc,
         )
-        return retval / (2.0 * jnp.pi)
-
-    # this is a pure function and we apply JIT ahead of time since this
-    # one is pretty slow
-    @functools.partial(jax.jit, static_argnames=("n", "conserve_dc", "_C"))
-    def _uval(u, n, conserve_dc, _C):
-        retval = Lanczos._raw_uval(u, n)
-
-        if conserve_dc:
-            retval *= _C[0]
-            retval += _C[1] * (
-                Lanczos._raw_uval(u + 1.0, n) + Lanczos._raw_uval(u - 1.0, n)
-            )
-            retval += _C[2] * (
-                Lanczos._raw_uval(u + 2.0, n) + Lanczos._raw_uval(u - 2.0, n)
-            )
-            retval += _C[3] * (
-                Lanczos._raw_uval(u + 3.0, n) + Lanczos._raw_uval(u - 3.0, n)
-            )
-            retval += _C[4] * (
-                Lanczos._raw_uval(u + 4.0, n) + Lanczos._raw_uval(u - 4.0, n)
-            )
-            retval += _C[5] * (
-                Lanczos._raw_uval(u + 5.0, n) + Lanczos._raw_uval(u - 5.0, n)
-            )
-            return retval
-
-        return retval
+        return akima_interp(jnp.abs(k), *_idata, fixed_spacing=True)
 
     def _kval_noraise(self, k):
-        return Lanczos._uval(k / 2.0 / jnp.pi, self._n, self._conserve_dc, self._C_arr)
+        return Lanczos._interp_kval(
+            k, self._n, self._conserve_dc, self._du, self.krange
+        )
 
     def urange(self):
         """The maximum extent of the interpolant in Fourier space (in 2pi/pixels)."""
@@ -1705,6 +1675,15 @@ def _find_umax_lanczos(_du, n, conserve_dc, _C, kva):
             umax = u
         u += _du
     return umax
+
+
+@functools.lru_cache(maxsize=128)
+def _lanczos_kval_interp_table(n, du, krange, conserve_dc):
+    dk = du * 2.0 * np.pi
+    k = np.linspace(0, krange, int(krange / dk) + 1)
+    kv = _gs_uval(k / 2.0 / np.pi, n, conserve_dc)
+    coeffs = akima_interp_coeffs(k, kv, use_jax=False)
+    return k, kv, coeffs
 
 
 def _compute_C_K_lanczos(n):
