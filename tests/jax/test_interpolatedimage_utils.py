@@ -142,9 +142,7 @@ def test_interpolatedimage_utils_stepk_maxk():
     np.testing.assert_allclose(gii.stepk, jgii.stepk, rtol=rtol, atol=0)
 
 
-@pytest.mark.parametrize(
-    "x_interp,atol,rtol", [("lanczos5", 5e-4, 0), ("quintic", 0, 1e-7)]
-)
+@pytest.mark.parametrize("x_interp", ["lanczos15", "quintic"])
 @pytest.mark.parametrize("normalization", ["sb", "flux"])
 @pytest.mark.parametrize("use_true_center", [True, False])
 @pytest.mark.parametrize(
@@ -192,8 +190,6 @@ def test_interpolatedimage_utils_comp_to_galsim(
     use_true_center,
     normalization,
     x_interp,
-    atol,
-    rtol,
 ):
     seed = max(
         abs(
@@ -268,8 +264,6 @@ def test_interpolatedimage_utils_comp_to_galsim(
                 gii.xValue(x * dx, y * dx),
                 jgii.xValue(x * dx, y * dx),
                 err_msg=f"xValue mismatch: wcs={wcs}, x={x}, y={y}",
-                atol=atol,
-                rtol=rtol,
             )
 
 
