@@ -73,7 +73,6 @@ def _metacal_galsim(
         )
         .array.astype(np.float64)
     )
-
     return sim + np.rot90(snse, 3)
 
 
