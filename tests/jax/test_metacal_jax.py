@@ -205,6 +205,7 @@ def test_metacal_comp_to_galsim(nse):
     for i in range(2):
         if i == 0:
             msg = "jit warmup"
+            jax.clear_caches()
         elif i == 1:
             msg = "jit"
         jgt0 = time.time()
@@ -357,6 +358,7 @@ def test_metacal_vmap(ntest):
     for i in range(2):
         if i == 0:
             msg = "jit warmup"
+            jax.clear_caches()
         elif i == 1:
             msg = "jit"
 
