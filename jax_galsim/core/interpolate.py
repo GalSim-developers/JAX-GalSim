@@ -14,7 +14,7 @@ def akima_interp_coeffs(x, y, use_jax=True):
     continuous second derivatives at the interpolation points.
 
     See https://en.wikipedia.org/wiki/Akima_spline and
-    Akima (1970), "A new method of interpolation and smooth curve fitting based on local procedures" (PDF).
+    Akima (1970), "A new method of interpolation and smooth curve fitting based on local procedures",
     Journal of the ACM. 17: 589-602 for a description of the technique.
 
     Parameters
