@@ -98,7 +98,9 @@ def si(x):
     x2 = x * x
     return jnp.where(
         x2 > 16.0,
-        jnp.sign(x) * (jnp.pi / 2) - _f_pade(x, x2) * jnp.cos(x) - _g_pade(x, x2) * jnp.sin(x),
+        jnp.sign(x) * (jnp.pi / 2)
+        - _f_pade(x, x2) * jnp.cos(x)
+        - _g_pade(x, x2) * jnp.sin(x),
         _si_small_pade(x, x2),
     )
 

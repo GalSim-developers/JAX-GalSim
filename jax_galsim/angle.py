@@ -133,7 +133,9 @@ class Angle(object):
         # We also want to allow angle1 = Angle(angle2) as a copy, so check for that.
         if isinstance(theta, Angle):
             if unit is not None:
-                raise TypeError("Cannot provide unit if theta is already an Angle instance")
+                raise TypeError(
+                    "Cannot provide unit if theta is already an Angle instance"
+                )
             self._rad = theta._rad
         elif unit is None:
             raise TypeError("Must provide unit for Angle.__init__")
@@ -164,12 +166,16 @@ class Angle(object):
 
     def __add__(self, other):
         if not isinstance(other, Angle):
-            raise TypeError("Cannot add %s of type %s to an Angle" % (other, type(other)))
+            raise TypeError(
+                "Cannot add %s of type %s to an Angle" % (other, type(other))
+            )
         return _Angle(self._rad + other._rad)
 
     def __sub__(self, other):
         if not isinstance(other, Angle):
-            raise TypeError("Cannot subtract %s of type %s from an Angle" % (other, type(other)))
+            raise TypeError(
+                "Cannot subtract %s of type %s from an Angle" % (other, type(other))
+            )
         return _Angle(self._rad - other._rad)
 
     def __mul__(self, other):
@@ -185,7 +191,9 @@ class Angle(object):
         elif other == float(other):
             return _Angle(self._rad / other)
         else:
-            raise TypeError("Cannot divide Angle by %s of type %s" % (other, type(other)))
+            raise TypeError(
+                "Cannot divide Angle by %s of type %s" % (other, type(other))
+            )
 
     __truediv__ = __div__
 
@@ -194,7 +202,9 @@ class Angle(object):
         if center is None:
             center = _Angle(0.0)
         start = center._rad - jnp.pi
-        offset = (self._rad - start) // (2.0 * jnp.pi)  # How many full cycles to subtract
+        offset = (self._rad - start) // (
+            2.0 * jnp.pi
+        )  # How many full cycles to subtract
         return _Angle(self._rad - offset * 2.0 * jnp.pi)
 
     def sin(self):
@@ -229,22 +239,30 @@ class Angle(object):
 
     def __le__(self, other):
         if not isinstance(other, Angle):
-            raise TypeError("Cannot compare %s of type %s to an Angle" % (other, type(other)))
+            raise TypeError(
+                "Cannot compare %s of type %s to an Angle" % (other, type(other))
+            )
         return self._rad <= other._rad
 
     def __lt__(self, other):
         if not isinstance(other, Angle):
-            raise TypeError("Cannot compare %s of type %s to an Angle" % (other, type(other)))
+            raise TypeError(
+                "Cannot compare %s of type %s to an Angle" % (other, type(other))
+            )
         return self._rad < other._rad
 
     def __ge__(self, other):
         if not isinstance(other, Angle):
-            raise TypeError("Cannot compare %s of type %s to an Angle" % (other, type(other)))
+            raise TypeError(
+                "Cannot compare %s of type %s to an Angle" % (other, type(other))
+            )
         return self._rad >= other._rad
 
     def __gt__(self, other):
         if not isinstance(other, Angle):
-            raise TypeError("Cannot compare %s of type %s to an Angle" % (other, type(other)))
+            raise TypeError(
+                "Cannot compare %s of type %s to an Angle" % (other, type(other))
+            )
         return self._rad > other._rad
 
     def __hash__(self):

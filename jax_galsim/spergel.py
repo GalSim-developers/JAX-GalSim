@@ -149,7 +149,9 @@ def fsmallz_nup1(z, nu):
 @jax.jit
 def fz_nup1(z, nu):
     """z^(nu+1) K_{nu+1}(z)"""
-    return jnp.where(z <= 1.0e-10, fsmallz_nup1(z, nu), jnp.power(z, nu + 1.0) * kv(nu + 1.0, z))
+    return jnp.where(
+        z <= 1.0e-10, fsmallz_nup1(z, nu), jnp.power(z, nu + 1.0) * kv(nu + 1.0, z)
+    )
 
 
 @jax.jit
@@ -183,7 +185,9 @@ def calculateFluxRadius(alpha, nu, zmin=0.0, zmax=30.0):
 
      nb. it is supposed that nu is in [-0.85, 4.0] checked in the Spergel class init
     """
-    return bisect_for_root(partial(fluxfractionFunc, nu=nu, alpha=alpha), zmin, zmax, niter=75)
+    return bisect_for_root(
+        partial(fluxfractionFunc, nu=nu, alpha=alpha), zmin, zmax, niter=75
+    )
 
 
 @implements(
@@ -293,7 +297,9 @@ class Spergel(GSObject):
     @property
     def _xnorm0(self):
         """return z^nu K_nu(z) for z=0"""
-        return jax.lax.select(self.nu > 0, _gamma(self.nu) * jnp.power(2.0, self.nu - 1.0), jnp.inf)
+        return jax.lax.select(
+            self.nu > 0, _gamma(self.nu) * jnp.power(2.0, self.nu - 1.0), jnp.inf
+        )
 
     def calculateFluxRadius(self, f):
         """Return the radius within which the total flux is f"""
@@ -381,9 +387,13 @@ class Spergel(GSObject):
 
     @lazy_property
     def _shoot_pos_cdf(self):
-        zmax = calculateFluxRadius(1.0 - self.gsparams.shoot_accuracy, self.nu, zmax=30.0)
+        zmax = calculateFluxRadius(
+            1.0 - self.gsparams.shoot_accuracy, self.nu, zmax=30.0
+        )
         flux_max = fluxfractionFunc(zmax, self.nu, alpha=0.0)
-        preducedfluxfractionFunc = partial(reducedfluxfractionFunc, nu=self.nu, norm=flux_max)
+        preducedfluxfractionFunc = partial(
+            reducedfluxfractionFunc, nu=self.nu, norm=flux_max
+        )
         z_cdf = jnp.linspace(0, zmax, 10_000)
         cdf = preducedfluxfractionFunc(z_cdf)
         return z_cdf, cdf
@@ -410,7 +420,9 @@ class Spergel(GSObject):
         # 1b) Int_0^zmin 2pi u x (a + b u)/(2 pi Nnu) du = shoot_accuracy
         # so the corrFact is there to signal the changement in this implementation
 
-        zmax = calculateFluxRadius(1.0 - self.gsparams.shoot_accuracy, self.nu, zmax=30.0)
+        zmax = calculateFluxRadius(
+            1.0 - self.gsparams.shoot_accuracy, self.nu, zmax=30.0
+        )
         flux_target = self.gsparams.shoot_accuracy
         shoot_rmin = calculateFluxRadius(flux_target, self.nu)
         knur = fz_nu(shoot_rmin, self.nu)
@@ -432,7 +444,9 @@ class Spergel(GSObject):
 
         flux_max = cumulflux(zmax, a, b, shoot_rmin, self.nu)
 
-        preducedfluxfractionFunc = partial(cumulflux, a=a, b=b, zmin=shoot_rmin, nu=self.nu, norm=flux_max)
+        preducedfluxfractionFunc = partial(
+            cumulflux, a=a, b=b, zmin=shoot_rmin, nu=self.nu, norm=flux_max
+        )
         z_cdf = jnp.linspace(0, zmax, 10_000)
         cdf = preducedfluxfractionFunc(z_cdf)
         return z_cdf, cdf

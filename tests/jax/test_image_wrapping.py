@@ -21,15 +21,22 @@ def test_image_wrapping_expand_contract():
     M = 38
     N = 25
     im = galsim.ImageCD(2 * M + 1, 2 * N + 1, xmin=-M, ymin=-N)  # Explicitly Hermitian
-    im2 = galsim.ImageCD(2 * M + 1, N + 1, xmin=-M, ymin=0)  # Implicitly Hermitian across y axis
-    im3 = galsim.ImageCD(M + 1, 2 * N + 1, xmin=0, ymin=-N)  # Implicitly Hermitian across x axis
+    im2 = galsim.ImageCD(
+        2 * M + 1, N + 1, xmin=-M, ymin=0
+    )  # Implicitly Hermitian across y axis
+    im3 = galsim.ImageCD(
+        M + 1, 2 * N + 1, xmin=0, ymin=-N
+    )  # Implicitly Hermitian across x axis
     # print('im = ',im)
     # print('im2 = ',im2)
     # print('im3 = ',im3)
     for i in range(-M, M + 1):
         for j in range(-N, N + 1):
             # An arbitrary, complicated Hermitian function.
-            val = np.exp((i / (2.3 * M)) ** 2 + 1j * (2.8 * i - 1.3 * j)) + ((2 + 3j * j) / (1.9 * N)) ** 3
+            val = (
+                np.exp((i / (2.3 * M)) ** 2 + 1j * (2.8 * i - 1.3 * j))
+                + ((2 + 3j * j) / (1.9 * N)) ** 3
+            )
             # val = 2*(i-j)**2 + 3j*(i+j)
 
             im[i, j] = val
@@ -85,8 +92,12 @@ def test_image_wrapping_autodiff(func, K, L):
     M = 38
     N = 25
     im = galsim.ImageCD(2 * M + 1, 2 * N + 1, xmin=-M, ymin=-N)  # Explicitly Hermitian
-    im2 = galsim.ImageCD(2 * M + 1, N + 1, xmin=-M, ymin=0)  # Implicitly Hermitian across y axis
-    im3 = galsim.ImageCD(M + 1, 2 * N + 1, xmin=0, ymin=-N)  # Implicitly Hermitian across x axis
+    im2 = galsim.ImageCD(
+        2 * M + 1, N + 1, xmin=-M, ymin=0
+    )  # Implicitly Hermitian across y axis
+    im3 = galsim.ImageCD(
+        M + 1, 2 * N + 1, xmin=0, ymin=-N
+    )  # Implicitly Hermitian across x axis
     # print('im = ',im)
     # print('im2 = ',im2)
     # print('im3 = ',im3)
@@ -95,7 +106,10 @@ def test_image_wrapping_autodiff(func, K, L):
     for i in range(-M, M + 1):
         for j in range(-N, N + 1):
             # An arbitrary, complicated Hermitian function.
-            val = np.exp((i / (2.3 * M)) ** 2 + 1j * (2.8 * i - 1.3 * j)) + ((2 + 3j * j) / (1.9 * N)) ** 3
+            val = (
+                np.exp((i / (2.3 * M)) ** 2 + 1j * (2.8 * i - 1.3 * j))
+                + ((2 + 3j * j) / (1.9 * N)) ** 3
+            )
             # val = 2*(i-j)**2 + 3j*(i+j)
 
             im[i, j] = val
@@ -143,7 +157,9 @@ def test_image_wrapping_autodiff(func, K, L):
         else:
             jax.jvp(_wrapit, (im3,), (im3 * 2,))
     else:
-        raise ValueError(f"Unknown function {func} for testing image wrapping w/ grads!")
+        raise ValueError(
+            f"Unknown function {func} for testing image wrapping w/ grads!"
+        )
 
 
 def test_image_wrapping_block_vs_index_reduce():

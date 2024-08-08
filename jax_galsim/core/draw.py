@@ -6,7 +6,9 @@ import jax.numpy as jnp
 from jax_galsim.random import PoissonDeviate
 
 
-def draw_by_xValue(gsobject, image, jacobian=jnp.eye(2), offset=jnp.zeros(2), flux_scaling=1.0):
+def draw_by_xValue(
+    gsobject, image, jacobian=jnp.eye(2), offset=jnp.zeros(2), flux_scaling=1.0
+):
     """Utility function to draw a real-space GSObject into an Image."""
     # putting the import here to avoid circular imports
     from jax_galsim import Image, PositionD
@@ -27,7 +29,9 @@ def draw_by_xValue(gsobject, image, jacobian=jnp.eye(2), offset=jnp.zeros(2), fl
     flux_scaling *= jnp.exp(logdet)
 
     # Draw the object
-    im = jax.vmap(lambda *args: gsobject._xValue(PositionD(*args)))(coords[..., 0], coords[..., 1])
+    im = jax.vmap(lambda *args: gsobject._xValue(PositionD(*args)))(
+        coords[..., 0], coords[..., 1]
+    )
 
     # Apply the flux scaling
     im = (im * flux_scaling).astype(image.dtype)
@@ -46,7 +50,9 @@ def draw_by_kValue(gsobject, image, jacobian=jnp.eye(2)):
     coords = jnp.dot(coords, jacobian)
 
     # Draw the object
-    im = jax.vmap(lambda *args: gsobject._kValue(PositionD(*args)))(coords[..., 0], coords[..., 1])
+    im = jax.vmap(lambda *args: gsobject._kValue(PositionD(*args)))(
+        coords[..., 0], coords[..., 1]
+    )
     im = (im).astype(image.dtype)
 
     # Return an image
@@ -70,7 +76,9 @@ def apply_kImage_phases(offset, image, jacobian=jnp.eye(2)):
         arg = -(kpos.x * cenx + kpos.y * ceny)
         return jnp.cos(arg) + 1j * jnp.sin(arg)
 
-    im_phase = jax.vmap(lambda *args: phase(PositionD(*args)))(kcoords[..., 0], kcoords[..., 1])
+    im_phase = jax.vmap(lambda *args: phase(PositionD(*args)))(
+        kcoords[..., 0], kcoords[..., 1]
+    )
     return Image(
         array=image.array * im_phase,
         bounds=image.bounds,
@@ -320,7 +328,12 @@ def _sample_zero(n_photons_data):
             1.0,
             rng,
         ),
-        lambda flux, eta_factor, max_sb, poisson_flux, max_extra_noise, rng: _calculate_n_photons_flux_nonzero(
+        lambda flux,
+        eta_factor,
+        max_sb,
+        poisson_flux,
+        max_extra_noise,
+        rng: _calculate_n_photons_flux_nonzero(
             flux, eta_factor, max_sb, poisson_flux, max_extra_noise, rng
         ),
         n_photons_data.flux,
@@ -340,7 +353,9 @@ def _sample_zero(n_photons_data):
 def _sample_nonzero(n_photons_data):
     g, _rng = jax.lax.cond(
         n_photons_data.poisson_flux,
-        lambda n_photons_data: _sample_poisson_flux(n_photons_data.flux, n_photons_data.flux_per_photon, n_photons_data.rng),
+        lambda n_photons_data: _sample_poisson_flux(
+            n_photons_data.flux, n_photons_data.flux_per_photon, n_photons_data.rng
+        ),
         lambda n_photons_data: (1.0, n_photons_data.rng),
         n_photons_data,
     )
@@ -373,7 +388,9 @@ def _scale_extra_noise(max_extra_noise, mod_flux, g, max_sb):
     return mod_flux, g
 
 
-def _calculate_n_photons_flux_nonzero(flux, flux_per_photon, max_sb, poisson_flux, max_extra_noise, rng):
+def _calculate_n_photons_flux_nonzero(
+    flux, flux_per_photon, max_sb, poisson_flux, max_extra_noise, rng
+):
     # For profiles that are positive definite, then N = flux. Easy.
     #
     # However, some profiles shoot some of their photons with negative flux. This means that
@@ -451,7 +468,9 @@ def _calculate_n_photons_flux_nonzero(flux, flux_per_photon, max_sb, poisson_flu
 
     mod_flux, g = jax.lax.cond(
         max_extra_noise > 0.0,
-        lambda max_extra_noise, mod_flux, g, max_sb: _scale_extra_noise(max_extra_noise, mod_flux, g, max_sb),
+        lambda max_extra_noise, mod_flux, g, max_sb: _scale_extra_noise(
+            max_extra_noise, mod_flux, g, max_sb
+        ),
         lambda max_extra_noise, mod_flux, g, max_sb: (mod_flux, g),
         max_extra_noise,
         mod_flux,

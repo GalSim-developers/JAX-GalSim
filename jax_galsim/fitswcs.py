@@ -191,7 +191,8 @@ class GSFitsWCS(CelestialWCS):
         else:
             raise GalSimError(
                 "GSFitsWCS only supports celestial coordinate systems."
-                "Expecting CTYPE1,2 to start with RA--- and DEC--.  Got %s, %s" % (ctype1, ctype2)
+                "Expecting CTYPE1,2 to start with RA--- and DEC--.  Got %s, %s"
+                % (ctype1, ctype2)
             )
         if ctype1[5:] != ctype2[5:]:  # pragma: no cover
             raise OSError("ctype1, ctype2 do not seem to agree on the WCS type")
@@ -308,11 +309,25 @@ class GSFitsWCS(CelestialWCS):
         # up the numbering of these coefficients.  We don't implement these terms, so
         # before going further, check to make sure none are present.
         odd_indices = [3, 11, 23, 39]
-        if any((header.get("PV%s_%s" % (i, j), 0.0) != 0.0 for i in [1, 2] for j in odd_indices)):
+        if any(
+            (
+                header.get("PV%s_%s" % (i, j), 0.0) != 0.0
+                for i in [1, 2]
+                for j in odd_indices
+            )
+        ):
             raise GalSimNotImplementedError("TPV not implemented for odd powers of r")
 
-        pv1 = [float(header.get("PV1_%s" % k, 0.0)) for k in range(40) if k not in odd_indices]
-        pv2 = [float(header.get("PV2_%s" % k, 0.0)) for k in range(40) if k not in odd_indices]
+        pv1 = [
+            float(header.get("PV1_%s" % k, 0.0))
+            for k in range(40)
+            if k not in odd_indices
+        ]
+        pv2 = [
+            float(header.get("PV2_%s" % k, 0.0))
+            for k in range(40)
+            if k not in odd_indices
+        ]
 
         maxk = max(np.nonzero(pv1)[0][-1], np.nonzero(pv2)[0][-1])
         # maxk = (order+1) * (order+2) / 2 - 1
@@ -347,11 +362,21 @@ class GSFitsWCS(CelestialWCS):
         a_order = int(header["A_ORDER"])
         b_order = int(header["B_ORDER"])
         order = max(a_order, b_order)  # Use the same order for both
-        a = [float(header.get("A_" + str(i) + "_" + str(j), 0.0)) for i in range(order + 1) for j in range(order + 1)]
+        a = [
+            float(header.get("A_" + str(i) + "_" + str(j), 0.0))
+            for i in range(order + 1)
+            for j in range(order + 1)
+        ]
         a = np.array(a).reshape((order + 1, order + 1))
-        b = [float(header.get("B_" + str(i) + "_" + str(j), 0.0)) for i in range(order + 1) for j in range(order + 1)]
+        b = [
+            float(header.get("B_" + str(i) + "_" + str(j), 0.0))
+            for i in range(order + 1)
+            for j in range(order + 1)
+        ]
         b = np.array(b).reshape((order + 1, order + 1))
-        a[1, 0] += 1  # Standard A,B are a differential calculation.  It's more convenient to
+        a[1, 0] += (
+            1  # Standard A,B are a differential calculation.  It's more convenient to
+        )
         b[0, 1] += 1  # keep this as an absolute calculation like PV does.
         self.ab = np.array([a, b])
 
@@ -360,9 +385,17 @@ class GSFitsWCS(CelestialWCS):
             ap_order = int(header["AP_ORDER"])
             bp_order = int(header["BP_ORDER"])
             order = max(ap_order, bp_order)  # Use the same order for both
-            ap = [float(header.get("AP_" + str(i) + "_" + str(j), 0.0)) for i in range(order + 1) for j in range(order + 1)]
+            ap = [
+                float(header.get("AP_" + str(i) + "_" + str(j), 0.0))
+                for i in range(order + 1)
+                for j in range(order + 1)
+            ]
             ap = np.array(ap).reshape((order + 1, order + 1))
-            bp = [float(header.get("BP_" + str(i) + "_" + str(j), 0.0)) for i in range(order + 1) for j in range(order + 1)]
+            bp = [
+                float(header.get("BP_" + str(i) + "_" + str(j), 0.0))
+                for i in range(order + 1)
+                for j in range(order + 1)
+            ]
             bp = np.array(bp).reshape((order + 1, order + 1))
             ap[1, 0] += 1
             bp[0, 1] += 1
@@ -453,12 +486,16 @@ class GSFitsWCS(CelestialWCS):
         else:  # pragma: no cover
             data[-1] = data[-1][:-1]
 
-        code = int(data[0].strip("."))  # Weirdly, these integers are given with decimal points.
+        code = int(
+            data[0].strip(".")
+        )  # Weirdly, these integers are given with decimal points.
         xorder = int(data[1].strip("."))
         yorder = int(data[2].strip("."))
         cross = int(data[3].strip("."))
         if cross != 2:  # pragma: no cover
-            raise GalSimNotImplementedError("TNX only implemented for half-cross option.")
+            raise GalSimNotImplementedError(
+                "TNX only implemented for half-cross option."
+            )
         if xorder != 4 or yorder != 4:  # pragma: no cover
             raise GalSimNotImplementedError("TNX only implemented for order = 4")
         # Note: order = 4 really means cubic.  order is how large the pv matrix is, i.e. 4x4.
@@ -532,9 +569,13 @@ class GSFitsWCS(CelestialWCS):
                     # The recursion rule is Pm = ((2m-1) x' Pm-1 - (m-1) Pm-2) / m
                     # Pm = ((2m-1) a Pm-1 - (m-1) Pm-2) / m
                     #      + x * ((2m-1) b Pm-1) / m
-                    xm[m] = ((2.0 * m - 1.0) * a * xm[m - 1] - (m - 1.0) * xm[m - 2]) / m
+                    xm[m] = (
+                        (2.0 * m - 1.0) * a * xm[m - 1] - (m - 1.0) * xm[m - 2]
+                    ) / m
                     xm[m, 1:] += ((2.0 * m - 1.0) * b * xm[m - 1, :-1]) / m
-                    ym[m] = ((2.0 * m - 1.0) * c * ym[m - 1] - (m - 1.0) * ym[m - 2]) / m
+                    ym[m] = (
+                        (2.0 * m - 1.0) * c * ym[m - 1] - (m - 1.0) * ym[m - 2]
+                    ) / m
                     ym[m, 1:] += ((2.0 * m - 1.0) * d * ym[m - 1, :-1]) / m
 
             pv2 = np.dot(xm.T, np.dot(pv, ym))
@@ -761,7 +802,9 @@ class GSFitsWCS(CelestialWCS):
                     if i == 1 and j == 0:
                         apij -= 1
                     if apij != 0.0:
-                        header["AP_" + str(i) + "_" + str(j)] = cast_to_python_float(apij)
+                        header["AP_" + str(i) + "_" + str(j)] = cast_to_python_float(
+                            apij
+                        )
             header["BP_ORDER"] = order
             for i in range(order + 1):
                 for j in range(order + 1):
@@ -769,7 +812,9 @@ class GSFitsWCS(CelestialWCS):
                     if i == 0 and j == 1:
                         bpij -= 1
                     if bpij != 0.0:
-                        header["BP_" + str(i) + "_" + str(j)] = cast_to_python_float(bpij)
+                        header["BP_" + str(i) + "_" + str(j)] = cast_to_python_float(
+                            bpij
+                        )
         return header
 
     @staticmethod
@@ -787,9 +832,18 @@ class GSFitsWCS(CelestialWCS):
             and jnp.array_equal(self.crpix, other.crpix)
             and jnp.array_equal(self.cd, other.cd)
             and self.center == other.center
-            and (jnp.array_equal(self.pv, other.pv) or (self.pv is None and other.pv is None))
-            and (jnp.array_equal(self.ab, other.ab) or (self.ab is None and other.ab is None))
-            and (jnp.array_equal(self.abp, other.abp) or (self.abp is None and other.abp is None))
+            and (
+                jnp.array_equal(self.pv, other.pv)
+                or (self.pv is None and other.pv is None)
+            )
+            and (
+                jnp.array_equal(self.ab, other.ab)
+                or (self.ab is None and other.ab is None)
+            )
+            and (
+                jnp.array_equal(self.abp, other.abp)
+                or (self.abp is None and other.abp is None)
+            )
         )
 
     def __repr__(self):
@@ -901,7 +955,10 @@ def FitsWCS(
 
     if "CTYPE1" not in header and "CDELT1" not in header:
         if not suppress_warning:
-            galsim_warn("No WCS information found in %r. Defaulting to PixelScale(1.0)" % (file_name))
+            galsim_warn(
+                "No WCS information found in %r. Defaulting to PixelScale(1.0)"
+                % (file_name)
+            )
         return PixelScale(1.0)
 
     # For linear WCS specifications, AffineTransformation should work.

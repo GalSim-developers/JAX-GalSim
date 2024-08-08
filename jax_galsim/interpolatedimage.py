@@ -249,7 +249,9 @@ class InterpolatedImage(Transformation, metaclass=DirMeta):
     def __hash__(self):
         # Definitely want to cache this, since the size of the image could be large.
         if not hasattr(self, "_hash"):
-            self._hash = hash(("galsim.InterpolatedImage", self.x_interpolant, self.k_interpolant))
+            self._hash = hash(
+                ("galsim.InterpolatedImage", self.x_interpolant, self.k_interpolant)
+            )
             self._hash ^= hash(
                 (
                     ensure_hashable(self.flux),
@@ -305,10 +307,13 @@ class InterpolatedImage(Transformation, metaclass=DirMeta):
             ensure_hashable(self.flux),
             self._original._offset,
         )
-        s += ", use_true_center=False, gsparams=%r, _force_stepk=%r, _force_maxk=%r)" % (
-            self.gsparams,
-            ensure_hashable(self._stepk),
-            ensure_hashable(self._maxk),
+        s += (
+            ", use_true_center=False, gsparams=%r, _force_stepk=%r, _force_maxk=%r)"
+            % (
+                self.gsparams,
+                ensure_hashable(self._stepk),
+                ensure_hashable(self._maxk),
+            )
         )
         return s
 
@@ -431,7 +436,9 @@ class _InterpolatedImageImpl(GSObject):
 
         # it must have well-defined bounds, otherwise seg fault in SBInterpolatedImage constructor
         if not image.bounds.isDefined():
-            raise GalSimUndefinedBoundsError("Supplied image does not have bounds defined.")
+            raise GalSimUndefinedBoundsError(
+                "Supplied image does not have bounds defined."
+            )
 
         # check what normalization was specified for the image: is it an image of surface
         # brightness, or flux?
@@ -448,23 +455,33 @@ class _InterpolatedImageImpl(GSObject):
         if x_interpolant is None:
             self._x_interpolant = Quintic(gsparams=self._gsparams)
         else:
-            self._x_interpolant = convert_interpolant(x_interpolant).withGSParams(self._gsparams)
+            self._x_interpolant = convert_interpolant(x_interpolant).withGSParams(
+                self._gsparams
+            )
         if k_interpolant is None:
             self._k_interpolant = Quintic(gsparams=self._gsparams)
         else:
-            self._k_interpolant = convert_interpolant(k_interpolant).withGSParams(self._gsparams)
+            self._k_interpolant = convert_interpolant(k_interpolant).withGSParams(
+                self._gsparams
+            )
 
         if pad_image is not None:
             raise NotImplementedError("pad_image not implemented in jax_galsim.")
 
         if pad_factor <= 0.0:
-            raise GalSimRangeError("Invalid pad_factor <= 0 in InterpolatedImage", pad_factor, 0.0)
+            raise GalSimRangeError(
+                "Invalid pad_factor <= 0 in InterpolatedImage", pad_factor, 0.0
+            )
 
         if noise_pad_size:
-            raise NotImplementedError("InterpolatedImages do not support noise padding in jax_galsim.")
+            raise NotImplementedError(
+                "InterpolatedImages do not support noise padding in jax_galsim."
+            )
         else:
             if noise_pad:
-                raise NotImplementedError("InterpolatedImages do not support noise padding in jax_galsim.")
+                raise NotImplementedError(
+                    "InterpolatedImages do not support noise padding in jax_galsim."
+                )
 
         if scale is not None:
             if wcs is not None:
@@ -577,7 +594,9 @@ class _InterpolatedImageImpl(GSObject):
         # Figure out the offset to apply based on the original image (not the padded one).
         # We will apply this below in _sbp.
         offset = self._parse_offset(self._jax_children[1]["offset"])
-        return self._adjust_offset(self._image.bounds, offset, None, self._jax_aux_data["use_true_center"])
+        return self._adjust_offset(
+            self._image.bounds, offset, None, self._jax_aux_data["use_true_center"]
+        )
 
     @lazy_property
     def _image(self):
@@ -586,7 +605,9 @@ class _InterpolatedImageImpl(GSObject):
         if self._jax_aux_data["depixelize"]:
             # TODO: no depixelize in jax_galsim
             # self._image = image.view(dtype=np.float64).depixelize(self._x_interpolant)
-            raise NotImplementedError("InterpolatedImages do not support 'depixelize' in jax_galsim.")
+            raise NotImplementedError(
+                "InterpolatedImages do not support 'depixelize' in jax_galsim."
+            )
         else:
             image = self._jax_children[0].view(dtype=float)
 
@@ -597,7 +618,11 @@ class _InterpolatedImageImpl(GSObject):
 
     @lazy_property
     def _wcs(self):
-        im_cen = self._jax_children[0].true_center if self._jax_aux_data["use_true_center"] else self._jax_children[0].center
+        im_cen = (
+            self._jax_children[0].true_center
+            if self._jax_aux_data["use_true_center"]
+            else self._jax_children[0].center
+        )
 
         # error checking was done on init
         if self._jax_children[1]["scale"] is not None:
@@ -612,7 +637,9 @@ class _InterpolatedImageImpl(GSObject):
     @lazy_property
     def _jac_arr(self):
         image = self._jax_children[0]
-        im_cen = image.true_center if self._jax_aux_data["use_true_center"] else image.center
+        im_cen = (
+            image.true_center if self._jax_aux_data["use_true_center"] else image.center
+        )
         return self._wcs.jacobian(image_pos=im_cen).getMatrix().ravel()
 
     @lazy_property
@@ -627,7 +654,9 @@ class _InterpolatedImageImpl(GSObject):
         pad_size = Image.good_fft_size(pad_size)
 
         xim = Image(
-            _zeropad_image(self._image.array, (pad_size - max(self._image.array.shape)) // 2),
+            _zeropad_image(
+                self._image.array, (pad_size - max(self._image.array.shape)) // 2
+            ),
             wcs=PixelScale(1.0),
         )
         xim.setCenter(0, 0)
@@ -708,9 +737,13 @@ class _InterpolatedImageImpl(GSObject):
             _maxk = self._x_interpolant.urange() / _uscale
 
             if calculate_maxk is True:
-                maxk = _find_maxk(self._kim, _maxk, self._gsparams.maxk_threshold * self.flux)
+                maxk = _find_maxk(
+                    self._kim, _maxk, self._gsparams.maxk_threshold * self.flux
+                )
             else:
-                maxk = _find_maxk(self._kim, calculate_maxk, self._gsparams.maxk_threshold * self.flux)
+                maxk = _find_maxk(
+                    self._kim, calculate_maxk, self._gsparams.maxk_threshold * self.flux
+                )
 
             return maxk
         else:
@@ -808,7 +841,9 @@ class _InterpolatedImageImpl(GSObject):
     def _pos_neg_fluxes(self):
         # record pos and neg fluxes now too
         pflux = jnp.sum(jnp.where(self._pad_image.array > 0, self._pad_image.array, 0))
-        nflux = jnp.abs(jnp.sum(jnp.where(self._pad_image.array < 0, self._pad_image.array, 0)))
+        nflux = jnp.abs(
+            jnp.sum(jnp.where(self._pad_image.array < 0, self._pad_image.array, 0))
+        )
         pint = self._x_interpolant.positive_flux
         nint = self._x_interpolant.negative_flux
         pint2d = pint * pint + nint * nint
@@ -1150,7 +1185,9 @@ def _flux_frac(a, x, y, cenx, ceny):
         return [res, a, dx, dy, cenx, ceny]
 
     res = jnp.zeros(a.shape[0], dtype=float) - jnp.inf
-    return jax.lax.fori_loop(0, a.shape[0], _body, [res, a, x - cenx, y - ceny, cenx, ceny])[0]
+    return jax.lax.fori_loop(
+        0, a.shape[0], _body, [res, a, x - cenx, y - ceny, cenx, ceny]
+    )[0]
 
 
 @jax.jit

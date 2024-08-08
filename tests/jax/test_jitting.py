@@ -24,7 +24,11 @@ def test_gaussian_jitting():
 
     # Test equality function from original galsim gaussian.py
     def test_eq(self, other):
-        return self.sigma == other.sigma and self.flux == other.flux and self.gsparams == other.gsparams
+        return (
+            self.sigma == other.sigma
+            and self.flux == other.flux
+            and self.gsparams == other.gsparams
+        )
 
     # Check that after jitting the oject is still the same
     assert all([test_eq(identity(o), o) for o in objects])
@@ -39,7 +43,11 @@ def test_exponential_jitting():
 
     # Test equality function from original galsim exponential.py
     def test_eq(self, other):
-        return self.scale_radius == other.scale_radius and self.flux == other.flux and self.gsparams == other.gsparams
+        return (
+            self.scale_radius == other.scale_radius
+            and self.flux == other.flux
+            and self.gsparams == other.gsparams
+        )
 
     # Check that after jitting the oject is still the same
     assert all([test_eq(identity(o), o) for o in objects])
@@ -61,7 +69,11 @@ def test_moffat_jitting():
 
     # Test equality function from original galsim moffat.py
     def test_eq(self, other):
-        return self.scale_radius == other.scale_radius and self.flux == other.flux and self.gsparams == other.gsparams
+        return (
+            self.scale_radius == other.scale_radius
+            and self.flux == other.flux
+            and self.gsparams == other.gsparams
+        )
 
     # Check that after jitting the oject is still the same
     assert all([test_eq(identity(o), o) for o in objects])
@@ -76,7 +88,11 @@ def test_spergel_jitting():
 
     # Test equality function from original galsim spergel.py
     def test_eq(self, other):
-        return self.scale_radius == other.scale_radius and self.flux == other.flux and self.gsparams == other.gsparams
+        return (
+            self.scale_radius == other.scale_radius
+            and self.flux == other.flux
+            and self.gsparams == other.gsparams
+        )
 
     # Check that after jitting the oject is still the same
     assert all([test_eq(identity(o), o) for o in objects])
@@ -127,7 +143,11 @@ def test_affine_transform_jitting():
     )
 
     def test_eq(self, other):
-        return self._local_wcs == other._local_wcs and self.origin == other.origin and self.world_origin == other.world_origin
+        return (
+            self._local_wcs == other._local_wcs
+            and self.origin == other.origin
+            and self.world_origin == other.world_origin
+        )
 
     assert test_eq(identity(obj), obj)
 
@@ -229,9 +249,9 @@ def test_jitting_draw_fft():
 
 def test_jitting_draw_phot():
     def _build_and_draw(hlr, fwhm, jit=True, maxn=False):
-        gal = galsim.Exponential(half_light_radius=hlr, flux=1000.0) + galsim.Exponential(
-            half_light_radius=hlr * 2.0, flux=100.0
-        )
+        gal = galsim.Exponential(
+            half_light_radius=hlr, flux=1000.0
+        ) + galsim.Exponential(half_light_radius=hlr * 2.0, flux=100.0)
         psf = galsim.Gaussian(fwhm=fwhm, flux=1.0)
         final = galsim.Convolve(
             [gal, psf],
@@ -323,9 +343,9 @@ def test_jitting_draw_phot():
 
 def test_jitting_draw_phot_fixed():
     def _build_and_draw(hlr, fwhm, jit=True, maxn=False):
-        gal = galsim.Exponential(half_light_radius=hlr, flux=1000.0) + galsim.Exponential(
-            half_light_radius=hlr * 2.0, flux=100.0
-        )
+        gal = galsim.Exponential(
+            half_light_radius=hlr, flux=1000.0
+        ) + galsim.Exponential(half_light_radius=hlr * 2.0, flux=100.0)
         psf = galsim.Gaussian(fwhm=fwhm, flux=1.0)
         final = galsim.Convolve(
             [gal, psf],

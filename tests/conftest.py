@@ -51,15 +51,25 @@ def pytest_ignore_collect(collection_path, path, config):
     These somtimes fail to import and cause pytest to fail.
     """
     if "tests/GalSim/tests" in str(collection_path):
-        if (not any([t in str(collection_path) for t in test_config["enabled_tests"]["galsim"]])) and "*" not in test_config[
-            "enabled_tests"
-        ]["galsim"]:
+        if (
+            not any(
+                [
+                    t in str(collection_path)
+                    for t in test_config["enabled_tests"]["galsim"]
+                ]
+            )
+        ) and "*" not in test_config["enabled_tests"]["galsim"]:
             return True
 
     if "tests/Coord/tests" in str(collection_path):
-        if (not any([t in str(collection_path) for t in test_config["enabled_tests"]["coord"]])) and "*" not in test_config[
-            "enabled_tests"
-        ]["coord"]:
+        if (
+            not any(
+                [
+                    t in str(collection_path)
+                    for t in test_config["enabled_tests"]["coord"]
+                ]
+            )
+        ) and "*" not in test_config["enabled_tests"]["coord"]:
             return True
 
 
@@ -67,7 +77,9 @@ def pytest_collection_modifyitems(config, items):
     """This hook will automatically skip tests that are not enabled in the
     enabled_tests.yaml file.
     """
-    skip = pytest.mark.skip(reason="Skipping this because functionalities are not implemented yet")
+    skip = pytest.mark.skip(
+        reason="Skipping this because functionalities are not implemented yet"
+    )
     for item in items:
         # if this is a jax test we execute it
         if "jax" in item.nodeid:
@@ -75,7 +87,11 @@ def pytest_collection_modifyitems(config, items):
 
         # if this is a galsim test we check if it is requested or not
         if (
-            (not any([t in item.nodeid for t in test_config["enabled_tests"]["galsim"]]))
+            (
+                not any(
+                    [t in item.nodeid for t in test_config["enabled_tests"]["galsim"]]
+                )
+            )
             and "*" not in test_config["enabled_tests"]["galsim"]
         ) and (
             (not any([t in item.nodeid for t in test_config["enabled_tests"]["coord"]]))
@@ -125,7 +141,9 @@ def pytest_pycollect_makemodule(module_path, path, parent):
         module.obj.arcmin = __import__("jax_galsim").arcmin
         module.obj.arcsec = __import__("jax_galsim").arcsec
 
-    if str(module_path).endswith("tests/GalSim/tests/test_interpolatedimage.py") and hasattr(module.obj, "setup"):
+    if str(module_path).endswith(
+        "tests/GalSim/tests/test_interpolatedimage.py"
+    ) and hasattr(module.obj, "setup"):
         module.obj.setup()
 
     # Overwrites galsim in the galsim_test_helpers module
@@ -163,7 +181,9 @@ def pytest_pycollect_makemodule(module_path, path, parent):
             if isinstance(v, __import__("galsim").GSObject):
                 module.obj.__dict__[k] = _convert_galsim_to_jax_galsim(v)
             elif isinstance(v, list):
-                module.obj.__dict__[k] = [_convert_galsim_to_jax_galsim(obj) for obj in v]
+                module.obj.__dict__[k] = [
+                    _convert_galsim_to_jax_galsim(obj) for obj in v
+                ]
 
         module.obj._convert_galsim_to_jax_galsim = _convert_galsim_to_jax_galsim
 

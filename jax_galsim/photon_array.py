@@ -154,7 +154,9 @@ class PhotonArray:
         time=None,
         is_corr=False,
     ):
-        return cls._fromArrays(x, y, flux, dxdz, dydz, wavelength, pupil_u, pupil_v, time, is_corr)
+        return cls._fromArrays(
+            x, y, flux, dxdz, dydz, wavelength, pupil_u, pupil_v, time, is_corr
+        )
 
     @classmethod
     @implements(_galsim.PhotonArray._fromArrays)
@@ -171,7 +173,10 @@ class PhotonArray:
         time=None,
         is_corr=False,
     ):
-        if _JAX_GALSIM_PHOTON_ARRAY_SIZE is not None and x.shape[0] != _JAX_GALSIM_PHOTON_ARRAY_SIZE:
+        if (
+            _JAX_GALSIM_PHOTON_ARRAY_SIZE is not None
+            and x.shape[0] != _JAX_GALSIM_PHOTON_ARRAY_SIZE
+        ):
             raise GalSimValueError(
                 "The given arrays do not match the expected total size",
                 x.shape[0],
@@ -184,12 +189,36 @@ class PhotonArray:
         ret._y = y.copy()
         ret._flux = flux.copy()
         ret._nokeep = jnp.arange(ret._Ntot) >= x.shape[0]
-        ret._dxdz = dxdz.copy() if dxdz is not None else jnp.full(ret._Ntot, jnp.nan, dtype=float)
-        ret._dydz = dydz.copy() if dydz is not None else jnp.full(ret._Ntot, jnp.nan, dtype=float)
-        ret._wave = wavelength.copy() if wavelength is not None else jnp.full(ret._Ntot, jnp.nan, dtype=float)
-        ret._pupil_u = pupil_u.copy() if pupil_u is not None else jnp.full(ret._Ntot, jnp.nan, dtype=float)
-        ret._pupil_v = pupil_v.copy() if pupil_v is not None else jnp.full(ret._Ntot, jnp.nan, dtype=float)
-        ret._time = time.copy() if time is not None else jnp.full(ret._Ntot, jnp.nan, dtype=float)
+        ret._dxdz = (
+            dxdz.copy()
+            if dxdz is not None
+            else jnp.full(ret._Ntot, jnp.nan, dtype=float)
+        )
+        ret._dydz = (
+            dydz.copy()
+            if dydz is not None
+            else jnp.full(ret._Ntot, jnp.nan, dtype=float)
+        )
+        ret._wave = (
+            wavelength.copy()
+            if wavelength is not None
+            else jnp.full(ret._Ntot, jnp.nan, dtype=float)
+        )
+        ret._pupil_u = (
+            pupil_u.copy()
+            if pupil_u is not None
+            else jnp.full(ret._Ntot, jnp.nan, dtype=float)
+        )
+        ret._pupil_v = (
+            pupil_v.copy()
+            if pupil_v is not None
+            else jnp.full(ret._Ntot, jnp.nan, dtype=float)
+        )
+        ret._time = (
+            time.copy()
+            if time is not None
+            else jnp.full(ret._Ntot, jnp.nan, dtype=float)
+        )
         ret.setCorrelated(is_corr)
         return ret
 
@@ -394,7 +423,8 @@ class PhotonArray:
             "isCorrelated",
             2.5,
             "",
-            "We don't think this is necessary anymore.  If you have a use case that " "requires it, please open an issue.",
+            "We don't think this is necessary anymore.  If you have a use case that "
+            "requires it, please open an issue.",
         )
         return self._is_corr
 
@@ -406,7 +436,8 @@ class PhotonArray:
             "setCorrelated",
             2.5,
             "",
-            "We don't think this is necessary anymore.  If you have a use case that " "requires it, please open an issue.",
+            "We don't think this is necessary anymore.  If you have a use case that "
+            "requires it, please open an issue.",
         )
         self._is_corr = jnp.array(is_corr, dtype=bool)
 
@@ -506,7 +537,9 @@ class PhotonArray:
         do_flux=True,
         do_other=True,
     ):
-        return self._copyFrom(rhs, target_indices, source_indices, do_xy, do_flux, do_other)
+        return self._copyFrom(
+            rhs, target_indices, source_indices, do_xy, do_flux, do_other
+        )
 
     def _copyFrom(
         self,
@@ -569,12 +602,24 @@ class PhotonArray:
             )
 
         if do_other:
-            self._dxdz = _cond_set_indices(self._dxdz, rhs.dxdz, rhs.hasAllocatedAngles())
-            self._dydz = _cond_set_indices(self._dydz, rhs.dydz, rhs.hasAllocatedAngles())
-            self._wave = _cond_set_indices(self._wave, rhs.wavelength, rhs.hasAllocatedWavelengths())
-            self._pupil_u = _cond_set_indices(self._pupil_u, rhs.pupil_u, rhs.hasAllocatedPupil())
-            self._pupil_v = _cond_set_indices(self._pupil_v, rhs.pupil_v, rhs.hasAllocatedPupil())
-            self._time = _cond_set_indices(self._time, rhs.time, rhs.hasAllocatedTimes())
+            self._dxdz = _cond_set_indices(
+                self._dxdz, rhs.dxdz, rhs.hasAllocatedAngles()
+            )
+            self._dydz = _cond_set_indices(
+                self._dydz, rhs.dydz, rhs.hasAllocatedAngles()
+            )
+            self._wave = _cond_set_indices(
+                self._wave, rhs.wavelength, rhs.hasAllocatedWavelengths()
+            )
+            self._pupil_u = _cond_set_indices(
+                self._pupil_u, rhs.pupil_u, rhs.hasAllocatedPupil()
+            )
+            self._pupil_v = _cond_set_indices(
+                self._pupil_v, rhs.pupil_v, rhs.hasAllocatedPupil()
+            )
+            self._time = _cond_set_indices(
+                self._time, rhs.time, rhs.hasAllocatedTimes()
+            )
 
         return self
 
@@ -615,7 +660,9 @@ class PhotonArray:
             then the values from the first array (i.e. self) take precedence.
         """
         if rhs.size() != self.size():
-            raise GalSimIncompatibleValuesError("PhotonArray.convolve with unequal size arrays", self_pa=self, rhs=rhs)
+            raise GalSimIncompatibleValuesError(
+                "PhotonArray.convolve with unequal size arrays", self_pa=self, rhs=rhs
+            )
 
         # We need to make sure that the arrays are sorted by _nokeep before convolving
         # we sort them back to their original order after convolving
@@ -663,7 +710,9 @@ class PhotonArray:
         # kept are still at the front of the array but are in a new random order.
         sinds = jax.lax.cond(
             self._is_corr & rhs._is_corr,
-            lambda nrsinds, rsinds: rsinds.at[jnp.argsort(rhs._nokeep.at[rsinds].get())].get(),
+            lambda nrsinds, rsinds: rsinds.at[
+                jnp.argsort(rhs._nokeep.at[rsinds].get())
+            ].get(),
             lambda nrsinds, rsinds: nrsinds,
             nrsinds,
             rsinds,
@@ -789,7 +838,9 @@ class PhotonArray:
     )
     def addTo(self, image):
         if not image.bounds.isDefined():
-            raise GalSimUndefinedBoundsError("Attempting to PhotonArray::addTo an Image with undefined Bounds")
+            raise GalSimUndefinedBoundsError(
+                "Attempting to PhotonArray::addTo an Image with undefined Bounds"
+            )
 
         _arr, _flux_sum = _add_photons_to_image(
             self._x,
@@ -873,21 +924,37 @@ class PhotonArray:
         cols.append(pyfits.Column(name="x", format="D", array=np.array(self.x)))
         cols.append(pyfits.Column(name="y", format="D", array=np.array(self.y)))
         cols.append(pyfits.Column(name="flux", format="D", array=np.array(self.flux)))
-        cols.append(pyfits.Column(name="_nokeep", format="L", array=np.array(self._nokeep)))
+        cols.append(
+            pyfits.Column(name="_nokeep", format="L", array=np.array(self._nokeep))
+        )
 
         if self.hasAllocatedAngles():
-            cols.append(pyfits.Column(name="dxdz", format="D", array=np.array(self.dxdz)))
-            cols.append(pyfits.Column(name="dydz", format="D", array=np.array(self.dydz)))
+            cols.append(
+                pyfits.Column(name="dxdz", format="D", array=np.array(self.dxdz))
+            )
+            cols.append(
+                pyfits.Column(name="dydz", format="D", array=np.array(self.dydz))
+            )
 
         if self.hasAllocatedWavelengths():
-            cols.append(pyfits.Column(name="wavelength", format="D", array=np.array(self.wavelength)))
+            cols.append(
+                pyfits.Column(
+                    name="wavelength", format="D", array=np.array(self.wavelength)
+                )
+            )
 
         if self.hasAllocatedPupil():
-            cols.append(pyfits.Column(name="pupil_u", format="D", array=np.array(self.pupil_u)))
-            cols.append(pyfits.Column(name="pupil_v", format="D", array=np.array(self.pupil_v)))
+            cols.append(
+                pyfits.Column(name="pupil_u", format="D", array=np.array(self.pupil_u))
+            )
+            cols.append(
+                pyfits.Column(name="pupil_v", format="D", array=np.array(self.pupil_v))
+            )
 
         if self.hasAllocatedTimes():
-            cols.append(pyfits.Column(name="time", format="D", array=np.array(self.time)))
+            cols.append(
+                pyfits.Column(name="time", format="D", array=np.array(self.time))
+            )
 
         cols = pyfits.ColDefs(cols)
         table = pyfits.BinTableHDU.from_columns(cols)

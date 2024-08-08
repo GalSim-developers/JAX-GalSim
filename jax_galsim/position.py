@@ -14,7 +14,9 @@ from jax_galsim.core.utils import (
 @implements(_galsim.Position)
 class Position(object):
     def __init__(self):
-        raise NotImplementedError("Cannot instantiate the base class.  " "Use either PositionD or PositionI.")
+        raise NotImplementedError(
+            "Cannot instantiate the base class.  " "Use either PositionD or PositionI."
+        )
 
     def _parse_args(self, *args, **kwargs):
         if len(kwargs) == 0:
@@ -30,19 +32,28 @@ class Position(object):
                     try:
                         self.x, self.y = args[0]
                     except (TypeError, ValueError):
-                        raise TypeError("Single argument to %s must be either a Position " "or a tuple." % self.__class__)
+                        raise TypeError(
+                            "Single argument to %s must be either a Position "
+                            "or a tuple." % self.__class__
+                        )
             else:
-                raise TypeError("%s takes at most 2 arguments (%d given)" % (self.__class__, len(args)))
+                raise TypeError(
+                    "%s takes at most 2 arguments (%d given)"
+                    % (self.__class__, len(args))
+                )
         elif len(args) != 0:
             raise TypeError(
-                "%s takes x and y as either named or unnamed arguments (given %s, %s)" % (self.__class__, args, kwargs)
+                "%s takes x and y as either named or unnamed arguments (given %s, %s)"
+                % (self.__class__, args, kwargs)
             )
         else:
             try:
                 self.x = kwargs.pop("x")
                 self.y = kwargs.pop("y")
             except KeyError:
-                raise TypeError("Keyword arguments x,y are required for %s" % self.__class__)
+                raise TypeError(
+                    "Keyword arguments x,y are required for %s" % self.__class__
+                )
             if kwargs:
                 raise TypeError("Got unexpected keyword arguments %s" % kwargs.keys())
 
@@ -80,7 +91,9 @@ class Position(object):
 
     def __sub__(self, other):
         if not isinstance(other, Position):
-            raise TypeError("Can only subtract a Position from a %s" % self.__class__.__name__)
+            raise TypeError(
+                "Can only subtract a Position from a %s" % self.__class__.__name__
+            )
         elif isinstance(other, self.__class__):
             return self.__class__(self.x - other.x, self.y - other.y)
         else:
@@ -101,13 +114,19 @@ class Position(object):
         )
 
     def __eq__(self, other):
-        return self is other or (isinstance(other, self.__class__) and self.x == other.x and self.y == other.y)
+        return self is other or (
+            isinstance(other, self.__class__)
+            and self.x == other.x
+            and self.y == other.y
+        )
 
     def __ne__(self, other):
         return not self.__eq__(other)
 
     def __hash__(self):
-        return hash((self.__class__.__name__, ensure_hashable(self.x), ensure_hashable(self.y)))
+        return hash(
+            (self.__class__.__name__, ensure_hashable(self.x), ensure_hashable(self.y))
+        )
 
     def shear(self, shear):
         """Shear the position.
@@ -153,7 +172,8 @@ class Position(object):
             _cls = PositionI
         else:
             raise TypeError(
-                "galsim_position must be either a %s or a %s" % (_galsim.PositionD.__name__, _galsim.PositionI.__name__)
+                "galsim_position must be either a %s or a %s"
+                % (_galsim.PositionD.__name__, _galsim.PositionI.__name__)
             )
         return _cls(galsim_position.x, galsim_position.y)
 
@@ -170,7 +190,11 @@ class PositionD(Position):
 
     def _check_scalar(self, other, op):
         try:
-            if isinstance(other, jax.Array) and other.shape == () and other.dtype.name in ["float32", "float64", "float"]:
+            if (
+                isinstance(other, jax.Array)
+                and other.shape == ()
+                and other.dtype.name in ["float32", "float64", "float"]
+            ):
                 return
             elif other == float(other):
                 return
@@ -191,7 +215,11 @@ class PositionI(Position):
 
     def _check_scalar(self, other, op):
         try:
-            if isinstance(other, jax.Array) and other.shape == () and other.dtype.name in ["int32", "int64", "int"]:
+            if (
+                isinstance(other, jax.Array)
+                and other.shape == ()
+                and other.dtype.name in ["int32", "int64", "int"]
+            ):
                 return
             elif other == int(other):
                 return

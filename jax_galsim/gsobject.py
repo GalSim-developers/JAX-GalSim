@@ -204,7 +204,8 @@ class GSObject:
 
     def __eq__(self, other):
         return (self is other) or (
-            (type(other) is self.__class__) and is_equal_with_arrays(self.tree_flatten(), other.tree_flatten())
+            (type(other) is self.__class__)
+            and is_equal_with_arrays(self.tree_flatten(), other.tree_flatten())
         )
 
     @implements(_galsim.GSObject.xValue)
@@ -221,7 +222,9 @@ class GSObject:
         Returns:
             the surface brightness at that position.
         """
-        raise NotImplementedError("%s does not implement xValue" % self.__class__.__name__)
+        raise NotImplementedError(
+            "%s does not implement xValue" % self.__class__.__name__
+        )
 
     @implements(_galsim.GSObject.kValue)
     def kValue(self, *args, **kwargs):
@@ -230,7 +233,9 @@ class GSObject:
 
     def _kValue(self, kpos):
         """Equivalent to `kValue`, but ``kpos`` must be a `galsim.PositionD` instance."""
-        raise NotImplementedError("%s does not implement kValue" % self.__class__.__name__)
+        raise NotImplementedError(
+            "%s does not implement kValue" % self.__class__.__name__
+        )
 
     @implements(_galsim.GSObject.withGSParams)
     def withGSParams(self, gsparams=None, **kwargs):
@@ -279,9 +284,13 @@ class GSObject:
             shear = args[0]
         if len(args) == 1:
             if kwargs:
-                raise TypeError("Error, gave both unnamed and named arguments to GSObject.shear!")
+                raise TypeError(
+                    "Error, gave both unnamed and named arguments to GSObject.shear!"
+                )
             if not isinstance(args[0], Shear):
-                raise TypeError("Error, unnamed argument to GSObject.shear is not a Shear!")
+                raise TypeError(
+                    "Error, unnamed argument to GSObject.shear is not a Shear!"
+                )
             shear = args[0]
         elif len(args) > 1:
             raise TypeError("Error, too many unnamed arguments to GSObject.shear!")
@@ -407,7 +416,9 @@ class GSObject:
         return new_obj
 
     # Make sure the image is defined with the right size and wcs for drawImage()
-    def _setup_image(self, image, nx, ny, bounds, add_to_image, dtype, center, odd=False):
+    def _setup_image(
+        self, image, nx, ny, bounds, add_to_image, dtype, center, odd=False
+    ):
         from jax_galsim.bounds import BoundsI
         from jax_galsim.image import Image
 
@@ -468,11 +479,15 @@ class GSObject:
                         bounds=bounds,
                     )
                 if not bounds.isDefined():
-                    raise _galsim.GalSimValueError("Cannot use undefined bounds", bounds)
+                    raise _galsim.GalSimValueError(
+                        "Cannot use undefined bounds", bounds
+                    )
                 image = Image(bounds=bounds, dtype=dtype)
             elif nx is not None or ny is not None:
                 if nx is None or ny is None:
-                    raise _galsim.GalSimIncompatibleValuesError("Must set either both or neither of nx, ny", nx=nx, ny=ny)
+                    raise _galsim.GalSimIncompatibleValuesError(
+                        "Must set either both or neither of nx, ny", nx=nx, ny=ny
+                    )
                 image = Image(nx, ny, dtype=dtype)
                 if center is not None:
                     image.shift(
@@ -565,7 +580,9 @@ class GSObject:
                 offset += center - new_bounds.center
             else:
                 # Then will be created as even sized image.
-                offset += PositionD(center.x - jnp.ceil(center.x), center.y - jnp.ceil(center.y))
+                offset += PositionD(
+                    center.x - jnp.ceil(center.x), center.y - jnp.ceil(center.y)
+                )
         elif use_true_center:
             # For even-sized images, the SBProfile draw function centers the result in the
             # pixel just up and right of the real center.  So shift it back to make sure it really
@@ -588,7 +605,9 @@ class GSObject:
         # Determine the correct wcs given the input scale, wcs and image.
         if wcs is not None:
             if scale is not None:
-                raise _galsim.GalSimIncompatibleValuesError("Cannot provide both wcs and scale", wcs=wcs, scale=scale)
+                raise _galsim.GalSimIncompatibleValuesError(
+                    "Cannot provide both wcs and scale", wcs=wcs, scale=scale
+                )
             if not isinstance(wcs, BaseWCS):
                 raise TypeError("wcs must be a BaseWCS instance")
             if image is not None:
@@ -610,7 +629,9 @@ class GSObject:
         if wcs.isPixelScale() and wcs.isLocal():
             wcs = jax.lax.cond(
                 wcs.scale <= 0,
-                lambda wcs, nqs: (PixelScale(jnp.float_(nqs)) if default_wcs is None else default_wcs),
+                lambda wcs, nqs: (
+                    PixelScale(jnp.float_(nqs)) if default_wcs is None else default_wcs
+                ),
                 lambda wcs, nqs: PixelScale(jnp.float_(wcs.scale)),
                 wcs,
                 self.nyquist_scale,
@@ -676,7 +697,9 @@ The JAX-GalSim version of `drawImage`
             raise TypeError("image is not an Image instance", image)
 
         if method == "phot" and save_photons and maxN is not None:
-            raise GalSimIncompatibleValuesError("Setting maxN is incompatible with save_photons=True")
+            raise GalSimIncompatibleValuesError(
+                "Setting maxN is incompatible with save_photons=True"
+            )
 
         if method not in ("auto", "fft", "real_space", "phot", "no_pixel", "sb"):
             raise GalSimValueError(
@@ -749,7 +772,9 @@ The JAX-GalSim version of `drawImage`
         new_bounds = self._get_new_bounds(image, nx, ny, bounds, center)
 
         # Get the local WCS, accounting for the offset correctly.
-        local_wcs = self._local_wcs(wcs, image, offset, center, use_true_center, new_bounds)
+        local_wcs = self._local_wcs(
+            wcs, image, offset, center, use_true_center, new_bounds
+        )
 
         # Account for area and exptime.
         flux_scale = area * exptime
@@ -786,7 +811,9 @@ The JAX-GalSim version of `drawImage`
 
         # Make sure image is setup correctly
         image = prof._setup_image(image, nx, ny, bounds, add_to_image, dtype, center)
-        image_in = image  # For compatibility with normal galsim, we update image_in below.
+        image_in = (
+            image  # For compatibility with normal galsim, we update image_in below.
+        )
         image.wcs = wcs
 
         if setup_only:
@@ -816,7 +843,9 @@ The JAX-GalSim version of `drawImage`
             )
         else:
             if sensor is not None or photon_ops:
-                raise NotImplementedError("Sensor/photon_ops not yet implemented in drawImage for method != 'phot'.")
+                raise NotImplementedError(
+                    "Sensor/photon_ops not yet implemented in drawImage for method != 'phot'."
+                )
 
             if prof.is_analytic_x:
                 added_photons = prof.drawReal(image, add_to_image)
@@ -844,7 +873,9 @@ The JAX-GalSim version of `drawImage`
     @implements(_galsim.GSObject.drawReal)
     def drawReal(self, image, add_to_image=False):
         if image.wcs is None or not image.wcs.isPixelScale():
-            raise _galsim.GalSimValueError("drawReal requires an image with a PixelScale wcs", image)
+            raise _galsim.GalSimValueError(
+                "drawReal requires an image with a PixelScale wcs", image
+            )
         im1 = self._drawReal(image)
         temp = im1.subImage(image.bounds)
         if add_to_image:
@@ -861,7 +892,9 @@ The JAX-GalSim version of `drawImage`
         the image's dtype must be either float32 or float64, and it must have a c_contiguous array
         (``image.iscontiguous`` must be True).
         """
-        raise NotImplementedError("%s does not implement drawReal" % self.__class__.__name__)
+        raise NotImplementedError(
+            "%s does not implement drawReal" % self.__class__.__name__
+        )
 
     @implements(_galsim.GSObject.getGoodImageSize)
     def getGoodImageSize(self, pixel_scale):
@@ -918,7 +951,9 @@ The JAX-GalSim version of `drawImage`
                 Nk = int(jnp.ceil(maxk / dk)) * 2
 
             if Nk > self.gsparams.maximum_fft_size:
-                raise _galsim.GalSimFFTSizeError("drawFFT requires an FFT that is too large.", Nk)
+                raise _galsim.GalSimFFTSizeError(
+                    "drawFFT requires an FFT that is too large.", Nk
+                )
 
         bounds = BoundsI(0, Nk // 2, -Nk // 2, Nk // 2)
         if image.dtype in (np.complex128, np.float64, np.int32, np.uint32):
@@ -955,10 +990,16 @@ The JAX-GalSim version of `drawImage`
         kimage_wrap = kimage._wrap(bwrap, True, False)
 
         # Perform the fourier transform.
-        breal = BoundsI(-wrap_size // 2, wrap_size // 2 - 1, -wrap_size // 2, wrap_size // 2 - 1)
+        breal = BoundsI(
+            -wrap_size // 2, wrap_size // 2 - 1, -wrap_size // 2, wrap_size // 2 - 1
+        )
         kimg_shift = jnp.fft.ifftshift(kimage_wrap.array, axes=(-2,))
-        real_image_arr = jnp.fft.fftshift(jnp.fft.irfft2(kimg_shift, breal.numpyShape()))
-        real_image = Image(bounds=breal, array=real_image_arr, dtype=image.dtype, wcs=image.wcs)
+        real_image_arr = jnp.fft.fftshift(
+            jnp.fft.irfft2(kimg_shift, breal.numpyShape())
+        )
+        real_image = Image(
+            bounds=breal, array=real_image_arr, dtype=image.dtype, wcs=image.wcs
+        )
         # Add (a portion of) this to the original image.
         temp = real_image.subImage(image.bounds)
         if add_to_image:
@@ -995,7 +1036,9 @@ The JAX-GalSim version of `drawImage`
             The total flux drawn inside the image bounds.
         """
         if image.wcs is None or not image.wcs.isPixelScale():
-            raise _galsim.GalSimValueError("drawFFT requires an image with a PixelScale wcs", image)
+            raise _galsim.GalSimValueError(
+                "drawFFT requires an image with a PixelScale wcs", image
+            )
 
         kimage, wrap_size = self.drawFFT_makeKImage(image)
         kimage = self._drawKImage(kimage)
@@ -1052,7 +1095,9 @@ The JAX-GalSim version of `drawImage`
         if image is None or not image.bounds.isDefined():
             real_prof = PixelScale(dx).profileToImage(self)
             dtype = np.complex128 if image is None else image.dtype
-            image = real_prof._setup_image(image, nx, ny, bounds, add_to_image, dtype, center=None, odd=True)
+            image = real_prof._setup_image(
+                image, nx, ny, bounds, add_to_image, dtype, center=None, odd=True
+            )
         else:
             # Do some checks that setup_image would have done for us
             if bounds is not None:
@@ -1106,8 +1151,12 @@ The JAX-GalSim version of `drawImage`
         return image
 
     @implements(_galsim.GSObject._drawKImage)
-    def _drawKImage(self, image, jac=None):  # pragma: no cover  (all our classes override this)
-        raise NotImplementedError("%s does not implement drawKImage" % self.__class__.__name__)
+    def _drawKImage(
+        self, image, jac=None
+    ):  # pragma: no cover  (all our classes override this)
+        raise NotImplementedError(
+            "%s does not implement drawKImage" % self.__class__.__name__
+        )
 
     @implements(_galsim.GSObject._calculate_nphotons)
     def _calculate_nphotons(self, n_photons, poisson_flux, max_extra_noise, rng):
@@ -1159,7 +1208,9 @@ The JAX-GalSim version of `makePhot`
             # n_photons is the length of an array so it is a python int and
             # and thus a constant wrt to JIT
             Ntot = int(n_photons + 0.5)
-            _, g = self._calculate_nphotons(n_photons, poisson_flux, max_extra_noise, rng)
+            _, g = self._calculate_nphotons(
+                n_photons, poisson_flux, max_extra_noise, rng
+            )
         else:
             # here Ntot can be a traced value
             # one thus must use the fixed_photon_array_size context manager
@@ -1230,7 +1281,9 @@ The JAX-GalSim version of `drawPhot`
 
         # Make sure the image is set up to have unit pixel scale and centered at 0,0.
         if image.wcs is None or not image.wcs._isPixelScale:
-            raise GalSimValueError("drawPhot requires an image with a PixelScale wcs", image)
+            raise GalSimValueError(
+                "drawPhot requires an image with a PixelScale wcs", image
+            )
 
         if sensor is None:
             sensor = Sensor()
@@ -1241,7 +1294,9 @@ The JAX-GalSim version of `drawPhot`
             # n_photons is the length of an array so it is a python int and
             # and thus a constant wrt to JIT
             Ntot = int(n_photons + 0.5)
-            _, g = self._calculate_nphotons(n_photons, poisson_flux, max_extra_noise, rng)
+            _, g = self._calculate_nphotons(
+                n_photons, poisson_flux, max_extra_noise, rng
+            )
         else:
             # here Ntot can be a traced value
             # one thus must use the fixed_photon_array_size context manager
@@ -1319,7 +1374,9 @@ The JAX-GalSim version of `drawPhot`
         # TODO: how to update the sensor?
         # https://github.com/GalSim-developers/JAX-GalSim/issues/85
         if sensor.__class__ is not Sensor:
-            raise GalSimNotImplementedError("Non-default sensors that carry state are not yet supported in jax-galsim.")
+            raise GalSimNotImplementedError(
+                "Non-default sensors that carry state are not yet supported in jax-galsim."
+            )
 
         return _dfret.added_flux, _dfret.photons
 
@@ -1337,7 +1394,9 @@ The JAX-GalSim version of `drawPhot`
 
     @implements(_galsim.GSObject._shoot)
     def _shoot(self, photons, rng):
-        raise NotImplementedError("%s does not implement shoot" % self.__class__.__name__)
+        raise NotImplementedError(
+            "%s does not implement shoot" % self.__class__.__name__
+        )
 
     @implements(_galsim.GSObject.applyTo)
     def applyTo(self, photon_array, local_wcs=None, rng=None):
@@ -1443,7 +1502,9 @@ def _draw_phot_while_loop_shoot(
 
     photons = jax.lax.cond(
         image.scale != 1.0,
-        lambda photons, scale: photons.scaleXY(1.0 / scale),  # Convert x,y to image coords if necessary
+        lambda photons, scale: photons.scaleXY(
+            1.0 / scale
+        ),  # Convert x,y to image coords if necessary
         lambda photons, scale: photons,
         photons,
         image.scale,
@@ -1463,7 +1524,9 @@ def _draw_phot_while_loop_shoot(
         added_flux += sensor.accumulate(photons, im1, orig_center)
         image += im1
 
-    return _DrawPhotReturnTuple(photons, rng, added_flux, image, photon_ops, sensor, resume)
+    return _DrawPhotReturnTuple(
+        photons, rng, added_flux, image, photon_ops, sensor, resume
+    )
 
 
 @partial(jax.jit, static_argnames=("maxN",))

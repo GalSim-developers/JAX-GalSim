@@ -13,7 +13,9 @@ from jax_galsim.gsobject import GSObject
 class DeltaFunction(GSObject):
     _opt_params = {"flux": float}
 
-    _mock_inf = 1.0e300  # Some arbitrary very large number to use when we need infinity.
+    _mock_inf = (
+        1.0e300  # Some arbitrary very large number to use when we need infinity.
+    )
 
     _has_hard_edges = False
     _is_axisymmetric = True

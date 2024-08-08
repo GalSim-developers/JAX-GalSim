@@ -48,7 +48,9 @@ def lazy_property(func_=None, cache_jax_tracers=False):
     elif func_ is None:
         return _decorator
     else:
-        raise RuntimeWarning("Positional arguments are not supported for the lazy_property decorator")
+        raise RuntimeWarning(
+            "Positional arguments are not supported for the lazy_property decorator"
+        )
 
 
 @implements(_galsim.utilities.parse_pos_args)
@@ -68,8 +70,13 @@ def parse_pos_args(args, kwargs, name1, name2, integer=False, others=[]):
             x = kwargs.pop(name1)
             y = kwargs.pop(name2)
         except KeyError:
-            raise TypeError("Expecting kwargs %s, %s.  Got %s" % (name1, name2, kwargs.keys()))
-    elif (isinstance(args[0], PositionI) or (not integer and isinstance(args[0], PositionD))) and len(args) <= 1 + len(others):
+            raise TypeError(
+                "Expecting kwargs %s, %s.  Got %s" % (name1, name2, kwargs.keys())
+            )
+    elif (
+        isinstance(args[0], PositionI)
+        or (not integer and isinstance(args[0], PositionD))
+    ) and len(args) <= 1 + len(others):
         x = args[0].x
         y = args[0].y
         for arg in args[1:]:
@@ -170,7 +177,9 @@ def unweighted_shape(arg):
     if isinstance(arg, Image):
         arg = unweighted_moments(arg)
     rsqr = arg["Mxx"] + arg["Myy"]
-    return dict(rsqr=rsqr, e1=(arg["Mxx"] - arg["Myy"]) / rsqr, e2=2 * arg["Mxy"] / rsqr)
+    return dict(
+        rsqr=rsqr, e1=(arg["Mxx"] - arg["Myy"]) / rsqr, e2=2 * arg["Mxy"] / rsqr
+    )
 
 
 @implements(_galsim.utilities.horner)
@@ -216,7 +225,9 @@ def horner2d(x, y, coefs, dtype=None, triangle=False):
         raise GalSimValueError("coefs must be 2-dimensional", coefs)
 
     if triangle and coefs.shape[0] != coefs.shape[1]:
-        raise GalSimIncompatibleValuesError("coefs must be square if triangle is True", coefs=coefs, triangle=triangle)
+        raise GalSimIncompatibleValuesError(
+            "coefs must be square if triangle is True", coefs=coefs, triangle=triangle
+        )
 
     if triangle:
         # this loop in python looks like

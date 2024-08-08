@@ -101,12 +101,19 @@ class Box(GSObject):
 
     @implements(_galsim.Box.withFlux)
     def withFlux(self, flux):
-        return Box(width=self.width, height=self.height, flux=flux, gsparams=self.gsparams)
+        return Box(
+            width=self.width, height=self.height, flux=flux, gsparams=self.gsparams
+        )
 
     @classmethod
     def tree_unflatten(cls, aux_data, children):
         """Recreates an instance of the class from flatten representation"""
-        return cls(children[0]["width"], children[0]["height"], flux=children[0]["flux"], **aux_data)
+        return cls(
+            children[0]["width"],
+            children[0]["height"],
+            flux=children[0]["flux"],
+            **aux_data,
+        )
 
     @implements(_galsim.Box._shoot)
     def _shoot(self, photons, rng):
@@ -122,7 +129,9 @@ class Box(GSObject):
 @register_pytree_node_class
 class Pixel(Box):
     def __init__(self, scale, flux=1.0, gsparams=None):
-        super(Pixel, self).__init__(width=scale, height=scale, flux=flux, gsparams=gsparams)
+        super(Pixel, self).__init__(
+            width=scale, height=scale, flux=flux, gsparams=gsparams
+        )
 
     @property
     def scale(self):

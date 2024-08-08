@@ -18,8 +18,9 @@ def test_api_same():
     jax_galsim_api = set(dir(jax_galsim))
     # the jax_galsim.core module is specific to jax_galsim
     jax_galsim_api.remove("core")
-    assert jax_galsim_api.issubset(galsim_api), "jax_galsim API is not a subset of galsim API: %r" % (
-        jax_galsim_api - galsim_api
+    assert jax_galsim_api.issubset(galsim_api), (
+        "jax_galsim API is not a subset of galsim API: %r"
+        % (jax_galsim_api - galsim_api)
     )
 
 
@@ -79,7 +80,11 @@ def _attempt_init(cls, kwargs):
 
     if cls in [jax_galsim.InterpolatedImage]:
         try:
-            return cls(jax_galsim.ImageD(jnp.arange(100).reshape((10, 10))), scale=1.3, **kwargs)
+            return cls(
+                jax_galsim.ImageD(jnp.arange(100).reshape((10, 10))),
+                scale=1.3,
+                **kwargs,
+            )
         except Exception as e:
             if any(estr in repr(e) for estr in OK_ERRORS):
                 pass
@@ -159,22 +164,35 @@ def _run_object_checks(obj, cls, kind):
 
             # check derivs
             grad = _xgradfun(0.3, obj)
-            finite_diff = (obj.xValue(x=0.3 + eps, y=-0.3) - obj.xValue(x=0.3 - eps, y=-0.3)) / (2 * eps)
+            finite_diff = (
+                obj.xValue(x=0.3 + eps, y=-0.3) - obj.xValue(x=0.3 - eps, y=-0.3)
+            ) / (2 * eps)
             np.testing.assert_allclose(grad, finite_diff)
 
             # check vmap
-            np.testing.assert_allclose(_xfun_vmap(x, obj), [obj.xValue(x=_x, y=-0.3) for _x in x])
+            np.testing.assert_allclose(
+                _xfun_vmap(x, obj), [obj.xValue(x=_x, y=-0.3) for _x in x]
+            )
             # check vmap grad
-            np.testing.assert_allclose(_xgradfun_vmap(x, obj), [_xgradfun(_x, obj) for _x in x])
+            np.testing.assert_allclose(
+                _xgradfun_vmap(x, obj), [_xgradfun(_x, obj) for _x in x]
+            )
 
         np.testing.assert_allclose(_kfun(0.3, obj), obj.kValue(kx=0.3, ky=-0.3).real)
 
         grad = _kgradfun(0.3, obj)
-        finite_diff = (obj.kValue(kx=0.3 + eps, ky=-0.3).real - obj.kValue(kx=0.3 - eps, ky=-0.3).real) / (2 * eps)
+        finite_diff = (
+            obj.kValue(kx=0.3 + eps, ky=-0.3).real
+            - obj.kValue(kx=0.3 - eps, ky=-0.3).real
+        ) / (2 * eps)
         np.testing.assert_allclose(grad, finite_diff)
 
-        np.testing.assert_allclose(_kfun_vmap(x, obj), [obj.kValue(kx=_x, ky=-0.3).real for _x in x])
-        np.testing.assert_allclose(_kgradfun_vmap(x, obj), [_kgradfun(_x, obj) for _x in x])
+        np.testing.assert_allclose(
+            _kfun_vmap(x, obj), [obj.kValue(kx=_x, ky=-0.3).real for _x in x]
+        )
+        np.testing.assert_allclose(
+            _kgradfun_vmap(x, obj), [_kgradfun(_x, obj) for _x in x]
+        )
     elif kind == "vmap-jit-grad-wcs":
         assert obj.__class__.tree_unflatten(*((obj.tree_flatten())[::-1])) == obj
 
@@ -230,7 +248,11 @@ def _run_object_checks(obj, cls, kind):
 
         # go the other way
         def _reg_fun(x):
-            return obj.toImage(jax_galsim.CelestialCoord(x * jax_galsim.degrees, -56.51006288339 * jax_galsim.degrees)).x
+            return obj.toImage(
+                jax_galsim.CelestialCoord(
+                    x * jax_galsim.degrees, -56.51006288339 * jax_galsim.degrees
+                )
+            ).x
 
         _fun = jax.jit(_reg_fun)
         _gradfun = jax.jit(jax.grad(_fun))
@@ -295,7 +317,9 @@ def _run_object_checks(obj, cls, kind):
             np.testing.assert_allclose(_fun_vmap(x), [_reg_fun(_x) for _x in x])
 
             # check vmap grad
-            np.testing.assert_allclose(_gradfun_vmap(x), [_gradfun(_x) for _x in x], rtol=rtol)
+            np.testing.assert_allclose(
+                _gradfun_vmap(x), [_gradfun(_x) for _x in x], rtol=rtol
+            )
     elif kind == "docs-methods":
         # always has gsparams
         if isinstance(obj, jax_galsim.GSObject):
@@ -304,7 +328,11 @@ def _run_object_checks(obj, cls, kind):
 
         # check docs
         gscls = getattr(_galsim, cls.__name__)
-        assert all(line.strip() in cls.__doc__ for line in gscls.__doc__.splitlines() if line.strip())
+        assert all(
+            line.strip() in cls.__doc__
+            for line in gscls.__doc__.splitlines()
+            if line.strip()
+        )
 
         # check methods except the special JAX ones which should be exclusive to JAX
         for method in dir(cls):
@@ -316,10 +344,15 @@ def _run_object_checks(obj, cls, kind):
                     "from_galsim",
                 ]:
                     # this deprecated method doesn't have consistent doc strings in galsim
-                    if issubclass(cls, jax_galsim.wcs.BaseWCS) and method == "withOrigin":
+                    if (
+                        issubclass(cls, jax_galsim.wcs.BaseWCS)
+                        and method == "withOrigin"
+                    ):
                         continue
 
-                    assert method in dir(gscls), cls.__name__ + "." + method + " not in galsim." + gscls.__name__
+                    assert method in dir(gscls), (
+                        cls.__name__ + "." + method + " not in galsim." + gscls.__name__
+                    )
 
                     # check doc strings
                     if getattr(gscls, method).__doc__ is not None:
@@ -329,7 +362,10 @@ def _run_object_checks(obj, cls, kind):
                         for line in getattr(gscls, method).__doc__.splitlines():
                             # we skip the lazy_property decorator doc string since this is not always
                             # used in jax_galsim
-                            if line.strip() and line not in _galsim.utilities.lazy_property.__doc__:
+                            if (
+                                line.strip()
+                                and line not in _galsim.utilities.lazy_property.__doc__
+                            ):
                                 assert line.strip() in getattr(cls, method).__doc__, (
                                     cls.__name__
                                     + "."
@@ -452,7 +488,9 @@ def test_api_shear(obj):
     [
         jax_galsim.BoundsD(),
         jax_galsim.BoundsI(),
-        jax_galsim.BoundsD(jnp.array(0.2), jnp.array(4.0), jnp.array(-0.5), jnp.array(4.7)),
+        jax_galsim.BoundsD(
+            jnp.array(0.2), jnp.array(4.0), jnp.array(-0.5), jnp.array(4.7)
+        ),
         jax_galsim.BoundsI(jnp.array(-10), jnp.array(5), jnp.array(0), jnp.array(7)),
     ],
 )
@@ -519,7 +557,11 @@ def test_api_position(obj):
     if isinstance(obj, jax_galsim.PositionD):
 
         def _reg_sfun(g1):
-            return (obj.__class__(g1, 0.5) + obj.__class__(-g1, -2)).shear(jax_galsim.Shear(g1=0.1, g2=0.2)).x
+            return (
+                (obj.__class__(g1, 0.5) + obj.__class__(-g1, -2))
+                .shear(jax_galsim.Shear(g1=0.1, g2=0.2))
+                .x
+            )
 
         _sfun = jax.jit(_reg_sfun)
 
@@ -611,7 +653,9 @@ def _attempt_init_wcs(cls):
             raise e
 
     try:
-        obj = cls(jnp.array(0.4), jax_galsim.Shear(g1=jnp.array(0.1), g2=jnp.array(0.2)))
+        obj = cls(
+            jnp.array(0.4), jax_galsim.Shear(g1=jnp.array(0.1), g2=jnp.array(0.2))
+        )
     except Exception as e:
         if any(estr in repr(e) for estr in OK_ERRORS_WCS):
             pass
@@ -627,7 +671,9 @@ def _attempt_init_wcs(cls):
             raise e
 
     try:
-        dr = os.path.join(os.path.dirname(__file__), "..", "GalSim", "tests", "des_data")
+        dr = os.path.join(
+            os.path.dirname(__file__), "..", "GalSim", "tests", "des_data"
+        )
         file_name = "DECam_00158414_01.fits.fz"
         obj = cls(file_name, dir=dr)
     except Exception as e:
@@ -740,7 +786,10 @@ def test_api_angle():
     assert obj.__class__.tree_unflatten(*((obj.tree_flatten())[::-1])) == obj
 
     def _reg_sfun(g1):
-        return (jax_galsim.Angle(g1 * jax_galsim.degrees) + jax_galsim.Angle(g1**2 * jax_galsim.degrees)) / jax_galsim.degrees
+        return (
+            jax_galsim.Angle(g1 * jax_galsim.degrees)
+            + jax_galsim.Angle(g1**2 * jax_galsim.degrees)
+        ) / jax_galsim.degrees
 
     _sfun = jax.jit(_reg_sfun)
 
@@ -774,7 +823,9 @@ def test_api_celestial_coord():
     assert obj.__class__.tree_unflatten(*((obj.tree_flatten())[::-1])) == obj
 
     def _reg_sfun(g1):
-        return obj.distanceTo(jax_galsim.CelestialCoord(g1 * jax_galsim.degrees, 20 * jax_galsim.degrees)).rad
+        return obj.distanceTo(
+            jax_galsim.CelestialCoord(g1 * jax_galsim.degrees, 20 * jax_galsim.degrees)
+        ).rad
 
     _sfun = jax.jit(_reg_sfun)
 
@@ -852,7 +903,11 @@ def test_api_noise():
     classes = []
     for item in sorted(dir(jax_galsim.noise)):
         cls = getattr(jax_galsim.noise, item)
-        if inspect.isclass(cls) and issubclass(cls, jax_galsim.noise.BaseNoise) and cls is not jax_galsim.noise.BaseNoise:
+        if (
+            inspect.isclass(cls)
+            and issubclass(cls, jax_galsim.noise.BaseNoise)
+            and cls is not jax_galsim.noise.BaseNoise
+        ):
             classes.append(getattr(jax_galsim.noise, item))
 
     tested = set()

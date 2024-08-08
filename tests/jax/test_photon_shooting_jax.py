@@ -77,9 +77,9 @@ def test_photon_shooting_jax_raises():
     ],
 )
 def test_photon_shooting_jax_offset(offset):
-    gal = jax_galsim.Exponential(half_light_radius=0.5, flux=1000.0) + jax_galsim.Exponential(
-        half_light_radius=1.0, flux=100.0
-    )
+    gal = jax_galsim.Exponential(
+        half_light_radius=0.5, flux=1000.0
+    ) + jax_galsim.Exponential(half_light_radius=1.0, flux=100.0)
     psf = jax_galsim.Gaussian(fwhm=0.9, flux=1.0)
     obj = jax_galsim.Convolve([gal, psf])
     img = obj.drawImage(scale=0.2)
@@ -128,11 +128,17 @@ def test_photon_shooting_jax_offset(offset):
 
     print(
         "fft  moments:",
-        " ".join("%s:% 15.7e" % (k, v) for k, v in jax_galsim.utilities.unweighted_moments(img_fft).items()),
+        " ".join(
+            "%s:% 15.7e" % (k, v)
+            for k, v in jax_galsim.utilities.unweighted_moments(img_fft).items()
+        ),
     )
     print(
         "phot moments:",
-        " ".join("%s:% 15.7e" % (k, v) for k, v in jax_galsim.utilities.unweighted_moments(img_phot).items()),
+        " ".join(
+            "%s:% 15.7e" % (k, v)
+            for k, v in jax_galsim.utilities.unweighted_moments(img_phot).items()
+        ),
     )
 
     np.testing.assert_almost_equal(
@@ -209,9 +215,9 @@ def test_photon_shooting_jax_vmapping(max_n_phot):
 
 def test_photon_shooting_jax_rng_seed():
     def _build_and_draw(hlr, fwhm, jit=True, new_seed=False):
-        gal = jax_galsim.Exponential(half_light_radius=hlr, flux=1000.0) + jax_galsim.Exponential(
-            half_light_radius=hlr * 2.0, flux=100.0
-        )
+        gal = jax_galsim.Exponential(
+            half_light_radius=hlr, flux=1000.0
+        ) + jax_galsim.Exponential(half_light_radius=hlr * 2.0, flux=100.0)
         psf = jax_galsim.Gaussian(fwhm=fwhm, flux=1.0)
         final = jax_galsim.Convolve(
             [gal, psf],

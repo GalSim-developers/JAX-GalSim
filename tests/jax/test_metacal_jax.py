@@ -97,9 +97,15 @@ def _metacal_jax_galsim_render(im, psf, g1, target_psf, scale, nk):
 
 @partial(jax.jit, static_argnames=("nk",))
 def _metacal_jax_galsim(im, psf, nse_im, scale, target_fwhm, g1, nk):
-    iim = jax_galsim.InterpolatedImage(jax_galsim.ImageD(im), scale=scale, x_interpolant="lanczos15")
-    ipsf = jax_galsim.InterpolatedImage(jax_galsim.ImageD(psf), scale=scale, x_interpolant="lanczos15")
-    inse = jax_galsim.InterpolatedImage(jax_galsim.ImageD(jnp.rot90(nse_im, 1)), scale=scale, x_interpolant="lanczos15")
+    iim = jax_galsim.InterpolatedImage(
+        jax_galsim.ImageD(im), scale=scale, x_interpolant="lanczos15"
+    )
+    ipsf = jax_galsim.InterpolatedImage(
+        jax_galsim.ImageD(psf), scale=scale, x_interpolant="lanczos15"
+    )
+    inse = jax_galsim.InterpolatedImage(
+        jax_galsim.ImageD(jnp.rot90(nse_im, 1)), scale=scale, x_interpolant="lanczos15"
+    )
 
     target_psf = jax_galsim.Gaussian(fwhm=target_fwhm)
 
@@ -170,7 +176,9 @@ def test_metacal_comp_to_galsim(nse):
         "_force_stepk": inse.stepk.item(),
         "_force_maxk": inse.maxk.item(),
     }
-    ipsf = jax_galsim.InterpolatedImage(jax_galsim.ImageD(psf), scale=scale, x_interpolant="lanczos15")
+    ipsf = jax_galsim.InterpolatedImage(
+        jax_galsim.ImageD(psf), scale=scale, x_interpolant="lanczos15"
+    )
     ipsf_kwargs = {
         "_force_stepk": ipsf.stepk.item(),
         "_force_maxk": ipsf.maxk.item(),
@@ -308,7 +316,9 @@ def test_metacal_vmap(ntest):
                 "_force_stepk": inse.stepk.item(),
                 "_force_maxk": inse.maxk.item(),
             }
-            ipsf = jax_galsim.InterpolatedImage(jax_galsim.ImageD(psf), scale=scale, x_interpolant="lanczos15")
+            ipsf = jax_galsim.InterpolatedImage(
+                jax_galsim.ImageD(psf), scale=scale, x_interpolant="lanczos15"
+            )
             ipsf_kwargs = {
                 "_force_stepk": ipsf.stepk.item(),
                 "_force_maxk": ipsf.maxk.item(),
