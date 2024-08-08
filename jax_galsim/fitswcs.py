@@ -374,9 +374,9 @@ class GSFitsWCS(CelestialWCS):
             for j in range(order + 1)
         ]
         b = np.array(b).reshape((order + 1, order + 1))
-        a[
-            1, 0
-        ] += 1  # Standard A,B are a differential calculation.  It's more convenient to
+        a[1, 0] += (
+            1  # Standard A,B are a differential calculation.  It's more convenient to
+        )
         b[0, 1] += 1  # keep this as an absolute calculation like PV does.
         self.ab = np.array([a, b])
 

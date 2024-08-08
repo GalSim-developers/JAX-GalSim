@@ -511,8 +511,9 @@ class Deconvolution(GSObject):
         kx, ky = image.get_pixel_centers()
         _jac = jnp.eye(2) if jac is None else jac
         # N.B. The jacobian is transposed in k space.  This is not a typo.
-        kx, ky = (_jac[0, 0] * kx + _jac[1, 0] * ky), (
-            _jac[0, 1] * kx + _jac[1, 1] * ky
+        kx, ky = (
+            (_jac[0, 0] * kx + _jac[1, 0] * ky),
+            (_jac[0, 1] * kx + _jac[1, 1] * ky),
         )
         ksq = (kx**2 + ky**2) * image.scale**2
         # Set to zero outside of nominal maxk so as not to amplify high frequencies.

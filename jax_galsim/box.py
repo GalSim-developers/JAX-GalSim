@@ -112,7 +112,7 @@ class Box(GSObject):
             children[0]["width"],
             children[0]["height"],
             flux=children[0]["flux"],
-            **aux_data
+            **aux_data,
         )
 
     @implements(_galsim.Box._shoot)

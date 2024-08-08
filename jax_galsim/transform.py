@@ -359,7 +359,9 @@ class Transformation(GSObject):
         jac = (
             self._jac
             if jac is None
-            else jac if self._jac is None else jac.dot(self._jac)
+            else jac
+            if self._jac is None
+            else jac.dot(self._jac)
         )
         return self._original._drawReal(image, jac, (dx, dy), flux_scaling)
 
@@ -369,7 +371,9 @@ class Transformation(GSObject):
         jac1 = (
             self._jac
             if jac is None
-            else jac if self._jac is None else jac.dot(self._jac)
+            else jac
+            if self._jac is None
+            else jac.dot(self._jac)
         )
         image = self._original._drawKImage(image, jac1)
 

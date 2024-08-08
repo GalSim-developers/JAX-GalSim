@@ -10,21 +10,11 @@ ci:
     submodules: false
 
 repos:
-  - repo: https://github.com/psf/black
-    rev: 24.4.2
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.5.6
     hooks:
-      - id: black
-        language: python
+      - id: ruff
+        args: [ --fix ]
         exclude: tests/GalSim/|tests/Coord/|tests/jax/galsim/
-  - repo: https://github.com/pycqa/flake8
-    rev: 7.0.0
-    hooks:
-      - id: flake8
-        entry: pflake8
-        additional_dependencies: [pyproject-flake8]
-        exclude: tests/Galsim/|tests/Coord/|tests/jax/galsim/
-  - repo: https://github.com/pycqa/isort
-    rev: 5.13.2
-    hooks:
-      - id: isort
-        exclude: tests/Galsim/|tests/Coord/|tests/jax/galsim/
+      - id: ruff-format
+        exclude: tests/GalSim/|tests/Coord/|tests/jax/galsim/

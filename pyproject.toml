@@ -1,26 +1,10 @@
-[tool.flake8]
-max-line-length = 127
-ignore = ["C901", "E203", "W503"]
-per-file-ignores = ["__init__.py:F401"]
+[tool.ruff.lint]
+select = ["E", "F", "I", "W"]
+ignore = ["C901", "E203", "E501"]
+preview = true
 
-[tool.ruff]
-line-length = 127
-[tool.ruff.per-file-ignores]
-"__init__.py" = ["F401"]
-
-[tool.isort]
-profile = "black"
-multi_line_output = 3
-include_trailing_comma = true
-use_parentheses = true
-ensure_newline_before_comments = true
-line_length = 88 # black default
-skip = [
-    "jax_galsim/__init__.py",
-    "jax_galsim/core/__init__.py",
-    "tests/Galsim/",
-    "tests/Coord/",
-]
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = ["F401", "I001"]
 
 [tool.pytest.ini_options]
 minversion = "6.0"
