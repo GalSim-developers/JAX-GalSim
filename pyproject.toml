@@ -10,7 +10,7 @@ preview = true
 max-line-length = 127
 
 [tool.ruff.lint.per-file-ignores]
-"__init__.py" = ["F401"]
+"__init__.py" = ["F401", "I001"]
 
 [tool.pytest.ini_options]
 minversion = "6.0"
