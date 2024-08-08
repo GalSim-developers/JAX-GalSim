@@ -160,6 +160,4 @@ def j0(x):
         return factor * (rc * (cx + sx) - y * rs * (sx - cx))
 
     x = jnp.abs(x)
-    return jnp.select(
-        [x == 0, x <= 4, x <= 8, x > 8], [1, t1(x), t2(x), t3(x)], default=x
-    ).reshape(orig_shape)
+    return jnp.select([x == 0, x <= 4, x <= 8, x > 8], [1, t1(x), t2(x), t3(x)], default=x).reshape(orig_shape)

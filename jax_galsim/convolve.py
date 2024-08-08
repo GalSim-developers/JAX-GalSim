@@ -22,10 +22,7 @@ def Convolve(*args, **kwargs):
         elif isinstance(args[0], list) or isinstance(args[0], tuple):
             args = args[0]
         else:
-            raise TypeError(
-                "Single input argument must be a GSObject, "
-                + "or a (possibly mixed) list of them."
-            )
+            raise TypeError("Single input argument must be a GSObject, " + "or a (possibly mixed) list of them.")
     # else args is already the list of objects
 
     return Convolution(*args, **kwargs)
@@ -47,9 +44,7 @@ class Convolution(GSObject):
             elif isinstance(args[0], list) or isinstance(args[0], tuple):
                 args = args[0]
             else:
-                raise TypeError(
-                    "Single input argument must be a GSObject or list of them."
-                )
+                raise TypeError("Single input argument must be a GSObject or list of them.")
         # else args is already the list of objects
 
         real_space = kwargs.pop("real_space", None)
@@ -58,19 +53,14 @@ class Convolution(GSObject):
 
         # Make sure there is nothing left in the dict.
         if kwargs:
-            raise TypeError(
-                "Convolution constructor got unexpected keyword argument(s): %s"
-                % kwargs.keys()
-            )
+            raise TypeError("Convolution constructor got unexpected keyword argument(s): %s" % kwargs.keys())
 
         # Check whether to perform real space convolution...
         # Start by checking if all objects have a hard edge.
         hard_edge = True
         for obj in args:
             if not isinstance(obj, GSObject):
-                raise TypeError(
-                    "Arguments to Convolution must be GSObjects, not %s" % obj
-                )
+                raise TypeError("Arguments to Convolution must be GSObjects, not %s" % obj)
             if not obj.has_hard_edges:
                 hard_edge = False
 
@@ -99,10 +89,7 @@ class Convolution(GSObject):
         if real_space:
             # Can't do real space if nobj > 2
             if len(args) > 2:
-                galsim_warn(
-                    "Real-space convolution of more than 2 objects is not implemented. "
-                    "Switching to DFT method."
-                )
+                galsim_warn("Real-space convolution of more than 2 objects is not implemented. " "Switching to DFT method.")
                 real_space = False
 
             # Also can't do real space if any object is not analytic, so check for that.
@@ -190,14 +177,11 @@ class Convolution(GSObject):
         )
 
     def __repr__(self):
-        return (
-            "galsim.Convolution(%r, real_space=%r, gsparams=%r, propagate_gsparams=%r)"
-            % (
-                self.obj_list,
-                self.real_space,
-                self.gsparams,
-                self._propagate_gsparams,
-            )
+        return "galsim.Convolution(%r, real_space=%r, gsparams=%r, propagate_gsparams=%r)" % (
+            self.obj_list,
+            self.real_space,
+            self.gsparams,
+            self._propagate_gsparams,
         )
 
     def __str__(self):
@@ -248,9 +232,7 @@ class Convolution(GSObject):
     @property
     def _centroid(self):
         cen_list = [obj.centroid for obj in self.obj_list]
-        return sum(
-            cen_list[1:], cen_list[0]
-        )  # gives a Position object with x=sum_i x_i and y=sum_i y_i
+        return sum(cen_list[1:], cen_list[0])  # gives a Position object with x=sum_i x_i and y=sum_i y_i
 
     @property
     def _flux(self):
@@ -300,9 +282,7 @@ class Convolution(GSObject):
         raise NotImplementedError("Real-space convolutions are not implemented")
 
     def _kValue(self, kpos):
-        kv_list = [
-            obj.kValue(kpos) for obj in self.obj_list
-        ]  # In GalSim one uses obj.kValue
+        kv_list = [obj.kValue(kpos) for obj in self.obj_list]  # In GalSim one uses obj.kValue
         return jnp.prod(jnp.array(kv_list))
 
     def _drawReal(self, image, jac=None, offset=(0.0, 0.0), flux_scaling=1.0):
@@ -355,13 +335,9 @@ def Deconvolve(obj, gsparams=None, propagate_gsparams=True):
     #     return ChromaticDeconvolution(obj, gsparams=gsparams, propagate_gsparams=propagate_gsparams)
     # elif isinstance(obj, GSObject):
     if isinstance(obj, GSObject):
-        return Deconvolution(
-            obj, gsparams=gsparams, propagate_gsparams=propagate_gsparams
-        )
+        return Deconvolution(obj, gsparams=gsparams, propagate_gsparams=propagate_gsparams)
     else:
-        raise TypeError(
-            "Argument to Deconvolve must be either a GSObject or a ChromaticObject."
-        )
+        raise TypeError("Argument to Deconvolve must be either a GSObject or a ChromaticObject.")
 
 
 @implements(_galsim.convolve.Deconvolution)
@@ -511,9 +487,7 @@ class Deconvolution(GSObject):
         kx, ky = image.get_pixel_centers()
         _jac = jnp.eye(2) if jac is None else jac
         # N.B. The jacobian is transposed in k space.  This is not a typo.
-        kx, ky = (_jac[0, 0] * kx + _jac[1, 0] * ky), (
-            _jac[0, 1] * kx + _jac[1, 1] * ky
-        )
+        kx, ky = (_jac[0, 0] * kx + _jac[1, 0] * ky), (_jac[0, 1] * kx + _jac[1, 1] * ky)
         ksq = (kx**2 + ky**2) * image.scale**2
         # Set to zero outside of nominal maxk so as not to amplify high frequencies.
         image._array = jnp.where(

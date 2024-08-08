@@ -11,16 +11,12 @@ from jax_galsim.position import PositionD
 from jax_galsim.random import BaseDeviate
 
 
-@implements(
-    _galsim.Add, lax_description="Does not support `ChromaticObject` at this point."
-)
+@implements(_galsim.Add, lax_description="Does not support `ChromaticObject` at this point.")
 def Add(*args, **kwargs):
     return Sum(*args, **kwargs)
 
 
-@implements(
-    _galsim.Sum, lax_description="Does not support `ChromaticObject` at this point."
-)
+@implements(_galsim.Sum, lax_description="Does not support `ChromaticObject` at this point.")
 @register_pytree_node_class
 class Sum(GSObject):
     def __init__(self, *args, gsparams=None, propagate_gsparams=True):
@@ -35,9 +31,7 @@ class Sum(GSObject):
             elif isinstance(args[0], list) or isinstance(args[0], tuple):
                 args = args[0]
             else:
-                raise TypeError(
-                    "Single input argument must be a GSObject or list of them."
-                )
+                raise TypeError("Single input argument must be a GSObject or list of them.")
         # else args is already the list of objects
 
         # Consolidate args for Sums of Sums...
@@ -190,9 +184,7 @@ class Sum(GSObject):
 
     def _shoot(self, photons, rng):
         tot_flux = self.positive_flux + self.negative_flux
-        fluxes = jnp.array(
-            [obj.positive_flux + obj.negative_flux for obj in self.obj_list]
-        )
+        fluxes = jnp.array([obj.positive_flux + obj.negative_flux for obj in self.obj_list])
         # for a sum of objects, we use a slightly different approach than galsim did
         # as of version 2.5
         # galsim uses a binomial distribution to compute the number of photons per object

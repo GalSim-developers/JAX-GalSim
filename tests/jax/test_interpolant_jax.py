@@ -122,9 +122,7 @@ def test_interpolant_jax_lanczos_perf(cdc, n):
 
     print("\nxval timing:", flush=True)
     print("jax_galsim:        %0.4e [ns]" % _timeit(jgs, dox=True), flush=True)
-    print(
-        "jax_galsim w/ JIT: %0.4e [ns]" % _timeit(jgs, jit=True, dox=True), flush=True
-    )
+    print("jax_galsim w/ JIT: %0.4e [ns]" % _timeit(jgs, jit=True, dox=True), flush=True)
     print("galsim:            %0.4e [ns]" % _timeit(gs, dox=True), flush=True)
 
 
@@ -140,11 +138,7 @@ def test_interpolant_jax_lanczos_perf(cdc, n):
     ]
     + [galsim.Lanczos(i, conserve_dc=False) for i in range(1, 31)]
     + [galsim.Lanczos(i, conserve_dc=True) for i in range(1, 31)],
-    ids=lambda x: str(x)
-    .replace("galsim.", "")
-    .replace("(", "")
-    .replace(")", "")
-    .replace(", ", "-")
+    ids=lambda x: str(x).replace("galsim.", "").replace("(", "").replace(")", "").replace(", ", "-")
     + ("" if not isinstance(x, galsim.Lanczos) else f"-{x.conserve_dc}"),
 )
 @pytest.mark.parametrize("kind", ["fluxes", "ranges", "xval", "kval"])
@@ -162,12 +156,8 @@ def test_interpolant_jax_same_as_galsim(interp, kind):
     jgs = interp
 
     if kind == "fluxes":
-        np.testing.assert_allclose(
-            gs.positive_flux, jgs.positive_flux, atol=0, rtol=1e-5
-        )
-        np.testing.assert_allclose(
-            gs.negative_flux, jgs.negative_flux, atol=0, rtol=1e-5
-        )
+        np.testing.assert_allclose(gs.positive_flux, jgs.positive_flux, atol=0, rtol=1e-5)
+        np.testing.assert_allclose(gs.negative_flux, jgs.negative_flux, atol=0, rtol=1e-5)
     elif kind == "ranges":
         np.testing.assert_allclose(gs.xrange, jgs.xrange, atol=1e-5, rtol=1e-5)
         np.testing.assert_allclose(gs.ixrange, jgs.ixrange)
@@ -189,12 +179,8 @@ def test_interpolant_jax_sinc_integrals():
     np.testing.assert_allclose(gs.xrange, jgs.xrange)
     np.testing.assert_allclose(gs.ixrange, jgs.ixrange)
     np.testing.assert_allclose(jgs.negative_flux, jgs.positive_flux - 1.0)
-    np.testing.assert_allclose(
-        gs.positive_flux, jgs.positive_flux, atol=1e-5, rtol=1e-5
-    )
-    np.testing.assert_allclose(
-        gs.negative_flux, jgs.negative_flux, atol=1e-5, rtol=1e-5
-    )
+    np.testing.assert_allclose(gs.positive_flux, jgs.positive_flux, atol=1e-5, rtol=1e-5)
+    np.testing.assert_allclose(gs.negative_flux, jgs.negative_flux, atol=1e-5, rtol=1e-5)
 
 
 @timer
@@ -227,9 +213,7 @@ def test_interpolant_jax_smoke():
     do_pickle(galsim.Interpolant.from_name("delta"))
 
     true_xval = np.zeros_like(x)
-    true_xval[np.abs(x) < d.gsparams.kvalue_accuracy / 2] = (
-        1.0 / d.gsparams.kvalue_accuracy
-    )
+    true_xval[np.abs(x) < d.gsparams.kvalue_accuracy / 2] = 1.0 / d.gsparams.kvalue_accuracy
     np.testing.assert_allclose(d.xval(x), true_xval)
     np.testing.assert_allclose(d.kval(x), 1.0)
     assert np.isclose(d.xval(x[12]), true_xval[12])
@@ -268,9 +252,7 @@ def test_interpolant_jax_smoke():
     assert s.ixrange == 2 * np.ceil(s.xrange)
     assert np.isclose(s.krange, np.pi)
     assert np.isclose(s.krange, 2.0 * np.pi * s._i.urange())
-    assert np.isclose(
-        s.positive_flux, 3.18726437
-    )  # Empirical -- this is a regression test
+    assert np.isclose(s.positive_flux, 3.18726437)  # Empirical -- this is a regression test
     assert np.isclose(s.negative_flux, s.positive_flux - 1.0, rtol=1.0e-4)
     do_pickle(galsim.SincInterpolant())
     do_pickle(galsim.Interpolant.from_name("sinc"))
@@ -318,9 +300,7 @@ def test_interpolant_jax_smoke():
     assert c.gsparams == galsim.GSParams()
     assert c.xrange == 2.0
     assert c.ixrange == 4
-    assert np.isclose(
-        c.krange, 2.0 * (3**1.5 / 8 / c.gsparams.kvalue_accuracy) ** (1.0 / 3.0)
-    )
+    assert np.isclose(c.krange, 2.0 * (3**1.5 / 8 / c.gsparams.kvalue_accuracy) ** (1.0 / 3.0))
     assert np.isclose(c.krange, 2.0 * np.pi * c._i.urange())
     assert np.isclose(c.positive_flux, 13.0 / 12.0)
     assert np.isclose(c.negative_flux, 1.0 / 12.0)
@@ -350,13 +330,9 @@ def test_interpolant_jax_smoke():
     assert q.gsparams == galsim.GSParams()
     assert q.xrange == 3.0
     assert q.ixrange == 6
-    assert np.isclose(
-        q.krange, 2.0 * (5**2.5 / 108 / q.gsparams.kvalue_accuracy) ** (1.0 / 3.0)
-    )
+    assert np.isclose(q.krange, 2.0 * (5**2.5 / 108 / q.gsparams.kvalue_accuracy) ** (1.0 / 3.0))
     assert np.isclose(q.krange, 2.0 * np.pi * q._i.urange())
-    assert np.isclose(
-        q.positive_flux, (13018561.0 / 11595672.0) + (17267.0 / 14494590.0) * 31**0.5
-    )
+    assert np.isclose(q.positive_flux, (13018561.0 / 11595672.0) + (17267.0 / 14494590.0) * 31**0.5)
     assert np.isclose(q.negative_flux, q.positive_flux - 1.0)
     do_pickle(galsim.Quintic())
     do_pickle(galsim.Interpolant.from_name("quintic"))
@@ -364,26 +340,13 @@ def test_interpolant_jax_smoke():
     true_xval = np.zeros_like(x)
     ax = np.abs(x)
     m = ax < 1.0
-    true_xval[m] = 1.0 + ax[m] ** 3 * (
-        -95.0 / 12.0 + 23.0 / 2.0 * ax[m] - 55.0 / 12.0 * ax[m] ** 2
-    )
+    true_xval[m] = 1.0 + ax[m] ** 3 * (-95.0 / 12.0 + 23.0 / 2.0 * ax[m] - 55.0 / 12.0 * ax[m] ** 2)
     m = (1 <= ax) & (ax < 2)
     true_xval[m] = (
-        (ax[m] - 1)
-        * (2.0 - ax[m])
-        * (
-            23.0 / 4.0
-            - 29.0 / 2.0 * ax[m]
-            + 83.0 / 8.0 * ax[m] ** 2
-            - 55.0 / 24.0 * ax[m] ** 3
-        )
+        (ax[m] - 1) * (2.0 - ax[m]) * (23.0 / 4.0 - 29.0 / 2.0 * ax[m] + 83.0 / 8.0 * ax[m] ** 2 - 55.0 / 24.0 * ax[m] ** 3)
     )
     m = (2 <= ax) & (ax < 3)
-    true_xval[m] = (
-        (ax[m] - 2)
-        * (3.0 - ax[m]) ** 2
-        * (-9.0 / 4.0 + 25.0 / 12.0 * ax[m] - 11.0 / 24.0 * ax[m] ** 2)
-    )
+    true_xval[m] = (ax[m] - 2) * (3.0 - ax[m]) ** 2 * (-9.0 / 4.0 + 25.0 / 12.0 * ax[m] - 11.0 / 24.0 * ax[m] ** 2)
     np.testing.assert_allclose(q.xval(x), true_xval)
     sx = np.sinc(x / 2 / np.pi)
     cx = np.cos(x / 2)
@@ -403,13 +366,9 @@ def test_interpolant_jax_smoke():
     assert l3.n == 3
     assert l3.xrange == l3.n
     assert l3.ixrange == 2 * l3.n
-    assert np.isclose(
-        l3.krange, 2.0 * np.pi * l3._i.urange()
-    )  # No analytic version for this one.
+    assert np.isclose(l3.krange, 2.0 * np.pi * l3._i.urange())  # No analytic version for this one.
     print(l3.positive_flux, l3.negative_flux)
-    assert np.isclose(
-        l3.positive_flux, 1.1793639
-    )  # Empirical -- this is a regression test
+    assert np.isclose(l3.positive_flux, 1.1793639)  # Empirical -- this is a regression test
     assert np.isclose(l3.negative_flux, l3.positive_flux - 1.0, rtol=1.0e-4)
     do_pickle(galsim.Lanczos(n=7, conserve_dc=False))
     do_pickle(galsim.Lanczos(3))
@@ -426,9 +385,7 @@ def test_interpolant_jax_smoke():
         assert ln.conserve_dc is False
         assert ln.n == n
         true_xval = np.zeros_like(x)
-        true_xval[np.abs(x) < n] = np.sinc(x[np.abs(x) < n]) * np.sinc(
-            x[np.abs(x) < n] / n
-        )
+        true_xval[np.abs(x) < n] = np.sinc(x[np.abs(x) < n]) * np.sinc(x[np.abs(x) < n] / n)
         np.testing.assert_allclose(ln.xval(x), true_xval, rtol=1.0e-5, atol=1.0e-10)
         assert np.isclose(ln.xval(x[12]), true_xval[12])
 
@@ -452,9 +409,7 @@ def test_interpolant_jax_smoke():
             + (vp + 1) * sici(np.pi * (vp + 1))[0]
         ) / (2 * np.pi)
         np.testing.assert_allclose(ln.kval(x), true_kval, rtol=3.0e-4, atol=3.0e-6)
-        np.testing.assert_allclose(
-            ln.kval(x[12]), true_kval[12], rtol=3.0e-4, atol=3.0e-6
-        )
+        np.testing.assert_allclose(ln.kval(x[12]), true_kval[12], rtol=3.0e-4, atol=3.0e-6)
         # assert np.isclose(ln.kval(x[12]), true_kval[12])
 
     # Base class is invalid.
@@ -492,9 +447,7 @@ def test_interpolant_jax_unit_integrals():
             direct_integrals[0] = 1
         else:
             for k in range(n):
-                direct_integrals[k] = ref_galsim.integ.int1d(
-                    interp.xval, k - 0.5, k + 0.5
-                )
+                direct_integrals[k] = ref_galsim.integ.int1d(interp.xval, k - 0.5, k + 0.5)
         print("direct: ", direct_integrals)
 
         # Get from unit_integrals method (sometimes using analytic formulas)

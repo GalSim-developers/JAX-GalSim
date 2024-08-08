@@ -99,9 +99,7 @@ def test_photon_array_masking_copyFrom_flux_handling():
     np.testing.assert_allclose(pa.x, np.hstack([pal.x, par.x]))
     np.testing.assert_allclose(pa.y, np.hstack([pal.y, par.y]))
     np.testing.assert_allclose(pa.flux, np.hstack([pal.flux, par.flux]))
-    np.testing.assert_allclose(
-        pa.wavelength, np.hstack([pal.wavelength, par.wavelength])
-    )
+    np.testing.assert_allclose(pa.wavelength, np.hstack([pal.wavelength, par.wavelength]))
     np.testing.assert_allclose(pa.dxdz, np.hstack([pal.dxdz, par.dxdz]))
     np.testing.assert_allclose(pa.dydz, np.hstack([pal.dydz, par.dydz]))
     np.testing.assert_allclose(pa.pupil_u, np.hstack([pal.pupil_u, par.pupil_u]))

@@ -52,9 +52,7 @@ class BaseWCS(_galsim.BaseWCS):
     ):
         if color is None:
             color = self._color
-        return self.local(image_pos, world_pos, color=color)._profileToWorld(
-            image_profile, flux_ratio, PositionD(offset)
-        )
+        return self.local(image_pos, world_pos, color=color)._profileToWorld(image_profile, flux_ratio, PositionD(offset))
 
     @implements(_galsim.BaseWCS.shearToWorld)
     def shearToWorld(self, image_shear, image_pos=None, world_pos=None, color=None):
@@ -101,9 +99,7 @@ class BaseWCS(_galsim.BaseWCS):
     ):
         if color is None:
             color = self._color
-        return self.local(image_pos, world_pos, color=color)._profileToImage(
-            world_profile, flux_ratio, PositionD(offset)
-        )
+        return self.local(image_pos, world_pos, color=color)._profileToImage(world_profile, flux_ratio, PositionD(offset))
 
     @implements(_galsim.BaseWCS.shearToImage)
     def shearToImage(self, world_shear, image_pos=None, world_pos=None, color=None):
@@ -200,27 +196,17 @@ class BaseWCS(_galsim.BaseWCS):
     def from_galsim(cls, galsim_wcs):
         """Create a jax_galsim WCS object from a galsim WCS object."""
         if not isinstance(galsim_wcs, _galsim.BaseWCS):
-            raise TypeError(
-                "galsim_wcs must be a galsim BaseWCS object or subclass thereof."
-            )
+            raise TypeError("galsim_wcs must be a galsim BaseWCS object or subclass thereof.")
 
-        if (
-            galsim_wcs.__class__.__name__ not in globals()
-            and galsim_wcs.__class__.__name__ != "GSFitsWCS"
-        ):
-            raise NotImplementedError(
-                "jax_galsim does not support the galsim WCS class %s"
-                % galsim_wcs.__class__.__name__
-            )
+        if galsim_wcs.__class__.__name__ not in globals() and galsim_wcs.__class__.__name__ != "GSFitsWCS":
+            raise NotImplementedError("jax_galsim does not support the galsim WCS class %s" % galsim_wcs.__class__.__name__)
 
         if isinstance(galsim_wcs, _galsim.PixelScale):
             return PixelScale(galsim_wcs.scale)
         elif isinstance(galsim_wcs, _galsim.ShearWCS):
             return ShearWCS(galsim_wcs.scale, Shear.from_galsim(galsim_wcs.shear))
         elif isinstance(galsim_wcs, _galsim.JacobianWCS):
-            return JacobianWCS(
-                galsim_wcs.dudx, galsim_wcs.dudy, galsim_wcs.dvdx, galsim_wcs.dvdy
-            )
+            return JacobianWCS(galsim_wcs.dudx, galsim_wcs.dudy, galsim_wcs.dvdx, galsim_wcs.dvdy)
         elif isinstance(galsim_wcs, _galsim.OffsetWCS):
             return OffsetWCS(
                 galsim_wcs.scale,
@@ -429,13 +415,9 @@ class EuclideanWCS(BaseWCS):
 
         else:
             if not isinstance(world_origin, Position):
-                raise TypeError(
-                    "world_origin must be a PositionD or PositionI argument"
-                )
+                raise TypeError("world_origin must be a PositionD or PositionI argument")
             if not self._isLocal:
-                world_origin += self.world_origin - self._posToWorld(
-                    self.origin, color=color
-                )
+                world_origin += self.world_origin - self._posToWorld(self.origin, color=color)
             return self._newOrigin(origin, world_origin)
 
     # If the class doesn't define something else, then we can approximate the local Jacobian
@@ -473,9 +455,7 @@ class EuclideanWCS(BaseWCS):
     # numpy arrays!
     def _makeSkyImage(self, image, sky_level, color):
         b = image.bounds
-        nx = (
-            b.xmax - b.xmin + 1 + 2
-        )  # +2 more than in image to get row/col off each edge.
+        nx = b.xmax - b.xmin + 1 + 2  # +2 more than in image to get row/col off each edge.
         ny = b.ymax - b.ymin + 1 + 2
         x, y = jnp.meshgrid(
             jnp.linspace(b.xmin - 1, b.xmax + 1, nx),
@@ -729,9 +709,7 @@ class CelestialWCS(BaseWCS):
     # Again, it is much faster if the _radec function works with numpy arrays.
     def _makeSkyImage(self, image, sky_level, color):
         b = image.bounds
-        nx = (
-            b.xmax - b.xmin + 1 + 2
-        )  # +2 more than in image to get row/col off each edge.
+        nx = b.xmax - b.xmin + 1 + 2  # +2 more than in image to get row/col off each edge.
         ny = b.ymax - b.ymin + 1 + 2
         x, y = jnp.meshgrid(
             jnp.linspace(b.xmin - 1, b.xmax + 1, nx),
@@ -925,9 +903,7 @@ class PixelScale(LocalWCS):
         return PixelScale(self._scale)
 
     def __eq__(self, other):
-        return self is other or (
-            isinstance(other, PixelScale) and self.scale == other.scale
-        )
+        return self is other or (isinstance(other, PixelScale) and self.scale == other.scale)
 
     def __repr__(self):
         return "galsim.PixelScale(%r)" % ensure_hashable(self.scale)
@@ -988,16 +964,10 @@ class ShearWCS(LocalWCS):
         return y
 
     def _profileToWorld(self, image_profile, flux_ratio, offset):
-        return (
-            image_profile.dilate(self._scale).shear(-self.shear).shift(offset)
-            * flux_ratio
-        )
+        return image_profile.dilate(self._scale).shear(-self.shear).shift(offset) * flux_ratio
 
     def _profileToImage(self, world_profile, flux_ratio, offset):
-        return (
-            world_profile.dilate(1.0 / self._scale).shear(self.shear).shift(offset)
-            * flux_ratio
-        )
+        return world_profile.dilate(1.0 / self._scale).shear(self.shear).shift(offset) * flux_ratio
 
     def _shearToWorld(self, image_shear):
         # This isn't worth customizing.  Just use the jacobian.
@@ -1041,11 +1011,7 @@ class ShearWCS(LocalWCS):
         return ShearWCS(self._scale, self._shear)
 
     def __eq__(self, other):
-        return self is other or (
-            isinstance(other, ShearWCS)
-            and self.scale == other.scale
-            and self.shear == other.shear
-        )
+        return self is other or (isinstance(other, ShearWCS) and self.scale == other.scale and self.shear == other.shear)
 
     def __repr__(self):
         return "galsim.ShearWCS(%r, %r)" % (ensure_hashable(self.scale), self.shear)
@@ -1243,9 +1209,7 @@ class JacobianWCS(LocalWCS):
         return JacobianWCS(dudx, dudy, dvdx, dvdy)
 
     def _newOrigin(self, origin, world_origin):
-        return AffineTransform(
-            self.dudx, self.dudy, self.dvdx, self.dvdy, origin, world_origin
-        )
+        return AffineTransform(self.dudx, self.dudy, self.dvdx, self.dvdy, origin, world_origin)
 
     def copy(self):
         return JacobianWCS(self.dudx, self.dudy, self.dvdx, self.dvdy)
@@ -1547,24 +1511,16 @@ class AffineTransform(UniformWCS):
         u0 = header.get("CRVAL1", 0.0)
         v0 = header.get("CRVAL2", 0.0)
 
-        return AffineTransform(
-            dudx, dudy, dvdx, dvdy, PositionD(x0, y0), PositionD(u0, v0)
-        )
+        return AffineTransform(dudx, dudy, dvdx, dvdy, PositionD(x0, y0), PositionD(u0, v0))
 
     def _newOrigin(self, origin, world_origin):
-        return AffineTransform(
-            self.dudx, self.dudy, self.dvdx, self.dvdy, origin, world_origin
-        )
+        return AffineTransform(self.dudx, self.dudy, self.dvdx, self.dvdy, origin, world_origin)
 
     def copy(self):
-        return AffineTransform(
-            self.dudx, self.dudy, self.dvdx, self.dvdy, self.origin, self.world_origin
-        )
+        return AffineTransform(self.dudx, self.dudy, self.dvdx, self.dvdy, self.origin, self.world_origin)
 
     def __repr__(self):
-        return (
-            "galsim.AffineTransform(%r, %r, %r, %r, origin=%r, world_origin=%r)"
-        ) % (
+        return ("galsim.AffineTransform(%r, %r, %r, %r, origin=%r, world_origin=%r)") % (
             ensure_hashable(self.dudx),
             ensure_hashable(self.dudy),
             ensure_hashable(self.dvdx),

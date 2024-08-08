@@ -34,9 +34,7 @@ def _run_benchmarks(benchmark, kind, func):
 
 
 @pytest.mark.parametrize("kind", ["compile", "run"])
-@pytest.mark.parametrize(
-    "conserve_dc", [True, False], ids=["conserve_dc", "no_conserve_dc"]
-)
+@pytest.mark.parametrize("conserve_dc", [True, False], ids=["conserve_dc", "no_conserve_dc"])
 @pytest.mark.parametrize("method", ["xval", "kval"])
 def test_benchmarks_lanczos_interp(benchmark, kind, conserve_dc, method):
     interp = jgs.Lanczos(5, conserve_dc=conserve_dc)
@@ -57,9 +55,7 @@ def test_benchmarks_lanczos_interp(benchmark, kind, conserve_dc, method):
 def test_benchmarks_interpolated_image(benchmark, kind):
     gal = jgs.Gaussian(fwhm=1.2)
     im_gal = gal.drawImage(nx=32, ny=32, scale=0.2)
-    igal = jgs.InterpolatedImage(
-        im_gal, gsparams=jgs.GSParams(minimum_fft_size=128, maximum_fft_size=128)
-    )
+    igal = jgs.InterpolatedImage(im_gal, gsparams=jgs.GSParams(minimum_fft_size=128, maximum_fft_size=128))
 
     def f():
         return igal.drawImage(nx=32, ny=32, scale=0.2)
@@ -92,12 +88,8 @@ def _metacal_jax_galsim_render(im, psf, g1, target_psf, scale, nk):
 @partial(jax.jit, static_argnames=("nk",))
 def _metacal_jax_galsim(im, psf, nse_im, scale, target_fwhm, g1, nk):
     iim = jgs.InterpolatedImage(jgs.ImageD(im), scale=scale, x_interpolant="lanczos15")
-    ipsf = jgs.InterpolatedImage(
-        jgs.ImageD(psf), scale=scale, x_interpolant="lanczos15"
-    )
-    inse = jgs.InterpolatedImage(
-        jgs.ImageD(jnp.rot90(nse_im, 1)), scale=scale, x_interpolant="lanczos15"
-    )
+    ipsf = jgs.InterpolatedImage(jgs.ImageD(psf), scale=scale, x_interpolant="lanczos15")
+    inse = jgs.InterpolatedImage(jgs.ImageD(jnp.rot90(nse_im, 1)), scale=scale, x_interpolant="lanczos15")
 
     target_psf = jgs.Gaussian(fwhm=target_fwhm)
 

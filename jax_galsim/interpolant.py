@@ -88,8 +88,7 @@ class Interpolant:
                 n = int(name[7:])
             except Exception:
                 raise GalSimValueError(
-                    "Invalid Lanczos specification. Should look like "
-                    "lanczosN, where N is an integer",
+                    "Invalid Lanczos specification. Should look like " "lanczosN, where N is an integer",
                     name,
                 ) from None
             return Lanczos(n, conserve_dc, gsparams=gsparams)
@@ -155,8 +154,7 @@ class Interpolant:
 
     def __eq__(self, other):
         return (self is other) or (
-            type(other) is self.__class__
-            and is_equal_with_arrays(self.tree_flatten()[1], other.tree_flatten()[1])
+            type(other) is self.__class__ and is_equal_with_arrays(self.tree_flatten()[1], other.tree_flatten()[1])
         )
 
     def __ne__(self, other):
@@ -251,10 +249,7 @@ class Interpolant:
     @property
     def xrange(self):
         """The maximum extent of the interpolant from the origin (in pixels)."""
-        raise NotImplementedError(
-            "xrange is not implemented for interpolant type %s."
-            % self.__class__.__name__
-        )
+        raise NotImplementedError("xrange is not implemented for interpolant type %s." % self.__class__.__name__)
 
     @property
     def ixrange(self):
@@ -268,10 +263,7 @@ class Interpolant:
 
     def urange(self):
         """The maximum extent of the interpolant in Fourier space (in 2pi/pixels)."""
-        raise NotImplementedError(
-            "urange() is not implemented for interpolant type %s."
-            % self.__class__.__name__
-        )
+        raise NotImplementedError("urange() is not implemented for interpolant type %s." % self.__class__.__name__)
 
     @lazy_property
     def _shoot_cdf(self):
@@ -280,9 +272,7 @@ class Interpolant:
         dx = x[1] - x[0]
         # cumulative trapezoidal rule
         # see scipy.integrate.cumulative_trapezoid
-        cdfx = jnp.concatenate(
-            [jnp.array([0]), jnp.cumsum((px[1:] + px[:-1]) * 0.5 * dx)]
-        )
+        cdfx = jnp.concatenate([jnp.array([0]), jnp.cumsum((px[1:] + px[:-1]) * 0.5 * dx)])
         cdfx /= cdfx[-1]
         return x, cdfx
 
@@ -300,16 +290,10 @@ class Interpolant:
             # thus the total flux is an integral over x and y of the product of the
             # 1D interpolants. Thus we square the total absolute flux of the 1D interpolants
             # to get the total absolute flux of the 2D interpolant.
-            flux_per_photon = (
-                self.positive_flux + self.negative_flux
-            ) ** 2 / photons.size()
+            flux_per_photon = (self.positive_flux + self.negative_flux) ** 2 / photons.size()
         else:
             flux_per_photon = 0.0
-        photons.flux = (
-            flux_per_photon
-            * jnp.sign(self._xval_noraise(photons.x))
-            * jnp.sign(self._xval_noraise(photons.y))
-        )
+        photons.flux = flux_per_photon * jnp.sign(self._xval_noraise(photons.x)) * jnp.sign(self._xval_noraise(photons.y))
 
     # subclasses should implement __init__, _xval, _uval,
     # _unit_integrals, _positive_flux, _negative_flux, urange, and xrange
@@ -494,8 +478,7 @@ class SincInterpolant(Interpolant):
 
     def _shoot(self, photons, rng):
         raise GalSimError(
-            "%s does not implement shoot since the "
-            "kernel is not compact in real-space." % self.__class__.__name__
+            "%s does not implement shoot since the " "kernel is not compact in real-space." % self.__class__.__name__
         )
 
 
@@ -598,12 +581,7 @@ class Cubic(Interpolant):
     def urange(self):
         """The maximum extent of the interpolant in Fourier space (in 2pi/pixels)."""
         # magic formula from galsim CPP layer in src/Interpolant.cpp
-        return (
-            np.power(
-                (3.0 * np.sqrt(3.0) / 8.0) / self._gsparams.kvalue_accuracy, 1.0 / 3.0
-            )
-            / np.pi
-        )
+        return np.power((3.0 * np.sqrt(3.0) / 8.0) / self._gsparams.kvalue_accuracy, 1.0 / 3.0) / np.pi
 
     @property
     def xrange(self):
@@ -647,27 +625,13 @@ class Quintic(Interpolant):
         x = jnp.abs(x)
 
         def _one(x):
-            return 1.0 + x * x * x * (
-                -95.0 / 12.0 + x * (23.0 / 2.0 + x * (-55.0 / 12.0))
-            )
+            return 1.0 + x * x * x * (-95.0 / 12.0 + x * (23.0 / 2.0 + x * (-55.0 / 12.0)))
 
         def _two(x):
-            return (
-                (x - 1.0)
-                * (x - 2.0)
-                * (
-                    -23.0 / 4.0
-                    + x * (29.0 / 2.0 + x * (-83.0 / 8.0 + x * (55.0 / 24.0)))
-                )
-            )
+            return (x - 1.0) * (x - 2.0) * (-23.0 / 4.0 + x * (29.0 / 2.0 + x * (-83.0 / 8.0 + x * (55.0 / 24.0))))
 
         def _three(x):
-            return (
-                (x - 2.0)
-                * (x - 3.0)
-                * (x - 3.0)
-                * (-9.0 / 4.0 + x * (25.0 / 12.0 + x * (-11.0 / 24.0)))
-            )
+            return (x - 2.0) * (x - 3.0) * (x - 3.0) * (-9.0 / 4.0 + x * (25.0 / 12.0 + x * (-11.0 / 24.0)))
 
         msk1 = x <= 1.0
         msk2 = x <= 2.0
@@ -1440,11 +1404,7 @@ class Lanczos(Interpolant):
 
     @property
     def _du(self):
-        return (
-            self._gsparams.table_spacing
-            * np.power(self._gsparams.kvalue_accuracy / 200.0, 0.25)
-            / self._n
-        )
+        return self._gsparams.table_spacing * np.power(self._gsparams.kvalue_accuracy / 200.0, 0.25) / self._n
 
     @lazy_property
     def _umax(self):
@@ -1539,10 +1499,7 @@ class Lanczos(Interpolant):
                 - 16.0 * _K[2] * ssq * (1.0 - ssq)
                 - 4.0 * _K[3] * ssq * (9.0 - ssq * (24.0 - 16.0 * ssq))
                 - 64.0 * _K[4] * ssq * (1.0 - ssq * (5.0 - ssq * (8.0 - 4.0 * ssq)))
-                - 4.0
-                * _K[5]
-                * ssq
-                * (25.0 - ssq * (200.0 - ssq * (560.0 - ssq * (640.0 - 256.0 * ssq))))
+                - 4.0 * _K[5] * ssq * (25.0 - ssq * (200.0 - ssq * (560.0 - ssq * (640.0 - 256.0 * ssq))))
             )
             val = val / factor
 
@@ -1564,9 +1521,7 @@ class Lanczos(Interpolant):
         return akima_interp(jnp.abs(k), *_idata, fixed_spacing=True)
 
     def _kval_noraise(self, k):
-        return Lanczos._interp_kval(
-            k, self._n, self._conserve_dc, self._du, self.krange
-        )
+        return Lanczos._interp_kval(k, self._n, self._conserve_dc, self._du, self.krange)
 
     def urange(self):
         """The maximum extent of the interpolant in Fourier space (in 2pi/pixels)."""
@@ -1689,9 +1644,7 @@ def _lanczos_kval_interp_table(n, du, krange, conserve_dc):
 def _compute_C_K_lanczos(n):
     _K = np.concatenate((np.zeros(1), _gs_raw_uval(np.arange(5) + 1.0, n)), axis=0)
     _C = np.zeros(6)
-    _C[0] = 1.0 + 2.0 * (
-        _K[1] * (1.0 + 3.0 * _K[1] + _K[2] + _K[3]) + _K[2] + _K[3] + _K[4] + _K[5]
-    )
+    _C[0] = 1.0 + 2.0 * (_K[1] * (1.0 + 3.0 * _K[1] + _K[2] + _K[3]) + _K[2] + _K[3] + _K[4] + _K[5])
     _C[1] = -_K[1] * (1.0 + 4.0 * _K[1] + _K[2] + 2.0 * _K[3])
     _C[2] = _K[1] * (_K[1] - 2.0 * _K[2] + _K[3]) - _K[2]
     _C[3] = _K[1] * (_K[1] - 2.0 * _K[3]) - _K[3]

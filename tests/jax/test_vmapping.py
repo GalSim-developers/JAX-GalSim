@@ -25,9 +25,7 @@ def test_gaussian_vmapping():
         ).all()
 
     # Check that after vmapping the oject is still the same
-    assert all(
-        [test_eq(jax.vmap(galsim.Gaussian)(**duplicate(o.params)), o) for o in objects]
-    )
+    assert all([test_eq(jax.vmap(galsim.Gaussian)(**duplicate(o.params)), o) for o in objects])
 
 
 def test_exponential_vmapping():
@@ -39,17 +37,12 @@ def test_exponential_vmapping():
 
     # Test equality function from original galsim exponential.py
     def test_eq(self, other):
-        return (
-            self.scale_radius == jnp.array([other.scale_radius, other.scale_radius])
-        ).all() and (self.flux == jnp.array([other.flux, other.flux])).all()
+        return (self.scale_radius == jnp.array([other.scale_radius, other.scale_radius])).all() and (
+            self.flux == jnp.array([other.flux, other.flux])
+        ).all()
 
     # Check that after vmapping the oject is still the same
-    assert all(
-        [
-            test_eq(jax.vmap(galsim.Exponential)(**duplicate(o.params)), o)
-            for o in objects
-        ]
-    )
+    assert all([test_eq(jax.vmap(galsim.Exponential)(**duplicate(o.params)), o) for o in objects])
 
 
 def test_moffat_vmapping():
@@ -68,14 +61,12 @@ def test_moffat_vmapping():
 
     # Test equality function from original galsim moffat.py
     def test_eq(self, other):
-        return (
-            self.scale_radius == jnp.array([other.scale_radius, other.scale_radius])
-        ).all() and (self.flux == jnp.array([other.flux, other.flux])).all()
+        return (self.scale_radius == jnp.array([other.scale_radius, other.scale_radius])).all() and (
+            self.flux == jnp.array([other.flux, other.flux])
+        ).all()
 
     # Check that after vmapping the oject is still the same
-    assert all(
-        [test_eq(jax.vmap(galsim.Moffat)(**duplicate(o.params)), o) for o in objects]
-    )
+    assert all([test_eq(jax.vmap(galsim.Moffat)(**duplicate(o.params)), o) for o in objects])
 
 
 def test_spergel_vmapping():
@@ -87,20 +78,16 @@ def test_spergel_vmapping():
 
     # Test equality function from original galsim spergel.py
     def test_eq(self, other):
-        return (
-            self.scale_radius == jnp.array([other.scale_radius, other.scale_radius])
-        ).all() and (self.flux == jnp.array([other.flux, other.flux])).all()
+        return (self.scale_radius == jnp.array([other.scale_radius, other.scale_radius])).all() and (
+            self.flux == jnp.array([other.flux, other.flux])
+        ).all()
 
     # Check that after vmapping the oject is still the same
-    assert all(
-        [test_eq(jax.vmap(galsim.Spergel)(**duplicate(o.params)), o) for o in objects]
-    )
+    assert all([test_eq(jax.vmap(galsim.Spergel)(**duplicate(o.params)), o) for o in objects])
 
 
 def eq_pos(pos, other):
-    return (pos.x == jnp.array([other.x, other.x])).all() and (
-        pos.y == jnp.array([other.y, other.y])
-    ).all()
+    return (pos.x == jnp.array([other.x, other.x])).all() and (pos.y == jnp.array([other.y, other.y])).all()
 
 
 def test_position_vmapping():
@@ -132,10 +119,7 @@ def test_affine_transform_vmapping():
 
     def test_eq(self, other):
         return (
-            (
-                self._local_wcs.dudx
-                == jnp.array([other._local_wcs.dudx, other._local_wcs.dudx])
-            ).all()
+            (self._local_wcs.dudx == jnp.array([other._local_wcs.dudx, other._local_wcs.dudx])).all()
             and eq_pos(self.origin, other.origin)
             and eq_pos(self.world_origin, other.world_origin)
         )

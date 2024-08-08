@@ -15,9 +15,7 @@ class Sensor:
     @implements(_galsim.Sensor.accumulate)
     def accumulate(self, photons, image, orig_center=None, resume=False):
         if not image.bounds.isDefined():
-            raise GalSimUndefinedBoundsError(
-                "Calling accumulate on image with undefined bounds"
-            )
+            raise GalSimUndefinedBoundsError("Calling accumulate on image with undefined bounds")
         return photons.addTo(image)
 
     @implements(_galsim.Sensor.calculate_pixel_areas)
@@ -31,9 +29,7 @@ class Sensor:
         return "galsim.Sensor()"
 
     def __eq__(self, other):
-        return self is other or (
-            isinstance(other, Sensor) and repr(self) == repr(other)
-        )  # Checks that neither is a subclass
+        return self is other or (isinstance(other, Sensor) and repr(self) == repr(other))  # Checks that neither is a subclass
 
     def __ne__(self, other):
         return not self.__eq__(other)

@@ -43,10 +43,7 @@ class Bounds(_galsim.Bounds):
                     self.xmin = self.xmax = args[0].x
                     self.ymin = self.ymax = args[0].y
                 else:
-                    raise TypeError(
-                        "Single argument to %s must be either a Bounds or a Position"
-                        % (self.__class__.__name__)
-                    )
+                    raise TypeError("Single argument to %s must be either a Bounds or a Position" % (self.__class__.__name__))
                 self._isdefined = True
             elif len(args) == 2:
                 if isinstance(args[0], Position) and isinstance(args[1], Position):
@@ -56,20 +53,11 @@ class Bounds(_galsim.Bounds):
                     self.ymin = min(args[0].y, args[1].y)
                     self.ymax = max(args[0].y, args[1].y)
                 else:
-                    raise TypeError(
-                        "Two arguments to %s must be Positions"
-                        % (self.__class__.__name__)
-                    )
+                    raise TypeError("Two arguments to %s must be Positions" % (self.__class__.__name__))
             else:
-                raise TypeError(
-                    "%s takes either 1, 2, or 4 arguments (%d given)"
-                    % (self.__class__.__name__, len(args))
-                )
+                raise TypeError("%s takes either 1, 2, or 4 arguments (%d given)" % (self.__class__.__name__, len(args)))
         elif len(args) != 0:
-            raise TypeError(
-                "Cannot provide both keyword and non-keyword arguments to %s"
-                % (self.__class__.__name__)
-            )
+            raise TypeError("Cannot provide both keyword and non-keyword arguments to %s" % (self.__class__.__name__))
         else:
             try:
                 self._isdefined = True
@@ -78,10 +66,7 @@ class Bounds(_galsim.Bounds):
                 self.ymin = kwargs.pop("ymin")
                 self.ymax = kwargs.pop("ymax")
             except KeyError:
-                raise TypeError(
-                    "Keyword arguments, xmin, xmax, ymin, ymax are required for %s"
-                    % (self.__class__.__name__)
-                )
+                raise TypeError("Keyword arguments, xmin, xmax, ymin, ymax are required for %s" % (self.__class__.__name__))
             if kwargs:
                 raise TypeError("Got unexpected keyword arguments %s" % kwargs.keys())
 
@@ -103,9 +88,7 @@ class Bounds(_galsim.Bounds):
         this may not necessarily be an integer `PositionI`.
         """
         if not self.isDefined():
-            raise _galsim.GalSimUndefinedBoundsError(
-                "true_center is invalid for an undefined Bounds"
-            )
+            raise _galsim.GalSimUndefinedBoundsError("true_center is invalid for an undefined Bounds")
         return PositionD((self.xmax + self.xmin) / 2.0, (self.ymax + self.ymin) / 2.0)
 
     @implements(_galsim.Bounds.includes)
@@ -123,20 +106,12 @@ class Bounds(_galsim.Bounds):
                 )
             elif isinstance(args[0], Position):
                 p = args[0]
-                return (
-                    self.isDefined()
-                    and self.xmin <= p.x <= self.xmax
-                    and self.ymin <= p.y <= self.ymax
-                )
+                return self.isDefined() and self.xmin <= p.x <= self.xmax and self.ymin <= p.y <= self.ymax
             else:
                 raise TypeError("Invalid argument %s" % args[0])
         elif len(args) == 2:
             x, y = args
-            return (
-                self.isDefined()
-                and self.xmin <= float(x) <= self.xmax
-                and self.ymin <= float(y) <= self.ymax
-            )
+            return self.isDefined() and self.xmin <= float(x) <= self.xmax and self.ymin <= float(y) <= self.ymax
         elif len(args) == 0:
             raise TypeError("include takes at least 1 argument (0 given)")
         else:
@@ -190,10 +165,7 @@ class Bounds(_galsim.Bounds):
             else:
                 return self.__class__(other)
         else:
-            raise TypeError(
-                "other must be either a %s or a %s"
-                % (self.__class__.__name__, self._pos_class.__name__)
-            )
+            raise TypeError("other must be either a %s or a %s" % (self.__class__.__name__, self._pos_class.__name__))
 
     def __repr__(self):
         if self.isDefined():
@@ -255,10 +227,7 @@ class Bounds(_galsim.Bounds):
         elif isinstance(galsim_bounds, _galsim.BoundsI):
             _cls = BoundsI
         else:
-            raise TypeError(
-                "galsim_bounds must be either a %s or a %s"
-                % (_galsim.BoundsD.__name__, _galsim.BoundsI.__name__)
-            )
+            raise TypeError("galsim_bounds must be either a %s or a %s" % (_galsim.BoundsD.__name__, _galsim.BoundsI.__name__))
         if galsim_bounds.isDefined():
             return _cls(
                 galsim_bounds.xmin,
@@ -284,11 +253,7 @@ class BoundsD(Bounds):
 
     def _check_scalar(self, x, name):
         try:
-            if (
-                isinstance(x, jax.Array)
-                and x.shape == ()
-                and x.dtype.name in ["float32", "float64", "float"]
-            ):
+            if isinstance(x, jax.Array) and x.shape == () and x.dtype.name in ["float32", "float64", "float"]:
                 return
             elif x == float(x):
                 return
@@ -333,11 +298,7 @@ class BoundsI(Bounds):
 
     def _check_scalar(self, x, name):
         try:
-            if (
-                isinstance(x, jax.Array)
-                and x.shape == ()
-                and x.dtype.name in ["int32", "int64", "int"]
-            ):
+            if isinstance(x, jax.Array) and x.shape == () and x.dtype.name in ["int32", "int64", "int"]:
                 return
             elif x == int(x):
                 return

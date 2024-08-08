@@ -18,14 +18,10 @@ class Shear(object):
     def __init__(self, *args, **kwargs):
         # There is no valid set of >2 keyword arguments, so raise an exception in this case:
         if len(kwargs) > 2:
-            raise TypeError(
-                "Shear constructor received >2 keyword arguments: %s" % kwargs.keys()
-            )
+            raise TypeError("Shear constructor received >2 keyword arguments: %s" % kwargs.keys())
 
         if len(args) > 1:
-            raise TypeError(
-                "Shear constructor received >1 non-keyword arguments: %s" % args
-            )
+            raise TypeError("Shear constructor received >1 non-keyword arguments: %s" % args)
 
         # If a component of e, g, or eta, then require that the other component is zero if not set,
         # and don't allow specification of mixed pairs like e1 and g2.
@@ -35,9 +31,7 @@ class Shear(object):
         if len(args) == 1:
             self._g = args[0]
             if not (jnp.all(jnp.iscomplex(self._g)) or isinstance(self._g, complex)):
-                raise TypeError(
-                    "Non-keyword argument to Shear must be complex g1 + 1j * g2"
-                )
+                raise TypeError("Non-keyword argument to Shear must be complex g1 + 1j * g2")
 
         # Empty constructor means shear == (0,0)
         elif not kwargs:
@@ -134,9 +128,7 @@ class Shear(object):
         # check for the case where there are 1 or 2 kwargs that are not valid ones for
         # initializing a Shear
         if kwargs:
-            raise TypeError(
-                "Shear constructor got unexpected extra argument(s): %s" % kwargs.keys()
-            )
+            raise TypeError("Shear constructor got unexpected extra argument(s): %s" % kwargs.keys())
 
     @property
     def g1(self):
@@ -255,9 +247,7 @@ class Shear(object):
 
     @implements(_galsim.Shear.getMatrix)
     def getMatrix(self):
-        return jnp.array(
-            [[1.0 + self.g1, self.g2], [self.g2, 1.0 - self.g1]]
-        ) / jnp.sqrt(1.0 - self.g**2)
+        return jnp.array([[1.0 + self.g1, self.g2], [self.g2, 1.0 - self.g1]]) / jnp.sqrt(1.0 - self.g**2)
 
     @implements(_galsim.Shear.rotationWith)
     def rotationWith(self, other):

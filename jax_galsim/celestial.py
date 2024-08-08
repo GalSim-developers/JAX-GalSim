@@ -54,9 +54,7 @@ def _sun_position_ecliptic(date):
 
 @implements(
     _galsim.celestial.CelestialCoord,
-    lax_description=(
-        "The JAX version of this object does not check that the declination is between -90 and 90."
-    ),
+    lax_description=("The JAX version of this object does not check that the declination is between -90 and 90."),
 )
 @register_pytree_node_class
 class CelestialCoord(object):
@@ -124,8 +122,7 @@ class CelestialCoord(object):
     @implements(
         _galsim.celestial.CelestialCoord.from_xyz,
         lax_description=(
-            "The JAX version of this static method does not check that the norm of the input "
-            "vector is non-zero."
+            "The JAX version of this static method does not check that the norm of the input " "vector is non-zero."
         ),
     )
     def from_xyz(x, y, z):
@@ -233,8 +230,7 @@ class CelestialCoord(object):
             2.0 * jnp.arcsin(0.5 * jnp.sqrt(dsq)),
             # Points are nearly antipodes where the accuracy of this formula starts to break down.
             # But in this case, the cross product provides an accurate distance.
-            jnp.pi
-            - jnp.arcsin(jnp.sqrt(jnp.sum(jnp.array(self._raw_cross(aux, auxc)) ** 2))),
+            jnp.pi - jnp.arcsin(jnp.sqrt(jnp.sum(jnp.array(self._raw_cross(aux, auxc)) ** 2))),
         )
 
         return _Angle(theta)
@@ -697,12 +693,8 @@ class CelestialCoord(object):
         tandra_denom = c * c0 - v * s * s0
         # Note: A^2 sec^2(dra) = denom^2 (1 + tan^2(dra) = denom^2 + num^2
         A2sec2dra = tandra_denom**2 + tandra_num**2
-        drdu = (
-            (u * dsdu + s) * tandra_denom - u * s * (dcdu * c0 - v * dsdu * s0)
-        ) / A2sec2dra
-        drdv = (
-            u * dsdv * tandra_denom - u * s * (dcdv * c0 - (v * dsdv + s) * s0)
-        ) / A2sec2dra
+        drdu = ((u * dsdu + s) * tandra_denom - u * s * (dcdu * c0 - v * dsdu * s0)) / A2sec2dra
+        drdv = (u * dsdv * tandra_denom - u * s * (dcdv * c0 - (v * dsdv + s) * s0)) / A2sec2dra
 
         drdu *= cosdec
         drdv *= cosdec
@@ -710,9 +702,7 @@ class CelestialCoord(object):
 
     @implements(_galsim.celestial.CelestialCoord.precess)
     def precess(self, from_epoch, to_epoch):
-        return CelestialCoord._precess(
-            from_epoch, to_epoch, self._ra.rad, self._dec.rad
-        )
+        return CelestialCoord._precess(from_epoch, to_epoch, self._ra.rad, self._dec.rad)
 
     @implements(_galsim.celestial.CelestialCoord.galactic)
     def galactic(self, epoch=2000.0):
@@ -867,21 +857,9 @@ class CelestialCoord(object):
         t3 = t2 * t
 
         # a,b,c below correspond to Lieske's zeta_A, z_A and theta_A
-        a = (
-            (2306.2181 + 1.39656 * t0 - 0.000139 * t02) * t
-            + (0.30188 - 0.000344 * t0) * t2
-            + 0.017998 * t3
-        ) * arcsec
-        b = (
-            (2306.2181 + 1.39656 * t0 - 0.000139 * t02) * t
-            + (1.09468 + 0.000066 * t0) * t2
-            + 0.018203 * t3
-        ) * arcsec
-        c = (
-            (2004.3109 - 0.85330 * t0 - 0.000217 * t02) * t
-            + (-0.42665 - 0.000217 * t0) * t2
-            - 0.041833 * t3
-        ) * arcsec
+        a = ((2306.2181 + 1.39656 * t0 - 0.000139 * t02) * t + (0.30188 - 0.000344 * t0) * t2 + 0.017998 * t3) * arcsec
+        b = ((2306.2181 + 1.39656 * t0 - 0.000139 * t02) * t + (1.09468 + 0.000066 * t0) * t2 + 0.018203 * t3) * arcsec
+        c = ((2004.3109 - 0.85330 * t0 - 0.000217 * t02) * t + (-0.42665 - 0.000217 * t0) * t2 - 0.041833 * t3) * arcsec
         sina, cosa = a.sincos()
         sinb, cosb = b.sincos()
         sinc, cosc = c.sincos()

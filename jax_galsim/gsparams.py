@@ -26,10 +26,7 @@ class GSParams:
     def from_galsim(cls, gsparams):
         """Create a jax_galsim `GSParams` from a `galsim.GSParams` object."""
         if not isinstance(gsparams, _galsim.GSParams):
-            raise TypeError(
-                "gsparams must be a %s instance, got %s"
-                % (_galsim.GSParams.__name__, gsparams)
-            )
+            raise TypeError("gsparams must be a %s instance, got %s" % (_galsim.GSParams.__name__, gsparams))
         return cls(
             gsparams._minimum_fft_size,
             gsparams.maximum_fft_size,
@@ -132,15 +129,10 @@ class GSParams:
         self.__init__(*state)
 
     def __repr__(self):
-        return (
-            "galsim.GSParams(%d,%d,%r,%r,%r,%r,%r,%d,%r,%r,%r,%r,%r)"
-            % self._getinitargs()
-        )
+        return "galsim.GSParams(%d,%d,%r,%r,%r,%r,%r,%d,%r,%r,%r,%r,%r)" % self._getinitargs()
 
     def __eq__(self, other):
-        return self is other or (
-            isinstance(other, GSParams) and self._getinitargs() == other._getinitargs()
-        )
+        return self is other or (isinstance(other, GSParams) and self._getinitargs() == other._getinitargs())
 
     def __ne__(self, other):
         return not self.__eq__(other)

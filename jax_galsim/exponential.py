@@ -24,9 +24,7 @@ class Exponential(GSObject):
     _is_analytic_x = True
     _is_analytic_k = True
 
-    def __init__(
-        self, half_light_radius=None, scale_radius=None, flux=1.0, gsparams=None
-    ):
+    def __init__(self, half_light_radius=None, scale_radius=None, flux=1.0, gsparams=None):
         if half_light_radius is not None:
             if scale_radius is not None:
                 raise _galsim.GalSimIncompatibleValuesError(
@@ -143,9 +141,7 @@ class Exponential(GSObject):
 
     @implements(_galsim.Exponential.withFlux)
     def withFlux(self, flux):
-        return Exponential(
-            scale_radius=self.scale_radius, flux=flux, gsparams=self.gsparams
-        )
+        return Exponential(scale_radius=self.scale_radius, flux=flux, gsparams=self.gsparams)
 
     @lazy_property
     def _shoot_cdf(self):
@@ -187,9 +183,7 @@ class Exponential(GSObject):
     def _shoot(self, photons, rng):
         ud = UniformDeviate(rng)
 
-        u = ud.generate(
-            photons.x
-        )  # this does not fill arrays like in galsim so is safe
+        u = ud.generate(photons.x)  # this does not fill arrays like in galsim so is safe
         _u_cdf, _cdf = self._shoot_cdf
         # this interpolation inverts the CDF
         u = jnp.interp(u, _cdf, _u_cdf)
@@ -197,9 +191,7 @@ class Exponential(GSObject):
         # the object r0.
         r = -jnp.log(1.0 - u) * self._r0
 
-        ang = (
-            ud.generate(photons.x) * 2.0 * jnp.pi
-        )  # this does not fill arrays like in galsim so is safe
+        ang = ud.generate(photons.x) * 2.0 * jnp.pi  # this does not fill arrays like in galsim so is safe
         photons.x = r * jnp.cos(ang)
         photons.y = r * jnp.sin(ang)
         photons.flux = self.flux / photons.size()

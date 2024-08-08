@@ -104,8 +104,7 @@ class Moffat(GSObject):
                         jax.lax.select(
                             trunc > 0,
                             _MoffatCalculateSRFromHLR(half_light_radius, trunc, beta),
-                            half_light_radius
-                            / jnp.sqrt(jnp.power(0.5, 1.0 / (1.0 - beta)) - 1.0),
+                            half_light_radius / jnp.sqrt(jnp.power(0.5, 1.0 / (1.0 - beta)) - 1.0),
                         )
                     ),
                     trunc=trunc,
@@ -181,9 +180,7 @@ class Moffat(GSObject):
         return jax.lax.select(
             self.trunc > 0.0,
             self.trunc * self._inv_r0,
-            jnp.sqrt(
-                jnp.power(self.gsparams.xvalue_accuracy, 1.0 / (1.0 - self.beta)) - 1.0
-            ),
+            jnp.sqrt(jnp.power(self.gsparams.xvalue_accuracy, 1.0 / (1.0 - self.beta)) - 1.0),
         )
 
     @property
@@ -206,9 +203,7 @@ class Moffat(GSObject):
     @property
     def half_light_radius(self):
         """The half-light radius of this `Moffat` profile."""
-        return self._r0 * jnp.sqrt(
-            jnp.power(1.0 - 0.5 * self._fluxFactor, 1.0 / (1.0 - self.beta)) - 1.0
-        )
+        return self._r0 * jnp.sqrt(jnp.power(1.0 - 0.5 * self._fluxFactor, 1.0 / (1.0 - self.beta)) - 1.0)
 
     @property
     def fwhm(self):
@@ -246,15 +241,12 @@ class Moffat(GSObject):
         )
 
     def __repr__(self):
-        return (
-            "galsim.Moffat(beta=%r, scale_radius=%r, trunc=%r, flux=%r, gsparams=%r)"
-            % (
-                ensure_hashable(self.beta),
-                ensure_hashable(self.scale_radius),
-                ensure_hashable(self.trunc),
-                ensure_hashable(self.flux),
-                self.gsparams,
-            )
+        return "galsim.Moffat(beta=%r, scale_radius=%r, trunc=%r, flux=%r, gsparams=%r)" % (
+            ensure_hashable(self.beta),
+            ensure_hashable(self.scale_radius),
+            ensure_hashable(self.trunc),
+            ensure_hashable(self.flux),
+            self.gsparams,
         )
 
     def __str__(self):
@@ -275,10 +267,7 @@ class Moffat(GSObject):
 
     @jax.jit
     def _maxk_func(self, k):
-        return (
-            jnp.abs(self._kValue(PositionD(x=k, y=0)).real / self.flux)
-            - self.gsparams.maxk_threshold
-        )
+        return jnp.abs(self._kValue(PositionD(x=k, y=0)).real / self.flux) - self.gsparams.maxk_threshold
 
     @property
     @jax.jit
@@ -295,10 +284,7 @@ class Moffat(GSObject):
     @property
     def _stepk_highbeta(self):
         # ignore the 1 in (1+R^2), so approximately
-        R = (
-            jnp.power(self.gsparams.folding_threshold, 0.5 / (1.0 - self.beta))
-            * self._r0
-        )
+        R = jnp.power(self.gsparams.folding_threshold, 0.5 / (1.0 - self.beta)) * self._r0
         R = jnp.minimum(R, self._maxR)
         # at least R should be 5 HLR
         R5hlr = self.gsparams.stepk_minimum_hlr * self.half_light_radius
@@ -311,9 +297,7 @@ class Moffat(GSObject):
         1 - (1+(R/rd)^2)^(1-beta)
         So solve (1+(R/rd)^2)^(1-beta) = folding_threshold
         """
-        return jax.lax.select(
-            self.beta <= self._beta_thr, self._stepk_lowbeta, self._stepk_highbeta
-        )
+        return jax.lax.select(self.beta <= self._beta_thr, self._stepk_lowbeta, self._stepk_highbeta)
 
     @property
     def _has_hard_edges(self):
@@ -327,9 +311,7 @@ class Moffat(GSObject):
     def _xValue(self, pos):
         rsq = (pos.x**2 + pos.y**2) * self._inv_r0_sq
         # trunc if r>maxR with r0 scaled version
-        return jnp.where(
-            rsq > self._maxRrD_sq, 0.0, self._norm * jnp.power(1.0 + rsq, -self.beta)
-        )
+        return jnp.where(rsq > self._maxRrD_sq, 0.0, self._norm * jnp.power(1.0 + rsq, -self.beta))
 
     def _kValue_untrunc(self, k):
         """Non truncated version of _kValue"""
@@ -388,9 +370,7 @@ class Moffat(GSObject):
 
         # First get a point uniformly distributed on unit circle
         theta = ud.generate(photons.x) * 2.0 * jnp.pi
-        rsq = ud.generate(
-            photons.x
-        )  # cumulative dist function P(<r) = r^2 for unit circle
+        rsq = ud.generate(photons.x)  # cumulative dist function P(<r) = r^2 for unit circle
         sint = jnp.sin(theta)
         cost = jnp.cos(theta)
 

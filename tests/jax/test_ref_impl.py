@@ -14,9 +14,7 @@ def test_ref_impl_convolve():
         psf = galsim.Gaussian(fwhm=fwhm_backwards_compatible, flux=1)
         pixel = galsim.Pixel(scale=dx, flux=1.0)
         conv = galsim.Convolve([psf, pixel], real_space=False)
-        return conv.drawImage(
-            nx=32, ny=32, scale=dx, method="sb", use_true_center=False
-        ).array
+        return conv.drawImage(nx=32, ny=32, scale=dx, method="sb", use_true_center=False).array
 
     np.testing.assert_array_almost_equal(
         conv1(ref_galsim),
@@ -30,9 +28,7 @@ def test_ref_impl_convolve():
         psf = galsim.Gaussian(fwhm=fwhm_backwards_compatible, flux=1)
         pixel = galsim.Pixel(scale=dx, flux=1.0)
         conv = galsim.Convolve(psf, pixel, real_space=False)
-        return conv.drawImage(
-            nx=32, ny=32, scale=dx, method="sb", use_true_center=False
-        ).array
+        return conv.drawImage(nx=32, ny=32, scale=dx, method="sb", use_true_center=False).array
 
     np.testing.assert_array_almost_equal(
         conv2(ref_galsim),
@@ -51,18 +47,10 @@ def test_ref_impl_shearconvolve():
     dx = 0.2
 
     def func(galsim):
-        psf = (
-            galsim.Gaussian(flux=1, sigma=1)
-            .shear(e1=e1, e2=e2)
-            .rotate(33 * galsim.degrees)
-            .shift(0.1, 0.4)
-            * 1.1
-        )
+        psf = galsim.Gaussian(flux=1, sigma=1).shear(e1=e1, e2=e2).rotate(33 * galsim.degrees).shift(0.1, 0.4) * 1.1
         pixel = galsim.Pixel(scale=dx, flux=1.0)
         conv = galsim.Convolve([psf, pixel])
-        return conv.drawImage(
-            nx=32, ny=32, scale=dx, method="sb", use_true_center=False
-        ).array
+        return conv.drawImage(nx=32, ny=32, scale=dx, method="sb", use_true_center=False).array
 
     np.testing.assert_array_almost_equal(
         func(ref_galsim),

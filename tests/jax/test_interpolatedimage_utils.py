@@ -195,9 +195,7 @@ def test_interpolatedimage_utils_comp_to_galsim(
         abs(
             int(
                 hashlib.sha1(
-                    f"{method}{ref_array}{offset_x}{offset_y}{wcs}{use_true_center}{normalization}{x_interp}".encode(
-                        "utf-8"
-                    )
+                    f"{method}{ref_array}{offset_x}{offset_y}{wcs}{use_true_center}{normalization}{x_interp}".encode("utf-8")
                 ).hexdigest(),
                 16,
             )
@@ -208,9 +206,7 @@ def test_interpolatedimage_utils_comp_to_galsim(
 
     rng = np.random.RandomState(seed=seed)
     if rng.uniform() < 0.75:
-        pytest.skip(
-            "Skipping `test_interpolatedimage_utils_comp_to_galsim` case at random to save time."
-        )
+        pytest.skip("Skipping `test_interpolatedimage_utils_comp_to_galsim` case at random to save time.")
 
     gimage_in = _galsim.Image(ref_array, scale=0.2)
     jgimage_in = jax_galsim.Image(ref_array, scale=0.2)
@@ -257,9 +253,7 @@ def test_interpolatedimage_utils_comp_to_galsim(
                 err_msg=f"kValue mismatch: wcs={wcs}, x={x}, y={y}",
             )
         else:
-            dx = jnp.sqrt(jgii._original._wcs.pixelArea()) * rng.uniform(
-                low=0.5, high=1.5
-            )
+            dx = jnp.sqrt(jgii._original._wcs.pixelArea()) * rng.uniform(low=0.5, high=1.5)
             np.testing.assert_allclose(
                 gii.xValue(x * dx, y * dx),
                 jgii.xValue(x * dx, y * dx),
@@ -343,13 +337,7 @@ def test_interpolatedimage_interpolant_sample(interp):
     h, bins = jnp.histogram(photons.x, bins=500)
     mid = (bins[1:] + bins[:-1]) / 2.0
     dx = bins[1:] - bins[:-1]
-    yv = (
-        jnp.abs(interp._xval_noraise(mid))
-        * dx
-        * ntot
-        * 1.0
-        / (interp.positive_flux + interp.negative_flux)
-    )
+    yv = jnp.abs(interp._xval_noraise(mid)) * dx * ntot * 1.0 / (interp.positive_flux + interp.negative_flux)
     msk = yv > 100
     fdev = np.abs(h - yv) / np.abs(np.sqrt(yv))
     np.testing.assert_allclose(fdev[msk], 0, rtol=0, atol=5.0, err_msg=f"{interp}")

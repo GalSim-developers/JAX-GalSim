@@ -15,10 +15,7 @@ from jax_galsim.image import Image
 
 def _maybe_convert_and_warn(image):
     if image.array.dtype.type not in Image.valid_dtypes:
-        galsim_warn(
-            "The dtype of the input image is not supported by jax_galsim. "
-            "Converting to float64."
-        )
+        galsim_warn("The dtype of the input image is not supported by jax_galsim. " "Converting to float64.")
         _image = image.view(dtype=jnp.float64)
         if hasattr(image, "header"):
             _image.header = image.header
@@ -37,17 +34,13 @@ def read(*args, **kwargs):
 @implements(_galsim.fits.readMulti)
 def readMulti(*args, **kwargs):
     gsimage_list = _galsim.fits.readMulti(*args, **kwargs)
-    return [
-        _maybe_convert_and_warn(Image.from_galsim(gsimage)) for gsimage in gsimage_list
-    ]
+    return [_maybe_convert_and_warn(Image.from_galsim(gsimage)) for gsimage in gsimage_list]
 
 
 @implements(_galsim.fits.readCube)
 def readCube(*args, **kwargs):
     gsimage_list = _galsim.fits.readCube(*args, **kwargs)
-    return [
-        _maybe_convert_and_warn(Image.from_galsim(gsimage)) for gsimage in gsimage_list
-    ]
+    return [_maybe_convert_and_warn(Image.from_galsim(gsimage)) for gsimage in gsimage_list]
 
 
 # We wrap the galsim FITS write functions to accept jax_galsim Image objects.
@@ -89,12 +82,7 @@ def writeMulti(*args, **kwargs):
     if len(args) >= 1:
         with ExitStack() as stack:
             gsimage_list = [
-                (
-                    stack.enter_context(_image_as_numpy(image))
-                    if isinstance(image, Image)
-                    else image
-                )
-                for image in args[0]
+                (stack.enter_context(_image_as_numpy(image)) if isinstance(image, Image) else image) for image in args[0]
             ]
             _galsim.fits.writeMulti(gsimage_list, *args[1:], **kwargs)
     else:

@@ -27,16 +27,10 @@ def Transform(
 ):
     if not (isinstance(obj, GSObject)):
         raise TypeError("Argument to Transform must be a GSObject.")
-    elif (
-        hasattr(jac, "__call__")
-        or hasattr(offset, "__call__")
-        or hasattr(flux_ratio, "__call__")
-    ):
+    elif hasattr(jac, "__call__") or hasattr(offset, "__call__") or hasattr(flux_ratio, "__call__"):
         raise NotImplementedError("Transform does not support callable arguments.")
     else:
-        return Transformation(
-            obj, jac, offset, flux_ratio, gsparams, propagate_gsparams
-        )
+        return Transformation(obj, jac, offset, flux_ratio, gsparams, propagate_gsparams)
 
 
 @implements(_galsim.Transformation)
@@ -175,10 +169,7 @@ class Transformation(GSObject):
         )
 
     def __repr__(self):
-        return (
-            "galsim.Transformation(%r, jac=%r, offset=%r, flux_ratio=%r, gsparams=%r, "
-            "propagate_gsparams=%r)"
-        ) % (
+        return ("galsim.Transformation(%r, jac=%r, offset=%r, flux_ratio=%r, gsparams=%r, " "propagate_gsparams=%r)") % (
             self._original,
             ensure_hashable(self._jac.ravel()),
             self._offset,
@@ -356,21 +347,13 @@ class Transformation(GSObject):
             dx += self._offset.x
             dy += self._offset.y
         flux_scaling *= self._flux_scaling
-        jac = (
-            self._jac
-            if jac is None
-            else jac if self._jac is None else jac.dot(self._jac)
-        )
+        jac = self._jac if jac is None else jac if self._jac is None else jac.dot(self._jac)
         return self._original._drawReal(image, jac, (dx, dy), flux_scaling)
 
     def _drawKImage(self, image, jac=None):
         from jax_galsim.core.draw import apply_kImage_phases
 
-        jac1 = (
-            self._jac
-            if jac is None
-            else jac if self._jac is None else jac.dot(self._jac)
-        )
+        jac1 = self._jac if jac is None else jac if self._jac is None else jac.dot(self._jac)
         image = self._original._drawKImage(image, jac1)
 
         _jac = jnp.eye(2) if jac is None else jac

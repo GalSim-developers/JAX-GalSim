@@ -110,18 +110,12 @@ class BaseDeviate:
             self._state = seed
         elif isinstance(seed, BaseDeviate):
             self._state = seed._state
-        elif hasattr(seed, "dtype") and jax.dtypes.issubdtype(
-            seed.dtype, jax.dtypes.prng_key
-        ):
+        elif hasattr(seed, "dtype") and jax.dtypes.issubdtype(seed.dtype, jax.dtypes.prng_key):
             self._state = _DeviateState(seed)
         elif isinstance(seed, str):
-            self._state = _DeviateState(
-                wrap_key_data(jnp.array(eval(seed), dtype=jnp.uint32))
-            )
+            self._state = _DeviateState(wrap_key_data(jnp.array(eval(seed), dtype=jnp.uint32)))
         elif isinstance(seed, tuple):
-            self._state = _DeviateState(
-                wrap_key_data(jnp.array(seed, dtype=jnp.uint32))
-            )
+            self._state = _DeviateState(wrap_key_data(jnp.array(seed, dtype=jnp.uint32)))
         else:
             _initial_seed = seed or secrets.randbelow(2**31)
             self._state = _DeviateState(jrandom.key(_initial_seed))
@@ -140,15 +134,11 @@ class BaseDeviate:
     @property
     @implements(_galsim.BaseDeviate.np)
     def np(self):
-        raise NotImplementedError(
-            "The JAX galsim.BaseDeviate does not support being used as a numpy PRNG."
-        )
+        raise NotImplementedError("The JAX galsim.BaseDeviate does not support being used as a numpy PRNG.")
 
     @implements(_galsim.BaseDeviate.as_numpy_generator)
     def as_numpy_generator(self):
-        raise NotImplementedError(
-            "The JAX galsim.BaseDeviate does not support being used as a numpy PRNG."
-        )
+        raise NotImplementedError("The JAX galsim.BaseDeviate does not support being used as a numpy PRNG.")
 
     @implements(
         _galsim.BaseDeviate.clearCache,
@@ -178,8 +168,7 @@ class BaseDeviate:
     @implements(
         _galsim.BaseDeviate.raw,
         lax_description=(
-            "The JAX version of this class does not use the raw value to "
-            "generate the next value of a specific kind."
+            "The JAX version of this class does not use the raw value to " "generate the next value of a specific kind."
         ),
     )
     def raw(self):
@@ -188,10 +177,7 @@ class BaseDeviate:
 
     @implements(
         _galsim.BaseDeviate.generate,
-        lax_description=(
-            "JAX arrays cannot be changed in-place, so the JAX version of "
-            "this method returns a new array."
-        ),
+        lax_description=("JAX arrays cannot be changed in-place, so the JAX version of " "this method returns a new array."),
     )
     def generate(self, array):
         self._key, array = self.__class__._generate(self._key, array)
@@ -199,10 +185,7 @@ class BaseDeviate:
 
     @implements(
         _galsim.BaseDeviate.add_generate,
-        lax_description=(
-            "JAX arrays cannot be changed in-place, so the JAX version of "
-            "this method returns a new array."
-        ),
+        lax_description=("JAX arrays cannot be changed in-place, so the JAX version of " "this method returns a new array."),
     )
     def add_generate(self, array):
         return self.generate(array) + array
@@ -224,9 +207,7 @@ class BaseDeviate:
     def __eq__(self, other):
         return self is other or (
             isinstance(other, self.__class__)
-            and jnp.array_equal(
-                jrandom.key_data(self._key), jrandom.key_data(other._key)
-            )
+            and jnp.array_equal(jrandom.key_data(self._key), jrandom.key_data(other._key))
             and self._params == other._params
         )
 
@@ -250,9 +231,7 @@ class BaseDeviate:
         return cls(children[0], **(children[1]))
 
     def __repr__(self):
-        return "galsim.BaseDeviate(seed=%r)" % (
-            ensure_hashable(jrandom.key_data(self._key)),
-        )
+        return "galsim.BaseDeviate(seed=%r)" % (ensure_hashable(jrandom.key_data(self._key)),)
 
     def __str__(self):
         return self.__repr__()
@@ -267,9 +246,7 @@ class UniformDeviate(BaseDeviate):
     @jax.jit
     def _generate(key, array):
         # we do it this way so that the RNG appears to have a fixed state that is advanced per value drawn
-        key, res = jax.lax.scan(
-            UniformDeviate._generate_one, key, None, length=array.ravel().shape[0]
-        )
+        key, res = jax.lax.scan(UniformDeviate._generate_one, key, None, length=array.ravel().shape[0])
         return key, res.reshape(array.shape)
 
     @jax.jit
@@ -278,9 +255,7 @@ class UniformDeviate(BaseDeviate):
         return _key, jrandom.uniform(subkey, dtype=float)
 
     def __repr__(self):
-        return "galsim.UniformDeviate(seed=%r)" % (
-            ensure_hashable(jrandom.key_data(self._key)),
-        )
+        return "galsim.UniformDeviate(seed=%r)" % (ensure_hashable(jrandom.key_data(self._key)),)
 
     def __str__(self):
         return "galsim.UniformDeviate()"
@@ -309,10 +284,7 @@ class GaussianDeviate(BaseDeviate):
 
     @implements(
         _galsim.GaussianDeviate.generate,
-        lax_description=(
-            "JAX arrays cannot be changed in-place, so the JAX version of "
-            "this method returns a new array."
-        ),
+        lax_description=("JAX arrays cannot be changed in-place, so the JAX version of " "this method returns a new array."),
     )
     def generate(self, array):
         self._key, array = self.__class__._generate(self._key, array)
@@ -321,9 +293,7 @@ class GaussianDeviate(BaseDeviate):
     @jax.jit
     def _generate(key, array):
         # we do it this way so that the RNG appears to have a fixed state that is advanced per value drawn
-        key, res = jax.lax.scan(
-            GaussianDeviate._generate_one, key, None, length=array.ravel().shape[0]
-        )
+        key, res = jax.lax.scan(GaussianDeviate._generate_one, key, None, length=array.ravel().shape[0])
         return key, res.reshape(array.shape)
 
     def __call__(self):
@@ -377,10 +347,7 @@ class BinomialDeviate(BaseDeviate):
 
     @implements(
         _galsim.BinomialDeviate.generate,
-        lax_description=(
-            "JAX arrays cannot be changed in-place, so the JAX version of "
-            "this method returns a new array."
-        ),
+        lax_description=("JAX arrays cannot be changed in-place, so the JAX version of " "this method returns a new array."),
     )
     def generate(self, array):
         self._key, array = BinomialDeviate._generate(self._key, array, self.n, self.p)
@@ -399,9 +366,7 @@ class BinomialDeviate(BaseDeviate):
         return key, res.reshape(array.shape)
 
     def __call__(self):
-        carry, val = BinomialDeviate._generate_one(
-            (self._key, jnp.broadcast_to(self.p, (self.n,))), None
-        )
+        carry, val = BinomialDeviate._generate_one((self._key, jnp.broadcast_to(self.p, (self.n,))), None)
         self._key = carry[0]
         return val
 
@@ -443,10 +408,7 @@ class PoissonDeviate(BaseDeviate):
 
     @implements(
         _galsim.PoissonDeviate.generate,
-        lax_description=(
-            "JAX arrays cannot be changed in-place, so the JAX version of "
-            "this method returns a new array."
-        ),
+        lax_description=("JAX arrays cannot be changed in-place, so the JAX version of " "this method returns a new array."),
     )
     def generate(self, array):
         self._key, array = self.__class__._generate(self._key, array, self.mean)
@@ -473,9 +435,7 @@ class PoissonDeviate(BaseDeviate):
         val = jax.lax.cond(
             mean < 2**17,
             lambda subkey, mean: jrandom.poisson(subkey, mean, dtype=int).astype(float),
-            lambda subkey, mean: (
-                jrandom.normal(subkey, dtype=float) * jnp.sqrt(mean) + mean
-            ),
+            lambda subkey, mean: (jrandom.normal(subkey, dtype=float) * jnp.sqrt(mean) + mean),
             subkey,
             mean,
         )
@@ -530,10 +490,7 @@ class WeibullDeviate(BaseDeviate):
 
     @implements(
         _galsim.WeibullDeviate.generate,
-        lax_description=(
-            "JAX arrays cannot be changed in-place, so the JAX version of "
-            "this method returns a new array."
-        ),
+        lax_description=("JAX arrays cannot be changed in-place, so the JAX version of " "this method returns a new array."),
     )
     def generate(self, array):
         self._key, array = self.__class__._generate(self._key, array, self.a, self.b)
@@ -600,10 +557,7 @@ class GammaDeviate(BaseDeviate):
 
     @implements(
         _galsim.GammaDeviate.generate,
-        lax_description=(
-            "JAX arrays cannot be changed in-place, so the JAX version of "
-            "this method returns a new array."
-        ),
+        lax_description=("JAX arrays cannot be changed in-place, so the JAX version of " "this method returns a new array."),
     )
     def generate(self, array):
         self._key, array = self.__class__._generate(self._key, array, self.k)
@@ -660,10 +614,7 @@ class Chi2Deviate(BaseDeviate):
 
     @implements(
         _galsim.Chi2Deviate.generate,
-        lax_description=(
-            "JAX arrays cannot be changed in-place, so the JAX version of "
-            "this method returns a new array."
-        ),
+        lax_description=("JAX arrays cannot be changed in-place, so the JAX version of " "this method returns a new array."),
     )
     def generate(self, array):
         self._key, array = self.__class__._generate(self._key, array, self.n)

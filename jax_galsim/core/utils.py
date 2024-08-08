@@ -174,9 +174,7 @@ def is_equal_with_arrays(x, y):
             return jnp.array_equal(x, y)
         else:
             return False
-    elif (isinstance(x, jax.Array) and jnp.ndim(x) == 0) or (
-        isinstance(y, jax.Array) and jnp.ndim(y) == 0
-    ):
+    elif (isinstance(x, jax.Array) and jnp.ndim(x) == 0) or (isinstance(y, jax.Array) and jnp.ndim(y) == 0):
         # this case covers comparing an array scalar to a python scalar or vice versa
         return jnp.array_equal(x, y)
     else:
@@ -411,9 +409,7 @@ def implements(
             return wrapped_fun
 
         docstr = getattr(original_fun, "__doc__", None)
-        name = getattr(
-            original_fun, "__name__", getattr(wrapped_fun, "__name__", str(wrapped_fun))
-        )
+        name = getattr(original_fun, "__name__", getattr(wrapped_fun, "__name__", str(wrapped_fun)))
         try:
             mod = module or original_fun.__module__
         except AttributeError:

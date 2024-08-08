@@ -38,19 +38,9 @@ def test_moffat_comp_galsim_maxk():
             gpsf = gpsf.withGSParams(maxk_threshold=thresh)
             fk = psf.kValue(psf.maxk, 0).real / psf.flux
 
-            print(
-                f"{psf.beta} \t {int(psf.trunc)} \t {thresh:.1e} \t {fk:.3e} \t {psf.maxk:.3e} \t {gpsf.maxk:.3e}"
-            )
-            np.testing.assert_allclose(
-                psf.kValue(0.0, 0.0), gpsf.kValue(0.0, 0.0), rtol=1e-5
-            )
-            np.testing.assert_allclose(
-                psf.kValue(0.0, 0.1), gpsf.kValue(0.0, 0.1), rtol=1e-5
-            )
-            np.testing.assert_allclose(
-                psf.kValue(-1.0, 0.0), gpsf.kValue(-1.0, 0.0), rtol=1e-5
-            )
-            np.testing.assert_allclose(
-                psf.kValue(1.0, 0.0), gpsf.kValue(1.0, 0.0), rtol=1e-5
-            )
+            print(f"{psf.beta} \t {int(psf.trunc)} \t {thresh:.1e} \t {fk:.3e} \t {psf.maxk:.3e} \t {gpsf.maxk:.3e}")
+            np.testing.assert_allclose(psf.kValue(0.0, 0.0), gpsf.kValue(0.0, 0.0), rtol=1e-5)
+            np.testing.assert_allclose(psf.kValue(0.0, 0.1), gpsf.kValue(0.0, 0.1), rtol=1e-5)
+            np.testing.assert_allclose(psf.kValue(-1.0, 0.0), gpsf.kValue(-1.0, 0.0), rtol=1e-5)
+            np.testing.assert_allclose(psf.kValue(1.0, 0.0), gpsf.kValue(1.0, 0.0), rtol=1e-5)
             np.testing.assert_allclose(gpsf.maxk, psf.maxk, rtol=0.25, atol=0)

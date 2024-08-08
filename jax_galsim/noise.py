@@ -91,9 +91,7 @@ class BaseNoise:
         return self._withScaledVariance(variance_ratio)
 
     def _withScaledVariance(self, variance_ratio):
-        raise NotImplementedError(
-            "Cannot call withScaledVariance on a pure BaseNoise object"
-        )
+        raise NotImplementedError("Cannot call withScaledVariance on a pure BaseNoise object")
 
     def __mul__(self, variance_ratio):
         """Multiply the variance of the noise by ``variance_ratio``.
@@ -174,9 +172,7 @@ class GaussianNoise(BaseNoise):
         return self._sigma
 
     def _applyTo(self, image):
-        image._array = (image._array + self._rng.generate(image._array)).astype(
-            image.dtype
-        )
+        image._array = (image._array + self._rng.generate(image._array)).astype(image.dtype)
 
     def _getVariance(self):
         return self.sigma**2
@@ -368,9 +364,7 @@ class CCDNoise(BaseNoise):
         # First add the poisson noise from the signal + sky:
         noise_array = jax.lax.cond(
             self.gain > 0.0,
-            lambda pd, na, gain: (
-                pd.generate_from_expectation(jnp.clip(na * gain, 0.0)) / gain
-            ),
+            lambda pd, na, gain: (pd.generate_from_expectation(jnp.clip(na * gain, 0.0)) / gain),
             lambda pd, na, gain: na,
             self._pd,
             noise_array,
@@ -406,8 +400,7 @@ class CCDNoise(BaseNoise):
     def _getVariance(self):
         return jax.lax.cond(
             self.gain > 0.0,
-            lambda gain, sky_level, read_noise: sky_level / gain
-            + (read_noise / gain) ** 2,
+            lambda gain, sky_level, read_noise: sky_level / gain + (read_noise / gain) ** 2,
             lambda gain, sky_level, read_noise: read_noise**2,
             self.gain,
             self.sky_level,
@@ -418,9 +411,7 @@ class CCDNoise(BaseNoise):
         current_var = self._getVariance()
         return jax.lax.cond(
             current_var > 0.0,
-            lambda variance, current_var: self._withScaledVariance(
-                variance / current_var
-            ),
+            lambda variance, current_var: self._withScaledVariance(variance / current_var),
             lambda variance, current_var: CCDNoise(self.rng, sky_level=variance),
             variance,
             current_var,
@@ -485,9 +476,7 @@ class DeviateNoise(BaseNoise):
         super().__init__(dev)
 
     def _applyTo(self, image):
-        image._array = (image._array + self._rng.generate(image._array)).astype(
-            image.dtype
-        )
+        image._array = (image._array + self._rng.generate(image._array)).astype(image.dtype)
 
     def _getVariance(self):
         raise GalSimError("No single variance value for DeviateNoise")
@@ -579,16 +568,12 @@ class VariableGaussianNoise(BaseNoise):
         raise GalSimError("No single variance value for VariableGaussianNoise")
 
     def _withVariance(self, variance):
-        raise GalSimError(
-            "Changing the variance is not allowed for VariableGaussianNoise"
-        )
+        raise GalSimError("Changing the variance is not allowed for VariableGaussianNoise")
 
     def _withScaledVariance(self, variance):
         # This one isn't undefined like withVariance, but it's inefficient.  Better to
         # scale the values in the image before constructing VariableGaussianNoise.
-        raise GalSimError(
-            "Changing the variance is not allowed for VariableGaussianNoise"
-        )
+        raise GalSimError("Changing the variance is not allowed for VariableGaussianNoise")
 
     def __repr__(self):
         return "galsim.VariableGaussianNoise(rng=%r, var_image=%r)" % (

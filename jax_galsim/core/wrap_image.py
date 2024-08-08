@@ -8,10 +8,7 @@ import jax.numpy as jnp
 def _block_reduce_index(sim, nxwrap, nywrap):
     # this routine was written by Jean-Eric Campagne w/ edits and comments by Matthew Becker
     def rolling_window_i(arr, wind):
-        idx = (
-            jnp.arange(arr.shape[0] - wind + 1)[::wind, None]
-            + jnp.arange(wind)[None, :]
-        )
+        idx = jnp.arange(arr.shape[0] - wind + 1)[::wind, None] + jnp.arange(wind)[None, :]
         return arr[idx]
 
     # the starting array shape is (Ny, Nx) with Nx = sim.shape[1] and Ny = sim.shape[0]
@@ -108,9 +105,7 @@ def contract_hermitian_x(im):
 )
 def wrap_hermitian_x(im, im_xmin, im_ymin, wrap_xmin, wrap_ymin, wrap_nx, wrap_ny):
     im_exp = expand_hermitian_x(im)
-    im_exp = wrap_nonhermitian(
-        im_exp, wrap_xmin - im_xmin, wrap_ymin - im_ymin, wrap_nx, wrap_ny
-    )
+    im_exp = wrap_nonhermitian(im_exp, wrap_xmin - im_xmin, wrap_ymin - im_ymin, wrap_nx, wrap_ny)
     return contract_hermitian_x(im_exp)
 
 
@@ -137,7 +132,5 @@ def contract_hermitian_y(im):
 )
 def wrap_hermitian_y(im, im_xmin, im_ymin, wrap_xmin, wrap_ymin, wrap_nx, wrap_ny):
     im_exp = expand_hermitian_y(im)
-    im_exp = wrap_nonhermitian(
-        im_exp, wrap_xmin - im_xmin, wrap_ymin - im_ymin, wrap_nx, wrap_ny
-    )
+    im_exp = wrap_nonhermitian(im_exp, wrap_xmin - im_xmin, wrap_ymin - im_ymin, wrap_nx, wrap_ny)
     return contract_hermitian_y(im_exp)
