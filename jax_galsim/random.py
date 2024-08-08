@@ -170,7 +170,7 @@ class BaseDeviate:
     @jax.jit
     def _discard(key, n):
         def __discard(i, key):
-            key, subkey = jrandom.split(key)
+            key, _ = jrandom.split(key)
             return key
 
         return jax.lax.fori_loop(0, n, __discard, key)
