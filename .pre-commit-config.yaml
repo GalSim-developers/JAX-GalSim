@@ -17,4 +17,4 @@ repos:
         args: [ --fix ]
         exclude: tests/GalSim/|tests/Coord/|tests/jax/galsim/
       - id: ruff-format
-        exclude: tests/GalSim/|tests/Coord/|tests/jax/galsim/
+        exclude: tests/GalSim/|tests/Coord/|tests/jax/galsim/|jax_galsim/__init__.py|jax_galsim/core/__init__.py
