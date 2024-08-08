@@ -1,6 +1,6 @@
 [tool.ruff.lint]
 select = ["E", "F", "I", "W"]
-ignore = ["C901", "E203", "W503", "E501"]
+ignore = ["C901", "E203", "E501"]
 preview = true
 
 [tool.ruff.lint.pycodestyle]
