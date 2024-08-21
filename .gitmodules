@@ -5,4 +5,4 @@
 [submodule "tests/Coord"]
 	path = tests/Coord
 	url = https://github.com/LSSTDESC/Coord.git
-	branch = fix-tests-jax-galsim
+	branch = main
