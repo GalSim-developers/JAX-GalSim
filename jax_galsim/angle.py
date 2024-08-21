@@ -164,6 +164,12 @@ class Angle(object):
     def __neg__(self):
         return _Angle(-self._rad)
 
+    def __pos__(self):
+        return self
+
+    def __abs__(self):
+        return _Angle(jnp.abs(self._rad))
+
     def __add__(self, other):
         if not isinstance(other, Angle):
             raise TypeError(
