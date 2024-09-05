@@ -28,6 +28,9 @@ dev = ["pytest", "pytest-codspeed"]
 [project.urls]
 home = "https://github.com/GalSim-developers/JAX-GalSim"
 
+[tool.setuptools.packages.find]
+include = ["jax_galsim*"]
+
 [tool.ruff.lint]
 select = ["E", "F", "I", "W"]
 ignore = ["C901", "E203", "E501"]
