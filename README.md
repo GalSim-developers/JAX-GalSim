@@ -6,11 +6,7 @@
 
 **Disclaimer**: This project is still in an early development phase, **please use the [reference GalSim implementation](https://github.com/GalSim-developers/GalSim) for any scientific applications.**
 
-In fact, we are still thinking about how to name this project, checkout [this poll](https://github.com/GalSim-developers/JAX-GalSim/discussions/2).
-
-## Objective and design
-
-See [design document](https://docs.google.com/document/d/1NalCc_5dc3Z8F4q37y-RsJS_mr9gzvfyANb2PYUpsb4/edit?usp=sharing).
+## Objective and Design
 
 The goal of this library is to reimplement GalSim functionalities in pure JAX to allow for automatic differentiation, GPU acceleration, and batched computations.
 
@@ -20,8 +16,15 @@ The goal of this library is to reimplement GalSim functionalities in pure JAX to
 - Each function/feature will be tested against the reference GalSim implementation.
 - This package will aim to be a **subset** of GalSim (i.e. only contains functions with a reference GalSim implementation).
 - Implementations should be easy to read and understand.
-- Code should be pip installable on any machine, no compilation required.
+- Code should be pip-installable on any machine, no compilation required.
 - Any notable differences between the JAX and reference implementations will be clearly documented.
+
+### Notable Differences
+
+- JAX arrays are immutable and don't support all the kinds of views that numpy arrays support. Thus, in-place operations
+  on images and certain views are not supported. Further, the RNG classes cannot fill arrays and instead return new arrays.
+- JAX-GalSim uses a different random number generator than GalSim. This leads to different results in terms of both the
+  generated random numbers and in terms of which RNGs have stable discards.
 
 ## Contributing
 
@@ -37,6 +40,6 @@ In short, to interact with the project you can:
 Issues marked with _contributions welcome_ or _good first issue_ are particularly good places to start. These are great ways to learn more
 about the inner workings of GalSim and how to code in JAX.
 
-## Current GalSim capabilities coverage
+## Current GalSim API Coverage
 
 0%
