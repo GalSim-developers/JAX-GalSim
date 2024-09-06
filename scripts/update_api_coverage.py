@@ -11,26 +11,29 @@ def _list_all_apis(module, apis=None, seen_modules=None):
     mname = module.__name__
     top_level = mname.split(".")[0]
 
-    for name in dir(module):
-        full_name = f"{mname}.{name}"
+    for kind in ["class_or_fun", "mod"]:
+        for name in dir(module):
+            full_name = f"{mname}.{name}"
 
-        if name.startswith("_") or full_name == "jax_galsim.core":
-            continue
+            if name.startswith("_") or full_name == "jax_galsim.core":
+                continue
 
-        obj = getattr(module, name)
+            obj = getattr(module, name)
 
-        if inspect.ismodule(obj):
-            if (
-                full_name not in seen_modules
-                and (not inspect.isbuiltin(obj))
-                and hasattr(obj, "__file__")
-                and top_level in obj.__file__.split("/")
+            if kind == "mod" and inspect.ismodule(obj):
+                if (
+                    full_name not in seen_modules
+                    and (not inspect.isbuiltin(obj))
+                    and hasattr(obj, "__file__")
+                    and top_level in obj.__file__.split("/")
+                ):
+                    seen_modules.add(full_name)
+                    _list_all_apis(obj, apis=apis, seen_modules=seen_modules)
+            elif kind == "class_or_fun" and (
+                inspect.isclass(obj) or inspect.isfunction(obj)
             ):
-                seen_modules.add(full_name)
-                _list_all_apis(obj, apis=apis, seen_modules=seen_modules)
-        elif inspect.isclass(obj) or inspect.isfunction(obj):
-            if not any(api.endswith(f".{name}") for api in apis):
-                apis.add(full_name)
+                if not any(api.endswith(f".{name}") for api in apis):
+                    apis.add(full_name)
 
     return apis
 

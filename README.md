@@ -114,8 +114,6 @@ JAX-GalSim has implemented 22.6% of the GalSim API. See the list below for the s
 - galsim.Lanczos
 - galsim.Linear
 - galsim.Moffat
-- galsim.Nearest
-- galsim.OffsetShearWCS
 - galsim.OffsetWCS
 - galsim.PhotonArray
 - galsim.Pixel
