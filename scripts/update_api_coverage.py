@@ -29,7 +29,8 @@ def _list_all_apis(module, apis=None):
                 _list_all_apis(obj, apis=apis)
         elif inspect.isclass(obj) or inspect.isfunction(obj):
             # print(full_name)
-            apis.add(full_name)
+            if not any(api.endswith(f".{name}") for api in apis):
+                apis.add(full_name)
 
     return apis
 
