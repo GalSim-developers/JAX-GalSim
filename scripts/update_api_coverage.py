@@ -5,8 +5,9 @@ import galsim
 import jax_galsim
 
 
-def _list_all_apis(module, apis=None):
+def _list_all_apis(module, apis=None, seen_modules=None):
     apis = apis or set()
+    seen_modules = seen_modules or set()
     mname = module.__name__
     top_level = mname.split(".")[0]
 
@@ -20,16 +21,14 @@ def _list_all_apis(module, apis=None):
 
         if inspect.ismodule(obj):
             if (
-                full_name not in apis
+                full_name not in seen_modules
                 and (not inspect.isbuiltin(obj))
                 and hasattr(obj, "__file__")
                 and top_level in obj.__file__.split("/")
             ):
-                if not any(api.startswith(f"{full_name}.") for api in apis):
-                    apis.add(full_name)
-                _list_all_apis(obj, apis=apis)
+                seen_modules.add(full_name)
+                _list_all_apis(obj, apis=apis, seen_modules=seen_modules)
         elif inspect.isclass(obj) or inspect.isfunction(obj):
-            # print(full_name)
             if not any(api.endswith(f".{name}") for api in apis):
                 apis.add(full_name)
 
