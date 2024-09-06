@@ -18,11 +18,4 @@ repos:
         exclude: tests/GalSim/|tests/Coord/|tests/jax/galsim/
       - id: ruff-format
         exclude: tests/GalSim/|tests/Coord/|tests/jax/galsim/
-  - repo: local
-    hooks:
-    - id: update-readme-with-apis
-      name: update readme with apis
-      entry: python scripts/update_api_coverage.py
-      language: system
-      files: README.md
-      require_serial: true
+
