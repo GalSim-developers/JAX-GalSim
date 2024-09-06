@@ -21,6 +21,7 @@ def _list_all_apis(module, apis=None):
         if inspect.ismodule(obj):
             if (
                 full_name not in apis
+                and (not any(api.endswith(f".{name}") for api in apis))
                 and (not inspect.isbuiltin(obj))
                 and hasattr(obj, "__file__")
                 and top_level in obj.__file__.split("/")
