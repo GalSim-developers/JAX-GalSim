@@ -18,4 +18,3 @@ repos:
         exclude: tests/GalSim/|tests/Coord/|tests/jax/galsim/
       - id: ruff-format
         exclude: tests/GalSim/|tests/Coord/|tests/jax/galsim/
-
