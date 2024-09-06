@@ -21,12 +21,12 @@ def _list_all_apis(module, apis=None):
         if inspect.ismodule(obj):
             if (
                 full_name not in apis
-                and (not any(api.endswith(f".{name}") for api in apis))
                 and (not inspect.isbuiltin(obj))
                 and hasattr(obj, "__file__")
                 and top_level in obj.__file__.split("/")
             ):
-                apis.add(full_name)
+                if not any(api.startswith(f"{full_name}.") for api in apis):
+                    apis.add(full_name)
                 _list_all_apis(obj, apis=apis)
         elif inspect.isclass(obj) or inspect.isfunction(obj):
             # print(full_name)

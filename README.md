@@ -45,7 +45,7 @@ about the inner workings of GalSim and how to code in JAX.
 ## Current GalSim API Coverage
 
 <!-- start-api-coverage -->
-JAX-GalSim has implemented 21.9% of the GalSim API. See the list below for the supported APIs.
+JAX-GalSim has implemented 21.8% of the GalSim API. See the list below for the supported APIs.
 
 <details>
 
@@ -154,14 +154,22 @@ JAX-GalSim has implemented 21.9% of the GalSim API. See the list below for the s
 - galsim.fits.writeFile
 - galsim.fitswcs
 - galsim.fitswcs.CelestialWCS
+- galsim.fitswcs.fits
 - galsim.gaussian
+- galsim.gsobject
+- galsim.gsobject.pa
 - galsim.gsparams
+- galsim.image
 - galsim.interpolant
 - galsim.interpolatedimage
+- galsim.interpolatedimage.fits
 - galsim.moffat
-- galsim.photon_array
+- galsim.noise
+- galsim.noise.addNoise
+- galsim.noise.addNoiseSNR
 - galsim.position
 - galsim.random.permute
+- galsim.sensor
 - galsim.shear
 - galsim.spergel
 - galsim.sum
@@ -170,6 +178,10 @@ JAX-GalSim has implemented 21.9% of the GalSim API. See the list below for the s
 - galsim.utilities.printoptions
 - galsim.utilities.unweighted_moments
 - galsim.utilities.unweighted_shape
+- galsim.wcs
+- galsim.wcs.EuclideanWCS
+- galsim.wcs.LocalWCS
+- galsim.wcs.UniformWCS
 
 </details>
 <!-- end-api-coverage -->
