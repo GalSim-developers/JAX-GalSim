@@ -10,7 +10,7 @@
 
 The goal of this library is to reimplement GalSim functionalities in pure JAX to allow for automatic differentiation, GPU acceleration, and batched computations.
 
-### Guiding Principles**
+### Guiding Principles
 
 - Strive to be a drop-in replacement for GalSim, i.e. provide a close match to the GalSim API.
 - Each function/feature will be tested against the reference GalSim implementation.
