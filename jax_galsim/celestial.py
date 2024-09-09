@@ -79,18 +79,18 @@ class CelestialCoord(object):
             self._dec = dec
 
     @property
+    @implements(_galsim.celestial.CelestialCoord.ra)
     def ra(self):
-        """A read-only attribute, giving the Right Ascension as an Angle"""
         return self._ra
 
     @property
+    @implements(_galsim.celestial.CelestialCoord.dec)
     def dec(self):
-        """A read-only attribute, giving the Declination as an Angle"""
         return self._dec
 
     @property
+    @implements(_galsim.celestial.CelestialCoord.rad)
     def rad(self):
-        """A convenience property, giving a tuple (ra.rad, dec.rad)"""
         return (self._ra.rad, self._dec.rad)
 
     @jax.jit
@@ -930,6 +930,7 @@ class CelestialCoord(object):
         return _CelestialCoord(_Angle(gcoord.ra.rad), _Angle(gcoord.dec.rad))
 
 
+@implements(_coord._CelestialCoord)
 def _CelestialCoord(ra, dec):
     ret = CelestialCoord.__new__(CelestialCoord)
     ret._ra = ra
