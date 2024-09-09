@@ -30,29 +30,19 @@ class AngleUnit(object):
     valid_names = ["rad", "deg", "hr", "hour", "arcmin", "arcsec"]
 
     def __init__(self, value):
-        """
-        :param value:   The measure of the unit in radians.
-        """
         if isinstance(value, AngleUnit):
             raise TypeError("Cannot construct AngleUnit from another AngleUnit")
         self._value = cast_to_float(value)
 
     @property
+    @implements(_galsim.AngleUnit.value)
     def value(self):
-        """A read-only attribute giving the measure of the AngleUnit in radians."""
         return self._value
 
     def __rmul__(self, theta):
-        """float * AngleUnit returns an Angle"""
         return Angle(theta, self)
 
     def __div__(self, unit):
-        """AngleUnit / AngleUnit returns a float giving the relative scaling.
-
-        Note: At least to within machine precision, it is the case that
-
-            (x * angle_unit1) / angle_unit2 == x * (angle_unit1 / angle_unit2)
-        """
         if not isinstance(unit, AngleUnit):
             raise TypeError("Cannot divide AngleUnit by %s" % unit)
         return self.value / unit.value
@@ -146,19 +136,13 @@ class Angle(object):
             self._rad = cast_to_float(theta) * unit.value
 
     @property
+    @implements(_galsim.Angle.rad)
     def rad(self):
-        """Return the Angle in radians.
-
-        Equivalent to angle / coord.radians
-        """
         return self._rad
 
     @property
+    @implements(_galsim.Angle.deg)
     def deg(self):
-        """Return the Angle in degrees.
-
-        Equivalent to angle / coord.degrees
-        """
         return self / degrees
 
     def __neg__(self):
@@ -213,20 +197,20 @@ class Angle(object):
         )  # How many full cycles to subtract
         return _Angle(self._rad - offset * 2.0 * jnp.pi)
 
+    @implements(_galsim.Angle.sin)
     def sin(self):
-        """Return the sin of an Angle."""
         return jnp.sin(self._rad)
 
+    @implements(_galsim.Angle.cos)
     def cos(self):
-        """Return the cos of an Angle."""
         return jnp.cos(self._rad)
 
+    @implements(_galsim.Angle.tan)
     def tan(self):
-        """Return the tan of an Angle."""
         return jnp.tan(self._rad)
 
+    @implements(_galsim.Angle.sincos)
     def sincos(self):
-        """Return both the sin and cos of an Angle as a numpy array [sint, cost]."""
         sin = jnp.sin(self._rad)
         cos = jnp.cos(self._rad)
         return sin, cos
