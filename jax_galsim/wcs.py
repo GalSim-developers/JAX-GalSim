@@ -290,60 +290,33 @@ class EuclideanWCS(BaseWCS):
     # All EuclideanWCS classes must define origin and world_origin.
     # Sometimes it is convenient to access x0,y0,u0,v0 directly.
     @property
+    @implements(_galsim.wcs.EuclideanWCS.x0)
     def x0(self):
-        """The x component of self.origin."""
         return self.origin.x
 
     @property
+    @implements(_galsim.wcs.EuclideanWCS.y0)
     def y0(self):
-        """The y component of self.origin."""
         return self.origin.y
 
     @property
+    @implements(_galsim.wcs.EuclideanWCS.u0)
     def u0(self):
-        """The x component of self.world_origin (aka u)."""
         return self.world_origin.x
 
     @property
+    @implements(_galsim.wcs.EuclideanWCS.v0)
     def v0(self):
-        """The y component of self.world_origin (aka v)."""
         return self.world_origin.y
 
+    @implements(_galsim.wcs.EuclideanWCS.xyTouv)
     def xyTouv(self, x, y, color=None):
-        """Convert x,y from image coordinates to world coordinates.
-
-        This is equivalent to ``wcs.toWorld(x,y)``.
-
-        It is also equivalent to ``wcs.posToWorld(galsim.PositionD(x,y))`` when x and y are scalars;
-        however, this routine allows x and y to be numpy arrays, in which case, the calculation
-        will be vectorized, which is often much faster than using the pos interface.
-
-        Parameters:
-            x:          The x value(s) in image coordinates
-            y:          The y value(s) in image coordinates
-            color:      For color-dependent WCS's, the color term to use. [default: None]
-
-        Returns:
-            ra, dec
-        """
         if color is None:
             color = self._color
         return self._xyTouv(x, y, color=color)
 
+    @implements(_galsim.wcs.EuclideanWCS.uvToxy)
     def uvToxy(self, u, v, color=None):
-        """Convert u,v from world coordinates to image coordinates.
-
-        This is equivalent to ``wcs.toWorld(u,v)``.
-
-        It is also equivalent to ``wcs.posToImage(galsim.PositionD(u,v))`` when u and v are scalars;
-        however, this routine allows u and v to be numpy arrays, in which case, the calculation
-        will be vectorized, which is often much faster than using the pos interface.
-
-        Parameters:
-            u:          The u value(s) in world coordinates
-            v:          The v value(s) in world coordinates
-            color:      For color-dependent WCS's, the color term to use. [default: None]
-        """
         if color is None:
             color = self._color
         return self._uvToxy(u, v, color)
@@ -526,10 +499,8 @@ class UniformWCS(EuclideanWCS):
         return self._local_wcs
 
     # UniformWCS transformations can be inverted easily, so might as well provide that function.
+    @implements(_galsim.wcs.UniformWCS.inverse)
     def inverse(self):
-        """Return the inverse transformation, i.e. the transformation that swaps the roles of
-        the "image" and "world" coordinates.
-        """
         return self._inverse()
 
     # We'll override this for LocalWCS classes. Non-local UniformWCS classes can use that function
@@ -562,13 +533,13 @@ class LocalWCS(UniformWCS):
 
     # The origins are definitionally (0,0) for these.  So just define them here.
     @property
+    @implements(_galsim.wcs.LocalWCS.origin)
     def origin(self):
-        """The image coordinate position to use as the origin."""
         return PositionD(0, 0)
 
     @property
+    @implements(_galsim.wcs.LocalWCS.world_origin)
     def world_origin(self):
-        """The world coordinate position to use as the origin."""
         return PositionD(0, 0)
 
     # For LocalWCS, there is no origin to worry about.
@@ -605,35 +576,17 @@ class CelestialWCS(BaseWCS):
 
     # CelestialWCS classes still have origin, but not world_origin.
     @property
+    @implements(_galsim.wcs.CelestialWCS.x0)
     def x0(self):
-        """The x coordinate of self.origin."""
         return self.origin.x
 
     @property
+    @implements(_galsim.wcs.CelestialWCS.y0)
     def y0(self):
-        """The y coordinate of self.origin."""
         return self.origin.y
 
+    @implements(_galsim.wcs.CelestialWCS.xyToradec)
     def xyToradec(self, x, y, units=None, color=None):
-        """Convert x,y from image coordinates to world coordinates.
-
-        This is equivalent to ``wcs.toWorld(x,y, units=units)``.
-
-        It is also equivalent to ``wcs.posToWorld(galsim.PositionD(x,y)).rad`` when x and y are
-        scalars if units is 'radians'; however, this routine allows x and y to be numpy arrays,
-        in which case, the calculation will be vectorized, which is often much faster than using
-        the pos interface.
-
-        Parameters:
-            x:          The x value(s) in image coordinates
-            y:          The y value(s) in image coordinates
-            units:      (Only valid for `CelestialWCS`, in which case it is required)
-                        The units to use for the returned ra, dec values.
-            color:      For color-dependent WCS's, the color term to use. [default: None]
-
-        Returns:
-            ra, dec
-        """
         if color is None:
             color = self._color
         if units is None:
@@ -648,22 +601,8 @@ class CelestialWCS(BaseWCS):
             )
         return self._xyToradec(x, y, units, color)
 
+    @implements(_galsim.wcs.CelestialWCS.radecToxy)
     def radecToxy(self, ra, dec, units, color=None):
-        """Convert ra,dec from world coordinates to image coordinates.
-
-        This is equivalent to ``wcs.toImage(ra,dec, units=units)``.
-
-        It is also equivalent to ``wcs.posToImage(galsim.CelestialCoord(ra * units, dec * units))``
-        when ra and dec are scalars; however, this routine allows ra and dec to be numpy arrays,
-        in which case, the calculation will be vectorized, which is often much faster than using
-        the pos interface.
-
-        Parameters:
-            ra:         The ra value(s) in world coordinates
-            dec:        The dec value(s) in world coordinates
-            units:      The units to use for the input ra, dec values.
-            color:      For color-dependent WCS's, the color term to use. [default: None]
-        """
         if color is None:
             color = self._color
         if isinstance(units, str):
@@ -854,8 +793,8 @@ class PixelScale(LocalWCS):
 
     # Help make sure PixelScale is read-only.
     @property
+    @implements(_galsim.wcs.PixelScale.scale)
     def scale(self):
-        """The pixel scale"""
         return self._scale
 
     def _u(self, x, y, color=None):
@@ -958,13 +897,13 @@ class ShearWCS(LocalWCS):
 
     # Help make sure ShearWCS is read-only.
     @property
+    @implements(_galsim.wcs.ShearWCS.scale)
     def scale(self):
-        """The pixel scale."""
         return self._scale
 
     @property
+    @implements(_galsim.wcs.ShearWCS.shear)
     def shear(self):
-        """The applied `Shear`."""
         return self._shear
 
     def _u(self, x, y, color=None):
@@ -1037,6 +976,7 @@ class ShearWCS(LocalWCS):
         header["GS_G2"] = (cast_to_python_float(self.shear.g2), "GalSim image shear g2")
         return self.affine()._writeLinearWCS(header, bounds)
 
+    @implements(_galsim.wcs.ShearWCS.copy)
     def copy(self):
         return ShearWCS(self._scale, self._shear)
 
@@ -1061,7 +1001,7 @@ class ShearWCS(LocalWCS):
     def tree_unflatten(cls, aux_data, children):
         return cls(*children)
 
-
+# FIXME start here
 @implements(_galsim.JacobianWCS)
 @register_pytree_node_class
 class JacobianWCS(LocalWCS):
