@@ -429,9 +429,9 @@ def implements(
                 docstr += f"\nLAX-backend implementation of :func:`{name}`.\n"
                 if lax_description:
                     docstr += "\n" + lax_description.strip() + "\n"
-                docstr += "\n*Original docstring below.*\n"
 
                 if parsed.front_matter:
+                    docstr += "\n*Original docstring below.*\n"
                     docstr += "\n" + parsed.front_matter.strip() + "\n"
             except Exception:
                 docstr = original_fun.__doc__

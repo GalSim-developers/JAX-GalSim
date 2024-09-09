@@ -134,6 +134,7 @@ class BaseDeviate:
     def _key(self, key):
         self._state.key = key
 
+    @implements(_galsim.BaseDeviate.serialize)
     def serialize(self):
         return repr(ensure_hashable(jrandom.key_data(self._key)))
 
