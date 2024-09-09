@@ -128,23 +128,14 @@ class Position(object):
             (self.__class__.__name__, ensure_hashable(self.x), ensure_hashable(self.y))
         )
 
+    @implements(_galsim.Position.shear)
     def shear(self, shear):
-        """Shear the position.
-
-        See the doc string of `galsim.Shear.getMatrix` for more details.
-
-        Parameters:
-            shear:    a `galsim.Shear` instance
-
-        Returns:
-            a `galsim.PositionD` instance.
-        """
         shear_mat = shear.getMatrix()
         shear_pos = jnp.dot(shear_mat, self._array)
         return PositionD(shear_pos[0], shear_pos[1])
 
+    @implements(_galsim.Position.round)
     def round(self):
-        """Return the rounded-off PositionI version of this position."""
         return PositionI(jnp.round(self.x), jnp.round(self.y))
 
     def tree_flatten(self):
