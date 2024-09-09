@@ -254,13 +254,13 @@ class Spergel(GSObject):
             )
 
     @property
+    @implements(_galsim.spergel.Spergel.nu)
     def nu(self):
-        """The Spergel index, nu"""
         return self._params["nu"]
 
     @property
+    @implements(_galsim.spergel.Spergel.scale_radius)
     def scale_radius(self):
-        """The scale radius of this `Spergel` profile."""
         return self.params["scale_radius"]
 
     @property
@@ -280,8 +280,8 @@ class Spergel(GSObject):
         return self._inv_r0 * self._inv_r0
 
     @property
+    @implements(_galsim.spergel.Spergel.half_light_radius)
     def half_light_radius(self):
-        """The half-light radius of this `Spergel` profile."""
         return self._r0 * calculateFluxRadius(0.5, self.nu)
 
     @property
@@ -301,12 +301,12 @@ class Spergel(GSObject):
             self.nu > 0, _gamma(self.nu) * jnp.power(2.0, self.nu - 1.0), jnp.inf
         )
 
+    @implements(_galsim.spergel.Spergel.calculateFluxRadius)
     def calculateFluxRadius(self, f):
-        """Return the radius within which the total flux is f"""
         return calculateFluxRadius(f, self.nu)
 
+    @implements(_galsim.spergel.Spergel.calculateIntegratedFlux)
     def calculateIntegratedFlux(self, r):
-        """Return the integrated flux out to a given radius, r (unit of scale radius)"""
         return fluxfractionFunc(r, self.nu, 0.0)
 
     def __hash__(self):
