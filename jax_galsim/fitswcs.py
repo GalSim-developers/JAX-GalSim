@@ -176,8 +176,8 @@ class GSFitsWCS(CelestialWCS):
     # shiftOrigin to get the current origin value.  We don't use it in this class, though, so
     # just make origin a dummy property that returns 0,0.
     @property
+    @implements(_galsim.GSFitsWCS.origin)
     def origin(self):
-        """The origin in image coordinates of the WCS function."""
         return PositionD(0.0, 0.0)
 
     def _read_header(self, header):
@@ -821,6 +821,7 @@ class GSFitsWCS(CelestialWCS):
     def _readHeader(header):
         return GSFitsWCS(header=header)
 
+    @implements(_galsim.GSFitsWCS.copy)
     def copy(self):
         # The copy module version of copying the dict works fine here.
         return copy.copy(self)
