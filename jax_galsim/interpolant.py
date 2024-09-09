@@ -554,7 +554,7 @@ class Cubic(Interpolant):
         return 2.0
 
     @property
-    @implements(_galsim.interpolant.ixrange)
+    @implements(_galsim.interpolant.Cubic.ixrange)
     def ixrange(self):
         return 4
 
