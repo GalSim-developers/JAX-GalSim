@@ -40,9 +40,16 @@ class AngleUnit(object):
         return self._value
 
     def __rmul__(self, theta):
+        """float * AngleUnit returns an Angle"""
         return Angle(theta, self)
 
     def __div__(self, unit):
+        """AngleUnit / AngleUnit returns a float giving the relative scaling.
+
+        Note: At least to within machine precision, it is the case that
+
+            (x * angle_unit1) / angle_unit2 == x * (angle_unit1 / angle_unit2)
+        """
         if not isinstance(unit, AngleUnit):
             raise TypeError("Cannot divide AngleUnit by %s" % unit)
         return self.value / unit.value
