@@ -232,16 +232,19 @@ class InterpolatedImage(Transformation, metaclass=DirMeta):
             return super()._stepk
 
     @property
+    @implements(_galsim.interpolatedimage.InterpolatedImage.x_interpolant)
     def x_interpolant(self):
         """The real-space `Interpolant` for this profile."""
         return self._original._x_interpolant
 
     @property
+    @implements(_galsim.interpolatedimage.InterpolatedImage.k_interpolant)
     def k_interpolant(self):
         """The Fourier-space `Interpolant` for this profile."""
         return self._original._k_interpolant
 
     @property
+    @implements(_galsim.interpolatedimage.InterpolatedImage.image)
     def image(self):
         """The underlying `Image` being interpolated."""
         return self._original._image
