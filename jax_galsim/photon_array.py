@@ -277,7 +277,10 @@ class PhotonArray:
         self._set_self_at_inds(sinds)
 
     @property
-    @implements(_galsim.photon_array.PhotonArray.x)
+    @implements(
+        _galsim.photon_array.PhotonArray.x,
+        lax_description="JAX-GalSim PhotonArray properties do not support assignment at indices.",
+    )
     def x(self):
         return self._x
 
@@ -286,7 +289,10 @@ class PhotonArray:
         self._x = self._x.at[:].set(value)
 
     @property
-    @implements(_galsim.photon_array.PhotonArray.y)
+    @implements(
+        _galsim.photon_array.PhotonArray.y,
+        lax_description="JAX-GalSim PhotonArray properties do not support assignment at indices.",
+    )
     def y(self):
         return self._y
 
@@ -295,7 +301,10 @@ class PhotonArray:
         self._y = self._y.at[:].set(value)
 
     @property
-    @implements(_galsim.photon_array.PhotonArray.flux)
+    @implements(
+        _galsim.photon_array.PhotonArray.flux,
+        lax_description="JAX-GalSim PhotonArray properties do not support assignment at indices.",
+    )
     def flux(self):
         # we use jax.lax.cond to save some multiplications when
         # there are no masked photos.
@@ -318,7 +327,10 @@ class PhotonArray:
         )
 
     @property
-    @implements(_galsim.photon_array.PhotonArray.dxdz)
+    @implements(
+        _galsim.photon_array.PhotonArray.dxdz,
+        lax_description="JAX-GalSim PhotonArray properties do not support assignment at indices.",
+    )
     def dxdz(self):
         return self._dxdz
 
@@ -328,7 +340,10 @@ class PhotonArray:
         self._dydz = _zero_if_needed_on_set(self._dxdz, self._dydz)
 
     @property
-    @implements(_galsim.photon_array.PhotonArray.dydz)
+    @implements(
+        _galsim.photon_array.PhotonArray.dydz,
+        lax_description="JAX-GalSim PhotonArray properties do not support assignment at indices.",
+    )
     def dydz(self):
         return self._dydz
 
@@ -338,7 +353,10 @@ class PhotonArray:
         self._dxdz = _zero_if_needed_on_set(self._dydz, self._dxdz)
 
     @property
-    @implements(_galsim.photon_array.PhotonArray.wavelength)
+    @implements(
+        _galsim.photon_array.PhotonArray.wavelength,
+        lax_description="JAX-GalSim PhotonArray properties do not support assignment at indices.",
+    )
     def wavelength(self):
         return self._wave
 
@@ -347,7 +365,10 @@ class PhotonArray:
         self._wave = self._wave.at[:].set(value)
 
     @property
-    @implements(_galsim.photon_array.PhotonArray.pupil_u)
+    @implements(
+        _galsim.photon_array.PhotonArray.pupil_u,
+        lax_description="JAX-GalSim PhotonArray properties do not support assignment at indices.",
+    )
     def pupil_u(self):
         return self._pupil_u
 
@@ -357,7 +378,10 @@ class PhotonArray:
         self._pupil_v = _zero_if_needed_on_set(self._pupil_u, self._pupil_v)
 
     @property
-    @implements(_galsim.photon_array.PhotonArray.pupil_v)
+    @implements(
+        _galsim.photon_array.PhotonArray.pupil_v,
+        lax_description="JAX-GalSim PhotonArray properties do not support assignment at indices.",
+    )
     def pupil_v(self):
         return self._pupil_v
 
@@ -367,7 +391,10 @@ class PhotonArray:
         self._pupil_u = _zero_if_needed_on_set(self._pupil_v, self._pupil_u)
 
     @property
-    @implements(_galsim.photon_array.PhotonArray.time)
+    @implements(
+        _galsim.photon_array.PhotonArray.time,
+        lax_description="JAX-GalSim PhotonArray properties do not support assignment at indices.",
+    )
     def time(self):
         return self._time
 
