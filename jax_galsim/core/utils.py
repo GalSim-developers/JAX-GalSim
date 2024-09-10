@@ -277,7 +277,6 @@ def bisect_for_root(func, low, high, niter=75):
 #
 # fmt: on
 
-_galsim_signature_re = re.compile(r"^([\w., ]+=)?\s*[\w\.]+\([\w\W]*?\)$", re.MULTILINE)
 _docreference = re.compile(r":doc:`(.*?)\s*<.*?>`")
 
 
@@ -337,17 +336,8 @@ def _parse_galsimdoc(docstr):
     docstr = _docreference.sub(lambda match: f"{match.groups()[0]}", docstr)
 
     signature, body = "", docstr
-    match = _galsim_signature_re.match(body)
-    if match:
-        signature = match.group()
-        body = docstr[match.end() :]
 
     firstline, body = _break_off_body_section_by_newline(body)
-
-    match = _galsim_signature_re.match(body)
-    if match:
-        signature = match.group()
-        body = body[match.end() :]
 
     summary = firstline
     if not summary:
