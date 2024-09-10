@@ -105,9 +105,9 @@ def si(x):
     )
 
 
+@implements(_galsim.bessel.kv)
 @jax.jit
 def kv(nu, x):
-    """Modified Bessel 2nd kind"""
     nu = 1.0 * nu
     x = 1.0 * x
     return _tfp_bessel_kve(nu, x) / jnp.exp(jnp.abs(x))

@@ -69,8 +69,8 @@ class Sum(GSObject):
         self._params = {"obj_list": args}
 
     @property
+    @implements(_galsim.Sum.obj_list)
     def obj_list(self):
-        """The list of objects being added."""
         return self._params["obj_list"]
 
     @property

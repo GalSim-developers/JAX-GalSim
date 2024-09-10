@@ -145,18 +145,18 @@ class Moffat(GSObject):
             )
 
     @property
+    @implements(_galsim.moffat.Moffat.beta)
     def beta(self):
-        """The beta parameter of this `Moffat` profile."""
         return self._params["beta"]
 
     @property
+    @implements(_galsim.moffat.Moffat.trunc)
     def trunc(self):
-        """The truncation radius (if any) of this `Moffat` profile."""
         return self._params["trunc"]
 
     @property
+    @implements(_galsim.moffat.Moffat.scale_radius)
     def scale_radius(self):
-        """The scale radius of this `Moffat` profile."""
         return self.params["scale_radius"]
 
     @property
@@ -204,15 +204,15 @@ class Moffat(GSObject):
         )
 
     @property
+    @implements(_galsim.moffat.Moffat.half_light_radius)
     def half_light_radius(self):
-        """The half-light radius of this `Moffat` profile."""
         return self._r0 * jnp.sqrt(
             jnp.power(1.0 - 0.5 * self._fluxFactor, 1.0 / (1.0 - self.beta)) - 1.0
         )
 
     @property
+    @implements(_galsim.moffat.Moffat.fwhm)
     def fwhm(self):
-        """The FWHM of this `Moffat` profle."""
         return self._r0 * (2.0 * jnp.sqrt(2.0 ** (1.0 / self.beta) - 1.0))
 
     @property

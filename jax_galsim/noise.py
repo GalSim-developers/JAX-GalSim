@@ -50,44 +50,26 @@ class BaseNoise:
             self._rng = rng
 
     @property
+    @implements(_galsim.noise.BaseNoise.rng)
     def rng(self):
-        """The `BaseDeviate` of this noise object."""
         return self._rng
 
+    @implements(_galsim.noise.BaseNoise.getVariance)
     def getVariance(self):
-        """Get variance in current noise model."""
         return self._getVariance()
 
     def _getVariance(self):
         raise NotImplementedError("Cannot call getVariance on a pure BaseNoise object")
 
+    @implements(_galsim.noise.BaseNoise.withVariance)
     def withVariance(self, variance):
-        """Return a new noise object (of the same type as the current one) with the specified
-        variance.
-
-        Parameters:
-            variance:   The desired variance in the noise.
-
-        Returns:
-            a new Noise object with the given variance.
-        """
         return self._withVariance(variance)
 
     def _withVariance(self, variance):
         raise NotImplementedError("Cannot call withVariance on a pure BaseNoise object")
 
+    @implements(_galsim.noise.BaseNoise.withScaledVariance)
     def withScaledVariance(self, variance_ratio):
-        """Return a new noise object with the variance scaled up by the specified factor.
-
-        This is equivalent to noise * variance_ratio.
-
-        Parameters:
-            variance_ratio: The factor by which to scale the variance of the correlation
-                            function profile.
-
-        Returns:
-            a new Noise object whose variance has been scaled by the given amount.
-        """
         return self._withScaledVariance(variance_ratio)
 
     def _withScaledVariance(self, variance_ratio):
@@ -114,22 +96,8 @@ class BaseNoise:
     __rmul__ = __mul__
     __truediv__ = __div__
 
+    @implements(_galsim.noise.BaseNoise.applyTo)
     def applyTo(self, image):
-        """Add noise to an input `Image`.
-
-        e.g.::
-
-            >>> noise.applyTo(image)
-
-        On output the `Image` instance ``image`` will have been given additional noise according
-        to the current noise model.
-
-        Note: This is equivalent to the alternate syntax::
-
-            >>> image.addNoise(noise)
-
-        which may be more convenient or clearer.
-        """
         if not isinstance(image, Image):
             raise TypeError("Provided image must be a galsim.Image")
         return self._applyTo(image)
@@ -169,8 +137,8 @@ class GaussianNoise(BaseNoise):
         self._sigma = cast_to_float(sigma)
 
     @property
+    @implements(_galsim.noise.GaussianNoise.sigma)
     def sigma(self):
-        """The input sigma value."""
         return self._sigma
 
     def _applyTo(self, image):
@@ -228,8 +196,8 @@ class PoissonNoise(BaseNoise):
         self._sky_level = cast_to_float(sky_level)
 
     @property
+    @implements(_galsim.noise.PoissonNoise.sky_level)
     def sky_level(self):
-        """The input sky_level."""
         return self._sky_level
 
     def _applyTo(self, image):
@@ -336,18 +304,18 @@ class CCDNoise(BaseNoise):
         )
 
     @property
+    @implements(_galsim.noise.CCDNoise.sky_level)
     def sky_level(self):
-        """The input sky_level."""
         return self._sky_level
 
     @property
+    @implements(_galsim.noise.CCDNoise.gain)
     def gain(self):
-        """The input gain."""
         return self._gain
 
     @property
+    @implements(_galsim.noise.CCDNoise.read_noise)
     def read_noise(self):
-        """The input read_noise."""
         return self._read_noise
 
     def _applyTo(self, image):
@@ -543,8 +511,8 @@ class VariableGaussianNoise(BaseNoise):
         self._var_image = ImageD(var_image)
 
     @property
+    @implements(_galsim.noise.VariableGaussianNoise.var_image)
     def var_image(self):
-        """The input var_image."""
         return self._var_image
 
     # Repeat this here, since we want to add an extra sanity check, which should go in the

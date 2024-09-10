@@ -51,8 +51,8 @@ class Exponential(GSObject):
             super().__init__(scale_radius=scale_radius, flux=flux, gsparams=gsparams)
 
     @property
+    @implements(_galsim.Exponential.scale_radius)
     def scale_radius(self):
-        """The scale radius of the profile."""
         return self.params["scale_radius"]
 
     @property
@@ -68,8 +68,8 @@ class Exponential(GSObject):
         return self.flux * Exponential._inv_twopi * self._inv_r0**2
 
     @property
+    @implements(_galsim.Exponential.half_light_radius)
     def half_light_radius(self):
-        """The half-light radius of the profile."""
         return self.params["scale_radius"] * Exponential._hlr_factor
 
     def __hash__(self):

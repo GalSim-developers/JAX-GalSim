@@ -24,6 +24,7 @@ class Sensor:
     def calculate_pixel_areas(self, image, orig_center=PositionI(0, 0), use_flux=True):
         return 1.0
 
+    @implements(_galsim.Sensor.updateRNG)
     def updateRNG(self, rng):
         pass
 

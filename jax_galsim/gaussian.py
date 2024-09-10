@@ -63,18 +63,18 @@ class Gaussian(GSObject):
             super().__init__(sigma=sigma, flux=flux, gsparams=gsparams)
 
     @property
+    @implements(_galsim.Gaussian.sigma)
     def sigma(self):
-        """The sigma of this Gaussian profile"""
         return self.params["sigma"]
 
     @property
+    @implements(_galsim.Gaussian.half_light_radius)
     def half_light_radius(self):
-        """The half-light radius of this Gaussian profile"""
         return self.sigma * Gaussian._hlr_factor
 
     @property
+    @implements(_galsim.Gaussian.fwhm)
     def fwhm(self):
-        """The FWHM of this Gaussian profile"""
         return self.sigma * Gaussian._fwhm_factor
 
     @property

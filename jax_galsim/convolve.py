@@ -140,25 +140,17 @@ class Convolution(GSObject):
         self._params = {"obj_list": self._obj_list}
 
     @property
+    @implements(_galsim.Convolution.obj_list)
     def obj_list(self):
-        """The list of objects being convolved."""
         return self._obj_list
 
     @property
+    @implements(_galsim.Convolution.real_space)
     def real_space(self):
-        """Whether this `Convolution` should be drawn using real-space convolution rather
-        than FFT convolution.
-        """
         return self._real_space
 
+    @implements(_galsim.Convolution.withGSParams)
     def withGSParams(self, gsparams=None, **kwargs):
-        """Create a version of the current object with the given gsparams
-
-        .. note::
-
-            Unless you set ``propagate_gsparams=False``, this method will also update the gsparams
-            of each object being convolved.
-        """
         if gsparams == self.gsparams:
             return self
         from copy import copy
@@ -391,8 +383,8 @@ class Deconvolution(GSObject):
         return 1.0 / self._min_acc_kvalue
 
     @property
+    @implements(_galsim.Deconvolution.orig_obj)
     def orig_obj(self):
-        """The original object that is being deconvolved."""
         return self._orig_obj
 
     @property
@@ -401,14 +393,8 @@ class Deconvolution(GSObject):
             galsim_warn("Unable to propagate noise in galsim.Deconvolution")
         return None
 
+    @implements(_galsim.Deconvolution.withGSParams)
     def withGSParams(self, gsparams=None, **kwargs):
-        """Create a version of the current object with the given gsparams
-
-        .. note::
-
-            Unless you set ``propagate_gsparams=False``, this method will also update the gsparams
-            of the wrapped component object.
-        """
         if gsparams == self.gsparams:
             return self
         from copy import copy
