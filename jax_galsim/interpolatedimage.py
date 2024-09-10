@@ -234,7 +234,6 @@ class InterpolatedImage(Transformation, metaclass=DirMeta):
     @property
     @implements(_galsim.interpolatedimage.InterpolatedImage.x_interpolant)
     def x_interpolant(self):
-        """The real-space `Interpolant` for this profile."""
         return self._original._x_interpolant
 
     @property
