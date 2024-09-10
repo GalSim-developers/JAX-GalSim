@@ -239,7 +239,6 @@ class InterpolatedImage(Transformation, metaclass=DirMeta):
     @property
     @implements(_galsim.interpolatedimage.InterpolatedImage.k_interpolant)
     def k_interpolant(self):
-        """The Fourier-space `Interpolant` for this profile."""
         return self._original._k_interpolant
 
     @property
