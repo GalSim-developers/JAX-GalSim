@@ -244,7 +244,6 @@ class InterpolatedImage(Transformation, metaclass=DirMeta):
     @property
     @implements(_galsim.interpolatedimage.InterpolatedImage.image)
     def image(self):
-        """The underlying `Image` being interpolated."""
         return self._original._image
 
     def __hash__(self):
