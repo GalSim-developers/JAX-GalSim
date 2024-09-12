@@ -19,7 +19,6 @@ The JAX implementation
 """
 
 
-# The reason for avoid these tests is that they are not easy to do for jitted code.
 @implements(_galsim.Bounds, lax_description=BOUNDS_LAX_DESCR)
 @register_pytree_node_class
 class Bounds(_galsim.Bounds):

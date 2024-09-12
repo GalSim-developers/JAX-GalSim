@@ -1,3 +1,5 @@
+# original source license:
+#
 # Copyright (c) 2013-2017 LSST Dark Energy Science Collaboration (DESC)
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -176,8 +178,10 @@ class Angle(object):
         return _Angle(self._rad - other._rad)
 
     def __mul__(self, other):
-        # if other != float(other):
-        #     raise TypeError("Cannot multiply Angle by %s of type %s" % (other, type(other)))
+        if other != float(other):
+            raise TypeError(
+                "Cannot multiply Angle by %s of type %s" % (other, type(other))
+            )
         return _Angle(self._rad * other)
 
     __rmul__ = __mul__

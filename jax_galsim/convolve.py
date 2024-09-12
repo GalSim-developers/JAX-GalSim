@@ -300,6 +300,7 @@ class Convolution(GSObject):
     def _drawReal(self, image, jac=None, offset=(0.0, 0.0), flux_scaling=1.0):
         raise NotImplementedError("Real-space convolutions are not implemented")
 
+    @implements(_galsim.Convolution._shoot)
     def _shoot(self, photons, rng):
         self.obj_list[0]._shoot(photons, rng)
         # It may be necessary to shuffle when convolving because we do not have a
@@ -342,10 +343,6 @@ class Convolution(GSObject):
     lax_description="Does not support ChromaticDeconvolution",
 )
 def Deconvolve(obj, gsparams=None, propagate_gsparams=True):
-    # from .chromatic import ChromaticDeconvolution
-    # if isinstance(obj, ChromaticObject):
-    #     return ChromaticDeconvolution(obj, gsparams=gsparams, propagate_gsparams=propagate_gsparams)
-    # elif isinstance(obj, GSObject):
     if isinstance(obj, GSObject):
         return Deconvolution(
             obj, gsparams=gsparams, propagate_gsparams=propagate_gsparams

@@ -115,6 +115,7 @@ class Box(GSObject):
             **aux_data,
         )
 
+    @implements(_galsim.Box._shoot)
     def _shoot(self, photons, rng):
         ud = UniformDeviate(rng)
 
@@ -135,7 +136,6 @@ class Pixel(Box):
     @property
     @implements(_galsim.Pixel.scale)
     def scale(self):
-        """The linear scale size of the `Pixel`."""
         return self.width
 
     def __repr__(self):

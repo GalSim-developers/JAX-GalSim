@@ -65,6 +65,7 @@ class DeltaFunction(GSObject):
         # to match the input kpos
         return self.flux + kpos.x * (0.0 + 0.0j)
 
+    @implements(_galsim.DeltaFunction._shoot)
     def _shoot(self, photons, rng):
         flux_per_photon = self.flux / photons.size()
         photons.x = 0.0
