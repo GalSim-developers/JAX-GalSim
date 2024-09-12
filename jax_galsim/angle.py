@@ -178,10 +178,6 @@ class Angle(object):
         return _Angle(self._rad - other._rad)
 
     def __mul__(self, other):
-        if other != float(other):
-            raise TypeError(
-                "Cannot multiply Angle by %s of type %s" % (other, type(other))
-            )
         return _Angle(self._rad * other)
 
     __rmul__ = __mul__
@@ -189,12 +185,8 @@ class Angle(object):
     def __div__(self, other):
         if isinstance(other, AngleUnit):
             return self._rad / other.value
-        elif other == float(other):
-            return _Angle(self._rad / other)
         else:
-            raise TypeError(
-                "Cannot divide Angle by %s of type %s" % (other, type(other))
-            )
+            return _Angle(self._rad / other)
 
     __truediv__ = __div__
 
