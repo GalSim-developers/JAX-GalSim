@@ -146,7 +146,7 @@ def pytest_pycollect_makemodule(module_path, path, parent):
         module.obj.galsim.integ.int1d = partial(
             jax_galsim.integ.int1d, _wrap_as_callback=True
         )
-        # make things easier for us
+        # make things easier for us, is 7 in galsim
         module.obj.test_decimal = 4
 
     if str(module_path).endswith(
