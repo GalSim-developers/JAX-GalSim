@@ -147,7 +147,7 @@ def pytest_pycollect_makemodule(module_path, path, parent):
             jax_galsim.integ.int1d, _wrap_as_callback=True
         )
         # make things easier for us
-        module.obj.test_decimal = 3
+        module.obj.test_decimal = 4
 
     if str(module_path).endswith(
         "tests/GalSim/tests/test_interpolatedimage.py"
