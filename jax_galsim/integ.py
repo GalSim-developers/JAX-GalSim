@@ -73,7 +73,7 @@ def int1d(
     )
 
     return jax.lax.cond(
-        (status == 0) | (status == 2),
+        status == 0,
         lambda: val,
         lambda: jnp.nan,
     )
