@@ -14,6 +14,7 @@ from jax_galsim.transform import _Transform
 
 # We inherit from the reference BaseWCS and only redefine the methods that
 # make references to jax_galsim objects.
+@implements(_galsim.BaseWCS)
 class BaseWCS(_galsim.BaseWCS):
     @implements(_galsim.BaseWCS.toWorld)
     def toWorld(self, *args, **kwargs):
@@ -281,12 +282,8 @@ class BaseWCS(_galsim.BaseWCS):
 #########################################################################################
 
 
+@implements(_galsim.wcs.EuclideanWCS)
 class EuclideanWCS(BaseWCS):
-    """A EuclideanWCS is a `BaseWCS` whose world coordinates are on a Euclidean plane.
-    We usually use the notation (u,v) to refer to positions in world coordinates, and
-    they use the class `PositionD`.
-    """
-
     # All EuclideanWCS classes must define origin and world_origin.
     # Sometimes it is convenient to access x0,y0,u0,v0 directly.
     @property
@@ -474,9 +471,8 @@ class EuclideanWCS(BaseWCS):
         return not self.__eq__(other)
 
 
+@implements(_galsim.wcs.UniformWCS)
 class UniformWCS(EuclideanWCS):
-    """A UniformWCS is a `EuclideanWCS` which has a uniform pixel size and shape."""
-
     @property
     def _isUniform(self):
         return True
@@ -522,6 +518,7 @@ class UniformWCS(EuclideanWCS):
         )
 
 
+@implements(_galsim.wcs.LocalWCS)
 class LocalWCS(UniformWCS):
     """A LocalWCS is a `UniformWCS` in which (0,0) in image coordinates is at the same place
     as (0,0) in world coordinates
@@ -565,6 +562,7 @@ class LocalWCS(UniformWCS):
         return self
 
 
+@implements(_galsim.wcs.CelestialWCS)
 class CelestialWCS(BaseWCS):
     """A CelestialWCS is a `BaseWCS` whose world coordinates are on the celestial sphere.
     We use the `CelestialCoord` class for the world coordinates.

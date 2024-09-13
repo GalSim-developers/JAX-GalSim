@@ -69,7 +69,6 @@ def apply_kImage_phases(offset, image, jacobian=jnp.eye(2)):
     kcoords = jnp.dot(kcoords, jacobian)
     cenx, ceny = offset.x, offset.y
 
-    #
     # flux Exp(-i (kx cx + kxy cx + kyx cy + ky cy ) )
     # NB: seems that tere is no jax.lax.polar equivalent to c++ std::polar function
     def phase(kpos):

@@ -1,3 +1,5 @@
+# original source license:
+#
 # Copyright (c) 2013-2017 LSST Dark Energy Science Collaboration (DESC)
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -71,8 +73,6 @@ class CelestialCoord(object):
             raise TypeError("ra must be a galsim.Angle")
         elif not isinstance(dec, Angle):
             raise TypeError("dec must be a galsim.Angle")
-        # elif dec/degrees > 90. or dec/degrees < -90.:
-        #     raise ValueError("dec must be between -90 deg and +90 deg.")
         else:
             # Normal case
             self._ra = ra
@@ -130,9 +130,6 @@ class CelestialCoord(object):
     )
     def from_xyz(x, y, z):
         norm = jnp.sqrt(x * x + y * y + z * z)
-        # JAX cannot check this condition
-        # if norm == 0.:
-        #     raise ValueError("CelestialCoord for position (0,0,0) is undefined.")
         ret = CelestialCoord.__new__(CelestialCoord)
         ret._x = x / norm
         ret._y = y / norm

@@ -383,6 +383,7 @@ class Transformation(GSObject):
         image = image * self._flux_scaling
         return image
 
+    @implements(_galsim.Transformation._shoot)
     def _shoot(self, photons, rng):
         self._original._shoot(photons, rng)
         photons.x, photons.y = self._fwd(photons.x, photons.y)
