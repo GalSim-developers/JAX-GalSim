@@ -45,7 +45,7 @@ about the inner workings of GalSim and how to code in JAX.
 ## Current GalSim API Coverage
 
 <!-- start-api-coverage -->
-JAX-GalSim has implemented 22.6% of the GalSim API. See the list below for the supported APIs.
+JAX-GalSim has implemented 22.5% of the GalSim API. See the list below for the supported APIs.
 
 <details>
 
@@ -138,6 +138,9 @@ JAX-GalSim has implemented 22.6% of the GalSim API. See the list below for the s
 - galsim.UniformDeviate
 - galsim.VariableGaussianNoise
 - galsim.WeibullDeviate
+- galsim.bessel.j0
+- galsim.bessel.kv
+- galsim.bessel.si
 - galsim.fits.closeHDUList
 - galsim.fits.readCube
 - galsim.fits.readFile
@@ -145,6 +148,7 @@ JAX-GalSim has implemented 22.6% of the GalSim API. See the list below for the s
 - galsim.fits.write
 - galsim.fits.writeFile
 - galsim.fitswcs.CelestialWCS
+- galsim.integ.int1d
 - galsim.noise.addNoise
 - galsim.noise.addNoiseSNR
 - galsim.random.permute
