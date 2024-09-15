@@ -30,7 +30,9 @@ def _list_all_apis(module, apis=None, seen_modules=None):
                     seen_modules.add(full_name)
                     _list_all_apis(obj, apis=apis, seen_modules=seen_modules)
             elif kind == "class_or_fun" and (
-                inspect.isclass(obj) or inspect.isfunction(obj)
+                inspect.isclass(obj)
+                or inspect.isfunction(obj)
+                or inspect.isroutine(obj)
             ):
                 if not any(api.endswith(f".{name}") for api in apis):
                     apis.add(full_name)
