@@ -99,3 +99,5 @@ from . import fits
 
 # this one is specific to jax_galsim
 from . import core
+
+from . import hsm
