@@ -494,8 +494,8 @@ class GSObject:
                 # if center, nx and ny are given.
                 b = b.shift(
                     PositionI(
-                        jnp.floor(center.x + 0.5) - b.true_center.x,
-                        jnp.floor(center.y + 0.5) - b.true_center.y,
+                        jnp.floor(center.x + 0.5 - b.true_center.x),
+                        jnp.floor(center.y + 0.5 - b.true_center.y),
                     )
                 )
             return b
