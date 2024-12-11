@@ -415,6 +415,9 @@ class GSObject:
                     )
                 image = Image(nx, ny, dtype=dtype)
                 if center is not None:
+                    # this code has to match the code in _get_new_bounds
+                    # for the same branch of the if statement block
+                    # if center, nx, and ny are given.
                     image.shift(
                         PositionI(
                             jnp.floor(center.x + 0.5 - image.true_center.x),
@@ -486,10 +489,13 @@ class GSObject:
         elif nx is not None and ny is not None:
             b = BoundsI(1, nx, 1, ny)
             if center is not None:
+                # this code has to match the code in _setup_image
+                # for the same branch of the if statement block
+                # if center, nx and ny are given.
                 b = b.shift(
                     PositionI(
-                        jnp.floor(center.x + 0.5) - b.center.x,
-                        jnp.floor(center.y + 0.5) - b.center.y,
+                        jnp.floor(center.x + 0.5 - b.true_center.x),
+                        jnp.floor(center.y + 0.5 - b.true_center.y),
                     )
                 )
             return b
