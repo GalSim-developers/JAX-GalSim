@@ -6,7 +6,19 @@ import jax_galsim as jgs
 
 
 @pytest.mark.parametrize(
-    "attr", ["nu", "scale_radius", "maxk", "stepk", "half_light_radius"]
+    "attr",
+    [
+        "nu",
+        "scale_radius",
+        "maxk",
+        pytest.param(
+            "stepk",
+            marks=pytest.mark.xfail(
+                reason="GalSim has a bug in its stepk routine. See https://github.com/GalSim-developers/GalSim/issues/1324"
+            ),
+        ),
+        "half_light_radius",
+    ],
 )
 @pytest.mark.parametrize("nu", [-0.6, -0.5, 0.0, 0.1, 0.5, 1.0, 1.1, 1.5, 2, 2.7])
 @pytest.mark.parametrize("scale_radius", [0.5, 1.0, 1.5, 2.0, 2.5])
