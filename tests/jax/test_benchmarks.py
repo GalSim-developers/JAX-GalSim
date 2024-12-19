@@ -179,18 +179,12 @@ def test_benchmark_spergel_conv(benchmark, kind):
     dt = _run_benchmarks(
         benchmark, kind, lambda: _run_spergel_bench_conv_jit().block_until_ready()
     )
-    print(f"jax-galsim time: {dt:0.4g} ms", end=" ")
-
-
-@pytest.mark.parametrize("kind", ["compile", "run"])
-def test_benchmark_spergel_conv_galsim(benchmark, kind):
-    dt = _run_benchmarks(benchmark, kind, lambda: _run_spergel_bench_conv(_galsim))
-    print(f"galsim time: {dt:0.4g} ms", end=" ")
+    print(f"time: {dt:0.4g} ms", end=" ")
 
 
 def _run_spergel_bench_xvalue(gsmod):
     obj = gsmod.Spergel(nu=-0.6, scale_radius=5)
-    return obj.drawImage(nx=50, ny=50, scale=0.2, method="no_pixel").array
+    return obj.drawImage(nx=1024, ny=1204, scale=0.05, method="no_pixel").array
 
 
 _run_spergel_bench_xvalue_jit = jax.jit(partial(_run_spergel_bench_xvalue, jgs))
@@ -201,18 +195,12 @@ def test_benchmark_spergel_xvalue(benchmark, kind):
     dt = _run_benchmarks(
         benchmark, kind, lambda: _run_spergel_bench_xvalue_jit().block_until_ready()
     )
-    print(f"jax-galsim time: {dt:0.4g} ms", end=" ")
-
-
-@pytest.mark.parametrize("kind", ["compile", "run"])
-def test_benchmark_spergel_xvalue_galsim(benchmark, kind):
-    dt = _run_benchmarks(benchmark, kind, lambda: _run_spergel_bench_xvalue(_galsim))
-    print(f"galsim time: {dt:0.4g} ms", end=" ")
+    print(f"time: {dt:0.4g} ms", end=" ")
 
 
 def _run_spergel_bench_kvalue(gsmod):
     obj = gsmod.Spergel(nu=-0.6, scale_radius=5)
-    return obj.drawKImage(nx=50, ny=50, scale=0.2).array
+    return obj.drawKImage(nx=1024, ny=1204, scale=0.05).array
 
 
 _run_spergel_bench_kvalue_jit = jax.jit(partial(_run_spergel_bench_kvalue, jgs))
@@ -223,10 +211,4 @@ def test_benchmark_spergel_kvalue(benchmark, kind):
     dt = _run_benchmarks(
         benchmark, kind, lambda: _run_spergel_bench_kvalue_jit().block_until_ready()
     )
-    print(f"jax-galsim time: {dt:0.4g} ms", end=" ")
-
-
-@pytest.mark.parametrize("kind", ["compile", "run"])
-def test_benchmark_spergel_kvalue_galsim(benchmark, kind):
-    dt = _run_benchmarks(benchmark, kind, lambda: _run_spergel_bench_kvalue(_galsim))
-    print(f"galsim time: {dt:0.4g} ms", end=" ")
+    print(f"time: {dt:0.4g} ms", end=" ")

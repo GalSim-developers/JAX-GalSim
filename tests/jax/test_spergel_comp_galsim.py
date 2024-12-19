@@ -1,8 +1,19 @@
+import galsim as _galsim
 import galsim as gs
+import jax
 import numpy as np
 import pytest
+from test_benchmarks import (
+    _run_spergel_bench_conv,
+    _run_spergel_bench_conv_jit,
+    _run_spergel_bench_kvalue,
+    _run_spergel_bench_kvalue_jit,
+    _run_spergel_bench_xvalue,
+    _run_spergel_bench_xvalue_jit,
+)
 
 import jax_galsim as jgs
+from jax_galsim.core.testing import time_code_block
 
 
 @pytest.mark.parametrize(
@@ -78,3 +89,69 @@ def test_spergel_comp_galsim_xvalue(nu, scale_radius, x, y):
     s_gs = gs.Spergel(nu=nu, scale_radius=scale_radius)
 
     np.testing.assert_allclose(s_jgs.xValue(x, y), s_gs.xValue(x, y), rtol=1e-5)
+
+
+def _run_time_test(kind, func):
+    if kind == "compile":
+
+        def _run():
+            jax.clear_caches()
+            func()
+
+    elif kind == "run":
+        # run once to compile
+        func()
+
+        def _run():
+            func()
+
+    else:
+        raise ValueError(f"kind={kind} not recognized")
+
+    tot_time = 0
+    for _ in range(3):
+        with time_code_block(quiet=True) as tr:
+            _run()
+        tot_time += tr.dt
+
+    return tot_time / 3
+
+
+@pytest.mark.parametrize("kind", ["compile", "run"])
+def test_spergel_comp_galsim_perf_conv(benchmark, kind):
+    dt = _run_time_test(kind, lambda: _run_spergel_bench_conv_jit().block_until_ready())
+    print(f"\njax-galsim time: {dt:0.4g} ms")
+
+    dt = _run_time_test(
+        kind,
+        lambda: _run_spergel_bench_conv(_galsim),
+    )
+    print(f"    galsim time: {dt:0.4g} ms")
+
+
+@pytest.mark.parametrize("kind", ["compile", "run"])
+def test_spergel_comp_galsim_perf_kvalue(benchmark, kind):
+    dt = _run_time_test(
+        kind, lambda: _run_spergel_bench_kvalue_jit().block_until_ready()
+    )
+    print(f"\njax-galsim time: {dt:0.4g} ms")
+
+    dt = _run_time_test(
+        kind,
+        lambda: _run_spergel_bench_kvalue(_galsim),
+    )
+    print(f"    galsim time: {dt:0.4g} ms")
+
+
+@pytest.mark.parametrize("kind", ["compile", "run"])
+def test_spergel_comp_galsim_perf_xvalue(benchmark, kind):
+    dt = _run_time_test(
+        kind, lambda: _run_spergel_bench_xvalue_jit().block_until_ready()
+    )
+    print(f"\njax-galsim time: {dt:0.4g} ms")
+
+    dt = _run_time_test(
+        kind,
+        lambda: _run_spergel_bench_xvalue(_galsim),
+    )
+    print(f"    galsim time: {dt:0.4g} ms")
