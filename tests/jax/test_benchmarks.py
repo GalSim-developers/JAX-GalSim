@@ -159,3 +159,56 @@ def test_benchmarks_metacal(benchmark, kind):
 
     dt = _run_benchmarks(benchmark, kind, _run)
     print(f"time: {dt:0.4g} ms", end=" ")
+
+
+def _run_spergel_bench_conv(gsmod):
+    obj = gsmod.Spergel(nu=-0.6, scale_radius=5)
+    psf = gsmod.Gaussian(fwhm=0.9)
+    obj = gsmod.Convolve(
+        [obj, psf],
+        gsparams=gsmod.GSParams(minimum_fft_size=2048, maximum_fft_size=2048),
+    )
+    return obj.drawImage(nx=50, ny=50, scale=0.2).array
+
+
+_run_spergel_bench_conv_jit = jax.jit(partial(_run_spergel_bench_conv, jgs))
+
+
+@pytest.mark.parametrize("kind", ["compile", "run"])
+def test_benchmark_spergel_conv(benchmark, kind):
+    dt = _run_benchmarks(
+        benchmark, kind, lambda: _run_spergel_bench_conv_jit().block_until_ready()
+    )
+    print(f"time: {dt:0.4g} ms", end=" ")
+
+
+def _run_spergel_bench_xvalue(gsmod):
+    obj = gsmod.Spergel(nu=-0.6, scale_radius=5)
+    return obj.drawImage(nx=1024, ny=1204, scale=0.05, method="no_pixel").array
+
+
+_run_spergel_bench_xvalue_jit = jax.jit(partial(_run_spergel_bench_xvalue, jgs))
+
+
+@pytest.mark.parametrize("kind", ["compile", "run"])
+def test_benchmark_spergel_xvalue(benchmark, kind):
+    dt = _run_benchmarks(
+        benchmark, kind, lambda: _run_spergel_bench_xvalue_jit().block_until_ready()
+    )
+    print(f"time: {dt:0.4g} ms", end=" ")
+
+
+def _run_spergel_bench_kvalue(gsmod):
+    obj = gsmod.Spergel(nu=-0.6, scale_radius=5)
+    return obj.drawKImage(nx=1024, ny=1204, scale=0.05).array
+
+
+_run_spergel_bench_kvalue_jit = jax.jit(partial(_run_spergel_bench_kvalue, jgs))
+
+
+@pytest.mark.parametrize("kind", ["compile", "run"])
+def test_benchmark_spergel_kvalue(benchmark, kind):
+    dt = _run_benchmarks(
+        benchmark, kind, lambda: _run_spergel_bench_kvalue_jit().block_until_ready()
+    )
+    print(f"time: {dt:0.4g} ms", end=" ")

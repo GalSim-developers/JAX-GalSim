@@ -38,7 +38,7 @@ jobs:
           git submodule update --init --recursive
 
       - name: Run benchmarks
-        uses: CodSpeedHQ/action@v2
+        uses: CodSpeedHQ/action@v3
         with:
           token: ${{ secrets.CODSPEED_TOKEN }}
           run: pytest -vvs --codspeed
