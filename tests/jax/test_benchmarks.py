@@ -159,3 +159,27 @@ def test_benchmarks_metacal(benchmark, kind):
 
     dt = _run_benchmarks(benchmark, kind, _run)
     print(f"time: {dt:0.4g} ms", end=" ")
+
+
+@pytest.mark.parametrize("kind", ["compile", "run"])
+def test_benchmark_spergel(benchmark, kind):
+    def _run_jax():
+        gal = jgs.Spergel(nu=-0.6, scale_radius=4.0)
+        psf = jgs.Gaussian(fwhm=0.9)
+        obj = jgs.Convolve([gal, psf])
+        obj.drawImage(nx=51, ny=51, scale=0.2).array.block_until_ready()
+
+    dt = _run_benchmarks(benchmark, kind, _run_jax)
+    print(f"jax-galsim time: {dt:0.4g} ms", end=" ")
+
+
+@pytest.mark.parametrize("kind", ["compile", "run"])
+def test_benchmark_spergel_galsim(benchmark, kind):
+    def _run():
+        gal = _galsim.Spergel(nu=-0.6, scale_radius=4.0)
+        psf = _galsim.Gaussian(fwhm=0.9)
+        obj = _galsim.Convolve([gal, psf])
+        obj.drawImage(nx=51, ny=51, scale=0.2)
+
+    dt = _run_benchmarks(benchmark, kind, _run)
+    print(f"galsim time: {dt:0.4g} ms", end=" ")
