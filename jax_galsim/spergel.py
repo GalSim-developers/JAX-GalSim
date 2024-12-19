@@ -168,7 +168,7 @@ def reducedfluxfractionFunc(z, nu, norm):
 
 @jax.jit
 def calculateFluxRadius(alpha, nu, zmin=0.0, zmax=30.0):
-    """Return radius R enclosing flux fraction alpha  in unit of the scale radius r0
+    """Return radius R enclosing flux fraction alpha in unit of the scale radius r0
 
     Method: Solve  F(R/r0=z)/Flux - alpha = 0 using bisection algorithm
 
@@ -303,11 +303,11 @@ class Spergel(GSObject):
 
     @implements(_galsim.spergel.Spergel.calculateFluxRadius)
     def calculateFluxRadius(self, f):
-        return calculateFluxRadius(f, self.nu)
+        return self._r0 * calculateFluxRadius(f, self.nu)
 
     @implements(_galsim.spergel.Spergel.calculateIntegratedFlux)
     def calculateIntegratedFlux(self, r):
-        return fluxfractionFunc(r, self.nu, 0.0)
+        return fluxfractionFunc(r / self._r0, self.nu, 0.0)
 
     def __hash__(self):
         return hash(

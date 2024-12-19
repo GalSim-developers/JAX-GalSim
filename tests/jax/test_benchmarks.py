@@ -161,25 +161,72 @@ def test_benchmarks_metacal(benchmark, kind):
     print(f"time: {dt:0.4g} ms", end=" ")
 
 
-@pytest.mark.parametrize("kind", ["compile", "run"])
-def test_benchmark_spergel(benchmark, kind):
-    def _run_jax():
-        gal = jgs.Spergel(nu=-0.6, scale_radius=4.0)
-        psf = jgs.Gaussian(fwhm=0.9)
-        obj = jgs.Convolve([gal, psf])
-        obj.drawImage(nx=51, ny=51, scale=0.2).array.block_until_ready()
+def _run_spergel_bench_conv(gsmod):
+    obj = gsmod.Spergel(nu=-0.6, scale_radius=5)
+    psf = gsmod.Gaussian(fwhm=0.9)
+    obj = gsmod.Convolve(
+        [obj, psf],
+        gsparams=gsmod.GSParams(minimum_fft_size=2048, maximum_fft_size=2048),
+    )
+    return obj.drawImage(nx=50, ny=50, scale=0.2).array
 
-    dt = _run_benchmarks(benchmark, kind, _run_jax)
+
+_run_spergel_bench_conv_jit = jax.jit(partial(_run_spergel_bench_conv, jgs))
+
+
+@pytest.mark.parametrize("kind", ["compile", "run"])
+def test_benchmark_spergel_conv(benchmark, kind):
+    dt = _run_benchmarks(
+        benchmark, kind, lambda: _run_spergel_bench_conv_jit().block_until_ready()
+    )
     print(f"jax-galsim time: {dt:0.4g} ms", end=" ")
 
 
 @pytest.mark.parametrize("kind", ["compile", "run"])
-def test_benchmark_spergel_galsim(benchmark, kind):
-    def _run():
-        gal = _galsim.Spergel(nu=-0.6, scale_radius=4.0)
-        psf = _galsim.Gaussian(fwhm=0.9)
-        obj = _galsim.Convolve([gal, psf])
-        obj.drawImage(nx=51, ny=51, scale=0.2)
+def test_benchmark_spergel_conv_galsim(benchmark, kind):
+    dt = _run_benchmarks(benchmark, kind, lambda: _run_spergel_bench_conv(_galsim))
+    print(f"galsim time: {dt:0.4g} ms", end=" ")
 
-    dt = _run_benchmarks(benchmark, kind, _run)
+
+def _run_spergel_bench_xvalue(gsmod):
+    obj = gsmod.Spergel(nu=-0.6, scale_radius=5)
+    return obj.drawImage(nx=50, ny=50, scale=0.2, method="no_pixel").array
+
+
+_run_spergel_bench_xvalue_jit = jax.jit(partial(_run_spergel_bench_xvalue, jgs))
+
+
+@pytest.mark.parametrize("kind", ["compile", "run"])
+def test_benchmark_spergel_xvalue(benchmark, kind):
+    dt = _run_benchmarks(
+        benchmark, kind, lambda: _run_spergel_bench_xvalue_jit().block_until_ready()
+    )
+    print(f"jax-galsim time: {dt:0.4g} ms", end=" ")
+
+
+@pytest.mark.parametrize("kind", ["compile", "run"])
+def test_benchmark_spergel_xvalue_galsim(benchmark, kind):
+    dt = _run_benchmarks(benchmark, kind, lambda: _run_spergel_bench_xvalue(_galsim))
+    print(f"galsim time: {dt:0.4g} ms", end=" ")
+
+
+def _run_spergel_bench_kvalue(gsmod):
+    obj = gsmod.Spergel(nu=-0.6, scale_radius=5)
+    return obj.drawKImage(nx=50, ny=50, scale=0.2).array
+
+
+_run_spergel_bench_kvalue_jit = jax.jit(partial(_run_spergel_bench_kvalue, jgs))
+
+
+@pytest.mark.parametrize("kind", ["compile", "run"])
+def test_benchmark_spergel_kvalue(benchmark, kind):
+    dt = _run_benchmarks(
+        benchmark, kind, lambda: _run_spergel_bench_kvalue_jit().block_until_ready()
+    )
+    print(f"jax-galsim time: {dt:0.4g} ms", end=" ")
+
+
+@pytest.mark.parametrize("kind", ["compile", "run"])
+def test_benchmark_spergel_kvalue_galsim(benchmark, kind):
+    dt = _run_benchmarks(benchmark, kind, lambda: _run_spergel_bench_kvalue(_galsim))
     print(f"galsim time: {dt:0.4g} ms", end=" ")
