@@ -168,7 +168,7 @@ def reducedfluxfractionFunc(z, nu, norm):
 
 @jax.jit
 def calculateFluxRadius(alpha, nu, zmin=0.0, zmax=30.0):
-    """Return radius R enclosing flux fraction alpha  in unit of the scale radius r0
+    """Return radius R enclosing flux fraction alpha in unit of the scale radius r0
 
     Method: Solve  F(R/r0=z)/Flux - alpha = 0 using bisection algorithm
 
@@ -267,34 +267,34 @@ class Spergel(GSObject):
     def _r0(self):
         return self.scale_radius
 
-    @property
+    @lazy_property
     def _inv_r0(self):
         return 1.0 / self._r0
 
-    @property
+    @lazy_property
     def _r0_sq(self):
         return self._r0 * self._r0
 
-    @property
+    @lazy_property
     def _inv_r0_sq(self):
         return self._inv_r0 * self._inv_r0
 
-    @property
+    @lazy_property
     @implements(_galsim.spergel.Spergel.half_light_radius)
     def half_light_radius(self):
         return self._r0 * calculateFluxRadius(0.5, self.nu)
 
-    @property
+    @lazy_property
     def _shootxnorm(self):
         """Normalization for photon shooting"""
         return 1.0 / (2.0 * jnp.pi * jnp.power(2.0, self.nu) * _gammap1(self.nu))
 
-    @property
+    @lazy_property
     def _xnorm(self):
         """Normalization of xValue"""
         return self._shootxnorm * self.flux * self._inv_r0_sq
 
-    @property
+    @lazy_property
     def _xnorm0(self):
         """return z^nu K_nu(z) for z=0"""
         return jax.lax.select(
@@ -303,11 +303,11 @@ class Spergel(GSObject):
 
     @implements(_galsim.spergel.Spergel.calculateFluxRadius)
     def calculateFluxRadius(self, f):
-        return calculateFluxRadius(f, self.nu)
+        return self._r0 * calculateFluxRadius(f, self.nu)
 
     @implements(_galsim.spergel.Spergel.calculateIntegratedFlux)
     def calculateIntegratedFlux(self, r):
-        return fluxfractionFunc(r, self.nu, 0.0)
+        return fluxfractionFunc(r / self._r0, self.nu, 0.0)
 
     def __hash__(self):
         return hash(
@@ -338,13 +338,13 @@ class Spergel(GSObject):
         s += ")"
         return s
 
-    @property
+    @lazy_property
     def _maxk(self):
         """(1+ (k r0)^2)^(-1-nu) = maxk_threshold"""
         res = jnp.power(self.gsparams.maxk_threshold, -1.0 / (1.0 + self.nu)) - 1.0
         return jnp.sqrt(res) / self._r0
 
-    @property
+    @lazy_property
     def _stepk(self):
         R = calculateFluxRadius(1.0 - self.gsparams.folding_threshold, self.nu)
         R *= self._r0
@@ -352,7 +352,7 @@ class Spergel(GSObject):
         R = jnp.maximum(R, self.gsparams.stepk_minimum_hlr * self.half_light_radius)
         return jnp.pi / R
 
-    @property
+    @lazy_property
     def _max_sb(self):
         # from SBSpergelImpl.h
         return jnp.abs(self._xnorm) * self._xnorm0
