@@ -212,3 +212,16 @@ def test_benchmark_spergel_kvalue(benchmark, kind):
         benchmark, kind, lambda: _run_spergel_bench_kvalue_jit().block_until_ready()
     )
     print(f"time: {dt:0.4g} ms", end=" ")
+
+
+@jax.jit
+def _run_spergel_bench_init():
+    return jgs.Spergel(nu=-0.6, half_light_radius=3.4).scale_radius
+
+
+@pytest.mark.parametrize("kind", ["compile", "run"])
+def test_benchmark_spergel_init(benchmark, kind):
+    dt = _run_benchmarks(
+        benchmark, kind, lambda: _run_spergel_bench_init().block_until_ready()
+    )
+    print(f"time: {dt:0.4g} ms", end=" ")
