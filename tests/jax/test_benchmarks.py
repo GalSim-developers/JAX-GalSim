@@ -225,3 +225,16 @@ def test_benchmark_spergel_init(benchmark, kind):
         benchmark, kind, lambda: _run_spergel_bench_init().block_until_ready()
     )
     print(f"time: {dt:0.4g} ms", end=" ")
+
+
+@jax.jit
+def _run_gaussian_bench_init():
+    return jgs.Gaussian(half_light_radius=3.4).sigma
+
+
+@pytest.mark.parametrize("kind", ["compile", "run"])
+def test_benchmark_gaussian_init(benchmark, kind):
+    dt = _run_benchmarks(
+        benchmark, kind, lambda: _run_gaussian_bench_init().block_until_ready()
+    )
+    print(f"time: {dt:0.4g} ms", end=" ")
