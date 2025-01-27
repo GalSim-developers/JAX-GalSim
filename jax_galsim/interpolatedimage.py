@@ -1184,6 +1184,7 @@ def _flux_frac(a, x, y, cenx, ceny):
         ),
         axis=(0, 1),
     )
+    res = jnp.where(res > 0, res, -jnp.inf)
     return res
 
 
