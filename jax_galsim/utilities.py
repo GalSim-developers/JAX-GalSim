@@ -186,7 +186,6 @@ def unweighted_shape(arg):
 def horner(x, coef, dtype=None):
     x = jnp.array(x)
     coef = jnp.atleast_1d(coef)
-    res = jnp.zeros_like(x, dtype=dtype)
 
     if len(coef.shape) != 1:
         raise GalSimValueError("coef must be 1-dimensional", coef)
@@ -198,16 +197,10 @@ def horner(x, coef, dtype=None):
 
     return jax.lax.cond(
         coef.shape[0] == 0,
-        lambda x, coef, res: res,
-        lambda x, coef, res: jax.lax.fori_loop(
-            0,
-            coef.shape[0],
-            lambda i, args: (args[0] * x + args[1][i], args[1]),
-            (res, coef[::-1]),
-        )[0],
+        lambda x, coef: jnp.zeros_like(x, dtype=dtype),
+        lambda x, coef: jnp.polyval(jnp.flip(coef), x),
         x,
         coef,
-        res,
     )
 
 
