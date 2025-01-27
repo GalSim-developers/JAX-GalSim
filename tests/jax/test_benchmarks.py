@@ -238,3 +238,16 @@ def test_benchmark_gaussian_init(benchmark, kind):
         benchmark, kind, lambda: _run_gaussian_bench_init().block_until_ready()
     )
     print(f"time: {dt:0.4g} ms", end=" ")
+
+
+@jax.jit
+def _run_benchmark_rng_discard(rng):
+    return rng.discard(1000)
+
+
+def test_benchmark_rng_discard(benchmark):
+    rng = jgs.BaseDeviate(seed=42)
+    dt = _run_benchmarks(
+        benchmark, "run", lambda: _run_benchmark_rng_discard(rng).block_until_ready()
+    )
+    print(f"time: {dt:0.4g} ms", end=" ")
