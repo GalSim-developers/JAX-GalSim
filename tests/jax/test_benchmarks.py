@@ -240,6 +240,25 @@ def test_benchmark_gaussian_init(benchmark, kind):
     print(f"time: {dt:0.4g} ms", end=" ")
 
 
+def _run_benchmark_interpimage_flux_frac(img):
+    x, y = img.get_pixel_centers()
+    cenx = img.center.x
+    ceny = img.center.y
+    return jgs.interpolatedimage._flux_frac(img.array, x, y, cenx, ceny)
+
+
+@pytest.mark.parametrize("kind", ["compile", "run"])
+def test_benchmark_interpimage_flux_frac(benchmark, kind):
+    obj = jgs.Gaussian(half_light_radius=0.9).shear(g1=0.1, g2=0.2)
+    img = obj.drawImage(nx=55, ny=55, scale=0.2, method="no_pixel")
+    dt = _run_benchmarks(
+        benchmark,
+        kind,
+        lambda: _run_benchmark_interpimage_flux_frac(img).block_until_ready(),
+    )
+    print(f"time: {dt:0.4g} ms", end=" ")
+
+
 @jax.jit
 def _run_benchmark_rng_discard(rng):
     rng.discard(1000)
