@@ -187,7 +187,10 @@ def unweighted_shape(arg):
 def horner(x, coef, dtype=None):
     x = jnp.array(x)
     coef = jnp.atleast_1d(coef)
-    res_dtype = jnp.result_type(x, coef, dtype)
+    if dtype is None:
+        res_dtype = jnp.result_type(x, coef)
+    else:
+        res_dtype = dtype
 
     if len(coef.shape) != 1:
         raise GalSimValueError("coef must be 1-dimensional", coef)
@@ -212,7 +215,10 @@ def horner2d(x, y, coefs, dtype=None, triangle=False):
     x = jnp.array(x)
     y = jnp.array(y)
     coefs = jnp.atleast_1d(coefs)
-    res_dtype = jnp.result_type(x, coefs, dtype)
+    if dtype is None:
+        res_dtype = jnp.result_type(x, coefs)
+    else:
+        res_dtype = dtype
     res = jnp.zeros_like(x, dtype=res_dtype)
 
     if x.shape != y.shape:
@@ -246,4 +252,4 @@ def horner2d(x, y, coefs, dtype=None, triangle=False):
         lambda res, p: (res * x + horner(y, p, dtype=res_dtype), None), res, coefs
     )
 
-    return res
+    return res.astype(res_dtype)
