@@ -198,7 +198,7 @@ def horner(x, coef, dtype=None):
     return jax.lax.cond(
         coef.shape[0] == 0,
         lambda x, coef: jnp.zeros_like(x, dtype=dtype),
-        lambda x, coef: jnp.polyval(jnp.flip(coef), x),
+        lambda x, coef: jnp.array(jnp.polyval(jnp.flip(coef), x), dtype=dtype),
         x,
         coef,
     )
