@@ -21,21 +21,27 @@ def test_jax_utilities_horner_dtype():
     np.testing.assert_almost_equal(result.imag, np.zeros_like(truth))
 
     result = jax_galsim.utilities.horner(x, coef, dtype=jnp.int32)
+    assert result.dtype == jnp.int32
     np.testing.assert_almost_equal(result, truth.astype(np.int32))
 
     result = jax_galsim.utilities.horner(x, coef, dtype=jnp.int64)
+    assert result.dtype == jnp.int64
     np.testing.assert_almost_equal(result, truth.astype(np.int64))
 
     result = jax_galsim.utilities.horner(x, coef, dtype=jnp.float32)
+    assert result.dtype == jnp.float32
     np.testing.assert_almost_equal(result, truth.astype(np.float32))
 
     result = jax_galsim.utilities.horner(x, coef, dtype=jnp.float64)
+    assert result.dtype == jnp.float64
     np.testing.assert_almost_equal(result, truth)
 
     result = jax_galsim.utilities.horner(x, coef, dtype=jnp.complex64)
+    assert result.dtype == jnp.complex64
     np.testing.assert_almost_equal(result.real, truth.astype(np.complex64))
     np.testing.assert_almost_equal(result.imag, np.zeros_like(truth))
 
     result = jax_galsim.utilities.horner(x, coef, dtype=jnp.complex128)
+    assert result.dtype == jnp.complex128
     np.testing.assert_almost_equal(result.real, truth)
     np.testing.assert_almost_equal(result.imag, np.zeros_like(truth))
