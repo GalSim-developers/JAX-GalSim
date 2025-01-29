@@ -37,7 +37,36 @@ def _hankel(k, beta, rmax):
 
 
 @jax.jit
-def _MoffatCalculateSRFromHLR(re, rm, beta):
+def _bodymi(xcur, rm, re, beta):
+    x = (1 + jnp.power(1 + (rm / xcur) ** 2, 1 - beta)) / 2
+    x = jnp.power(x, 1 / (1 - beta))
+    x = jnp.sqrt(x - 1)
+    return re / x
+
+
+@jax.jit
+def _bodymi10(xcur, rm, re, beta):
+    for _ in range(10):
+        xcur = _bodymi(xcur, rm, re, beta)
+    return xcur
+
+
+@jax.jit
+def _bodymi100(xcur, rm, re, beta):
+    for _ in range(10):
+        xcur = _bodymi10(xcur, rm, re, beta)
+    return xcur
+
+
+@jax.jit
+def _bodymi1000(xcur, rm, re, beta):
+    for _ in range(10):
+        xcur = _bodymi100(xcur, rm, re, beta)
+    return xcur
+
+
+@partial(jax.jit, static_argnames=("nitr",))
+def _MoffatCalculateSRFromHLR(re, rm, beta, nitr=1000):
     """
     The basic equation that is relevant here is the flux of a Moffat profile
     out to some radius.
@@ -54,16 +83,29 @@ def _MoffatCalculateSRFromHLR(re, rm, beta):
          BUT the case rm==0 is already done, so HERE rm != 0
     """
 
-    # fix loop iteration is faster and reach eps=1e-6 (single precision)
-    def body(i, xcur):
-        x = (1 + jnp.power(1 + (rm / xcur) ** 2, 1 - beta)) / 2
-        x = jnp.power(x, 1 / (1 - beta))
-        x = jnp.sqrt(x - 1)
-        return re / x
+    nitr_1000 = nitr // 1000
+    nrem_1000 = nitr % 1000
+    nitr_100 = nrem_1000 // 100
+    nrem_100 = nrem_1000 % 100
+    nitr_10 = nrem_100 // 10
+    nrem_10 = nrem_100 % 10
+    assert nitr_1000 * 1000 + nitr_100 * 100 + nitr_10 * 10 + nrem_10 == nitr
 
-    rd = jax.lax.fori_loop(0, 1000, body, re)
+    xcur = re
 
-    return rd
+    for _ in range(nitr_1000):
+        xcur = _bodymi1000(xcur, rm, re, beta)
+
+    for _ in range(nitr_100):
+        xcur = _bodymi100(xcur, rm, re, beta)
+
+    for _ in range(nitr_10):
+        xcur = _bodymi10(xcur, rm, re, beta)
+
+    for _ in range(nrem_10):
+        xcur = _bodymi(xcur, rm, re, beta)
+
+    return xcur
 
 
 @implements(_galsim.Moffat)
