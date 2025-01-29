@@ -61,7 +61,6 @@ allowed_failures:
   - "module 'jax_galsim.utilities' has no attribute 'dol_to_lod'"
   - "module 'jax_galsim.utilities' has no attribute 'nCr'"
   - "module 'jax_galsim' has no attribute 'LookupTable'"
-  - "module 'jax_galsim.bessel' has no attribute 'j0'"
   - "module 'jax_galsim.bessel' has no attribute 'j1'"
   - "module 'jax_galsim.bessel' has no attribute 'jn'"
   - "module 'jax_galsim.bessel' has no attribute 'jv'"
@@ -69,7 +68,6 @@ allowed_failures:
   - "module 'jax_galsim.bessel' has no attribute 'yv'"
   - "module 'jax_galsim.bessel' has no attribute 'iv'"
   - "module 'jax_galsim.bessel' has no attribute 'kn'"
-  - "module 'jax_galsim.bessel' has no attribute 'kv'"
   - "module 'jax_galsim.bessel' has no attribute 'j0_root'"
   - "module 'jax_galsim.bessel' has no attribute 'gammainc'"
   - "module 'jax_galsim.bessel' has no attribute 'sinc'"
@@ -145,6 +143,6 @@ allowed_failures:
   - "Sensor/photon_ops not yet implemented in drawImage for method != 'phot'"
   - "module 'jax_galsim' has no attribute 'SiliconSensor'"
   - "module 'jax_galsim' has no attribute 'set_omp_threads'"
-  - "module 'jax_galsim' has no attribute 'Spergel'"
   - "module 'jax_galsim' has no attribute 'LookupTable2D'"
   - "module 'jax_galsim' has no attribute 'zernike'"
+  - "Invalid TFORM4: 1PE(7)"  # see https://github.com/astropy/astropy/issues/15477
