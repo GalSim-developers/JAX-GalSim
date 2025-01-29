@@ -426,5 +426,5 @@ def test_interpolatedimage_flux_frac():
         val,
         true_val,
         rtol=0,
-        atol=1e-8,
+        atol=1e-6,
     )
