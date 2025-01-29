@@ -1009,6 +1009,30 @@ FitsWCS._opt_params = {"dir": str, "hdu": int, "compression": str, "text_file": 
 
 
 @jax.jit
+def _invert_ab_noraise_loop_body(
+    x, y, u, v, ab, dudxcoef, dudycoef, dvdxcoef, dvdycoef
+):
+    # Want Jac^-1 . du
+    # du
+    du = horner2d(x, y, ab[0], triangle=True) - u
+    dv = horner2d(x, y, ab[1], triangle=True) - v
+    # J
+    dudx = horner2d(x, y, dudxcoef, triangle=True)
+    dudy = horner2d(x, y, dudycoef, triangle=True)
+    dvdx = horner2d(x, y, dvdxcoef, triangle=True)
+    dvdy = horner2d(x, y, dvdycoef, triangle=True)
+    # J^-1 . du
+    det = dudx * dvdy - dudy * dvdx
+    dx = -(du * dvdy - dv * dudy) / det
+    dy = -(-du * dvdx + dv * dudx) / det
+
+    x += dx
+    y += dy
+
+    return x, y, dx, dy
+
+
+@jax.jit
 def _invert_ab_noraise(u, v, ab, abp=None):
     # get guess from abp if we have it
     if abp is None:
@@ -1029,22 +1053,9 @@ def _invert_ab_noraise(u, v, ab, abp=None):
     dvdycoef = (jnp.arange(nab) * ab[1])[:-1, 1:]
 
     for _ in range(10):
-        # Want Jac^-1 . du
-        # du
-        du = horner2d(x, y, ab[0], triangle=True) - u
-        dv = horner2d(x, y, ab[1], triangle=True) - v
-        # J
-        dudx = horner2d(x, y, dudxcoef, triangle=True)
-        dudy = horner2d(x, y, dudycoef, triangle=True)
-        dvdx = horner2d(x, y, dvdxcoef, triangle=True)
-        dvdy = horner2d(x, y, dvdycoef, triangle=True)
-        # J^-1 . du
-        det = dudx * dvdy - dudy * dvdx
-        dx = -(du * dvdy - dv * dudy) / det
-        dy = -(-du * dvdx + dv * dudx) / det
-
-        x += dx
-        y += dy
+        x, y, dx, dy = _invert_ab_noraise_loop_body(
+            x, y, u, v, ab, dudxcoef, dudycoef, dvdxcoef, dvdycoef
+        )
 
     x, y = jax.lax.cond(
         jnp.maximum(jnp.max(jnp.abs(dx)), jnp.max(jnp.abs(dy))) > 2e-12,
