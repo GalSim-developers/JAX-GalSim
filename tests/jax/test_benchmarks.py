@@ -289,3 +289,15 @@ def test_benchmark_invert_ab_noraise(benchmark, kind):
         lambda: _run_benchmark_invert_ab_noraise(u, v, ab).block_until_ready(),
     )
     print(f"time: {dt:0.4g} ms", end=" ")
+
+
+def _run_benchmark_moffat_init():
+    return jgs.Moffat(beta=2.5, half_light_radius=0.6, trunc=1.2).scale_radius
+
+
+@pytest.mark.parametrize("kind", ["compile", "run"])
+def test_benchmark_moffat_init(benchmark, kind):
+    dt = _run_benchmarks(
+        benchmark, kind, lambda: _run_benchmark_moffat_init().block_until_ready()
+    )
+    print(f"time: {dt:0.4g} ms", end=" ")
