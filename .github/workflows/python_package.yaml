@@ -49,4 +49,4 @@ jobs:
       - name: Test with pytest
         run: |
           git submodule update --init --recursive
-          pytest -v --durations=0 ${{ matrix.run-slow }}
+          pytest -v --durations=0 --run_slow
