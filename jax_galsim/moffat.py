@@ -44,27 +44,6 @@ def _bodymi(xcur, rm, re, beta):
     return re / x
 
 
-@jax.jit
-def _bodymi10(xcur, rm, re, beta):
-    for _ in range(10):
-        xcur = _bodymi(xcur, rm, re, beta)
-    return xcur
-
-
-@jax.jit
-def _bodymi100(xcur, rm, re, beta):
-    for _ in range(10):
-        xcur = _bodymi10(xcur, rm, re, beta)
-    return xcur
-
-
-@jax.jit
-def _bodymi1000(xcur, rm, re, beta):
-    for _ in range(10):
-        xcur = _bodymi100(xcur, rm, re, beta)
-    return xcur
-
-
 @partial(jax.jit, static_argnames=("nitr",))
 def _MoffatCalculateSRFromHLR(re, rm, beta, nitr=1000):
     """
@@ -82,29 +61,9 @@ def _MoffatCalculateSRFromHLR(re, rm, beta, nitr=1000):
     nb2. In GalSim definition rm = 0 (ex. no truncated Moffat) means in reality rm=+Inf.
          BUT the case rm==0 is already done, so HERE rm != 0
     """
-
-    nitr_1000 = nitr // 1000
-    nrem_1000 = nitr % 1000
-    nitr_100 = nrem_1000 // 100
-    nrem_100 = nrem_1000 % 100
-    nitr_10 = nrem_100 // 10
-    nrem_10 = nrem_100 % 10
-    assert nitr_1000 * 1000 + nitr_100 * 100 + nitr_10 * 10 + nrem_10 == nitr
-
     xcur = re
-
-    for _ in range(nitr_1000):
-        xcur = _bodymi1000(xcur, rm, re, beta)
-
-    for _ in range(nitr_100):
-        xcur = _bodymi100(xcur, rm, re, beta)
-
-    for _ in range(nitr_10):
-        xcur = _bodymi10(xcur, rm, re, beta)
-
-    for _ in range(nrem_10):
+    for _ in range(nitr):
         xcur = _bodymi(xcur, rm, re, beta)
-
     return xcur
 
 
