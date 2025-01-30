@@ -45,7 +45,7 @@ def _bodymi(xcur, rm, re, beta):
 
 
 @partial(jax.jit, static_argnames=("nitr",))
-def _MoffatCalculateSRFromHLR(re, rm, beta, nitr=1000):
+def _MoffatCalculateSRFromHLR(re, rm, beta, nitr=100):
     """
     The basic equation that is relevant here is the flux of a Moffat profile
     out to some radius.
