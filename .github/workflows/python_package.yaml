@@ -46,8 +46,10 @@ jobs:
           # else
           #   rs=""
           # fi
-          pytest -vx --durations=0 \
-            -n 3 --dist loadscope
+          pytest -v --durations=0 \
+            -n 3 --dist loadscope \
+            -k "not test_fpack"
+          pytest -v --durations=0 -k "test_fpack"
           # --splits=2 --group=${{ matrix.group }} --splitting-algorithm least_duration \
           # ${rs} \
           #  --randomly-seed=42 \
