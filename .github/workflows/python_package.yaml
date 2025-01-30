@@ -47,8 +47,7 @@ jobs:
           #   rs=""
           # fi
           pytest -v --durations=0 \
-            -n auto --dist loadscope \
-            --randomly-seed=42 \
-            ;
+            -n auto --dist loadscope
           # --splits=2 --group=${{ matrix.group }} --splitting-algorithm least_duration \
           # ${rs} \
+          #  --randomly-seed=42 \
