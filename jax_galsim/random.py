@@ -174,7 +174,7 @@ class BaseDeviate:
             key, _ = jrandom.split(key)
             return key
 
-        return jax.lax.fori_loop(0, n, __discard, key)
+        return jax.lax.fori_loop(0, n, __discard, key, unroll=True)
 
     @implements(
         _galsim.BaseDeviate.raw,

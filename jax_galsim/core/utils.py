@@ -254,7 +254,7 @@ def bisect_for_root(func, low, high, niter=75):
     flow = func(low)
     fhigh = func(high)
     args = (func, low, flow, high, fhigh)
-    return jax.lax.fori_loop(0, niter, _func, args)[-2]
+    return jax.lax.fori_loop(0, niter, _func, args, unroll=True)[-2]
 
 
 # start of code from https://github.com/google/jax/blob/main/jax/_src/numpy/util.py #
