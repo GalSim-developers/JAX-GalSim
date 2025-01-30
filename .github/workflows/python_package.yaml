@@ -51,3 +51,12 @@ jobs:
             -k "not test_fpack" \
             --randomly-seed=42 \
             --splits=4 --group=${{ matrix.group }} --splitting-algorithm least_duration
+
+  build-status:
+    needs: build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: check status
+        run: |
+          echo "Builds all passed!"
