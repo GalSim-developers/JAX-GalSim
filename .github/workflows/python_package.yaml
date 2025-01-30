@@ -43,7 +43,6 @@ jobs:
         run: |
           git submodule update --init --recursive
           pytest -v --durations=0 \
-            --run_slow \
             -k "not test_fpack" \
             --randomly-seed=42 \
             --splits=4 --group=${{ matrix.group }} --splitting-algorithm least_duration
