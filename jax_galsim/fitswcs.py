@@ -1052,10 +1052,47 @@ def _invert_ab_noraise(u, v, ab, abp=None):
     dvdxcoef = (jnp.arange(nab)[:, None] * ab[1])[1:, :-1]
     dvdycoef = (jnp.arange(nab) * ab[1])[:-1, 1:]
 
-    for _ in range(10):
-        x, y, dx, dy = _invert_ab_noraise_loop_body(
-            x, y, u, v, ab, dudxcoef, dudycoef, dvdxcoef, dvdycoef
-        )
+    def _step(i, args):
+        x, y, _, _, u, v, ab, dudxcoef, dudycoef, dvdxcoef, dvdycoef = args
+
+        # Want Jac^-1 . du
+        # du
+        du = horner2d(x, y, ab[0], triangle=True) - u
+        dv = horner2d(x, y, ab[1], triangle=True) - v
+        # J
+        dudx = horner2d(x, y, dudxcoef, triangle=True)
+        dudy = horner2d(x, y, dudycoef, triangle=True)
+        dvdx = horner2d(x, y, dvdxcoef, triangle=True)
+        dvdy = horner2d(x, y, dvdycoef, triangle=True)
+        # J^-1 . du
+        det = dudx * dvdy - dudy * dvdx
+        duu = -(du * dvdy - dv * dudy) / det
+        dvv = -(-du * dvdx + dv * dudx) / det
+
+        x += duu
+        y += dvv
+
+        return x, y, duu, dvv, u, v, ab, dudxcoef, dudycoef, dvdxcoef, dvdycoef
+
+    x, y, dx, dy = jax.lax.fori_loop(
+        0,
+        10,
+        _step,
+        (
+            x,
+            y,
+            jnp.zeros_like(x),
+            jnp.zeros_like(y),
+            u,
+            v,
+            ab,
+            dudxcoef,
+            dudycoef,
+            dvdxcoef,
+            dvdycoef,
+        ),
+        unroll=True,
+    )[0:4]
 
     x, y = jax.lax.cond(
         jnp.maximum(jnp.max(jnp.abs(dx)), jnp.max(jnp.abs(dy))) > 2e-12,

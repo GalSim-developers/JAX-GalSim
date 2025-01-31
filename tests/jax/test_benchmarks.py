@@ -301,3 +301,17 @@ def test_benchmark_moffat_init(benchmark, kind):
         benchmark, kind, lambda: _run_benchmark_moffat_init().block_until_ready()
     )
     print(f"time: {dt:0.4g} ms", end=" ")
+
+
+def _run_benchmark_spergel_calcfluxrad():
+    return jgs.spergel.calculateFluxRadius(1e-10, 2.0)
+
+
+@pytest.mark.parametrize("kind", ["compile", "run"])
+def test_benchmark_spergel_calcfluxrad(benchmark, kind):
+    dt = _run_benchmarks(
+        benchmark,
+        kind,
+        lambda: _run_benchmark_spergel_calcfluxrad().block_until_ready(),
+    )
+    print(f"time: {dt:0.4g} ms", end=" ")

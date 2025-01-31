@@ -61,10 +61,15 @@ def _MoffatCalculateSRFromHLR(re, rm, beta, nitr=100):
     nb2. In GalSim definition rm = 0 (ex. no truncated Moffat) means in reality rm=+Inf.
          BUT the case rm==0 is already done, so HERE rm != 0
     """
-    xcur = re
-    for _ in range(nitr):
-        xcur = _bodymi(xcur, rm, re, beta)
-    return xcur
+
+    # fix loop iteration is faster and reach eps=1e-6 (single precision)
+    def body(i, xcur):
+        x = (1 + jnp.power(1 + (rm / xcur) ** 2, 1 - beta)) / 2
+        x = jnp.power(x, 1 / (1 - beta))
+        x = jnp.sqrt(x - 1)
+        return re / x
+
+    return jax.lax.fori_loop(0, 100, body, re, unroll=True)
 
 
 @implements(_galsim.Moffat)
