@@ -42,10 +42,11 @@ jobs:
       - name: Test with pytest
         run: |
           git submodule update --init --recursive
-          pytest -vv --durations=0 \
-            -k "not test_fpack" \
-            --randomly-seed=42 \
-            --splits=4 --group=${{ matrix.group }} --splitting-algorithm least_duration
+          pytest -vv --durations=0
+          #  \
+          #   -k "not test_fpack" \
+          #   --randomly-seed=42 \
+          #   --splits=4 --group=${{ matrix.group }} --splitting-algorithm least_duration
 
   build-status:
     needs: build
