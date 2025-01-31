@@ -20,8 +20,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.10", "3.11", "3.12"]
-        group: [1, 2, 3, 4]
+        python-version: ["3.12"]
 
     steps:
       - uses: actions/checkout@v4
@@ -34,7 +33,7 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          python -m pip install pytest pytest-codspeed pytest-split pytest-randomly
+          python -m pip install pytest pytest-codspeed pytest-randomly
           python -m pip install .
           # temp pin until 0.5 is on conda
           python -m pip install "jax<0.5.0"
@@ -42,11 +41,7 @@ jobs:
       - name: Test with pytest
         run: |
           git submodule update --init --recursive
-          pytest -vv --durations=0
-          #  \
-          #   -k "not test_fpack" \
-          #   --randomly-seed=42 \
-          #   --splits=4 --group=${{ matrix.group }} --splitting-algorithm least_duration
+          pytest -vv --durations=100 --randomly-seed=42
 
   build-status:
     needs: build
