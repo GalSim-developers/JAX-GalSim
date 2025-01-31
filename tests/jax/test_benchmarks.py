@@ -310,6 +310,8 @@ def _run_benchmark_spergel_calcfluxrad():
 @pytest.mark.parametrize("kind", ["compile", "run"])
 def test_benchmark_spergel_calcfluxrad(benchmark, kind):
     dt = _run_benchmarks(
-        benchmark, kind, lambda: _run_benchmark_spergel_calcfluxrad().block_until_ready()
+        benchmark,
+        kind,
+        lambda: _run_benchmark_spergel_calcfluxrad().block_until_ready(),
     )
     print(f"time: {dt:0.4g} ms", end=" ")

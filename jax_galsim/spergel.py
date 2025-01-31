@@ -186,7 +186,10 @@ def calculateFluxRadius(alpha, nu, zmin=0.0, zmax=40.0):
      nb. it is supposed that nu is in [-0.85, 4.0] checked in the Spergel class init
     """
     return bisect_for_root(
-        partial(fluxfractionFunc, nu=nu, alpha=alpha), zmin, zmax, niter=75,
+        partial(fluxfractionFunc, nu=nu, alpha=alpha),
+        zmin,
+        zmax,
+        niter=75,
     )
 
 
