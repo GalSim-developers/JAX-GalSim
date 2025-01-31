@@ -167,7 +167,7 @@ def reducedfluxfractionFunc(z, nu, norm):
 
 
 @jax.jit
-def calculateFluxRadius(alpha, nu, zmin=0.0, zmax=30.0):
+def calculateFluxRadius(alpha, nu, zmin=0.0, zmax=40.0):
     """Return radius R enclosing flux fraction alpha in unit of the scale radius r0
 
     Method: Solve  F(R/r0=z)/Flux - alpha = 0 using bisection algorithm
@@ -186,7 +186,7 @@ def calculateFluxRadius(alpha, nu, zmin=0.0, zmax=30.0):
      nb. it is supposed that nu is in [-0.85, 4.0] checked in the Spergel class init
     """
     return bisect_for_root(
-        partial(fluxfractionFunc, nu=nu, alpha=alpha), zmin, zmax, niter=75
+        partial(fluxfractionFunc, nu=nu, alpha=alpha), zmin, zmax, niter=75,
     )
 
 
