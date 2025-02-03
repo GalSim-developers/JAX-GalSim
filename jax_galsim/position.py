@@ -15,7 +15,7 @@ from jax_galsim.core.utils import (
 class Position(object):
     def __init__(self):
         raise NotImplementedError(
-            "Cannot instantiate the base class.  " "Use either PositionD or PositionI."
+            "Cannot instantiate the base class.  Use either PositionD or PositionI."
         )
 
     def _parse_args(self, *args, **kwargs):
