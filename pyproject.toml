@@ -16,7 +16,7 @@ readme = "README.md"
 dependencies = [
     "numpy >=1.18.0",
     "galsim >=2.3.0",
-    "jax",
+    "jax <0.7.0",
     "jaxlib",
     "astropy >=2.0",
     "tensorflow-probability >=0.21.0",
