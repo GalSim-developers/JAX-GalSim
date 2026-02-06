@@ -45,10 +45,10 @@ class ShapeData:
         # The others will raise an appropriate TypeError from the call to _galsim.ShapeData
         # when converting to int, float, etc.
         self._data = _galsim._galsim.ShapeData(
-            _galsim.BoundsI(image_bounds.xmin, image_bounds.xmax, image_bounds.ymin, image_bounds.ymax)._b,
+            image_bounds._b,
             int(moments_status), float(observed_shape.e1), float(observed_shape.e2),
             float(moments_sigma), float(moments_amp), 
-            _galsim.PositionD(moments_centroid.x, moments_centroid.y)._p,
+            moments_centroid._p,
             float(moments_rho4), int(moments_n_iter), int(correction_status),
             float(corrected_e1), float(corrected_e2), float(corrected_g1), float(corrected_g2),
             str(meas_type), float(corrected_shape_err), str(correction_method),
@@ -228,7 +228,7 @@ class HSMParams:
         self._make_hsmp()
 
     def _make_hsmp(self):
-        self._hsmp = _galsim.hsm.HSMParams(*self._getinitargs())
+        self._hsmp = _galsim._galsim.HSMParams(*self._getinitargs())
 
     def _getinitargs(self):
         # TODO: For now, leave 3rd param as unused max_moment_nsig2.
@@ -398,7 +398,7 @@ def EstimateShear(gal_image, PSF_image, weight=None, badpix=None, sky_var=0.0,
         guess_centroid = gal_image.true_center
     try:
         result = ShapeData()
-        _galsim.EstimateShearView(result._data,
+        _galsim._galsim.EstimateShearView(result._data,
                                   gal_image._image, PSF_image._image, weight._image,
                                   float(sky_var), shear_est.upper(), recompute_flux.upper(),
                                   float(guess_sig_gal), float(guess_sig_PSF), float(precision),

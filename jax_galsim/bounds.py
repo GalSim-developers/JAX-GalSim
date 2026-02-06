@@ -282,6 +282,11 @@ class BoundsD(Bounds):
         self.ymin = cast_to_float(self.ymin)
         self.ymax = cast_to_float(self.ymax)
 
+    @property
+    def _b(self):
+        return _galsim._galsim.BoundsD(cast_to_float(self.xmin), cast_to_float(self.xmax),
+                               cast_to_float(self.ymin), cast_to_float(self.ymax))
+
     def _check_scalar(self, x, name):
         try:
             if (
@@ -330,6 +335,10 @@ class BoundsI(Bounds):
         self.xmax = cast_to_int(self.xmax)
         self.ymin = cast_to_int(self.ymin)
         self.ymax = cast_to_int(self.ymax)
+
+    @property
+    def _b(self):
+        return _galsim._galsim.BoundsI(self.xmin, self.xmax, self.ymin, self.ymax)
 
     def _check_scalar(self, x, name):
         try:

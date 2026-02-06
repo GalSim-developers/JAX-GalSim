@@ -188,6 +188,10 @@ class PositionD(Position):
         self.x = cast_to_float(self.x)
         self.y = cast_to_float(self.y)
 
+    @property
+    def _p(self):
+        return _galsim._galsim.PositionD(self.x, self.y)
+
     def _check_scalar(self, other, op):
         try:
             if (
@@ -212,6 +216,10 @@ class PositionI(Position):
         # inputs must be ints
         self.x = cast_to_int(self.x)
         self.y = cast_to_int(self.y)
+
+    @property
+    def _p(self):
+        return _galsim._galsim.PositionI(self.x, self.y)
 
     def _check_scalar(self, other, op):
         try:

@@ -28,6 +28,16 @@ In particular the following methods will create a copy of the Image:
 )
 @register_pytree_node_class
 class Image(object):
+    _cpp_type = { np.uint16 : _galsim._galsim.ImageViewUS,
+                  np.uint32 : _galsim._galsim.ImageViewUI,
+                  np.int16 : _galsim._galsim.ImageViewS,
+                  np.int32 : _galsim._galsim.ImageViewI,
+                  np.float32 : _galsim._galsim.ImageViewF,
+                  np.float64 : _galsim._galsim.ImageViewD,
+                  np.complex64 : _galsim._galsim.ImageViewCF,
+                  np.complex128 : _galsim._galsim.ImageViewCD,
+                }
+     
     _alias_dtypes = {
         int: jnp.int32,  # So that user gets what they would expect
         float: jnp.float64,  # if using dtype=int or float or complex
@@ -373,6 +383,16 @@ class Image(object):
         """
         return True  # In JAX all arrays are contiguous (almost)
 
+    @_galsim._utilities.lazy_property
+    def _image(self):
+        cls = self._cpp_type[self.dtype]
+        _array = np.asarray(self._array)
+        _data = _array.__array_interface__['data'][0]
+        return cls(_data,
+                   _array.strides[1]//_array.itemsize,
+                   _array.strides[0]//_array.itemsize,
+                   self._bounds._b)
+    
     # Allow scale to work as a PixelScale wcs.
     @property
     def scale(self):
