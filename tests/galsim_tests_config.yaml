@@ -20,7 +20,7 @@ enabled_tests:
     - test_random.py
     - test_noise.py
     - test_image.py
-    - test_photon_array.
+    - test_photon_array.py
     - test_hsm.py
     - "*"  # means all tests from galsim
   coord:
@@ -87,7 +87,6 @@ allowed_failures:
   - "'Image' object has no attribute 'bin'"
   - "module 'jax_galsim' has no attribute 'InterpolatedKImage'"
   - "module 'jax_galsim' has no attribute 'CorrelatedNoise'"
-  # - "'Image' object has no attribute 'FindAdaptiveMom'"
   - "CelestialCoord.precess is too slow"  # cannot get jax to warmup but once it does it passes
   - "ValueError not raised by from_xyz"
   - "ValueError not raised by greatCirclePoint"
@@ -111,7 +110,6 @@ allowed_failures:
   - "GSParams.__init__() got an unexpected keyword argument 'allowed_flux_variation'"
   - "module 'jax_galsim' has no attribute 'Atmosphere'"
   - "module 'jax_galsim' has no attribute 'RandomWalk'"
-  # - "module 'jax_galsim' has no attribute 'hsm'"
   - "module 'jax_galsim' has no attribute 'des'"
   - "'Image' object has no attribute 'applyNonlinearity'"
   - "'Image' object has no attribute 'addReciprocityFailure'"
