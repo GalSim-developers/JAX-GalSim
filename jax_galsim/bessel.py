@@ -1,6 +1,7 @@
 import galsim as _galsim
 import jax
 import jax.numpy as jnp
+import jax.scipy.special as jsp
 
 from jax_galsim.core.utils import implements
 
@@ -22,21 +23,16 @@ def _dcsevl(x, cs):
         Evaluated series value
     """
     n = len(cs)
-    # Ensure initial values match the type that will come from the loop
-    x_scalar = jnp.squeeze(x)  # Ensure x is scalar
     b0 = jnp.array(0.0)
     b1 = jnp.array(0.0)
     b2 = jnp.array(0.0)
-    twox = 2.0 * x_scalar
+    twox = 2.0 * jnp.squeeze(x)
 
-    # Clenshaw's recurrence
     def body_fn(i, carry):
         b0, b1, b2 = carry
         b2 = b1
         b1 = b0
-        # Extract scalar from array indexing
-        coeff = cs[n - 1 - i]
-        b0 = twox * b1 - b2 + coeff
+        b0 = twox * b1 - b2 + cs[n - 1 - i]
         return (b0, b1, b2)
 
     b0, b1, b2 = jax.lax.fori_loop(0, n, body_fn, (b0, b1, b2))
@@ -48,7 +44,7 @@ def _dcsevl(x, cs):
 def _f_pade(x, x2):
     # fmt: off
     y = 1. / x2
-    f = (
+    return (
             (1. +  # noqa: E226
              y*(7.44437068161936700618e2 +  # noqa: E226
                 y*(1.96396372895146869801e5 +  # noqa: E226
@@ -72,14 +68,13 @@ def _f_pade(x, x2):
                                           y*(1.11535493509914254097e13)))))))))))  # noqa: E226
     )
     # fmt: on
-    return f
 
 
 @jax.jit
 def _g_pade(x, x2):
     # fmt: off
     y = 1. / x2
-    g = (
+    return (
             y*(1. +  # noqa: E226
                y*(8.1359520115168615e2 +  # noqa: E226
                   y*(2.35239181626478200e5 +  # noqa: E226
@@ -103,7 +98,6 @@ def _g_pade(x, x2):
                                        y*(3.99653257887490811e13))))))))))  # noqa: E226
     )
     # fmt: on
-    return g
 
 
 @jax.jit
@@ -218,25 +212,19 @@ def _bessel_k0(x):
     ])
     # fmt: on
 
-    import jax.scipy.special as jsp
-
-    # For x <= 2: K_0(x) = -log(0.5*x) * I_0(x) - 0.25 + Chebyshev series
     def k0_small(x):
         xsml = jnp.sqrt(4.0 * jnp.finfo(jnp.float64).eps)
         y = jnp.where(x > xsml, x * x, 0.0)
         return -jnp.log(0.5 * x) * jsp.i0(x) - 0.25 + _dcsevl(0.5 * y - 1.0, bk0cs)
 
-    # For 2 < x <= 8: exponentially scaled version
     def k0_medium(x):
         return jnp.exp(-x) * (
             (_dcsevl((16.0 / x - 5.0) / 3.0, ak0cs) + 1.25) / jnp.sqrt(x)
         )
 
-    # For x > 8: exponentially scaled version
     def k0_large(x):
         return jnp.exp(-x) * ((_dcsevl(16.0 / x - 1.0, ak02cs) + 1.25) / jnp.sqrt(x))
 
-    # Combine all regions
     return jnp.where(
         x <= 2.0, k0_small(x), jnp.where(x <= 8.0, k0_medium(x), k0_large(x))
     )
@@ -315,25 +303,19 @@ def _bessel_k1(x):
     ])
     # fmt: on
 
-    import jax.scipy.special as jsp
-
-    # For x <= 2: K_1(x) = log(0.5*x) * I_1(x) + (Chebyshev series + 0.75) / x
     def k1_small(x):
         xsml = 2.0 * jnp.sqrt(jnp.finfo(jnp.float64).eps)
         y = jnp.where(x > xsml, x * x, 0.0)
         return jnp.log(0.5 * x) * jsp.i1(x) + (_dcsevl(0.5 * y - 1.0, bk1cs) + 0.75) / x
 
-    # For 2 < x <= 8: exponentially scaled version
     def k1_medium(x):
         return jnp.exp(-x) * (
             (_dcsevl((16.0 / x - 5.0) / 3.0, ak1cs) + 1.25) / jnp.sqrt(x)
         )
 
-    # For x > 8: exponentially scaled version
     def k1_large(x):
         return jnp.exp(-x) * ((_dcsevl(16.0 / x - 1.0, ak12cs) + 1.25) / jnp.sqrt(x))
 
-    # Combine all regions
     return jnp.where(
         x <= 2.0, k1_small(x), jnp.where(x <= 8.0, k1_medium(x), k1_large(x))
     )
@@ -349,7 +331,7 @@ def _bessel_kv_asymptotic_large_nu(nu, x):
     Algorithm: Olver, F.W.J. (1962), Tables of Bessel Functions of Moderate or Large Orders
     """
     # fmt: off
-    con = jnp.array([0.398942280401432678, 1.25331413731550025])  # con[0] unused, con[1] = sqrt(π/2)
+    sqrt_half_pi = 1.25331413731550025  # sqrt(pi/2)
     c = jnp.array([
         -0.208333333333333, 0.125, 0.334201388888889,
         -0.401041666666667, 0.0703125, -1.02581259645062, 1.84646267361111,
@@ -375,48 +357,39 @@ def _bessel_kv_asymptotic_large_nu(nu, x):
     ])
     # fmt: on
 
-    # For K function: flgik = -1
     fn = nu
     z = x / fn
     ra = jnp.sqrt(z * z + 1.0)
     gln = jnp.log((ra + 1.0) / z)
-    arg = fn * (ra - gln) * (-1.0)  # flgik = -1 for K
-    coef = jnp.exp(arg)
+    coef = jnp.exp(-fn * (ra - gln))
     t = 1.0 / ra
     t2 = t * t
-    t = t / fn * (-1.0)  # flgik = -1 for K
+    t = -t / fn
     s2 = 1.0
     ap = 1.0
     coeff_idx = 0
 
-    # Compute 11-term series
     def body_fn(k, carry):
         s2, ap, coeff_idx = carry
-        # Compute polynomial s1 = c[coeff_idx] + c[coeff_idx+1]*t2 + ...
         s1 = c[coeff_idx]
         new_idx = coeff_idx + 1
 
         def inner_body(j, inner_carry):
             s1_val, idx = inner_carry
-            # Only update if j < k + 1
             should_update = j < k + 1
             s1_new = jnp.where(should_update, s1_val * t2 + c[idx], s1_val)
             idx_new = jnp.where(should_update, idx + 1, idx)
             return (s1_new, idx_new)
 
-        # Fixed upper bound (max k is 11, so k+1 max is 12)
         s1, new_idx = jax.lax.fori_loop(2, 12, inner_body, (s1, new_idx))
 
         ap_new = ap * t
-        ak = ap_new * s1
-        s2_new = s2 + ak
-        # coeff_idx advances by k elements total
+        s2_new = s2 + ap_new * s1
         return (s2_new, ap_new, coeff_idx + k)
 
     s2, ap, _ = jax.lax.fori_loop(2, 12, body_fn, (s2, ap, coeff_idx))
 
-    t_abs = jnp.abs(t)
-    return s2 * coef * jnp.sqrt(t_abs) * con[1]  # con[1] = sqrt(π/2)
+    return s2 * coef * jnp.sqrt(jnp.abs(t)) * sqrt_half_pi
 
 
 @jax.jit
@@ -441,22 +414,19 @@ def _bessel_kv_small_x(nu, x):
 
     a1 = 1.0 - nu
     a2 = nu + 1.0
-    t1 = 1.0 / jax.scipy.special.gamma(a1)
-    t2 = 1.0 / jax.scipy.special.gamma(a2)
+    t1 = 1.0 / jsp.gamma(a1)
+    t2 = 1.0 / jsp.gamma(a2)
 
-    # Compute g1 with indeterminacy resolution for small |nu|
     dnu2 = jnp.where(jnp.abs(nu) >= tol, nu * nu, 0.0)
 
     def g1_small_nu():
-        # Series for resolving indeterminacy when |nu| < 0.1
         s = cc[0]
         ak = 1.0
 
         def body_fn(k, carry):
             s_val, ak_val = carry
             ak_new = ak_val * dnu2
-            tm = cc[k] * ak_new
-            s_new = s_val + tm
+            s_new = s_val + cc[k] * ak_new
             return (s_new, ak_new)
 
         s_final, _ = jax.lax.fori_loop(1, 8, body_fn, (s, ak))
@@ -472,7 +442,6 @@ def _bessel_kv_small_x(nu, x):
     flrx = jnp.log(rx)
     fmu = nu * flrx
 
-    # Handle sinh(fmu)/fmu carefully when nu → 0
     smu = jnp.where(nu != 0.0, jnp.sinh(fmu) / fmu, 1.0)
     fc = jnp.where(nu != 0.0, nu * pi / jnp.sin(nu * pi), 1.0)
 
@@ -497,24 +466,18 @@ def _bessel_kv_small_x(nu, x):
         p_new = p_val / (ak_val - nu)
         q_new = q_val / (ak_val + nu)
         ck_new = ck_val * cx / ak_val
-        t1 = ck_new * f_new
-        s1_new = s1_val + t1
-        t2 = ck_new * (p_new - ak_val * f_new)
-        s2_new = s2_val + t2
+        s1_new = s1_val + ck_new * f_new
+        s2_new = s2_val + ck_new * (p_new - ak_val * f_new)
         bk_new = bk_val + ak_val + ak_val + 1.0
         ak_new = ak_val + 1.0
 
         return (f_new, p_new, q_new, ak_new, ck_new, bk_new, s1_new, s2_new)
 
-    # Only run series if x >= tol
-    def run_series():
-        return jax.lax.fori_loop(0, 17, series_body, (f, p, q, ak, ck, bk, s1, s2))
-
-    def skip_series():
-        return (f, p, q, ak, ck, bk, s1, s2)
-
-    _, _, _, _, _, _, s1_final, s2_final = jax.lax.cond(
-        x >= tol, run_series, skip_series
+    init = (f, p, q, ak, ck, bk, s1, s2)
+    _, _, _, _, _, _, s1_final, _ = jax.lax.cond(
+        x >= tol,
+        lambda: jax.lax.fori_loop(0, 17, series_body, init),
+        lambda: init,
     )
 
     return s1_final
@@ -530,18 +493,16 @@ def _bessel_kv_miller(nu, x):
     Reference: BesselK.cpp lines 677-1036 (dbsknu function)
     """
     pi = jnp.pi
-    rthpi = 1.2533141373155  # sqrt(π/2)
+    sqrt_half_pi = 1.2533141373155  # sqrt(pi/2)
     tol = jnp.maximum(jnp.finfo(jnp.float64).eps, 1e-15)
 
-    # Normalize to dnu in [-0.5, 0.5) - matching C++ line 783-784
     rx = 2.0 / x
-    inu = jnp.floor(nu + 0.5).astype(int)  # Round to nearest integer
-    dnu = nu - inu  # Fractional part in [-0.5, 0.5)
+    inu = jnp.floor(nu + 0.5).astype(int)
+    dnu = nu - inu
     dnu2 = jnp.where(jnp.abs(dnu) >= tol, dnu * dnu, 0.0)
 
-    coef = rthpi / jnp.sqrt(x) * jnp.exp(-x)
+    coef = sqrt_half_pi / jnp.sqrt(x) * jnp.exp(-x)
 
-    # Miller algorithm: build coefficients until convergence
     etest = jnp.cos(pi * dnu) / (pi * x * tol)
     fks = 1.0
     fhs = 0.25
@@ -550,11 +511,9 @@ def _bessel_kv_miller(nu, x):
     p1 = 0.0
     p2 = 1.0
 
-    # Fixed array size for JIT
     a_arr = jnp.zeros(160)
     b_arr = jnp.zeros(160)
 
-    # Forward pass to build coefficient arrays
     def forward_body(i, carry):
         (
             fk_val,
@@ -576,7 +535,6 @@ def _bessel_kv_miller(nu, x):
         p2_new = bk * p2_val - ak * p1_val
         p1_new = pt
 
-        # Only update arrays if not converged
         a_arr_new = jnp.where(converged, a_arr_val, a_arr_val.at[k].set(ak))
         b_arr_new = jnp.where(converged, b_arr_val, b_arr_val.at[k].set(bk))
 
@@ -584,7 +542,6 @@ def _bessel_kv_miller(nu, x):
         fks_new = fks_val + fk_new + fk_new + 1.0
         fhs_new = fhs_val + fk_new + fk_new
 
-        # Check convergence: continue while etest > fk * p1
         has_converged = (etest <= fk_new * jnp.abs(p1_new)) | converged
         k_new = jnp.where(has_converged, k, k + 1)
 
@@ -601,23 +558,17 @@ def _bessel_kv_miller(nu, x):
             has_converged,
         )
 
-    # Run 160 iterations (max array size)
-    _, _, _, _, p1_fwd, p2_fwd, a_final, b_final, k_final, _ = jax.lax.fori_loop(
+    _, _, _, _, _, _, a_final, b_final, k_final, _ = jax.lax.fori_loop(
         0, 160, forward_body, (fk, fks, fhs, ck, p1, p2, a_arr, b_arr, 0, False)
     )
 
-    # Backward pass through continued fraction
     s = 1.0
     p1_back = 0.0
     p2_back = 1.0
 
     def backward_body(i, carry):
         s_val, p1_val, p2_val = carry
-
-        # Only apply if i < k_final
         should_update = i < k_final
-
-        # Indices count down from k-1 to 0
         idx = k_final - 1 - i
         pt = p2_val
         p2_new = jnp.where(
@@ -628,32 +579,22 @@ def _bessel_kv_miller(nu, x):
 
         return (s_new, p1_new, p2_new)
 
-    # Fixed loop count (160 is max array size)
     s_final, p1_back_final, p2_back_final = jax.lax.fori_loop(
         0, 160, backward_body, (s, p1_back, p2_back)
     )
 
-    # This gives us K_dnu
     s1 = coef * (p2_back_final / s_final)
 
-    # Special handling for inu==0 case
     def no_recursion():
         return s1
 
     def with_recursion():
-        # Compute K_{dnu+1}
         s2 = s1 * (x + dnu + 0.5 - p1_back_final / p2_back_final) / x
-
-        # Forward recursion from dnu to nu (lines 966-979)
-        # K_{n+1} = K_{n-1} + (2*n/x) * K_n
         ck_rec = (dnu + dnu + 2.0) / x
-
-        # For n==1, we decrement inu and return s2 after recursion (lines 969, 978)
         inu_adjusted = inu - 1
 
         def recursion_body(i, carry):
             s1_val, s2_val, ck_val = carry
-            # Only apply recursion if i < inu_adjusted
             should_update = i < inu_adjusted
             st = s2_val
             s2_new = jnp.where(should_update, ck_val * s2_val + s1_val, s2_val)
@@ -661,15 +602,9 @@ def _bessel_kv_miller(nu, x):
             ck_new = jnp.where(should_update, ck_val + rx, ck_val)
             return (s1_new, s2_new, ck_new)
 
-        # Fixed loop count (max 50 should be enough for any reasonable nu)
-        s1_final, s2_final, _ = jax.lax.fori_loop(
-            0, 50, recursion_body, (s1, s2, ck_rec)
-        )
-
-        # Return s2 for n==1 case (line 978)
+        _, s2_final, _ = jax.lax.fori_loop(0, 50, recursion_body, (s1, s2, ck_rec))
         return s2_final
 
-    # If inu == 0, don't do recursion
     return jax.lax.cond(inu == 0, no_recursion, with_recursion)
 
 
@@ -684,8 +619,8 @@ def _bessel_kv_asymptotic(nu, x):
     sqrt_pi_2x = jnp.sqrt(jnp.pi / (2.0 * x))
     exp_neg_x = jnp.exp(-x)
 
-    dnu2 = nu + nu
-    fmu = dnu2 * dnu2
+    two_nu = nu + nu
+    fmu = two_nu * two_nu
     ex = x * 8.0
 
     s = 1.0
@@ -694,8 +629,7 @@ def _bessel_kv_asymptotic(nu, x):
     ak = 0.0
     dk = ex
 
-    # 30-term series for enhanced accuracy
-    def body_fn(j, carry):
+    def body_fn(_, carry):
         s_val, ck_val, dk_val, ak_val, sqk_val = carry
         ck_new = ck_val * (fmu - sqk_val) / dk_val
         s_new = s_val + ck_new
@@ -721,7 +655,6 @@ def _bessel_kv_fractional(nu, x):
 
     Reference: BesselK.cpp lines 62-215, 677-1036
     """
-    # Decision tree matching C++ logic
     return jnp.where(
         nu >= 35.0,
         _bessel_kv_asymptotic_large_nu(nu, x),
@@ -754,15 +687,11 @@ def _bessel_kn_recurrence(n, x, k0_val, k1_val):
 
     def body_fn(i, carry):
         k_prev, k_curr = carry
-        # Only update if i < n
         should_update = i < n
-        # K_{i+1} = K_{i-1} + (2*i/x) * K_i
         k_next = jnp.where(should_update, k_prev + (2.0 * i / x) * k_curr, k_curr)
         k_prev_new = jnp.where(should_update, k_curr, k_prev)
         return (k_prev_new, k_next)
 
-    # Start with K_0 and K_1, iterate to get K_n
-    # Fixed upper bound (max order needed is ~350 based on test suite)
     _, k_n = jax.lax.fori_loop(1, 400, body_fn, (k0_val, k1_val))
     return k_n
 
@@ -783,7 +712,7 @@ def kn(n, x):
         K_n(x)
     """
     n = jnp.abs(jnp.asarray(n, dtype=int))  # K_{-n} = K_n
-    x = 1.0 * x
+    x = 1.0 * x  # promote to float
 
     k0 = _bessel_k0(x)
     k1 = _bessel_k1(x)
@@ -815,21 +744,18 @@ def kv(nu, x):
 
     Reference: BesselK.cpp in GalSim C++ source
     """
-    nu = 1.0 * nu
+    nu = 1.0 * nu  # promote to float
     x = 1.0 * x
 
-    # Use reflection formula for negative orders: K_{-ν}(x) = K_ν(x)
+    # K_{-nu}(x) = K_nu(x)
     nu = jnp.abs(nu)
 
-    # Get the integer and fractional parts
     nu_int = jnp.floor(nu).astype(int)
     nu_frac = nu - nu_int
 
-    # Determine which path to take
     is_half_integer = jnp.abs(nu_frac - 0.5) < 1e-10
     is_integer = nu_frac < 1e-10
 
-    # Helper function for integer orders
     def integer_order(nu_int, x):
         k0 = _bessel_k0(x)
         k1 = _bessel_k1(x)
@@ -839,46 +765,34 @@ def kv(nu, x):
             jnp.where(nu_int == 1, k1, _bessel_kn_recurrence(nu_int, x, k0, k1)),
         )
 
-    # Helper function for half-integer orders K_{n+1/2}(x)
     def half_integer_order(nu_int, x):
         sqrt_pi_2x = jnp.sqrt(jnp.pi / (2.0 * x))
         exp_neg_x = jnp.exp(-x)
         inv_x = 1.0 / x
 
-        # Polynomial factors for half-integer orders
         p0 = 1.0
         p1 = 1.0 + inv_x
         p2 = 1.0 + 3.0 * inv_x + 3.0 * inv_x**2
         p3 = 1.0 + 6.0 * inv_x + 15.0 * inv_x**2 + 15.0 * inv_x**3
         p4 = 1.0 + 10.0 * inv_x + 45.0 * inv_x**2 + 105.0 * inv_x**3 + 105.0 * inv_x**4
 
-        poly = jnp.where(
-            nu_int == 0,
-            p0,
-            jnp.where(
-                nu_int == 1,
-                p1,
-                jnp.where(nu_int == 2, p2, jnp.where(nu_int == 3, p3, p4)),
-            ),
+        poly = jnp.select(
+            [nu_int == 0, nu_int == 1, nu_int == 2, nu_int == 3],
+            [p0, p1, p2, p3],
+            default=p4,
         )
 
         return sqrt_pi_2x * exp_neg_x * poly
 
-    # Helper function for very small x limit
     def very_small_x_limit(nu, x):
-        # K_ν(x → 0) ~ 2^(ν-1) * Γ(ν) / x^ν
-        return jnp.power(2.0, nu - 1.0) * jax.scipy.special.gamma(nu) / jnp.power(x, nu)
+        return jnp.power(2.0, nu - 1.0) * jsp.gamma(nu) / jnp.power(x, nu)
 
-    # Compute results for each path
     result_integer = integer_order(nu_int, x)
     result_half_integer = half_integer_order(nu_int, x)
-
-    # Use very small x limit for x < 1e-10, otherwise use fractional algorithm
     result_fractional = jnp.where(
         x < 1e-10, very_small_x_limit(nu, x), _bessel_kv_fractional(nu, x)
     )
 
-    # Select the appropriate result
     return jnp.where(
         is_integer,
         result_integer,
@@ -887,16 +801,10 @@ def kv(nu, x):
 
 
 @jax.jit
-def _R(z, num, denom):
-    return jnp.polyval(num, z) / jnp.polyval(denom, z)
-
-
-@jax.jit
 def _evaluate_rational(z, num, denom):
-    return _R(z, num[::-1], denom[::-1])
+    return jnp.polyval(num[::-1], z) / jnp.polyval(denom[::-1], z)
 
 
-# jitted & vectorized version
 _v_rational = jax.jit(jax.vmap(_evaluate_rational, in_axes=(0, None, None)))
 
 
