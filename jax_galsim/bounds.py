@@ -279,8 +279,12 @@ class BoundsD(Bounds):
 
     @property
     def _b(self):
-        return _galsim._galsim.BoundsD(cast_to_float(self.xmin), cast_to_float(self.xmax),
-                               cast_to_float(self.ymin), cast_to_float(self.ymax))
+        return _galsim._galsim.BoundsD(
+            cast_to_float(self.xmin),
+            cast_to_float(self.xmax),
+            cast_to_float(self.ymin),
+            cast_to_float(self.ymax),
+        )
 
     def _check_scalar(self, x, name):
         try:
