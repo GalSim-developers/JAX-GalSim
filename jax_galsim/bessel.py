@@ -724,8 +724,8 @@ def kn(n, x):
 
 @implements(_galsim.bessel.kv)
 @jax.jit
-def kv(nu, x):
-    """Modified Bessel function of the second kind K_ν(x).
+def _kv_impl(nu, x):
+    """Modified Bessel function of the second kind K_ν(x) - internal implementation.
 
     Implementation strategy:
     - Integer orders (ν = 0, 1, 2, ...): Pure JAX using Chebyshev series and recurrence
@@ -798,6 +798,77 @@ def kv(nu, x):
         result_integer,
         jnp.where(is_half_integer, result_half_integer, result_fractional),
     )
+
+
+@jax.custom_vjp
+def kv(nu, x):
+    """Modified Bessel function of the second kind K_ν(x) with custom gradients.
+
+    Implementation strategy:
+    - Integer orders (ν = 0, 1, 2, ...): Pure JAX using Chebyshev series and recurrence
+    - Half-integer orders (ν = 0.5, 1.5, ...): Pure JAX using closed-form expressions
+    - Arbitrary fractional orders: Pure JAX using SLATEC algorithms
+
+    All implementations are fully JIT-compatible and ported from the NETLIB SLATEC
+    library via the C++ GalSim reference implementation.
+
+    Custom gradients are implemented using analytical derivative formulas based on
+    Bessel function recurrence relations:
+        ∂K_ν/∂x = -1/2 * (K_{ν-1}(x) + K_{ν+1}(x))
+
+    This is derived from the modified Bessel recurrence relation:
+        K_{ν-1}(x) + K_{ν+1}(x) = -2 * K'_ν(x)
+
+    Note: Gradients with respect to the order parameter ν are not supported and will
+    return zero. This follows the approach used in TensorFlow Probability, as gradients
+    with respect to the order are rarely needed in practice.
+
+    Args:
+        nu: Order (can be negative, integer, or fractional)
+        x: Argument (must be positive)
+
+    Returns:
+        K_ν(x)
+
+    Reference:
+        - BesselK.cpp in GalSim C++ source
+        - TensorFlow Probability bessel.py for custom gradient approach
+        - Abramowitz & Stegun 9.6.26 for derivative recurrence relations
+    """
+    return _kv_impl(nu, x)
+
+
+def _kv_fwd(nu, x):
+    """Forward pass for kv with custom gradients.
+
+    Computes K_ν(x) and saves K_{ν-1}(x) and K_{ν+1}(x) for use in the backward pass.
+    """
+    kv_val = _kv_impl(nu, x)
+    kv_prev = _kv_impl(nu - 1.0, x)
+    kv_next = _kv_impl(nu + 1.0, x)
+    return kv_val, (nu, x, kv_prev, kv_next)
+
+
+def _kv_bwd(residuals, g):
+    """Backward pass for kv with custom gradients.
+
+    Uses the analytical derivative formula from Bessel recurrence relations:
+        ∂K_ν/∂x = -1/2 * (K_{ν-1}(x) + K_{ν+1}(x))
+
+    This formula comes from the modified Bessel function recurrence relation:
+        K_{ν-1}(x) + K_{ν+1}(x) = -2 * K'_ν(x)
+
+    Gradient with respect to ν is not supported and returns zero.
+    """
+    nu, x, kv_prev, kv_next = residuals
+    # Analytical gradient: ∂K_ν/∂x = -1/2 * (K_{ν-1}(x) + K_{ν+1}(x))
+    grad_x = -0.5 * (kv_prev + kv_next) * g
+    # Gradient w.r.t. ν not supported (following TFP approach)
+    grad_nu = jnp.zeros_like(nu)
+    return (grad_nu, grad_x)
+
+
+kv.defvjp(_kv_fwd, _kv_bwd)
 
 
 @jax.jit
