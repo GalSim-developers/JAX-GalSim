@@ -254,7 +254,7 @@ def bisect_for_root(func, low, high, niter=75):
     flow = func(low)
     fhigh = func(high)
     args = (func, low, flow, high, fhigh)
-    return jax.lax.fori_loop(0, niter, _func, args)[-2]
+    return jax.lax.fori_loop(0, niter, _func, args, unroll=15)[-2]
 
 
 # start of code from https://github.com/google/jax/blob/main/jax/_src/numpy/util.py #
@@ -277,7 +277,6 @@ def bisect_for_root(func, low, high, niter=75):
 #
 # fmt: on
 
-_galsim_signature_re = re.compile(r"^([\w., ]+=)?\s*[\w\.]+\([\w\W]*?\)$", re.MULTILINE)
 _docreference = re.compile(r":doc:`(.*?)\s*<.*?>`")
 
 
@@ -337,17 +336,8 @@ def _parse_galsimdoc(docstr):
     docstr = _docreference.sub(lambda match: f"{match.groups()[0]}", docstr)
 
     signature, body = "", docstr
-    match = _galsim_signature_re.match(body)
-    if match:
-        signature = match.group()
-        body = docstr[match.end() :]
 
     firstline, body = _break_off_body_section_by_newline(body)
-
-    match = _galsim_signature_re.match(body)
-    if match:
-        signature = match.group()
-        body = body[match.end() :]
 
     summary = firstline
     if not summary:
@@ -429,9 +419,9 @@ def implements(
                 docstr += f"\nLAX-backend implementation of :func:`{name}`.\n"
                 if lax_description:
                     docstr += "\n" + lax_description.strip() + "\n"
-                docstr += "\n*Original docstring below.*\n"
 
                 if parsed.front_matter:
+                    docstr += "\n*Original docstring below.*\n"
                     docstr += "\n" + parsed.front_matter.strip() + "\n"
             except Exception:
                 docstr = original_fun.__doc__

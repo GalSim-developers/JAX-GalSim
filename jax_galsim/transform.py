@@ -106,23 +106,23 @@ class Transformation(GSObject):
         return jnp.asarray(jac, dtype=float).reshape((2, 2))
 
     @property
+    @implements(_galsim.transform.Transformation.original)
     def original(self):
-        """The original object being transformed."""
         return self._original
 
     @property
+    @implements(_galsim.transform.Transformation.jac)
     def jac(self):
-        """The Jacobian of the transforamtion."""
         return self._jac
 
     @property
+    @implements(_galsim.transform.Transformation.offset)
     def offset(self):
-        """The offset of the transformation."""
         return self._offset
 
     @property
+    @implements(_galsim.transform.Transformation.flux_ratio)
     def flux_ratio(self):
-        """The flux ratio of the transformation."""
         return self._flux_ratio
 
     @property
@@ -359,7 +359,9 @@ class Transformation(GSObject):
         jac = (
             self._jac
             if jac is None
-            else jac if self._jac is None else jac.dot(self._jac)
+            else jac
+            if self._jac is None
+            else jac.dot(self._jac)
         )
         return self._original._drawReal(image, jac, (dx, dy), flux_scaling)
 
@@ -369,7 +371,9 @@ class Transformation(GSObject):
         jac1 = (
             self._jac
             if jac is None
-            else jac if self._jac is None else jac.dot(self._jac)
+            else jac
+            if self._jac is None
+            else jac.dot(self._jac)
         )
         image = self._original._drawKImage(image, jac1)
 
@@ -379,6 +383,7 @@ class Transformation(GSObject):
         image = image * self._flux_scaling
         return image
 
+    @implements(_galsim.Transformation._shoot)
     def _shoot(self, photons, rng):
         self._original._shoot(photons, rng)
         photons.x, photons.y = self._fwd(photons.x, photons.y)

@@ -19,7 +19,6 @@ The JAX implementation
 """
 
 
-# The reason for avoid these tests is that they are not easy to do for jitted code.
 @implements(_galsim.Bounds, lax_description=BOUNDS_LAX_DESCR)
 @register_pytree_node_class
 class Bounds(_galsim.Bounds):
@@ -96,12 +95,8 @@ class Bounds(_galsim.Bounds):
             self._isdefined = False
 
     @property
+    @implements(_galsim.Bounds.true_center)
     def true_center(self):
-        """The central position of the `Bounds` as a `PositionD`.
-
-        This is always (xmax + xmin)/2., (ymax + ymin)/2., even for integer `BoundsI`, where
-        this may not necessarily be an integer `PositionI`.
-        """
         if not self.isDefined():
             raise _galsim.GalSimUndefinedBoundsError(
                 "true_center is invalid for an undefined Bounds"

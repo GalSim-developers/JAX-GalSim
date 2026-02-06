@@ -139,69 +139,68 @@ class Shear(object):
             )
 
     @property
+    @implements(_galsim.Shear.g1)
     def g1(self):
-        """The first component of the shear in the "reduced shear" definition."""
         return self._g.real
 
     @property
+    @implements(_galsim.Shear.g2)
     def g2(self):
-        """The second component of the shear in the "reduced shear" definition."""
         return self._g.imag
 
     @property
+    @implements(_galsim.Shear.g)
     def g(self):
-        """The magnitude of the shear in the "reduced shear" definition."""
         return jnp.abs(self._g)
 
     @property
+    @implements(_galsim.Shear.beta)
     def beta(self):
-        """The position angle as an `Angle` instance"""
         return _Angle(0.5 * jnp.angle(self._g))
 
     @property
+    @implements(_galsim.Shear.shear)
     def shear(self):
-        """The reduced shear as a complex number g1 + 1j * g2."""
-
         return self._g
 
     @property
+    @implements(_galsim.Shear.e1)
     def e1(self):
-        """The first component of the shear in the "distortion" definition."""
         return self._g.real * self._g2e(self.g**2)
 
     @property
+    @implements(_galsim.Shear.e2)
     def e2(self):
-        """The second component of the shear in the "distortion" definition."""
         return self._g.imag * self._g2e(self.g**2)
 
     @property
+    @implements(_galsim.Shear.e)
     def e(self):
-        """The magnitude of the shear in the "distortion" definition."""
         return self.g * self._g2e(self.g**2)
 
     @property
+    @implements(_galsim.Shear.esq)
     def esq(self):
-        """The square of the magnitude of the shear in the "distortion" definition."""
         return self.e**2
 
     @property
+    @implements(_galsim.Shear.eta1)
     def eta1(self):
-        """The first component of the shear in the "conformal shear" definition."""
         return self._g.real * self._g2eta(self.g)
 
     @property
+    @implements(_galsim.Shear.eta2)
     def eta2(self):
-        """The second component of the shear in the "conformal shear" definition."""
         return self._g.imag * self._g2eta(self.g)
 
     @property
+    @implements(_galsim.Shear.eta)
     def eta(self):
-        """The magnitude of the shear in the "conformal shear" definition."""
         return self.g * self._g2eta(self.g)
 
     @property
+    @implements(_galsim.Shear.q)
     def q(self):
-        """The minor-to-major axis ratio"""
         return (1.0 - self.g) / (1.0 + self.g)
 
     # Helpers to convert between different conventions

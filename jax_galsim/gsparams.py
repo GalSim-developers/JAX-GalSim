@@ -47,12 +47,8 @@ class GSParams:
         )
 
     @staticmethod
+    @implements(_galsim.GSParams.check)
     def check(gsparams, default=None, **kwargs):
-        """Checks that gsparams is either a valid GSParams instance or None.
-
-        In the former case, it returns gsparams, in the latter it returns default
-        (GSParams.default if no other default specified).
-        """
         if gsparams is None:
             if default is not None:
                 if isinstance(default, GSParams):
@@ -65,10 +61,8 @@ class GSParams:
             raise TypeError("Invalid GSParams: %s" % gsparams)
         return gsparams.withParams(**kwargs)
 
+    @implements(_galsim.GSParams.withParams)
     def withParams(self, **kwargs):
-        """Return a `GSParams` that is identical to the current one except for any keyword
-        arguments given here, which supersede the current value.
-        """
         if len(kwargs) == 0:
             return self
         else:
@@ -80,12 +74,8 @@ class GSParams:
             return GSParams(**d)
 
     @staticmethod
+    @implements(_galsim.GSParams.combine)
     def combine(gsp_list):
-        """Combine a list of `GSParams` instances using the most restrictive parameter from each.
-
-        Uses the minimum value for most parameters. For the following parameters, it uses the
-        maximum numerical value: minimum_fft_size, maximum_fft_size, stepk_minimum_hlr.
-        """
         if len(gsp_list) == 1:
             return gsp_list[0]
         elif all(g == gsp_list[0] for g in gsp_list[1:]):

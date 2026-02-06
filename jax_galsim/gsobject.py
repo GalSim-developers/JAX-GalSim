@@ -43,8 +43,8 @@ class GSObject:
         self.__dict__ = d
 
     @property
+    @implements(_galsim.GSObject.flux)
     def flux(self):
-        """The flux of the profile."""
         return self._flux
 
     @property
@@ -53,8 +53,8 @@ class GSObject:
         return self._params["flux"]
 
     @property
+    @implements(_galsim.GSObject.gsparams)
     def gsparams(self):
-        """A `GSParams` object that sets various parameters relevant for speed/accuracy trade-offs."""
         return self._gsparams
 
     @property
@@ -63,49 +63,43 @@ class GSObject:
         return self._params
 
     @property
+    @implements(_galsim.GSObject.maxk)
     def maxk(self):
-        """The value of k beyond which aliasing can be neglected."""
         return self._maxk
 
     @property
+    @implements(_galsim.GSObject.stepk)
     def stepk(self):
-        """The sampling in k space necessary to avoid folding of image in x space."""
         return self._stepk
 
     @property
+    @implements(_galsim.GSObject.nyquist_scale)
     def nyquist_scale(self):
-        """The pixel spacing that does not alias maxk."""
         return jnp.pi / self.maxk
 
     @property
+    @implements(_galsim.GSObject.has_hard_edges)
     def has_hard_edges(self):
-        """Whether there are any hard edges in the profile, which would require very small k
-        spacing when working in the Fourier domain.
-        """
         return self._has_hard_edges
 
     @property
+    @implements(_galsim.GSObject.is_axisymmetric)
     def is_axisymmetric(self):
-        """Whether the profile is axially symmetric; affects efficiency of evaluation."""
         return self._is_axisymmetric
 
     @property
+    @implements(_galsim.GSObject.is_analytic_x)
     def is_analytic_x(self):
-        """Whether the real-space values can be determined immediately at any position without
-        requiring a Discrete Fourier Transform.
-        """
         return self._is_analytic_x
 
     @property
+    @implements(_galsim.GSObject.is_analytic_k)
     def is_analytic_k(self):
-        """Whether the k-space values can be determined immediately at any position without
-        requiring a Discrete Fourier Transform.
-        """
         return self._is_analytic_k
 
     @property
+    @implements(_galsim.GSObject.centroid)
     def centroid(self):
-        """The (x, y) centroid of an object as a `PositionD`."""
         return self._centroid
 
     @property
@@ -213,15 +207,8 @@ class GSObject:
         pos = parse_pos_args(args, kwargs, "x", "y")
         return self._xValue(pos)
 
+    @implements(_galsim.GSObject._xValue)
     def _xValue(self, pos):
-        """Equivalent to `xValue`, but ``pos`` must be a PositionD.
-
-        Parameters:
-            pos: The position at which you want the surface brightness of the object.
-
-        Returns:
-            the surface brightness at that position.
-        """
         raise NotImplementedError(
             "%s does not implement xValue" % self.__class__.__name__
         )
@@ -231,8 +218,8 @@ class GSObject:
         kpos = parse_pos_args(args, kwargs, "kx", "ky")
         return self._kValue(kpos)
 
+    @implements(_galsim.GSObject._kValue)
     def _kValue(self, kpos):
-        """Equivalent to `kValue`, but ``kpos`` must be a `galsim.PositionD` instance."""
         raise NotImplementedError(
             "%s does not implement kValue" % self.__class__.__name__
         )
@@ -300,81 +287,30 @@ class GSObject:
             shear = Shear(**kwargs)
         return Transform(self, shear.getMatrix())
 
+    @implements(_galsim.GSObject._shear)
     def _shear(self, shear):
-        """Equivalent to `GSObject.shear`, but without the overhead of sanity checks or other
-        ways to input the ``shear`` value.
-
-        Also, it won't propagate any noise attribute.
-
-        Parameters:
-            shear:      The `Shear` to be applied.
-
-        Returns:
-            the sheared object.
-        """
         from jax_galsim.transform import Transform
 
         return Transform(self, shear.getMatrix())
 
+    @implements(_galsim.GSObject.lens)
     def lens(self, g1, g2, mu):
-        """Create a version of the current object with both a lensing shear and magnification
-        applied to it.
-
-        This `GSObject` method applies a lensing (reduced) shear and magnification.  The shear must
-        be specified using the g1, g2 definition of shear (see `Shear` for more details).
-        This is the same definition as the outputs of the PowerSpectrum and NFWHalo classes, which
-        compute shears according to some lensing power spectrum or lensing by an NFW dark matter
-        halo.  The magnification determines the rescaling factor for the object area and flux,
-        preserving surface brightness.
-
-        Parameters:
-            g1:         First component of lensing (reduced) shear to apply to the object.
-            g2:         Second component of lensing (reduced) shear to apply to the object.
-            mu:         Lensing magnification to apply to the object.  This is the factor by which
-                        the solid angle subtended by the object is magnified, preserving surface
-                        brightness.
-
-        Returns:
-            the lensed object.
-        """
         from jax_galsim.shear import Shear
         from jax_galsim.transform import Transform
 
         shear = Shear(g1=g1, g2=g2)
         return Transform(self, shear.getMatrix() * jnp.sqrt(mu))
 
+    @implements(_galsim.GSObject._lens)
     def _lens(self, g1, g2, mu):
-        """Equivalent to `GSObject.lens`, but without the overhead of some of the sanity checks.
-
-        Also, it won't propagate any noise attribute.
-
-        Parameters:
-            g1:         First component of lensing (reduced) shear to apply to the object.
-            g2:         Second component of lensing (reduced) shear to apply to the object.
-            mu:         Lensing magnification to apply to the object.  This is the factor by which
-                        the solid angle subtended by the object is magnified, preserving surface
-                        brightness.
-
-        Returns:
-            the lensed object.
-        """
         from .shear import _Shear
         from .transform import Transform
 
         shear = _Shear(g1 + 1j * g2)
         return Transform(self, shear.getMatrix() * jnp.sqrt(mu))
 
+    @implements(_galsim.GSObject.rotate)
     def rotate(self, theta):
-        """Rotate this object by an `Angle` ``theta``.
-
-        Parameters:
-            theta:      Rotation angle (`Angle` object, positive means anticlockwise).
-
-        Returns:
-            the rotated object.
-
-        Note: Not differentiable with respect to theta (yet).
-        """
         from jax_galsim.transform import Transform
 
         from .angle import Angle
@@ -397,19 +333,8 @@ class GSObject:
         offset = parse_pos_args(args, kwargs, "dx", "dy")
         return Transform(self, offset=offset)
 
+    @implements(_galsim.GSObject._shift)
     def _shift(self, dx, dy):
-        """Equivalent to `shift`, but without the overhead of sanity checks or option
-        to give the shift as a PositionD.
-
-        Also, it won't propagate any noise attribute.
-
-        Parameters:
-            dx:         The x-component of the shift to apply
-            dy:         The y-component of the shift to apply
-
-        Returns:
-            the shifted object.
-        """
         from jax_galsim.transform import Transform
 
         new_obj = Transform(self, offset=(dx, dy))
@@ -490,6 +415,9 @@ class GSObject:
                     )
                 image = Image(nx, ny, dtype=dtype)
                 if center is not None:
+                    # this code has to match the code in _get_new_bounds
+                    # for the same branch of the if statement block
+                    # if center, nx, and ny are given.
                     image.shift(
                         PositionI(
                             jnp.floor(center.x + 0.5 - image.true_center.x),
@@ -561,10 +489,13 @@ class GSObject:
         elif nx is not None and ny is not None:
             b = BoundsI(1, nx, 1, ny)
             if center is not None:
+                # this code has to match the code in _setup_image
+                # for the same branch of the if statement block
+                # if center, nx and ny are given.
                 b = b.shift(
                     PositionI(
-                        jnp.floor(center.x + 0.5) - b.center.x,
-                        jnp.floor(center.y + 0.5) - b.center.y,
+                        jnp.floor(center.x + 0.5 - b.true_center.x),
+                        jnp.floor(center.y + 0.5 - b.true_center.y),
                     )
                 )
             return b
@@ -885,13 +816,8 @@ The JAX-GalSim version of `drawImage`
 
         return temp.array.sum(dtype=float)
 
+    @implements(_galsim.GSObject._drawReal)
     def _drawReal(self, image, jac=None, offset=(0.0, 0.0), flux_scaling=1.0):
-        """A version of `drawReal` without the sanity checks or some options.
-
-        This is nearly equivalent to the regular ``drawReal(image, add_to_image=False)``, but
-        the image's dtype must be either float32 or float64, and it must have a c_contiguous array
-        (``image.iscontiguous`` must be True).
-        """
         raise NotImplementedError(
             "%s does not implement drawReal" % self.__class__.__name__
         )
@@ -962,24 +888,8 @@ The JAX-GalSim version of `drawImage`
             kimage = ImageCF(bounds=bounds, scale=dk)
         return kimage, N
 
+    @implements(_galsim.GSObject.drawFFT_finish)
     def drawFFT_finish(self, image, kimage, wrap_size, add_to_image):
-        """
-        This is a helper routine for drawFFT that finishes the calculation, based on the
-        drawn k-space image.
-
-        It applies the Fourier transform to ``kimage`` and adds the result to ``image``.
-
-        Parameters:
-            image:          The `Image` onto which to place the flux.
-            kimage:         The k-space `Image` where the object was drawn.
-            wrap_size:      The size of the region to wrap kimage, which must be either the same
-                            size as kimage or smaller.
-            add_to_image:   Whether to add flux to the existing image rather than clear out
-                            anything in the image before drawing.
-
-        Returns:
-            The total flux drawn inside the image bounds.
-        """
         from jax_galsim.bounds import BoundsI
         from jax_galsim.image import Image
 
@@ -1009,32 +919,8 @@ The JAX-GalSim version of `drawImage`
 
         return temp.array.sum(dtype=float)
 
+    @implements(_galsim.GSObject.drawFFT)
     def drawFFT(self, image, add_to_image=False):
-        """
-        Draw this profile into an `Image` by computing the k-space image and performing an FFT.
-
-        This is usually called from the `drawImage` function, rather than called directly by the
-        user.  In particular, the input image must be already set up with defined bounds.  The
-        profile will be drawn centered on whatever pixel corresponds to (0,0) with the given
-        bounds, not the image center (unlike `drawImage`).  The image also must have a `PixelScale`
-        wcs.  The profile being drawn should have already been converted to image coordinates via::
-
-            >>> image_profile = original_wcs.toImage(original_profile)
-
-        Note that the `Image` produced by drawFFT represents the profile sampled at the center
-        of each pixel and then multiplied by the pixel area.  That is, the profile is NOT
-        integrated over the area of the pixel.  This is equivalent to method='no_pixel' in
-        `drawImage`.  If you want to render a profile integrated over the pixel, you can convolve
-        with a `Pixel` first and draw that.
-
-        Parameters:
-            image:          The `Image` onto which to place the flux. [required]
-            add_to_image:   Whether to add flux to the existing image rather than clear out
-                            anything in the image before drawing. [default: False]
-
-        Returns:
-            The total flux drawn inside the image bounds.
-        """
         if image.wcs is None or not image.wcs.isPixelScale():
             raise _galsim.GalSimValueError(
                 "drawFFT requires an image with a PixelScale wcs", image

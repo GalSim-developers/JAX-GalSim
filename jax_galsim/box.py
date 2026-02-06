@@ -28,13 +28,13 @@ class Box(GSObject):
         return jnp.maximum(self.width, self.height)
 
     @property
+    @implements(_galsim.Box.width)
     def width(self):
-        """The width of the `Box`."""
         return self.params["width"]
 
     @property
+    @implements(_galsim.Box.height)
     def height(self):
-        """The height of the `Box`."""
         return self.params["height"]
 
     def __hash__(self):
@@ -112,7 +112,7 @@ class Box(GSObject):
             children[0]["width"],
             children[0]["height"],
             flux=children[0]["flux"],
-            **aux_data
+            **aux_data,
         )
 
     @implements(_galsim.Box._shoot)
@@ -134,8 +134,8 @@ class Pixel(Box):
         )
 
     @property
+    @implements(_galsim.Pixel.scale)
     def scale(self):
-        """The linear scale size of the `Pixel`."""
         return self.width
 
     def __repr__(self):

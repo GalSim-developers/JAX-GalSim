@@ -14,6 +14,7 @@ from jax_galsim.transform import _Transform
 
 # We inherit from the reference BaseWCS and only redefine the methods that
 # make references to jax_galsim objects.
+@implements(_galsim.BaseWCS)
 class BaseWCS(_galsim.BaseWCS):
     @implements(_galsim.BaseWCS.toWorld)
     def toWorld(self, *args, **kwargs):
@@ -281,69 +282,38 @@ class BaseWCS(_galsim.BaseWCS):
 #########################################################################################
 
 
+@implements(_galsim.wcs.EuclideanWCS)
 class EuclideanWCS(BaseWCS):
-    """A EuclideanWCS is a `BaseWCS` whose world coordinates are on a Euclidean plane.
-    We usually use the notation (u,v) to refer to positions in world coordinates, and
-    they use the class `PositionD`.
-    """
-
     # All EuclideanWCS classes must define origin and world_origin.
     # Sometimes it is convenient to access x0,y0,u0,v0 directly.
     @property
+    @implements(_galsim.wcs.EuclideanWCS.x0)
     def x0(self):
-        """The x component of self.origin."""
         return self.origin.x
 
     @property
+    @implements(_galsim.wcs.EuclideanWCS.y0)
     def y0(self):
-        """The y component of self.origin."""
         return self.origin.y
 
     @property
+    @implements(_galsim.wcs.EuclideanWCS.u0)
     def u0(self):
-        """The x component of self.world_origin (aka u)."""
         return self.world_origin.x
 
     @property
+    @implements(_galsim.wcs.EuclideanWCS.v0)
     def v0(self):
-        """The y component of self.world_origin (aka v)."""
         return self.world_origin.y
 
+    @implements(_galsim.wcs.EuclideanWCS.xyTouv)
     def xyTouv(self, x, y, color=None):
-        """Convert x,y from image coordinates to world coordinates.
-
-        This is equivalent to ``wcs.toWorld(x,y)``.
-
-        It is also equivalent to ``wcs.posToWorld(galsim.PositionD(x,y))`` when x and y are scalars;
-        however, this routine allows x and y to be numpy arrays, in which case, the calculation
-        will be vectorized, which is often much faster than using the pos interface.
-
-        Parameters:
-            x:          The x value(s) in image coordinates
-            y:          The y value(s) in image coordinates
-            color:      For color-dependent WCS's, the color term to use. [default: None]
-
-        Returns:
-            ra, dec
-        """
         if color is None:
             color = self._color
         return self._xyTouv(x, y, color=color)
 
+    @implements(_galsim.wcs.EuclideanWCS.uvToxy)
     def uvToxy(self, u, v, color=None):
-        """Convert u,v from world coordinates to image coordinates.
-
-        This is equivalent to ``wcs.toWorld(u,v)``.
-
-        It is also equivalent to ``wcs.posToImage(galsim.PositionD(u,v))`` when u and v are scalars;
-        however, this routine allows u and v to be numpy arrays, in which case, the calculation
-        will be vectorized, which is often much faster than using the pos interface.
-
-        Parameters:
-            u:          The u value(s) in world coordinates
-            v:          The v value(s) in world coordinates
-            color:      For color-dependent WCS's, the color term to use. [default: None]
-        """
         if color is None:
             color = self._color
         return self._uvToxy(u, v, color)
@@ -501,9 +471,8 @@ class EuclideanWCS(BaseWCS):
         return not self.__eq__(other)
 
 
+@implements(_galsim.wcs.UniformWCS)
 class UniformWCS(EuclideanWCS):
-    """A UniformWCS is a `EuclideanWCS` which has a uniform pixel size and shape."""
-
     @property
     def _isUniform(self):
         return True
@@ -526,10 +495,8 @@ class UniformWCS(EuclideanWCS):
         return self._local_wcs
 
     # UniformWCS transformations can be inverted easily, so might as well provide that function.
+    @implements(_galsim.wcs.UniformWCS.inverse)
     def inverse(self):
-        """Return the inverse transformation, i.e. the transformation that swaps the roles of
-        the "image" and "world" coordinates.
-        """
         return self._inverse()
 
     # We'll override this for LocalWCS classes. Non-local UniformWCS classes can use that function
@@ -551,6 +518,7 @@ class UniformWCS(EuclideanWCS):
         )
 
 
+@implements(_galsim.wcs.LocalWCS)
 class LocalWCS(UniformWCS):
     """A LocalWCS is a `UniformWCS` in which (0,0) in image coordinates is at the same place
     as (0,0) in world coordinates
@@ -562,13 +530,13 @@ class LocalWCS(UniformWCS):
 
     # The origins are definitionally (0,0) for these.  So just define them here.
     @property
+    @implements(_galsim.wcs.LocalWCS.origin)
     def origin(self):
-        """The image coordinate position to use as the origin."""
         return PositionD(0, 0)
 
     @property
+    @implements(_galsim.wcs.LocalWCS.world_origin)
     def world_origin(self):
-        """The world coordinate position to use as the origin."""
         return PositionD(0, 0)
 
     # For LocalWCS, there is no origin to worry about.
@@ -594,6 +562,7 @@ class LocalWCS(UniformWCS):
         return self
 
 
+@implements(_galsim.wcs.CelestialWCS)
 class CelestialWCS(BaseWCS):
     """A CelestialWCS is a `BaseWCS` whose world coordinates are on the celestial sphere.
     We use the `CelestialCoord` class for the world coordinates.
@@ -605,35 +574,17 @@ class CelestialWCS(BaseWCS):
 
     # CelestialWCS classes still have origin, but not world_origin.
     @property
+    @implements(_galsim.wcs.CelestialWCS.x0)
     def x0(self):
-        """The x coordinate of self.origin."""
         return self.origin.x
 
     @property
+    @implements(_galsim.wcs.CelestialWCS.y0)
     def y0(self):
-        """The y coordinate of self.origin."""
         return self.origin.y
 
+    @implements(_galsim.wcs.CelestialWCS.xyToradec)
     def xyToradec(self, x, y, units=None, color=None):
-        """Convert x,y from image coordinates to world coordinates.
-
-        This is equivalent to ``wcs.toWorld(x,y, units=units)``.
-
-        It is also equivalent to ``wcs.posToWorld(galsim.PositionD(x,y)).rad`` when x and y are
-        scalars if units is 'radians'; however, this routine allows x and y to be numpy arrays,
-        in which case, the calculation will be vectorized, which is often much faster than using
-        the pos interface.
-
-        Parameters:
-            x:          The x value(s) in image coordinates
-            y:          The y value(s) in image coordinates
-            units:      (Only valid for `CelestialWCS`, in which case it is required)
-                        The units to use for the returned ra, dec values.
-            color:      For color-dependent WCS's, the color term to use. [default: None]
-
-        Returns:
-            ra, dec
-        """
         if color is None:
             color = self._color
         if units is None:
@@ -648,22 +599,8 @@ class CelestialWCS(BaseWCS):
             )
         return self._xyToradec(x, y, units, color)
 
+    @implements(_galsim.wcs.CelestialWCS.radecToxy)
     def radecToxy(self, ra, dec, units, color=None):
-        """Convert ra,dec from world coordinates to image coordinates.
-
-        This is equivalent to ``wcs.toImage(ra,dec, units=units)``.
-
-        It is also equivalent to ``wcs.posToImage(galsim.CelestialCoord(ra * units, dec * units))``
-        when ra and dec are scalars; however, this routine allows ra and dec to be numpy arrays,
-        in which case, the calculation will be vectorized, which is often much faster than using
-        the pos interface.
-
-        Parameters:
-            ra:         The ra value(s) in world coordinates
-            dec:        The dec value(s) in world coordinates
-            units:      The units to use for the input ra, dec values.
-            color:      For color-dependent WCS's, the color term to use. [default: None]
-        """
         if color is None:
             color = self._color
         if isinstance(units, str):
@@ -854,8 +791,8 @@ class PixelScale(LocalWCS):
 
     # Help make sure PixelScale is read-only.
     @property
+    @implements(_galsim.wcs.PixelScale.scale)
     def scale(self):
-        """The pixel scale"""
         return self._scale
 
     def _u(self, x, y, color=None):
@@ -958,13 +895,13 @@ class ShearWCS(LocalWCS):
 
     # Help make sure ShearWCS is read-only.
     @property
+    @implements(_galsim.wcs.ShearWCS.scale)
     def scale(self):
-        """The pixel scale."""
         return self._scale
 
     @property
+    @implements(_galsim.wcs.ShearWCS.shear)
     def shear(self):
-        """The applied `Shear`."""
         return self._shear
 
     def _u(self, x, y, color=None):
@@ -1037,6 +974,7 @@ class ShearWCS(LocalWCS):
         header["GS_G2"] = (cast_to_python_float(self.shear.g2), "GalSim image shear g2")
         return self.affine()._writeLinearWCS(header, bounds)
 
+    @implements(_galsim.wcs.ShearWCS.copy)
     def copy(self):
         return ShearWCS(self._scale, self._shear)
 
@@ -1075,23 +1013,23 @@ class JacobianWCS(LocalWCS):
 
     # Help make sure JacobianWCS is read-only.
     @property
+    @implements(_galsim.wcs.JacobianWCS.dudx)
     def dudx(self):
-        """du/dx"""
         return self._params["dudx"]
 
     @property
+    @implements(_galsim.wcs.JacobianWCS.dudy)
     def dudy(self):
-        """du/dy"""
         return self._params["dudy"]
 
     @property
+    @implements(_galsim.wcs.JacobianWCS.dvdx)
     def dvdx(self):
-        """dv/dx"""
         return self._params["dvdx"]
 
     @property
+    @implements(_galsim.wcs.JacobianWCS.dvdy)
     def dvdy(self):
-        """dv/dy"""
         return self._params["dvdy"]
 
     def _u(self, x, y, color=None):
@@ -1152,12 +1090,8 @@ class JacobianWCS(LocalWCS):
     def _pixelArea(self):
         return abs(self._det)
 
+    @implements(_galsim.wcs.JacobianWCS.getMatrix)
     def getMatrix(self):
-        """Get the Jacobian as a NumPy matrix:
-
-        numpy.array( [[ dudx, dudy ],
-                      [ dvdx, dvdy ]] )
-        """
         return jnp.array([[self.dudx, self.dudy], [self.dvdx, self.dvdy]], dtype=float)
 
     @implements(_galsim.JacobianWCS.getDecomposition)
@@ -1313,18 +1247,18 @@ class OffsetWCS(UniformWCS):
         self._local_wcs = PixelScale(scale)
 
     @property
+    @implements(_galsim.wcs.OffsetWCS.scale)
     def scale(self):
-        """The pixel scale."""
         return self._scale
 
     @property
+    @implements(_galsim.wcs.OffsetWCS.origin)
     def origin(self):
-        """The image coordinate position to use as the origin."""
         return self._origin
 
     @property
+    @implements(_galsim.wcs.OffsetWCS.world_origin)
     def world_origin(self):
-        """The world coordinate position to use as the origin."""
         return self._world_origin
 
     def _writeHeader(self, header, bounds):
@@ -1383,23 +1317,23 @@ class OffsetShearWCS(UniformWCS):
         self._local_wcs = ShearWCS(scale, shear)
 
     @property
+    @implements(_galsim.wcs.OffsetShearWCS.scale)
     def scale(self):
-        """The pixel scale."""
         return self._local_wcs.scale
 
     @property
+    @implements(_galsim.wcs.OffsetShearWCS.shear)
     def shear(self):
-        """The applied `Shear`."""
         return self._local_wcs.shear
 
     @property
+    @implements(_galsim.wcs.OffsetShearWCS.origin)
     def origin(self):
-        """The image coordinate position to use as the origin."""
         return self._origin
 
     @property
+    @implements(_galsim.wcs.OffsetShearWCS.world_origin)
     def world_origin(self):
-        """The world coordinate position to use as the origin."""
         return self._world_origin
 
     def _newOrigin(self, origin, world_origin):
@@ -1428,6 +1362,7 @@ class OffsetShearWCS(UniformWCS):
         )
         return self.affine()._writeLinearWCS(header, bounds)
 
+    @implements(_galsim.wcs.OffsetShearWCS.copy)
     def copy(self):
         return OffsetShearWCS(self.scale, self.shear, self.origin, self.world_origin)
 
@@ -1469,33 +1404,33 @@ class AffineTransform(UniformWCS):
         self._local_wcs = JacobianWCS(dudx, dudy, dvdx, dvdy)
 
     @property
+    @implements(_galsim.wcs.AffineTransform.dudx)
     def dudx(self):
-        """du/dx"""
         return self._local_wcs.dudx
 
     @property
+    @implements(_galsim.wcs.AffineTransform.dudy)
     def dudy(self):
-        """du/dy"""
         return self._local_wcs.dudy
 
     @property
+    @implements(_galsim.wcs.AffineTransform.dvdx)
     def dvdx(self):
-        """dv/dx"""
         return self._local_wcs.dvdx
 
     @property
+    @implements(_galsim.wcs.AffineTransform.dvdy)
     def dvdy(self):
-        """dv/dy"""
         return self._local_wcs.dvdy
 
     @property
+    @implements(_galsim.wcs.AffineTransform.origin)
     def origin(self):
-        """The image coordinate position to use as the origin."""
         return self._origin
 
     @property
+    @implements(_galsim.wcs.AffineTransform.world_origin)
     def world_origin(self):
-        """The world coordinate position to use as the origin."""
         return self._world_origin
 
     def _writeHeader(self, header, bounds):
@@ -1556,6 +1491,7 @@ class AffineTransform(UniformWCS):
             self.dudx, self.dudy, self.dvdx, self.dvdy, origin, world_origin
         )
 
+    @implements(_galsim.wcs.AffineTransform.copy)
     def copy(self):
         return AffineTransform(
             self.dudx, self.dudy, self.dvdx, self.dvdy, self.origin, self.world_origin
@@ -1577,65 +1513,16 @@ class AffineTransform(UniformWCS):
         return hash(repr(self))
 
 
+@implements(_galsim.wcs.compatible)
 def compatible(wcs1, wcs2):
-    """
-    A utility to check the compatibility of two WCS.  In particular, if two WCS are consistent with
-    each other modulo a shifted origin, we consider them to be compatible, even though they are not
-    equal.
-    """
     if wcs1._isUniform and wcs2._isUniform:
         return wcs1.jacobian() == wcs2.jacobian()
     else:
         return wcs1 == wcs2.shiftOrigin(wcs1.origin, wcs1.world_origin)
 
 
+@implements(_galsim.wcs.readFromFitsHeader)
 def readFromFitsHeader(header, suppress_warning=True):
-    """Read a WCS function from a FITS header.
-
-    This is normally called automatically from within the `galsim.fits.read` function, but
-    you can also call it directly as::
-
-        wcs, origin = galsim.wcs.readFromFitsHeader(header)
-
-    If the file was originally written by GalSim using one of the galsim.fits.write() functions,
-    then this should always succeed in reading back in the original WCS.  It may not end up
-    as exactly the same class as the original, but the underlying world coordinate system
-    transformation should be preserved.
-
-    .. note::
-        For `UVFunction` and `RaDecFunction`, if the functions that were written to the FITS
-        header were real python functions (rather than a string that is converted to a function),
-        then the mechanism we use to write to the header and read it back in has some limitations:
-
-        1. It apparently only works for cpython implementations.
-        2. It probably won't work to write from one version of python and read from another.
-           (At least for major version differences.)
-        3. If the function uses globals, you'll need to make sure the globals are present
-           when you read it back in as well, or it probably won't work.
-        4. It looks really ugly in the header.
-        5. We haven't thought much about the security implications of this, so beware using
-           GalSim to open FITS files from untrusted sources.
-
-    If the file was not written by GalSim, then this code will do its best to read the
-    WCS information in the FITS header.  Depending on what kind of WCS is encoded in the
-    header, this may or may not be successful.
-
-    If there is no WCS information in the header, then this will default to a pixel scale
-    of 1.
-
-    In addition to the wcs, this function will also return the image origin that the WCS
-    is assuming for the image.  If the file was originally written by GalSim, this should
-    correspond to the original image origin.  If not, it will default to (1,1).
-
-    Parameters:
-        header:             The fits header with the WCS information.
-        suppress_warning:   Whether to suppress a warning that the WCS could not be read from the
-                            FITS header, so the WCS defaulted to either a `PixelScale` or
-                            `AffineTransform`. [default: True]
-
-    Returns:
-        a tuple (wcs, origin) of the wcs from the header and the image origin.
-    """
     from . import fits
     from .fitswcs import FitsWCS
 

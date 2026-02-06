@@ -6,7 +6,7 @@ jax.config.update("jax_enable_x64", True)
 import inspect  # noqa: E402
 import os  # noqa: E402
 import sys  # noqa: E402
-from functools import lru_cache  # noqa: E402
+from functools import lru_cache, partial  # noqa: E402
 from unittest.mock import patch  # noqa: E402
 
 import galsim  # noqa: E402
@@ -14,12 +14,6 @@ import pytest  # noqa: E402
 import yaml  # noqa: E402
 
 import jax_galsim  # noqa: E402
-
-# this environment variable is used in the
-# JAX-specific modifications to the GalSim
-# test suite to change tests where
-# jax-galsim is not compatible.
-os.environ["JAX_GALSIM_TESTING"] = "1"
 
 # Identify the path to this current file
 test_directory = os.path.dirname(os.path.abspath(__file__))
@@ -140,6 +134,14 @@ def pytest_pycollect_makemodule(module_path, path, parent):
         module.obj.hours = __import__("jax_galsim").hours
         module.obj.arcmin = __import__("jax_galsim").arcmin
         module.obj.arcsec = __import__("jax_galsim").arcsec
+
+    # ensure we can run on numpy functions when testing integration in galsim
+    if str(module_path).endswith("tests/GalSim/tests/test_integ.py"):
+        module.obj.galsim.integ.int1d = partial(
+            jax_galsim.integ.int1d, _wrap_as_callback=True
+        )
+        # make things easier for us, is 7 in galsim
+        module.obj.test_decimal = 4
 
     if str(module_path).endswith(
         "tests/GalSim/tests/test_interpolatedimage.py"

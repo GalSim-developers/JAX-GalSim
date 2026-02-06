@@ -69,8 +69,8 @@ class Sum(GSObject):
         self._params = {"obj_list": args}
 
     @property
+    @implements(_galsim.Sum.obj_list)
     def obj_list(self):
-        """The list of objects being added."""
         return self._params["obj_list"]
 
     @property
@@ -188,6 +188,7 @@ class Sum(GSObject):
     def _flux_per_photon(self):
         return self._calculate_flux_per_photon()
 
+    @implements(_galsim.Sum._shoot)
     def _shoot(self, photons, rng):
         tot_flux = self.positive_flux + self.negative_flux
         fluxes = jnp.array(

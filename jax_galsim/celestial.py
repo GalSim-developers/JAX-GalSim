@@ -1,3 +1,5 @@
+# original source license:
+#
 # Copyright (c) 2013-2017 LSST Dark Energy Science Collaboration (DESC)
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -71,26 +73,24 @@ class CelestialCoord(object):
             raise TypeError("ra must be a galsim.Angle")
         elif not isinstance(dec, Angle):
             raise TypeError("dec must be a galsim.Angle")
-        # elif dec/degrees > 90. or dec/degrees < -90.:
-        #     raise ValueError("dec must be between -90 deg and +90 deg.")
         else:
             # Normal case
             self._ra = ra
             self._dec = dec
 
     @property
+    @implements(_galsim.celestial.CelestialCoord.ra)
     def ra(self):
-        """A read-only attribute, giving the Right Ascension as an Angle"""
         return self._ra
 
     @property
+    @implements(_galsim.celestial.CelestialCoord.dec)
     def dec(self):
-        """A read-only attribute, giving the Declination as an Angle"""
         return self._dec
 
     @property
+    @implements(_galsim.celestial.CelestialCoord.rad)
     def rad(self):
-        """A convenience property, giving a tuple (ra.rad, dec.rad)"""
         return (self._ra.rad, self._dec.rad)
 
     @jax.jit
@@ -130,9 +130,6 @@ class CelestialCoord(object):
     )
     def from_xyz(x, y, z):
         norm = jnp.sqrt(x * x + y * y + z * z)
-        # JAX cannot check this condition
-        # if norm == 0.:
-        #     raise ValueError("CelestialCoord for position (0,0,0) is undefined.")
         ret = CelestialCoord.__new__(CelestialCoord)
         ret._x = x / norm
         ret._y = y / norm
@@ -930,6 +927,7 @@ class CelestialCoord(object):
         return _CelestialCoord(_Angle(gcoord.ra.rad), _Angle(gcoord.dec.rad))
 
 
+@implements(_coord._CelestialCoord)
 def _CelestialCoord(ra, dec):
     ret = CelestialCoord.__new__(CelestialCoord)
     ret._ra = ra

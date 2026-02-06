@@ -176,8 +176,8 @@ class GSFitsWCS(CelestialWCS):
     # shiftOrigin to get the current origin value.  We don't use it in this class, though, so
     # just make origin a dummy property that returns 0,0.
     @property
+    @implements(_galsim.GSFitsWCS.origin)
     def origin(self):
-        """The origin in image coordinates of the WCS function."""
         return PositionD(0.0, 0.0)
 
     def _read_header(self, header):
@@ -374,9 +374,9 @@ class GSFitsWCS(CelestialWCS):
             for j in range(order + 1)
         ]
         b = np.array(b).reshape((order + 1, order + 1))
-        a[
-            1, 0
-        ] += 1  # Standard A,B are a differential calculation.  It's more convenient to
+        a[1, 0] += (
+            1  # Standard A,B are a differential calculation.  It's more convenient to
+        )
         b[0, 1] += 1  # keep this as an absolute calculation like PV does.
         self.ab = np.array([a, b])
 
@@ -821,6 +821,7 @@ class GSFitsWCS(CelestialWCS):
     def _readHeader(header):
         return GSFitsWCS(header=header)
 
+    @implements(_galsim.GSFitsWCS.copy)
     def copy(self):
         # The copy module version of copying the dict works fine here.
         return copy.copy(self)
@@ -1008,6 +1009,30 @@ FitsWCS._opt_params = {"dir": str, "hdu": int, "compression": str, "text_file": 
 
 
 @jax.jit
+def _invert_ab_noraise_loop_body(
+    x, y, u, v, ab, dudxcoef, dudycoef, dvdxcoef, dvdycoef
+):
+    # Want Jac^-1 . du
+    # du
+    du = horner2d(x, y, ab[0], triangle=True) - u
+    dv = horner2d(x, y, ab[1], triangle=True) - v
+    # J
+    dudx = horner2d(x, y, dudxcoef, triangle=True)
+    dudy = horner2d(x, y, dudycoef, triangle=True)
+    dvdx = horner2d(x, y, dvdxcoef, triangle=True)
+    dvdy = horner2d(x, y, dvdycoef, triangle=True)
+    # J^-1 . du
+    det = dudx * dvdy - dudy * dvdx
+    dx = -(du * dvdy - dv * dudy) / det
+    dy = -(-du * dvdx + dv * dudx) / det
+
+    x += dx
+    y += dy
+
+    return x, y, dx, dy
+
+
+@jax.jit
 def _invert_ab_noraise(u, v, ab, abp=None):
     # get guess from abp if we have it
     if abp is None:
@@ -1066,6 +1091,7 @@ def _invert_ab_noraise(u, v, ab, abp=None):
             dvdxcoef,
             dvdycoef,
         ),
+        unroll=True,
     )[0:4]
 
     x, y = jax.lax.cond(

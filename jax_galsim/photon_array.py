@@ -277,10 +277,11 @@ class PhotonArray:
         self._set_self_at_inds(sinds)
 
     @property
+    @implements(
+        _galsim.photon_array.PhotonArray.x,
+        lax_description="JAX-GalSim PhotonArray properties do not support assignment at indices.",
+    )
     def x(self):
-        """The incidence x position in image coordinates (pixels), typically at the top of
-        the detector.
-        """
         return self._x
 
     @x.setter
@@ -288,10 +289,11 @@ class PhotonArray:
         self._x = self._x.at[:].set(value)
 
     @property
+    @implements(
+        _galsim.photon_array.PhotonArray.y,
+        lax_description="JAX-GalSim PhotonArray properties do not support assignment at indices.",
+    )
     def y(self):
-        """The incidence y position in image coordinates (pixels), typically at the top of
-        the detector.
-        """
         return self._y
 
     @y.setter
@@ -299,8 +301,11 @@ class PhotonArray:
         self._y = self._y.at[:].set(value)
 
     @property
+    @implements(
+        _galsim.photon_array.PhotonArray.flux,
+        lax_description="JAX-GalSim PhotonArray properties do not support assignment at indices.",
+    )
     def flux(self):
-        """The flux of the photons."""
         # we use jax.lax.cond to save some multiplications when
         # there are no masked photos.
         return jax.lax.cond(
@@ -322,8 +327,11 @@ class PhotonArray:
         )
 
     @property
+    @implements(
+        _galsim.photon_array.PhotonArray.dxdz,
+        lax_description="JAX-GalSim PhotonArray properties do not support assignment at indices.",
+    )
     def dxdz(self):
-        """The tangent of the inclination angles in the x direction: dx/dz."""
         return self._dxdz
 
     @dxdz.setter
@@ -332,8 +340,11 @@ class PhotonArray:
         self._dydz = _zero_if_needed_on_set(self._dxdz, self._dydz)
 
     @property
+    @implements(
+        _galsim.photon_array.PhotonArray.dydz,
+        lax_description="JAX-GalSim PhotonArray properties do not support assignment at indices.",
+    )
     def dydz(self):
-        """The tangent of the inclination angles in the y direction: dy/dz."""
         return self._dydz
 
     @dydz.setter
@@ -342,8 +353,11 @@ class PhotonArray:
         self._dxdz = _zero_if_needed_on_set(self._dydz, self._dxdz)
 
     @property
+    @implements(
+        _galsim.photon_array.PhotonArray.wavelength,
+        lax_description="JAX-GalSim PhotonArray properties do not support assignment at indices.",
+    )
     def wavelength(self):
-        """The wavelength of the photons (in nm)."""
         return self._wave
 
     @wavelength.setter
@@ -351,8 +365,11 @@ class PhotonArray:
         self._wave = self._wave.at[:].set(value)
 
     @property
+    @implements(
+        _galsim.photon_array.PhotonArray.pupil_u,
+        lax_description="JAX-GalSim PhotonArray properties do not support assignment at indices.",
+    )
     def pupil_u(self):
-        """Horizontal location of photon as it intersected the entrance pupil plane."""
         return self._pupil_u
 
     @pupil_u.setter
@@ -361,8 +378,11 @@ class PhotonArray:
         self._pupil_v = _zero_if_needed_on_set(self._pupil_u, self._pupil_v)
 
     @property
+    @implements(
+        _galsim.photon_array.PhotonArray.pupil_v,
+        lax_description="JAX-GalSim PhotonArray properties do not support assignment at indices.",
+    )
     def pupil_v(self):
-        """Vertical location of photon as it intersected the entrance pupil plane."""
         return self._pupil_v
 
     @pupil_v.setter
@@ -371,52 +391,63 @@ class PhotonArray:
         self._pupil_u = _zero_if_needed_on_set(self._pupil_v, self._pupil_u)
 
     @property
+    @implements(
+        _galsim.photon_array.PhotonArray.time,
+        lax_description="JAX-GalSim PhotonArray properties do not support assignment at indices.",
+    )
     def time(self):
-        """Time stamp of when photon encounters the pupil plane."""
         return self._time
 
     @time.setter
     def time(self, value):
         self._time = self._time.at[:].set(value)
 
+    @implements(_galsim.photon_array.PhotonArray.hasAllocatedAngles)
     def hasAllocatedAngles(self):
-        """Returns whether the arrays for the incidence angles `dxdz` and `dydz` have been
-        allocated.
-        """
         return jnp.any(jnp.isfinite(self.dxdz) | jnp.isfinite(self.dydz))
 
+    @implements(
+        _galsim.photon_array.PhotonArray.allocateAngles,
+        lax_description="This is a no-op for JAX-Galsim.",
+    )
     def allocateAngles(self):
-        """Allocate memory for the incidence angles, `dxdz` and `dydz`."""
         pass
 
+    @implements(_galsim.photon_array.PhotonArray.hasAllocatedWavelengths)
     def hasAllocatedWavelengths(self):
-        """Returns whether the `wavelength` array has been allocated."""
         return jnp.any(jnp.isfinite(self.wavelength))
 
+    @implements(
+        _galsim.photon_array.PhotonArray.allocateWavelengths,
+        lax_description="This is a no-op for JAX-Galsim.",
+    )
     def allocateWavelengths(self):
-        """Allocate the memory for the `wavelength` array."""
         pass
 
+    @implements(_galsim.photon_array.PhotonArray.hasAllocatedPupil)
     def hasAllocatedPupil(self):
-        """Returns whether the arrays for the pupil coordinates `pupil_u` and `pupil_v` have been
-        allocated.
-        """
         return jnp.any(jnp.isfinite(self.pupil_u) | jnp.isfinite(self.pupil_v))
 
+    @implements(
+        _galsim.photon_array.PhotonArray.allocatePupil,
+        lax_description="This is a no-op for JAX-Galsim.",
+    )
     def allocatePupil(self):
-        """Allocate the memory for the pupil coordinates, `pupil_u` and `pupil_v`."""
         pass
 
+    @implements(_galsim.photon_array.PhotonArray.hasAllocatedTimes)
     def hasAllocatedTimes(self):
-        """Returns whether the array for the time stamps `time` has been allocated."""
         return jnp.any(jnp.isfinite(self.time))
 
+    @implements(
+        _galsim.photon_array.PhotonArray.allocateTimes,
+        lax_description="This is a no-op for JAX-Galsim.",
+    )
     def allocateTimes(self):
-        """Allocate the memory for the time stamps, `time`."""
         return True
 
+    @implements(_galsim.photon_array.PhotonArray.isCorrelated)
     def isCorrelated(self):
-        """Returns whether the photons are correlated"""
         from .deprecated import depr
 
         depr(
@@ -428,8 +459,8 @@ class PhotonArray:
         )
         return self._is_corr
 
+    @implements(_galsim.photon_array.PhotonArray.setCorrelated)
     def setCorrelated(self, is_corr=True):
-        """Set whether the photons are correlated"""
         from .deprecated import depr
 
         depr(
@@ -441,36 +472,24 @@ class PhotonArray:
         )
         self._is_corr = jnp.array(is_corr, dtype=bool)
 
+    @implements(_galsim.photon_array.PhotonArray.getTotalFlux)
     def getTotalFlux(self):
-        """Return the total flux of all the photons."""
         return self.flux.sum()
 
+    @implements(_galsim.photon_array.PhotonArray.setTotalFlux)
     def setTotalFlux(self, flux):
-        """Rescale the photon fluxes to achieve the given total flux.
-
-        Parameter:
-            flux:       The target flux
-        """
         self.scaleFlux(flux / self.getTotalFlux())
 
         return self
 
+    @implements(_galsim.photon_array.PhotonArray.scaleFlux)
     def scaleFlux(self, scale):
-        """Rescale the photon fluxes by the given factor.
-
-        Parameter:
-            scale:      The factor by which to scale the fluxes.
-        """
         self._flux *= scale
 
         return self
 
+    @implements(_galsim.photon_array.PhotonArray.scaleXY)
     def scaleXY(self, scale):
-        """Scale the photon positions (`x` and `y`) by the given factor.
-
-        Parameter:
-            scale:      The factor by which to scale the positions.
-        """
         self._x *= scale
         self._y *= scale
 
@@ -541,6 +560,7 @@ class PhotonArray:
             rhs, target_indices, source_indices, do_xy, do_flux, do_other
         )
 
+    @implements(_galsim.photon_array.PhotonArray._copyFrom)
     def _copyFrom(
         self,
         rhs,
@@ -550,9 +570,6 @@ class PhotonArray:
         do_flux=True,
         do_other=True,
     ):
-        """Equivalent to self.copyFrom(rhs, target_indices, source_indices), but without any
-        checks that the indices are valid.
-        """
         # Aliases for notational convenience.
         s1 = target_indices
         s2 = source_indices
@@ -651,14 +668,8 @@ class PhotonArray:
 
         return self
 
+    @implements(_galsim.photon_array.PhotonArray.convolve)
     def convolve(self, rhs, rng=None):
-        """Convolve this `PhotonArray` with another.
-
-        ..note::
-
-            If both self and rhs have wavelengths, angles, pupil coordinates or times assigned,
-            then the values from the first array (i.e. self) take precedence.
-        """
         if rhs.size() != self.size():
             raise GalSimIncompatibleValuesError(
                 "PhotonArray.convolve with unequal size arrays", self_pa=self, rhs=rhs
@@ -857,23 +868,8 @@ class PhotonArray:
         return _flux_sum
 
     @classmethod
+    @implements(_galsim.photon_array.PhotonArray.makeFromImage)
     def makeFromImage(cls, image, max_flux=1.0, rng=None):
-        """Turn an existing `Image` into a `PhotonArray` that would accumulate into this image.
-
-        The flux in each non-zero pixel will be turned into 1 or more photons with random positions
-        within the pixel bounds.  The ``max_flux`` parameter (which defaults to 1) sets an upper
-        limit for the absolute value of the flux of any photon.  Pixels with abs values > maxFlux
-        will spawn multiple photons.
-
-        Parameters:
-            image:      The image to turn into a `PhotonArray`
-            max_flux:   The maximum flux value to use for any output photon [default: 1]
-            rng:        A `BaseDeviate` to use for the random number generation [default: None]
-
-        Returns:
-            a `PhotonArray`
-        """
-
         if max_flux <= 0:
             raise GalSimRangeError("max_flux must be positive", max_flux, 0.0)
 
@@ -899,22 +895,8 @@ class PhotonArray:
 
         return photons
 
+    @implements(_galsim.photon_array.PhotonArray.write)
     def write(self, file_name):
-        """Write a `PhotonArray` to a FITS file.
-
-        The output file will be a FITS binary table with a row for each photon in the `PhotonArray`.
-        Columns will include 'id' (sequential from 1 to nphotons), 'x', 'y', and 'flux'.
-        Additionally, the columns 'dxdz', 'dydz', and 'wavelength' will be included if they are
-        set for this `PhotonArray` object.
-
-        The file can be read back in with the classmethod `PhotonArray.read`::
-
-            >>> photons.write('photons.fits')
-            >>> photons2 = galsim.PhotonArray.read('photons.fits')
-
-        Parameters:
-            file_name:  The file name of the output FITS file.
-        """
         import numpy as np
 
         from jax_galsim import fits
@@ -961,18 +943,8 @@ class PhotonArray:
         fits.writeFile(file_name, table)
 
     @classmethod
+    @implements(_galsim.photon_array.PhotonArray.read)
     def read(cls, file_name):
-        """Create a `PhotonArray`, reading the photon data from a FITS file.
-
-        The file being read in is not arbitrary.  It is expected to be a file that was written
-        out with the `PhotonArray.write` method.::
-
-            >>> photons.write('photons.fits')
-            >>> photons2 = galsim.PhotonArray.read('photons.fits')
-
-        Parameters:
-            file_name:  The file name of the input FITS file.
-        """
         with pyfits.open(file_name) as fits:
             data = fits[1].data
         N = len(data)

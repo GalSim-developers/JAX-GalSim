@@ -167,8 +167,8 @@ def reducedfluxfractionFunc(z, nu, norm):
 
 
 @jax.jit
-def calculateFluxRadius(alpha, nu, zmin=0.0, zmax=30.0):
-    """Return radius R enclosing flux fraction alpha  in unit of the scale radius r0
+def calculateFluxRadius(alpha, nu, zmin=0.0, zmax=40.0):
+    """Return radius R enclosing flux fraction alpha in unit of the scale radius r0
 
     Method: Solve  F(R/r0=z)/Flux - alpha = 0 using bisection algorithm
 
@@ -186,8 +186,59 @@ def calculateFluxRadius(alpha, nu, zmin=0.0, zmax=30.0):
      nb. it is supposed that nu is in [-0.85, 4.0] checked in the Spergel class init
     """
     return bisect_for_root(
-        partial(fluxfractionFunc, nu=nu, alpha=alpha), zmin, zmax, niter=75
+        partial(fluxfractionFunc, nu=nu, alpha=alpha),
+        zmin,
+        zmax,
+        niter=75,
     )
+
+
+def _spergel_hlr_pade(x):
+    """A Pseudo-Pade approximation for the HLR of the Spergel profile as a function of nu.
+
+    See dev/notebooks/spergel_hlr_flux_radius_approx.ipynb for code to generate this routine.
+    """
+    # fmt: off
+    pm = 1.2571513771129166 + x * (
+        3.7059053890269102 + x * (
+            2.8577090425861944 + x * (
+                -0.30570486567039273 + x * (
+                    0.6589831675940833 + x * (
+                        3.375577680133867 + x * (
+                            2.8143565844741403 + x * (
+                                0.9292378858457211 + x * (
+                                    0.12096941981286179 + x * (
+                                        0.004206502758293099
+                                    )
+                                )
+                            )
+                        )
+                    )
+                )
+            )
+        )
+    )
+    qm = 1.0 + x * (
+        2.1939178810491837 + x * (
+            0.8281034080784796 + x * (
+                -0.5163329765186994 + x * (
+                    0.9164871490929886 + x * (
+                        1.8988551389326231 + x * (
+                            1.042688817291684 + x * (
+                                0.22580140592548198 + x * (
+                                    0.01681923980317362 + x * (
+                                        0.00018168506955933716
+                                    )
+                                )
+                            )
+                        )
+                    )
+                )
+            )
+        )
+    )
+    # fmt: on
+    return pm / qm
 
 
 @implements(
@@ -235,7 +286,7 @@ class Spergel(GSObject):
             else:
                 super().__init__(
                     nu=nu,
-                    scale_radius=half_light_radius / calculateFluxRadius(0.5, nu),
+                    scale_radius=half_light_radius / _spergel_hlr_pade(nu),
                     flux=flux,
                     gsparams=gsparams,
                 )
@@ -254,60 +305,60 @@ class Spergel(GSObject):
             )
 
     @property
+    @implements(_galsim.spergel.Spergel.nu)
     def nu(self):
-        """The Spergel index, nu"""
         return self._params["nu"]
 
     @property
+    @implements(_galsim.spergel.Spergel.scale_radius)
     def scale_radius(self):
-        """The scale radius of this `Spergel` profile."""
         return self.params["scale_radius"]
 
     @property
     def _r0(self):
         return self.scale_radius
 
-    @property
+    @lazy_property
     def _inv_r0(self):
         return 1.0 / self._r0
 
-    @property
+    @lazy_property
     def _r0_sq(self):
         return self._r0 * self._r0
 
-    @property
+    @lazy_property
     def _inv_r0_sq(self):
         return self._inv_r0 * self._inv_r0
 
-    @property
+    @lazy_property
+    @implements(_galsim.spergel.Spergel.half_light_radius)
     def half_light_radius(self):
-        """The half-light radius of this `Spergel` profile."""
-        return self._r0 * calculateFluxRadius(0.5, self.nu)
+        return self._r0 * _spergel_hlr_pade(self.nu)
 
-    @property
+    @lazy_property
     def _shootxnorm(self):
         """Normalization for photon shooting"""
         return 1.0 / (2.0 * jnp.pi * jnp.power(2.0, self.nu) * _gammap1(self.nu))
 
-    @property
+    @lazy_property
     def _xnorm(self):
         """Normalization of xValue"""
         return self._shootxnorm * self.flux * self._inv_r0_sq
 
-    @property
+    @lazy_property
     def _xnorm0(self):
         """return z^nu K_nu(z) for z=0"""
         return jax.lax.select(
             self.nu > 0, _gamma(self.nu) * jnp.power(2.0, self.nu - 1.0), jnp.inf
         )
 
+    @implements(_galsim.spergel.Spergel.calculateFluxRadius)
     def calculateFluxRadius(self, f):
-        """Return the radius within which the total flux is f"""
-        return calculateFluxRadius(f, self.nu)
+        return self._r0 * calculateFluxRadius(f, self.nu)
 
+    @implements(_galsim.spergel.Spergel.calculateIntegratedFlux)
     def calculateIntegratedFlux(self, r):
-        """Return the integrated flux out to a given radius, r (unit of scale radius)"""
-        return fluxfractionFunc(r, self.nu, 0.0)
+        return fluxfractionFunc(r / self._r0, self.nu, 0.0)
 
     def __hash__(self):
         return hash(
@@ -338,13 +389,13 @@ class Spergel(GSObject):
         s += ")"
         return s
 
-    @property
+    @lazy_property
     def _maxk(self):
         """(1+ (k r0)^2)^(-1-nu) = maxk_threshold"""
         res = jnp.power(self.gsparams.maxk_threshold, -1.0 / (1.0 + self.nu)) - 1.0
         return jnp.sqrt(res) / self._r0
 
-    @property
+    @lazy_property
     def _stepk(self):
         R = calculateFluxRadius(1.0 - self.gsparams.folding_threshold, self.nu)
         R *= self._r0
@@ -352,7 +403,7 @@ class Spergel(GSObject):
         R = jnp.maximum(R, self.gsparams.stepk_minimum_hlr * self.half_light_radius)
         return jnp.pi / R
 
-    @property
+    @lazy_property
     def _max_sb(self):
         # from SBSpergelImpl.h
         return jnp.abs(self._xnorm) * self._xnorm0

@@ -18,10 +18,9 @@ def test_api_same():
     jax_galsim_api = set(dir(jax_galsim))
     # the jax_galsim.core module is specific to jax_galsim
     jax_galsim_api.remove("core")
-    assert jax_galsim_api.issubset(
-        galsim_api
-    ), "jax_galsim API is not a subset of galsim API: %r" % (
-        jax_galsim_api - galsim_api
+    assert jax_galsim_api.issubset(galsim_api), (
+        "jax_galsim API is not a subset of galsim API: %r"
+        % (jax_galsim_api - galsim_api)
     )
 
 
@@ -84,7 +83,7 @@ def _attempt_init(cls, kwargs):
             return cls(
                 jax_galsim.ImageD(jnp.arange(100).reshape((10, 10))),
                 scale=1.3,
-                **kwargs
+                **kwargs,
             )
         except Exception as e:
             if any(estr in repr(e) for estr in OK_ERRORS):

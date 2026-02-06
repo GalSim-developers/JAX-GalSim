@@ -140,25 +140,17 @@ class Convolution(GSObject):
         self._params = {"obj_list": self._obj_list}
 
     @property
+    @implements(_galsim.Convolution.obj_list)
     def obj_list(self):
-        """The list of objects being convolved."""
         return self._obj_list
 
     @property
+    @implements(_galsim.Convolution.real_space)
     def real_space(self):
-        """Whether this `Convolution` should be drawn using real-space convolution rather
-        than FFT convolution.
-        """
         return self._real_space
 
+    @implements(_galsim.Convolution.withGSParams)
     def withGSParams(self, gsparams=None, **kwargs):
-        """Create a version of the current object with the given gsparams
-
-        .. note::
-
-            Unless you set ``propagate_gsparams=False``, this method will also update the gsparams
-            of each object being convolved.
-        """
         if gsparams == self.gsparams:
             return self
         from copy import copy
@@ -308,6 +300,7 @@ class Convolution(GSObject):
     def _drawReal(self, image, jac=None, offset=(0.0, 0.0), flux_scaling=1.0):
         raise NotImplementedError("Real-space convolutions are not implemented")
 
+    @implements(_galsim.Convolution._shoot)
     def _shoot(self, photons, rng):
         self.obj_list[0]._shoot(photons, rng)
         # It may be necessary to shuffle when convolving because we do not have a
@@ -350,10 +343,6 @@ class Convolution(GSObject):
     lax_description="Does not support ChromaticDeconvolution",
 )
 def Deconvolve(obj, gsparams=None, propagate_gsparams=True):
-    # from .chromatic import ChromaticDeconvolution
-    # if isinstance(obj, ChromaticObject):
-    #     return ChromaticDeconvolution(obj, gsparams=gsparams, propagate_gsparams=propagate_gsparams)
-    # elif isinstance(obj, GSObject):
     if isinstance(obj, GSObject):
         return Deconvolution(
             obj, gsparams=gsparams, propagate_gsparams=propagate_gsparams
@@ -391,8 +380,8 @@ class Deconvolution(GSObject):
         return 1.0 / self._min_acc_kvalue
 
     @property
+    @implements(_galsim.Deconvolution.orig_obj)
     def orig_obj(self):
-        """The original object that is being deconvolved."""
         return self._orig_obj
 
     @property
@@ -401,14 +390,8 @@ class Deconvolution(GSObject):
             galsim_warn("Unable to propagate noise in galsim.Deconvolution")
         return None
 
+    @implements(_galsim.Deconvolution.withGSParams)
     def withGSParams(self, gsparams=None, **kwargs):
-        """Create a version of the current object with the given gsparams
-
-        .. note::
-
-            Unless you set ``propagate_gsparams=False``, this method will also update the gsparams
-            of the wrapped component object.
-        """
         if gsparams == self.gsparams:
             return self
         from copy import copy
@@ -511,8 +494,9 @@ class Deconvolution(GSObject):
         kx, ky = image.get_pixel_centers()
         _jac = jnp.eye(2) if jac is None else jac
         # N.B. The jacobian is transposed in k space.  This is not a typo.
-        kx, ky = (_jac[0, 0] * kx + _jac[1, 0] * ky), (
-            _jac[0, 1] * kx + _jac[1, 1] * ky
+        kx, ky = (
+            (_jac[0, 0] * kx + _jac[1, 0] * ky),
+            (_jac[0, 1] * kx + _jac[1, 1] * ky),
         )
         ksq = (kx**2 + ky**2) * image.scale**2
         # Set to zero outside of nominal maxk so as not to amplify high frequencies.

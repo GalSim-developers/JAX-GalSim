@@ -15,7 +15,7 @@ from jax_galsim.core.utils import (
 class Position(object):
     def __init__(self):
         raise NotImplementedError(
-            "Cannot instantiate the base class.  " "Use either PositionD or PositionI."
+            "Cannot instantiate the base class.  Use either PositionD or PositionI."
         )
 
     def _parse_args(self, *args, **kwargs):
@@ -128,17 +128,8 @@ class Position(object):
             (self.__class__.__name__, ensure_hashable(self.x), ensure_hashable(self.y))
         )
 
+    @implements(_galsim.Position.shear)
     def shear(self, shear):
-        """Shear the position.
-
-        See the doc string of `galsim.Shear.getMatrix` for more details.
-
-        Parameters:
-            shear:    a `galsim.Shear` instance
-
-        Returns:
-            a `galsim.PositionD` instance.
-        """
         shear_mat = shear.getMatrix()
         shear_pos = jnp.dot(shear_mat, self._array)
         return PositionD(shear_pos[0], shear_pos[1])

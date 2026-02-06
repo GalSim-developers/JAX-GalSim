@@ -4,8 +4,7 @@ import jax.numpy as jnp
 from jax.tree_util import Partial as partial
 from jax.tree_util import register_pytree_node_class
 
-from jax_galsim.bessel import kv
-from jax_galsim.core.bessel import j0
+from jax_galsim.bessel import j0, kv
 from jax_galsim.core.draw import draw_by_kValue, draw_by_xValue
 from jax_galsim.core.integrate import ClenshawCurtisQuad, quad_integral
 from jax_galsim.core.utils import bisect_for_root, ensure_hashable, implements
@@ -38,7 +37,15 @@ def _hankel(k, beta, rmax):
 
 
 @jax.jit
-def _MoffatCalculateSRFromHLR(re, rm, beta):
+def _bodymi(xcur, rm, re, beta):
+    x = (1 + jnp.power(1 + (rm / xcur) ** 2, 1 - beta)) / 2
+    x = jnp.power(x, 1 / (1 - beta))
+    x = jnp.sqrt(x - 1)
+    return re / x
+
+
+@partial(jax.jit, static_argnames=("nitr",))
+def _MoffatCalculateSRFromHLR(re, rm, beta, nitr=100):
     """
     The basic equation that is relevant here is the flux of a Moffat profile
     out to some radius.
@@ -62,9 +69,7 @@ def _MoffatCalculateSRFromHLR(re, rm, beta):
         x = jnp.sqrt(x - 1)
         return re / x
 
-    rd = jax.lax.fori_loop(0, 1000, body, re)
-
-    return rd
+    return jax.lax.fori_loop(0, 100, body, re, unroll=True)
 
 
 @implements(_galsim.Moffat)
@@ -145,18 +150,18 @@ class Moffat(GSObject):
             )
 
     @property
+    @implements(_galsim.moffat.Moffat.beta)
     def beta(self):
-        """The beta parameter of this `Moffat` profile."""
         return self._params["beta"]
 
     @property
+    @implements(_galsim.moffat.Moffat.trunc)
     def trunc(self):
-        """The truncation radius (if any) of this `Moffat` profile."""
         return self._params["trunc"]
 
     @property
+    @implements(_galsim.moffat.Moffat.scale_radius)
     def scale_radius(self):
-        """The scale radius of this `Moffat` profile."""
         return self.params["scale_radius"]
 
     @property
@@ -204,15 +209,15 @@ class Moffat(GSObject):
         )
 
     @property
+    @implements(_galsim.moffat.Moffat.half_light_radius)
     def half_light_radius(self):
-        """The half-light radius of this `Moffat` profile."""
         return self._r0 * jnp.sqrt(
             jnp.power(1.0 - 0.5 * self._fluxFactor, 1.0 / (1.0 - self.beta)) - 1.0
         )
 
     @property
+    @implements(_galsim.moffat.Moffat.fwhm)
     def fwhm(self):
-        """The FWHM of this `Moffat` profle."""
         return self._r0 * (2.0 * jnp.sqrt(2.0 ** (1.0 / self.beta) - 1.0))
 
     @property

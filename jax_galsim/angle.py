@@ -1,3 +1,5 @@
+# original source license:
+#
 # Copyright (c) 2013-2017 LSST Dark Energy Science Collaboration (DESC)
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -30,16 +32,13 @@ class AngleUnit(object):
     valid_names = ["rad", "deg", "hr", "hour", "arcmin", "arcsec"]
 
     def __init__(self, value):
-        """
-        :param value:   The measure of the unit in radians.
-        """
         if isinstance(value, AngleUnit):
             raise TypeError("Cannot construct AngleUnit from another AngleUnit")
         self._value = cast_to_float(value)
 
     @property
+    @implements(_galsim.AngleUnit.value)
     def value(self):
-        """A read-only attribute giving the measure of the AngleUnit in radians."""
         return self._value
 
     def __rmul__(self, theta):
@@ -146,23 +145,23 @@ class Angle(object):
             self._rad = cast_to_float(theta) * unit.value
 
     @property
+    @implements(_galsim.Angle.rad)
     def rad(self):
-        """Return the Angle in radians.
-
-        Equivalent to angle / coord.radians
-        """
         return self._rad
 
     @property
+    @implements(_galsim.Angle.deg)
     def deg(self):
-        """Return the Angle in degrees.
-
-        Equivalent to angle / coord.degrees
-        """
         return self / degrees
 
     def __neg__(self):
         return _Angle(-self._rad)
+
+    def __pos__(self):
+        return self
+
+    def __abs__(self):
+        return _Angle(jnp.abs(self._rad))
 
     def __add__(self, other):
         if not isinstance(other, Angle):
@@ -179,8 +178,6 @@ class Angle(object):
         return _Angle(self._rad - other._rad)
 
     def __mul__(self, other):
-        # if other != float(other):
-        #     raise TypeError("Cannot multiply Angle by %s of type %s" % (other, type(other)))
         return _Angle(self._rad * other)
 
     __rmul__ = __mul__
@@ -188,12 +185,8 @@ class Angle(object):
     def __div__(self, other):
         if isinstance(other, AngleUnit):
             return self._rad / other.value
-        elif other == float(other):
-            return _Angle(self._rad / other)
         else:
-            raise TypeError(
-                "Cannot divide Angle by %s of type %s" % (other, type(other))
-            )
+            return _Angle(self._rad / other)
 
     __truediv__ = __div__
 
@@ -207,20 +200,20 @@ class Angle(object):
         )  # How many full cycles to subtract
         return _Angle(self._rad - offset * 2.0 * jnp.pi)
 
+    @implements(_galsim.Angle.sin)
     def sin(self):
-        """Return the sin of an Angle."""
         return jnp.sin(self._rad)
 
+    @implements(_galsim.Angle.cos)
     def cos(self):
-        """Return the cos of an Angle."""
         return jnp.cos(self._rad)
 
+    @implements(_galsim.Angle.tan)
     def tan(self):
-        """Return the tan of an Angle."""
         return jnp.tan(self._rad)
 
+    @implements(_galsim.Angle.sincos)
     def sincos(self):
-        """Return both the sin and cos of an Angle as a numpy array [sint, cost]."""
         sin = jnp.sin(self._rad)
         cos = jnp.cos(self._rad)
         return sin, cos
