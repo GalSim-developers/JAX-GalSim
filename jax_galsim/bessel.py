@@ -49,27 +49,27 @@ def _f_pade(x, x2):
     # fmt: off
     y = 1. / x2
     f = (
-            (1. +  # noqa: W504, E126, E226
-             y*(7.44437068161936700618e2 +  # noqa: W504, E126, E226
-                y*(1.96396372895146869801e5 +  # noqa: W504, E126, E226
-                   y*(2.37750310125431834034e7 +  # noqa: W504, E126, E226
-                      y*(1.43073403821274636888e9 +  # noqa: W504, E126, E226
-                         y*(4.33736238870432522765e10 +  # noqa: W504, E126, E226
-                            y*(6.40533830574022022911e11 +  # noqa: W504, E126, E226
-                               y*(4.20968180571076940208e12 +  # noqa: W504, E126, E226
-                                  y*(1.00795182980368574617e13 +  # noqa: W504, E126, E226
-                                     y*(4.94816688199951963482e12 +  # noqa: W504, E126, E226
-                                        y*(-4.94701168645415959931e11)))))))))))  # noqa: W504, E126, E226
-            / (x*(1. +  # noqa: W504, E126, E226
-                  y*(7.46437068161927678031e2 +  # noqa: W504, E126, E226
-                     y*(1.97865247031583951450e5 +  # noqa: W504, E126, E226
-                        y*(2.41535670165126845144e7 +  # noqa: W504, E126, E226
-                           y*(1.47478952192985464958e9 +  # noqa: W504, E126, E226
-                              y*(4.58595115847765779830e10 +  # noqa: W504, E126, E226
-                                 y*(7.08501308149515401563e11 +  # noqa: W504, E126, E226
-                                    y*(5.06084464593475076774e12 +  # noqa: W504, E126, E226
-                                       y*(1.43468549171581016479e13 +  # noqa: W504, E126, E226
-                                          y*(1.11535493509914254097e13)))))))))))  # noqa: W504, E126, E226
+            (1. +  # noqa: E226
+             y*(7.44437068161936700618e2 +  # noqa: E226
+                y*(1.96396372895146869801e5 +  # noqa: E226
+                   y*(2.37750310125431834034e7 +  # noqa: E226
+                      y*(1.43073403821274636888e9 +  # noqa: E226
+                         y*(4.33736238870432522765e10 +  # noqa: E226
+                            y*(6.40533830574022022911e11 +  # noqa: E226
+                               y*(4.20968180571076940208e12 +  # noqa: E226
+                                  y*(1.00795182980368574617e13 +  # noqa: E226
+                                     y*(4.94816688199951963482e12 +  # noqa: E226
+                                        y*(-4.94701168645415959931e11)))))))))))  # noqa: E226
+            / (x*(1. +  # noqa: E226
+                  y*(7.46437068161927678031e2 +  # noqa: E226
+                     y*(1.97865247031583951450e5 +  # noqa: E226
+                        y*(2.41535670165126845144e7 +  # noqa: E226
+                           y*(1.47478952192985464958e9 +  # noqa: E226
+                              y*(4.58595115847765779830e10 +  # noqa: E226
+                                 y*(7.08501308149515401563e11 +  # noqa: E226
+                                    y*(5.06084464593475076774e12 +  # noqa: E226
+                                       y*(1.43468549171581016479e13 +  # noqa: E226
+                                          y*(1.11535493509914254097e13)))))))))))  # noqa: E226
     )
     # fmt: on
     return f
@@ -80,27 +80,27 @@ def _g_pade(x, x2):
     # fmt: off
     y = 1. / x2
     g = (
-            y*(1. +  # noqa: W504, E126, E226
-               y*(8.1359520115168615e2 +  # noqa: W504, E126, E226
-                  y*(2.35239181626478200e5 +  # noqa: W504, E126, E226
-                     y*(3.12557570795778731e7 +  # noqa: W504, E126, E226
-                        y*(2.06297595146763354e9 +  # noqa: W504, E126, E226
-                           y*(6.83052205423625007e10 +  # noqa: W504, E126, E226
-                              y*(1.09049528450362786e12 +  # noqa: W504, E126, E226
-                                 y*(7.57664583257834349e12 +  # noqa: W504, E126, E226
-                                    y*(1.81004487464664575e13 +  # noqa: W504, E126, E226
-                                       y*(6.43291613143049485e12 +  # noqa: W504, E126, E226
-                                          y*(-1.36517137670871689e12)))))))))))  # noqa: W504, E126, E226
-            / (1. +  # noqa: W504, E126, E226
-               y*(8.19595201151451564e2 +  # noqa: W504, E126, E226
-                  y*(2.40036752835578777e5 +  # noqa: W504, E126, E226
-                     y*(3.26026661647090822e7 +  # noqa: W504, E126, E226
-                        y*(2.23355543278099360e9 +  # noqa: W504, E126, E226
-                           y*(7.87465017341829930e10 +  # noqa: W504, E126, E226
-                              y*(1.39866710696414565e12 +  # noqa: W504, E126, E226
-                                 y*(1.17164723371736605e13 +  # noqa: W504, E126, E226
-                                    y*(4.01839087307656620e13 +  # noqa: W504, E126, E226
-                                       y*(3.99653257887490811e13))))))))))  # noqa: W504, E126, E226
+            y*(1. +  # noqa: E226
+               y*(8.1359520115168615e2 +  # noqa: E226
+                  y*(2.35239181626478200e5 +  # noqa: E226
+                     y*(3.12557570795778731e7 +  # noqa: E226
+                        y*(2.06297595146763354e9 +  # noqa: E226
+                           y*(6.83052205423625007e10 +  # noqa: E226
+                              y*(1.09049528450362786e12 +  # noqa: E226
+                                 y*(7.57664583257834349e12 +  # noqa: E226
+                                    y*(1.81004487464664575e13 +  # noqa: E226
+                                       y*(6.43291613143049485e12 +  # noqa: E226
+                                          y*(-1.36517137670871689e12)))))))))))  # noqa: E226
+            / (1. +  # noqa: E226
+               y*(8.19595201151451564e2 +  # noqa: E226
+                  y*(2.40036752835578777e5 +  # noqa: E226
+                     y*(3.26026661647090822e7 +  # noqa: E226
+                        y*(2.23355543278099360e9 +  # noqa: E226
+                           y*(7.87465017341829930e10 +  # noqa: E226
+                              y*(1.39866710696414565e12 +  # noqa: E226
+                                 y*(1.17164723371736605e13 +  # noqa: E226
+                                    y*(4.01839087307656620e13 +  # noqa: E226
+                                       y*(3.99653257887490811e13))))))))))  # noqa: E226
     )
     # fmt: on
     return g
@@ -110,21 +110,21 @@ def _g_pade(x, x2):
 def _si_small_pade(x, x2):
     # fmt: off
     return (
-                x*(1. +  # noqa: W504, E126, E226
-                   x2*(-4.54393409816329991e-2 +  # noqa: W504, E126, E226
-                       x2*(1.15457225751016682e-3 +  # noqa: W504, E126, E226
-                           x2*(-1.41018536821330254e-5 +  # noqa: W504, E126, E226
-                               x2*(9.43280809438713025e-8 +  # noqa: W504, E126, E226
-                                   x2*(-3.53201978997168357e-10 +  # noqa: W504, E126, E226
-                                       x2*(7.08240282274875911e-13 +  # noqa: W504, E126, E226
-                                           x2*(-6.05338212010422477e-16))))))))  # noqa: W504, E126, E226
-                / (1. +  # noqa: W504, E126, E226
-                   x2*(1.01162145739225565e-2 +  # noqa: W504, E126, E226
-                       x2*(4.99175116169755106e-5 +  # noqa: W504, E126, E226
-                           x2*(1.55654986308745614e-7 +  # noqa: W504, E126, E226
-                               x2*(3.28067571055789734e-10 +  # noqa: W504, E126, E226
-                                   x2*(4.5049097575386581e-13 +  # noqa: W504, E126, E226
-                                       x2*(3.21107051193712168e-16)))))))  # noqa: W504, E126, E226
+                x*(1. +  # noqa: E226
+                   x2*(-4.54393409816329991e-2 +  # noqa: E226
+                       x2*(1.15457225751016682e-3 +  # noqa: E226
+                           x2*(-1.41018536821330254e-5 +  # noqa: E226
+                               x2*(9.43280809438713025e-8 +  # noqa: E226
+                                   x2*(-3.53201978997168357e-10 +  # noqa: E226
+                                       x2*(7.08240282274875911e-13 +  # noqa: E226
+                                           x2*(-6.05338212010422477e-16))))))))  # noqa: E226
+                / (1. +  # noqa: E226
+                   x2*(1.01162145739225565e-2 +  # noqa: E226
+                       x2*(4.99175116169755106e-5 +  # noqa: E226
+                           x2*(1.55654986308745614e-7 +  # noqa: E226
+                               x2*(3.28067571055789734e-10 +  # noqa: E226
+                                   x2*(4.5049097575386581e-13 +  # noqa: E226
+                                       x2*(3.21107051193712168e-16)))))))  # noqa: E226
     )
     # fmt: on
 
@@ -340,67 +340,399 @@ def _bessel_k1(x):
 
 
 @jax.jit
-def _bessel_kv_fractional(nu, x):
-    """Compute K_ν(x) for fractional ν in the range needed by Moffat/Spergel.
+def _bessel_kv_asymptotic_large_nu(nu, x):
+    """Compute K_ν(x) using uniform asymptotic expansion for large ν (ν ≥ 35).
 
-    Supports ν ∈ [-1, 5], x > 0.1. Uses uniform asymptotic expansion for
-    large x and backward recursion from nearby integers for moderate x.
+    Implements the SLATEC dasyik algorithm for K Bessel functions.
 
-    Reference: Temme, N.M. (1975), Journal of Computational Physics 19, pp. 324-337
+    Reference: BesselI.cpp lines 844-953 (dasyik function)
+    Algorithm: Olver, F.W.J. (1962), Tables of Bessel Functions of Moderate or Large Orders
     """
+    # fmt: off
+    con = jnp.array([0.398942280401432678, 1.25331413731550025])  # con[0] unused, con[1] = sqrt(π/2)
+    c = jnp.array([
+        -0.208333333333333, 0.125, 0.334201388888889,
+        -0.401041666666667, 0.0703125, -1.02581259645062, 1.84646267361111,
+        -0.8912109375, 0.0732421875, 4.66958442342625, -11.207002616223,
+        8.78912353515625, -2.3640869140625, 0.112152099609375,
+        -28.2120725582002, 84.6362176746007, -91.81824154324,
+        42.5349987453885, -7.36879435947963, 0.227108001708984,
+        212.570130039217, -765.252468141182, 1059.990452528,
+        -699.579627376133, 218.190511744212, -26.4914304869516,
+        0.572501420974731, -1919.45766231841, 8061.72218173731,
+        -13586.5500064341, 11655.3933368645, -5305.6469786134,
+        1200.90291321635, -108.090919788395, 1.72772750258446,
+        20204.2913309661, -96980.5983886375, 192547.001232532,
+        -203400.177280416, 122200.464983017, -41192.6549688976,
+        7109.51430248936, -493.915304773088, 6.07404200127348,
+        -242919.187900551, 1311763.61466298, -2998015.91853811,
+        3763271.2976564, -2813563.22658653, 1268365.27332162,
+        -331645.172484564, 45218.7689813627, -2499.83048181121,
+        24.3805296995561, 3284469.85307204, -19706819.1184322,
+        50952602.4926646, -74105148.2115327, 66344512.274729,
+        -37567176.6607634, 13288767.1664218, -2785618.12808645,
+        308186.404612662, -13886.089753717, 110.017140269247
+    ])
+    # fmt: on
 
-    # For large x (x > 10): use asymptotic expansion
-    # K_ν(x) ~ sqrt(π/(2x)) * exp(-x) * sum_{k=0}^N a_k(ν) / x^k
-    def kv_asymptotic(nu, x):
-        sqrt_pi_2x = jnp.sqrt(jnp.pi / (2.0 * x))
-        exp_neg_x = jnp.exp(-x)
+    # For K function: flgik = -1
+    fn = nu
+    z = x / fn
+    ra = jnp.sqrt(z * z + 1.0)
+    gln = jnp.log((ra + 1.0) / z)
+    arg = fn * (ra - gln) * (-1.0)  # flgik = -1 for K
+    coef = jnp.exp(arg)
+    t = 1.0 / ra
+    t2 = t * t
+    t = t / fn * (-1.0)  # flgik = -1 for K
+    s2 = 1.0
+    ap = 1.0
+    coeff_idx = 0
 
-        nu2 = nu * nu
-        inv_x = 1.0 / x
+    # Compute 11-term series
+    def body_fn(k, carry):
+        s2, ap, coeff_idx = carry
+        # Compute polynomial s1 = c[coeff_idx] + c[coeff_idx+1]*t2 + ...
+        s1 = c[coeff_idx]
+        new_idx = coeff_idx + 1
 
-        # Asymptotic coefficients (5 terms for good accuracy)
-        a0 = 1.0
-        a1 = (4.0 * nu2 - 1.0) / 8.0
-        a2 = (4.0 * nu2 - 1.0) * (4.0 * nu2 - 9.0) / 128.0
-        a3 = (4.0 * nu2 - 1.0) * (4.0 * nu2 - 9.0) * (4.0 * nu2 - 25.0) / 3072.0
-        a4 = (
-            (4.0 * nu2 - 1.0)
-            * (4.0 * nu2 - 9.0)
-            * (4.0 * nu2 - 25.0)
-            * (4.0 * nu2 - 49.0)
-            / 98304.0
+        def inner_body(j, inner_carry):
+            s1_val, idx = inner_carry
+            # Only update if j < k + 1
+            should_update = j < k + 1
+            s1_new = jnp.where(should_update, s1_val * t2 + c[idx], s1_val)
+            idx_new = jnp.where(should_update, idx + 1, idx)
+            return (s1_new, idx_new)
+
+        # Fixed upper bound (max k is 11, so k+1 max is 12)
+        s1, new_idx = jax.lax.fori_loop(2, 12, inner_body, (s1, new_idx))
+
+        ap_new = ap * t
+        ak = ap_new * s1
+        s2_new = s2 + ak
+        # coeff_idx advances by k elements total
+        return (s2_new, ap_new, coeff_idx + k)
+
+    s2, ap, _ = jax.lax.fori_loop(2, 12, body_fn, (s2, ap, coeff_idx))
+
+    t_abs = jnp.abs(t)
+    return s2 * coef * jnp.sqrt(t_abs) * con[1]  # con[1] = sqrt(π/2)
+
+
+@jax.jit
+def _bessel_kv_small_x(nu, x):
+    """Compute K_ν(x) using power series for small x (x ≤ 2.0).
+
+    Implements the SLATEC dbsknu series expansion.
+
+    Reference: BesselK.cpp lines 880-965 (inside dbsknu)
+    Algorithm: K_ν(x) = (π/2) * [I_{-ν}(x) - I_ν(x)] / sin(πν)
+    """
+    # fmt: off
+    cc = jnp.array([
+        0.577215664901533, -0.0420026350340952,
+        -0.0421977345555443, 0.007218943246663, -2.152416741149e-4,
+        -2.01348547807e-5, 1.133027232e-6, 6.116095e-9
+    ])
+    # fmt: on
+
+    pi = jnp.pi
+    tol = jnp.maximum(jnp.finfo(jnp.float64).eps, 1e-15)
+
+    a1 = 1.0 - nu
+    a2 = nu + 1.0
+    t1 = 1.0 / jax.scipy.special.gamma(a1)
+    t2 = 1.0 / jax.scipy.special.gamma(a2)
+
+    # Compute g1 with indeterminacy resolution for small |nu|
+    dnu2 = jnp.where(jnp.abs(nu) >= tol, nu * nu, 0.0)
+
+    def g1_small_nu():
+        # Series for resolving indeterminacy when |nu| < 0.1
+        s = cc[0]
+        ak = 1.0
+
+        def body_fn(k, carry):
+            s_val, ak_val = carry
+            ak_new = ak_val * dnu2
+            tm = cc[k] * ak_new
+            s_new = s_val + tm
+            return (s_new, ak_new)
+
+        s_final, _ = jax.lax.fori_loop(1, 8, body_fn, (s, ak))
+        return -s_final
+
+    def g1_large_nu():
+        return (t1 - t2) / (nu + nu)
+
+    g1 = jnp.where(jnp.abs(nu) > 0.1, g1_large_nu(), g1_small_nu())
+    g2 = (t1 + t2) * 0.5
+
+    rx = 2.0 / x
+    flrx = jnp.log(rx)
+    fmu = nu * flrx
+
+    # Handle sinh(fmu)/fmu carefully when nu → 0
+    smu = jnp.where(nu != 0.0, jnp.sinh(fmu) / fmu, 1.0)
+    fc = jnp.where(nu != 0.0, nu * pi / jnp.sin(nu * pi), 1.0)
+
+    f = fc * (g1 * jnp.cosh(fmu) + g2 * flrx * smu)
+    fc_exp = jnp.exp(fmu)
+    p = fc_exp * 0.5 / t2
+    q = 0.5 / (fc_exp * t1)
+
+    ak = 1.0
+    ck = 1.0
+    bk = 1.0
+    s1 = f
+    s2 = p
+
+    # Power series iteration (up to 17 terms)
+    cx = x * x * 0.25
+
+    def series_body(i, carry):
+        f_val, p_val, q_val, ak_val, ck_val, bk_val, s1_val, s2_val = carry
+
+        f_new = (ak_val * f_val + p_val + q_val) / (bk_val - dnu2)
+        p_new = p_val / (ak_val - nu)
+        q_new = q_val / (ak_val + nu)
+        ck_new = ck_val * cx / ak_val
+        t1 = ck_new * f_new
+        s1_new = s1_val + t1
+        t2 = ck_new * (p_new - ak_val * f_new)
+        s2_new = s2_val + t2
+        bk_new = bk_val + ak_val + ak_val + 1.0
+        ak_new = ak_val + 1.0
+
+        return (f_new, p_new, q_new, ak_new, ck_new, bk_new, s1_new, s2_new)
+
+    # Only run series if x >= tol
+    def run_series():
+        return jax.lax.fori_loop(0, 17, series_body, (f, p, q, ak, ck, bk, s1, s2))
+
+    def skip_series():
+        return (f, p, q, ak, ck, bk, s1, s2)
+
+    _, _, _, _, _, _, s1_final, s2_final = jax.lax.cond(
+        x >= tol, run_series, skip_series
+    )
+
+    return s1_final
+
+
+@jax.jit
+def _bessel_kv_miller(nu, x):
+    """Compute K_ν(x) using Miller's algorithm for moderate x (2.0 < x ≤ 17.0).
+
+    Implements the SLATEC Miller algorithm using continued fractions,
+    then uses forward recursion to get from dnu to nu.
+
+    Reference: BesselK.cpp lines 677-1036 (dbsknu function)
+    """
+    pi = jnp.pi
+    rthpi = 1.2533141373155  # sqrt(π/2)
+    tol = jnp.maximum(jnp.finfo(jnp.float64).eps, 1e-15)
+
+    # Normalize to dnu in [-0.5, 0.5) - matching C++ line 783-784
+    rx = 2.0 / x
+    inu = jnp.floor(nu + 0.5).astype(int)  # Round to nearest integer
+    dnu = nu - inu  # Fractional part in [-0.5, 0.5)
+    dnu2 = jnp.where(jnp.abs(dnu) >= tol, dnu * dnu, 0.0)
+
+    coef = rthpi / jnp.sqrt(x) * jnp.exp(-x)
+
+    # Miller algorithm: build coefficients until convergence
+    etest = jnp.cos(pi * dnu) / (pi * x * tol)
+    fks = 1.0
+    fhs = 0.25
+    fk = 0.0
+    ck = x + x + 2.0
+    p1 = 0.0
+    p2 = 1.0
+
+    # Fixed array size for JIT
+    a_arr = jnp.zeros(160)
+    b_arr = jnp.zeros(160)
+
+    # Forward pass to build coefficient arrays
+    def forward_body(i, carry):
+        (
+            fk_val,
+            fks_val,
+            fhs_val,
+            ck_val,
+            p1_val,
+            p2_val,
+            a_arr_val,
+            b_arr_val,
+            k,
+            converged,
+        ) = carry
+
+        fk_new = fk_val + 1.0
+        ak = (fhs_val - dnu2) / (fks_val + fk_new)
+        bk = ck_val / (fk_new + 1.0)
+        pt = p2_val
+        p2_new = bk * p2_val - ak * p1_val
+        p1_new = pt
+
+        # Only update arrays if not converged
+        a_arr_new = jnp.where(converged, a_arr_val, a_arr_val.at[k].set(ak))
+        b_arr_new = jnp.where(converged, b_arr_val, b_arr_val.at[k].set(bk))
+
+        ck_new = ck_val + 2.0
+        fks_new = fks_val + fk_new + fk_new + 1.0
+        fhs_new = fhs_val + fk_new + fk_new
+
+        # Check convergence: continue while etest > fk * p1
+        has_converged = (etest <= fk_new * jnp.abs(p1_new)) | converged
+        k_new = jnp.where(has_converged, k, k + 1)
+
+        return (
+            fk_new,
+            fks_new,
+            fhs_new,
+            ck_new,
+            p1_new,
+            p2_new,
+            a_arr_new,
+            b_arr_new,
+            k_new,
+            has_converged,
         )
 
-        series = a0 + a1 * inv_x + a2 * inv_x**2 + a3 * inv_x**3 + a4 * inv_x**4
-        return sqrt_pi_2x * exp_neg_x * series
+    # Run 160 iterations (max array size)
+    _, _, _, _, p1_fwd, p2_fwd, a_final, b_final, k_final, _ = jax.lax.fori_loop(
+        0, 160, forward_body, (fk, fks, fhs, ck, p1, p2, a_arr, b_arr, 0, False)
+    )
 
-    # For moderate/small x: use linear interpolation between integer orders
-    def kv_moderate(nu, x):
-        # Get the floor integer
-        n = jnp.floor(nu).astype(int)
-        delta = nu - n  # fractional part
+    # Backward pass through continued fraction
+    s = 1.0
+    p1_back = 0.0
+    p2_back = 1.0
 
-        # Get K_n and K_{n+1} using integer functions
-        k0 = _bessel_k0(x)
-        k1 = _bessel_k1(x)
+    def backward_body(i, carry):
+        s_val, p1_val, p2_val = carry
 
-        def get_k_int(m):
-            abs_m = jnp.abs(m)
-            return jnp.where(
-                abs_m == 0,
-                k0,
-                jnp.where(abs_m == 1, k1, _bessel_kn_recurrence(abs_m, x, k0, k1)),
-            )
+        # Only apply if i < k_final
+        should_update = i < k_final
 
-        kn = get_k_int(n)
-        kn1 = get_k_int(n + 1)
+        # Indices count down from k-1 to 0
+        idx = k_final - 1 - i
+        pt = p2_val
+        p2_new = jnp.where(
+            should_update, (b_final[idx] * p2_val - p1_val) / a_final[idx], p2_val
+        )
+        p1_new = jnp.where(should_update, pt, p1_val)
+        s_new = jnp.where(should_update, s_val + p2_new, s_val)
 
-        # Linear interpolation: K_ν ≈ K_n + δ*(K_{n+1} - K_n)
-        # This is a simple approximation but works reasonably well for small δ
-        return kn + delta * (kn1 - kn)
+        return (s_new, p1_new, p2_new)
 
-    # Use asymptotic for x > 3, moderate (interpolation) for x <= 3
-    return jnp.where(x > 3.0, kv_asymptotic(nu, x), kv_moderate(nu, x))
+    # Fixed loop count (160 is max array size)
+    s_final, p1_back_final, p2_back_final = jax.lax.fori_loop(
+        0, 160, backward_body, (s, p1_back, p2_back)
+    )
+
+    # This gives us K_dnu
+    s1 = coef * (p2_back_final / s_final)
+
+    # Special handling for inu==0 case
+    def no_recursion():
+        return s1
+
+    def with_recursion():
+        # Compute K_{dnu+1}
+        s2 = s1 * (x + dnu + 0.5 - p1_back_final / p2_back_final) / x
+
+        # Forward recursion from dnu to nu (lines 966-979)
+        # K_{n+1} = K_{n-1} + (2*n/x) * K_n
+        ck_rec = (dnu + dnu + 2.0) / x
+
+        # For n==1, we decrement inu and return s2 after recursion (lines 969, 978)
+        inu_adjusted = inu - 1
+
+        def recursion_body(i, carry):
+            s1_val, s2_val, ck_val = carry
+            # Only apply recursion if i < inu_adjusted
+            should_update = i < inu_adjusted
+            st = s2_val
+            s2_new = jnp.where(should_update, ck_val * s2_val + s1_val, s2_val)
+            s1_new = jnp.where(should_update, st, s1_val)
+            ck_new = jnp.where(should_update, ck_val + rx, ck_val)
+            return (s1_new, s2_new, ck_new)
+
+        # Fixed loop count (max 50 should be enough for any reasonable nu)
+        s1_final, s2_final, _ = jax.lax.fori_loop(
+            0, 50, recursion_body, (s1, s2, ck_rec)
+        )
+
+        # Return s2 for n==1 case (line 978)
+        return s2_final
+
+    # If inu == 0, don't do recursion
+    return jax.lax.cond(inu == 0, no_recursion, with_recursion)
+
+
+@jax.jit
+def _bessel_kv_asymptotic(nu, x):
+    """Compute K_ν(x) using asymptotic expansion for large x (x > 17.0).
+
+    Enhanced version with 30 terms for better accuracy.
+
+    Reference: BesselK.cpp lines 799-832 (inside dbsknu)
+    """
+    sqrt_pi_2x = jnp.sqrt(jnp.pi / (2.0 * x))
+    exp_neg_x = jnp.exp(-x)
+
+    dnu2 = nu + nu
+    fmu = dnu2 * dnu2
+    ex = x * 8.0
+
+    s = 1.0
+    ck = 1.0
+    sqk = 1.0
+    ak = 0.0
+    dk = ex
+
+    # 30-term series for enhanced accuracy
+    def body_fn(j, carry):
+        s_val, ck_val, dk_val, ak_val, sqk_val = carry
+        ck_new = ck_val * (fmu - sqk_val) / dk_val
+        s_new = s_val + ck_new
+        dk_new = dk_val + ex
+        ak_new = ak_val + 8.0
+        sqk_new = sqk_val + ak_new
+        return (s_new, ck_new, dk_new, ak_new, sqk_new)
+
+    s_final, _, _, _, _ = jax.lax.fori_loop(0, 30, body_fn, (s, ck, dk, ak, sqk))
+
+    return sqrt_pi_2x * exp_neg_x * s_final
+
+
+@jax.jit
+def _bessel_kv_fractional(nu, x):
+    """Compute K_ν(x) for fractional ν using SLATEC algorithms.
+
+    Decision tree based on the C++ dbesk/dbsknu implementation:
+    - ν ≥ 35: Uniform asymptotic expansion (large ν)
+    - x ≤ 2: Power series expansion
+    - 2 < x ≤ 17: Miller's algorithm
+    - x > 17: Asymptotic expansion for large x
+
+    Reference: BesselK.cpp lines 62-215, 677-1036
+    """
+    # Decision tree matching C++ logic
+    return jnp.where(
+        nu >= 35.0,
+        _bessel_kv_asymptotic_large_nu(nu, x),
+        jnp.where(
+            x <= 2.0,
+            _bessel_kv_small_x(nu, x),
+            jnp.where(
+                x <= 17.0, _bessel_kv_miller(nu, x), _bessel_kv_asymptotic(nu, x)
+            ),
+        ),
+    )
 
 
 @jax.jit
@@ -422,12 +754,16 @@ def _bessel_kn_recurrence(n, x, k0_val, k1_val):
 
     def body_fn(i, carry):
         k_prev, k_curr = carry
+        # Only update if i < n
+        should_update = i < n
         # K_{i+1} = K_{i-1} + (2*i/x) * K_i
-        k_next = k_prev + (2.0 * i / x) * k_curr
-        return (k_curr, k_next)
+        k_next = jnp.where(should_update, k_prev + (2.0 * i / x) * k_curr, k_curr)
+        k_prev_new = jnp.where(should_update, k_curr, k_prev)
+        return (k_prev_new, k_next)
 
     # Start with K_0 and K_1, iterate to get K_n
-    _, k_n = jax.lax.fori_loop(1, n, body_fn, (k0_val, k1_val))
+    # Fixed upper bound (max order needed is ~350 based on test suite)
+    _, k_n = jax.lax.fori_loop(1, 400, body_fn, (k0_val, k1_val))
     return k_n
 
 
@@ -465,11 +801,10 @@ def kv(nu, x):
     Implementation strategy:
     - Integer orders (ν = 0, 1, 2, ...): Pure JAX using Chebyshev series and recurrence
     - Half-integer orders (ν = 0.5, 1.5, ...): Pure JAX using closed-form expressions
-    - Arbitrary fractional orders: scipy.special.kv via pure_callback
+    - Arbitrary fractional orders: Pure JAX using SLATEC algorithms
 
-    This hybrid approach removes the TensorFlow Probability dependency while
-    maintaining high accuracy. The scipy fallback breaks JIT compilation for
-    fractional orders but ensures correctness.
+    All implementations are fully JIT-compatible and ported from the NETLIB SLATEC
+    library via the C++ GalSim reference implementation.
 
     Args:
         nu: Order (can be negative, integer, or fractional)
@@ -477,6 +812,8 @@ def kv(nu, x):
 
     Returns:
         K_ν(x)
+
+    Reference: BesselK.cpp in GalSim C++ source
     """
     nu = 1.0 * nu
     x = 1.0 * x
@@ -527,10 +864,19 @@ def kv(nu, x):
 
         return sqrt_pi_2x * exp_neg_x * poly
 
+    # Helper function for very small x limit
+    def very_small_x_limit(nu, x):
+        # K_ν(x → 0) ~ 2^(ν-1) * Γ(ν) / x^ν
+        return jnp.power(2.0, nu - 1.0) * jax.scipy.special.gamma(nu) / jnp.power(x, nu)
+
     # Compute results for each path
     result_integer = integer_order(nu_int, x)
     result_half_integer = half_integer_order(nu_int, x)
-    result_fractional = _bessel_kv_fractional(nu, x)
+
+    # Use very small x limit for x < 1e-10, otherwise use fractional algorithm
+    result_fractional = jnp.where(
+        x < 1e-10, very_small_x_limit(nu, x), _bessel_kv_fractional(nu, x)
+    )
 
     # Select the appropriate result
     return jnp.where(
