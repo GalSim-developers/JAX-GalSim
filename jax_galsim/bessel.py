@@ -225,9 +225,8 @@ def _bessel_k0(x):
     def k0_large(x):
         return jnp.exp(-x) * ((_dcsevl(16.0 / x - 1.0, ak02cs) + 1.25) / jnp.sqrt(x))
 
-    return jnp.where(
-        x <= 2.0, k0_small(x), jnp.where(x <= 8.0, k0_medium(x), k0_large(x))
-    )
+    idx = jnp.where(x <= 2.0, 0, jnp.where(x <= 8.0, 1, 2))
+    return jax.lax.switch(idx, [k0_small, k0_medium, k0_large], x)
 
 
 @jax.jit
@@ -316,9 +315,8 @@ def _bessel_k1(x):
     def k1_large(x):
         return jnp.exp(-x) * ((_dcsevl(16.0 / x - 1.0, ak12cs) + 1.25) / jnp.sqrt(x))
 
-    return jnp.where(
-        x <= 2.0, k1_small(x), jnp.where(x <= 8.0, k1_medium(x), k1_large(x))
-    )
+    idx = jnp.where(x <= 2.0, 0, jnp.where(x <= 8.0, 1, 2))
+    return jax.lax.switch(idx, [k1_small, k1_medium, k1_large], x)
 
 
 @jax.jit
@@ -655,16 +653,19 @@ def _bessel_kv_fractional(nu, x):
 
     Reference: BesselK.cpp lines 62-215, 677-1036
     """
-    return jnp.where(
-        nu >= 35.0,
-        _bessel_kv_asymptotic_large_nu(nu, x),
-        jnp.where(
-            x <= 2.0,
-            _bessel_kv_small_x(nu, x),
-            jnp.where(
-                x <= 17.0, _bessel_kv_miller(nu, x), _bessel_kv_asymptotic(nu, x)
-            ),
-        ),
+    branch_index = jnp.where(
+        nu >= 35.0, 0, jnp.where(x <= 2.0, 1, jnp.where(x <= 17.0, 2, 3))
+    )
+    return jax.lax.switch(
+        branch_index,
+        [
+            lambda nu, x: _bessel_kv_asymptotic_large_nu(nu, x),
+            lambda nu, x: _bessel_kv_small_x(nu, x),
+            lambda nu, x: _bessel_kv_miller(nu, x),
+            lambda nu, x: _bessel_kv_asymptotic(nu, x),
+        ],
+        nu,
+        x,
     )
 
 
@@ -674,6 +675,9 @@ def _bessel_kn_recurrence(n, x, k0_val, k1_val):
 
     Uses the recurrence relation:
         K_{n+1}(x) = K_{n-1}(x) + (2*n/x) * K_n(x)
+
+    For n <= 5, uses direct computation without a loop.
+    For n > 5, uses fori_loop with 399 iterations.
 
     Args:
         n: Integer order (n >= 2)
@@ -685,15 +689,27 @@ def _bessel_kn_recurrence(n, x, k0_val, k1_val):
         K_n(x)
     """
 
-    def body_fn(i, carry):
-        k_prev, k_curr = carry
-        should_update = i < n
-        k_next = jnp.where(should_update, k_prev + (2.0 * i / x) * k_curr, k_curr)
-        k_prev_new = jnp.where(should_update, k_curr, k_prev)
-        return (k_prev_new, k_next)
+    def small_n():
+        k2 = k0_val + (2.0 / x) * k1_val
+        k3 = k1_val + (4.0 / x) * k2
+        k4 = k2 + (6.0 / x) * k3
+        k5 = k3 + (8.0 / x) * k4
+        return jnp.select(
+            [n == 2, n == 3, n == 4, n == 5], [k2, k3, k4, k5], default=k5
+        )
 
-    _, k_n = jax.lax.fori_loop(1, 400, body_fn, (k0_val, k1_val))
-    return k_n
+    def large_n():
+        def body_fn(i, carry):
+            k_prev, k_curr = carry
+            should_update = i < n
+            k_next = jnp.where(should_update, k_prev + (2.0 * i / x) * k_curr, k_curr)
+            k_prev_new = jnp.where(should_update, k_curr, k_prev)
+            return (k_prev_new, k_next)
+
+        _, k_n = jax.lax.fori_loop(1, 400, body_fn, (k0_val, k1_val))
+        return k_n
+
+    return jax.lax.cond(n <= 5, small_n, large_n)
 
 
 @implements(_galsim.bessel.kn)
@@ -717,33 +733,23 @@ def kn(n, x):
     k0 = _bessel_k0(x)
     k1 = _bessel_k1(x)
 
-    return jnp.where(
-        n == 0, k0, jnp.where(n == 1, k1, _bessel_kn_recurrence(n, x, k0, k1))
+    idx = jnp.where(n == 0, 0, jnp.where(n == 1, 1, 2))
+    return jax.lax.switch(
+        idx,
+        [
+            lambda n, x, k0, k1: k0,
+            lambda n, x, k0, k1: k1,
+            lambda n, x, k0, k1: _bessel_kn_recurrence(n, x, k0, k1),
+        ],
+        n,
+        x,
+        k0,
+        k1,
     )
 
 
-@implements(_galsim.bessel.kv)
-@jax.jit
-def _kv_impl(nu, x):
-    """Modified Bessel function of the second kind K_ν(x) - internal implementation.
-
-    Implementation strategy:
-    - Integer orders (ν = 0, 1, 2, ...): Pure JAX using Chebyshev series and recurrence
-    - Half-integer orders (ν = 0.5, 1.5, ...): Pure JAX using closed-form expressions
-    - Arbitrary fractional orders: Pure JAX using SLATEC algorithms
-
-    All implementations are fully JIT-compatible and ported from the NETLIB SLATEC
-    library via the C++ GalSim reference implementation.
-
-    Args:
-        nu: Order (can be negative, integer, or fractional)
-        x: Argument (must be positive)
-
-    Returns:
-        K_ν(x)
-
-    Reference: BesselK.cpp in GalSim C++ source
-    """
+def _kv_scalar(nu, x):
+    """Scalar implementation of K_ν(x). Inputs must be scalar (0-d arrays)."""
     nu = 1.0 * nu  # promote to float
     x = 1.0 * x
 
@@ -787,17 +793,62 @@ def _kv_impl(nu, x):
     def very_small_x_limit(nu, x):
         return jnp.power(2.0, nu - 1.0) * jsp.gamma(nu) / jnp.power(x, nu)
 
-    result_integer = integer_order(nu_int, x)
-    result_half_integer = half_integer_order(nu_int, x)
-    result_fractional = jnp.where(
-        x < 1e-10, very_small_x_limit(nu, x), _bessel_kv_fractional(nu, x)
+    branch_index = jnp.where(is_integer, 0, jnp.where(is_half_integer, 1, 2))
+
+    def _branch_integer(nu, nu_int, x):
+        return integer_order(nu_int, x)
+
+    def _branch_half_integer(nu, nu_int, x):
+        return half_integer_order(nu_int, x)
+
+    def _branch_fractional(nu, nu_int, x):
+        return jnp.where(
+            x < 1e-10, very_small_x_limit(nu, x), _bessel_kv_fractional(nu, x)
+        )
+
+    return jax.lax.switch(
+        branch_index,
+        [_branch_integer, _branch_half_integer, _branch_fractional],
+        nu,
+        nu_int,
+        x,
     )
 
-    return jnp.where(
-        is_integer,
-        result_integer,
-        jnp.where(is_half_integer, result_half_integer, result_fractional),
-    )
+
+@implements(_galsim.bessel.kv)
+@jax.jit
+def _kv_impl(nu, x):
+    """Modified Bessel function of the second kind K_ν(x) - internal implementation.
+
+    Implementation strategy:
+    - Integer orders (ν = 0, 1, 2, ...): Pure JAX using Chebyshev series and recurrence
+    - Half-integer orders (ν = 0.5, 1.5, ...): Pure JAX using closed-form expressions
+    - Arbitrary fractional orders: Pure JAX using SLATEC algorithms
+
+    All implementations are fully JIT-compatible and ported from the NETLIB SLATEC
+    library via the C++ GalSim reference implementation.
+
+    Handles both scalar and array inputs. Internal algorithms are scalar;
+    array inputs are handled via jax.vmap.
+
+    Args:
+        nu: Order (can be negative, integer, or fractional)
+        x: Argument (must be positive)
+
+    Returns:
+        K_ν(x)
+
+    Reference: BesselK.cpp in GalSim C++ source
+    """
+    nu = jnp.asarray(1.0 * nu)
+    x = jnp.asarray(1.0 * x)
+    out_shape = jnp.broadcast_shapes(jnp.shape(nu), jnp.shape(x))
+    if out_shape == ():
+        return _kv_scalar(nu, x)
+    nu_bc, x_bc = jnp.broadcast_arrays(nu, x)
+    flat_nu = nu_bc.ravel()
+    flat_x = x_bc.ravel()
+    return jax.vmap(_kv_scalar)(flat_nu, flat_x).reshape(out_shape)
 
 
 @jax.custom_vjp
