@@ -24,6 +24,9 @@ jobs:
 
     steps:
       - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          submodules: recursive
 
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v6
@@ -40,7 +43,6 @@ jobs:
 
       - name: Test with pytest
         run: |
-          git submodule update --init --recursive
           pytest -vv --durations=100 --randomly-seed=42
 
   build-status:
