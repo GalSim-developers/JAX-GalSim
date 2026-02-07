@@ -1,7 +1,7 @@
 try:
     from ._version import version as __version__
 except ImportError:
-    __version__ = "unknown"
+    __version__ = "0.0.1rc1.dev0"
 
 # Exception and Warning classes
 from .errors import GalSimError, GalSimRangeError, GalSimValueError
