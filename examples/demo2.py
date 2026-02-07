@@ -18,7 +18,7 @@
 """
 Demo #2
 
-The second script in our tutorial about using GalSim in python scripts: examples/demo*.py.
+The second script in our tutorial about using JAX-GalSim in python scripts: examples/demo*.py.
 (This file is designed to be viewed in a window 100 characters wide.)
 
 This script is a bit more sophisticated, but still pretty basic.  We're still only making
@@ -29,19 +29,19 @@ variance in each pixel.
 
 New features introduced in this demo:
 
-- obj = galsim.Exponential(flux, scale_radius)
-- obj = galsim.Moffat(beta, flux, half_light_radius)
+- obj = jax_galsim.Exponential(flux, scale_radius)
+- obj = jax_galsim.Moffat(beta, flux, half_light_radius)
 - obj = obj.shear(g1, g2)  -- with explanation of other ways to specify shear
-- rng = galsim.BaseDeviate(seed)
-- noise = galsim.PoissonNoise(rng, sky_level)
-- galsim.hsm.EstimateShear(image, image_epsf)
+- rng = jax_galsim.BaseDeviate(seed)
+- noise = jax_galsim.PoissonNoise(rng, sky_level)
+- jax_galsim.hsm.EstimateShear(image, image_epsf)
 """
 
 import logging
 import os
 import sys
 
-import jax_galsim as galsim
+import jax_galsim
 
 
 def main(argv):
@@ -78,7 +78,7 @@ def main(argv):
     # objects or images.  If the user is likewise incrementing seed values for
     # multiple runs of a given config file, these can interfere leading to
     # surprising (and typically bad) results.
-    random_seed = galsim.BaseDeviate(random_seed).raw()
+    random_seed = jax_galsim.BaseDeviate(random_seed).raw()
 
     logger.info("Starting demo script 2 using:")
     logger.info(
@@ -95,10 +95,10 @@ def main(argv):
     # Initialize the (pseudo-)random number generator that we will be using below.
     # For a technical reason that will be explained later (demo9.py), we add 1 to the
     # given random seed here.
-    rng = galsim.BaseDeviate(random_seed + 1)
+    rng = jax_galsim.BaseDeviate(random_seed + 1)
 
     # Define the galaxy profile.
-    gal = galsim.Exponential(flux=gal_flux, scale_radius=gal_r0)
+    gal = jax_galsim.Exponential(flux=gal_flux, scale_radius=gal_r0)
 
     # Shear the galaxy by some value.
     # There are quite a few ways you can use to specify a shape.
@@ -113,11 +113,11 @@ def main(argv):
     logger.debug("Made galaxy profile")
 
     # Define the PSF profile.
-    psf = galsim.Moffat(beta=psf_beta, flux=1.0, half_light_radius=psf_re)
+    psf = jax_galsim.Moffat(beta=psf_beta, flux=1.0, half_light_radius=psf_re)
     logger.debug("Made PSF profile")
 
     # Final profile is the convolution of these.
-    final = galsim.Convolve([gal, psf])
+    final = jax_galsim.Convolve([gal, psf])
     logger.debug("Convolved components into final profile")
 
     # Draw the image with a particular pixel scale.
@@ -135,7 +135,7 @@ def main(argv):
     # One wrinkle here is that the PoissonNoise class needs the sky level in each pixel,
     # while we have a sky_level in counts per arcsec^2.  So we need to convert:
     sky_level_pixel = sky_level * pixel_scale**2
-    noise = galsim.PoissonNoise(rng, sky_level=sky_level_pixel)
+    noise = jax_galsim.PoissonNoise(rng, sky_level=sky_level_pixel)
     image.addNoise(noise)
     logger.debug("Added Poisson noise")
 
@@ -149,7 +149,7 @@ def main(argv):
     logger.info("Wrote image to %r", file_name)
     logger.info("Wrote effective PSF image to %r", file_name_epsf)
 
-    results = galsim.hsm.EstimateShear(image, image_epsf)
+    results = jax_galsim.hsm.EstimateShear(image, image_epsf)
 
     logger.info("HSM reports that the image has observed shape and size:")
     logger.info(
@@ -165,7 +165,7 @@ def main(argv):
     logger.info(
         "Expected values in the limit that noise and non-Gaussianity are negligible:"
     )
-    exp_shear = galsim.Shear(g1=g1, g2=g2)
+    exp_shear = jax_galsim.Shear(g1=g1, g2=g2)
     logger.info("    g1, g2 = %.3f, %.3f", exp_shear.e1, exp_shear.e2)
 
 

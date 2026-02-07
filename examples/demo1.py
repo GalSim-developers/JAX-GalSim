@@ -18,7 +18,7 @@
 """
 Demo #1
 
-This is the first script in our tutorial about using GalSim in python scripts: examples/demo*.py.
+This is the first script in our tutorial about using JAX-GalSim in python scripts: examples/demo*.py.
 (This file is designed to be viewed in a window 100 characters wide.)
 
 Each of these demo*.py files are designed to be equivalent to the corresponding demo*.yaml file
@@ -42,11 +42,11 @@ ways.  (demo*.py are python scripts, while demo*.yaml and demo*.json are configu
 
 New features introduced in this demo:
 
-- obj = galsim.Gaussian(flux, sigma)
-- obj = galsim.Convolve([list of objects])
+- obj = jax_galsim.Gaussian(flux, sigma)
+- obj = jax_galsim.Convolve([list of objects])
 - image = obj.drawImage(scale)
 - image.added_flux  (Only present after a drawImage command.)
-- noise = galsim.GaussianNoise(sigma)
+- noise = jax_galsim.GaussianNoise(sigma)
 - image.addNoise(noise)
 - image.write(file_name)
 - image.FindAdaptiveMom()
@@ -57,7 +57,7 @@ import math
 import os
 import sys
 
-import jax_galsim as galsim
+import jax_galsim
 
 
 def main(argv):
@@ -88,17 +88,17 @@ def main(argv):
     logger.info("    - Gaussian noise (sigma = %.2f).", noise)
 
     # Define the galaxy profile
-    gal = galsim.Gaussian(flux=gal_flux, sigma=gal_sigma)
+    gal = jax_galsim.Gaussian(flux=gal_flux, sigma=gal_sigma)
     logger.debug("Made galaxy profile")
 
     # Define the PSF profile
-    psf = galsim.Gaussian(flux=1.0, sigma=psf_sigma)  # PSF flux should always = 1
+    psf = jax_galsim.Gaussian(flux=1.0, sigma=psf_sigma)  # PSF flux should always = 1
     logger.debug("Made PSF profile")
 
     # Final profile is the convolution of these
     # Can include any number of things in the list, all of which are convolved
     # together to make the final flux profile.
-    final = galsim.Convolve([gal, psf])
+    final = jax_galsim.Convolve([gal, psf])
     logger.debug("Convolved components into final profile")
 
     # Draw the image with a particular pixel scale, given in arcsec/pixel.
@@ -113,7 +113,7 @@ def main(argv):
     )
 
     # Add Gaussian noise to the image with specified sigma
-    image.addNoise(galsim.GaussianNoise(sigma=noise))
+    image.addNoise(jax_galsim.GaussianNoise(sigma=noise))
     logger.debug("Added Gaussian noise")
 
     # Write the image to a file
