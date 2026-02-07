@@ -22,12 +22,7 @@ from jax_galsim.core.testing import time_code_block
         "nu",
         "scale_radius",
         "maxk",
-        pytest.param(
-            "stepk",
-            marks=pytest.mark.xfail(
-                reason="GalSim has a bug in its stepk routine. See https://github.com/GalSim-developers/GalSim/issues/1324"
-            ),
-        ),
+        "stepk",
         "half_light_radius",
     ],
 )

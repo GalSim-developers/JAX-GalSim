@@ -39,8 +39,6 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install pytest pytest-codspeed pytest-randomly
           python -m pip install .
-          # temp pin until 0.5 is on conda
-          python -m pip install "jax<0.5.0"
 
       - name: Test with pytest
         run: |

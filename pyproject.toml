@@ -16,7 +16,7 @@ license = {file = "LICENSE"}
 readme = "README.md"
 dependencies = [
     "numpy >=1.18.0",
-    "galsim >=2.3.0",
+    "galsim >=2.7.0",
     "jax >=0.8.0",
     "astropy >=2.0",
     "quadax",

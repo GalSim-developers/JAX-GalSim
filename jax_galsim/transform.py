@@ -1,5 +1,4 @@
 import galsim as _galsim
-import jax
 import jax.numpy as jnp
 from jax.tree_util import register_pytree_node_class
 
@@ -56,6 +55,9 @@ class Transformation(GSObject):
         if self._propagate_gsparams:
             obj = obj.withGSParams(self._gsparams)
 
+        if jac is None:
+            jac = jnp.array([1.0, 0.0, 0.0, 1.0])
+
         self._params = {
             "jac": jac,
             "offset": PositionD(offset),
@@ -97,13 +99,10 @@ class Transformation(GSObject):
     @property
     def _jac(self):
         jac = self._params["jac"]
-        jac = jax.lax.cond(
-            jac is not None,
-            lambda jac: jnp.broadcast_to(jnp.array(jac, dtype=float).ravel(), (4,)),
-            lambda jax: jnp.array([1.0, 0.0, 0.0, 1.0]),
-            jac,
-        )
-        return jnp.asarray(jac, dtype=float).reshape((2, 2))
+        return jnp.asarray(
+            jnp.broadcast_to(jnp.array(jac, dtype=float).ravel(), (4,)),
+            dtype=float,
+        ).reshape((2, 2))
 
     @property
     @implements(_galsim.transform.Transformation.original)
