@@ -40,7 +40,7 @@ def int1d(
         @jax.jit
         def _func(x):
             rdt = jax.ShapeDtypeStruct(x.shape, x.dtype)
-            return jax.pure_callback(func, rdt, x)
+            return jax.pure_callback(func, rdt, x, vmap_method="sequential")
     else:
         _func = func
 

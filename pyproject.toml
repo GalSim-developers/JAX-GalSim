@@ -1,6 +1,7 @@
 [build-system]
 requires = [
     "setuptools>=45",
+    "setuptools-scm>=8",
 ]
 build-backend = "setuptools.build_meta"
 
@@ -10,16 +11,15 @@ authors = [
     {name = "GalSim Developers"},
 ]
 description = "The modular galaxy image simulation toolkit, but in JAX"
-version = "0.0.1rc1"
+dynamic = ["version"]
 license = {file = "LICENSE"}
 readme = "README.md"
 dependencies = [
     "numpy >=1.18.0",
     "galsim >=2.3.0",
-    "jax <0.7.0",
-    "jaxlib",
+    "jax >=0.8.0",
     "astropy >=2.0",
-    "tensorflow-probability >=0.21.0",
+    "tfp-nightly",
     "quadax",
 ]
 
@@ -31,6 +31,10 @@ home = "https://github.com/GalSim-developers/JAX-GalSim"
 
 [tool.setuptools.packages.find]
 include = ["jax_galsim*"]
+
+[tool.setuptools-scm]
+write_to = "jax_galsim/_version.py"
+fallback_version = "0.0.1.dev0"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "W"]
