@@ -1,3 +1,8 @@
+try:
+    from ._version import version as __version__
+except ImportError:
+    __version__ = "0.0.1.dev0"
+
 # Exception and Warning classes
 from .errors import GalSimError, GalSimRangeError, GalSimValueError
 from .errors import GalSimKeyError, GalSimIndexError, GalSimNotImplementedError
