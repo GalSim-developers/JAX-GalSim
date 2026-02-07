@@ -57,6 +57,7 @@ class Transformation(GSObject):
 
         if jac is None:
             jac = (1.0, 0.0, 0.0, 1.0)
+
         self._params = {
             "jac": jac,
             "offset": PositionD(offset),
