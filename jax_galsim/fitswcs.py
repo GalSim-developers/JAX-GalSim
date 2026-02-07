@@ -835,27 +835,15 @@ class GSFitsWCS(CelestialWCS):
             and self.center == other.center
             and (
                 (self.pv is None and other.pv is None)
-                or (
-                    self.pv is not None
-                    and other.pv is not None
-                    and jnp.array_equal(self.pv, other.pv)
-                )
+                or jnp.array_equal(self.pv, other.pv)
             )
             and (
                 (self.ab is None and other.ab is None)
-                or (
-                    self.ab is not None
-                    and other.ab is not None
-                    and jnp.array_equal(self.ab, other.ab)
-                )
+                or jnp.array_equal(self.ab, other.ab)
             )
             and (
                 (self.abp is None and other.abp is None)
-                or (
-                    self.abp is not None
-                    and other.abp is not None
-                    and jnp.array_equal(self.abp, other.abp)
-                )
+                or jnp.array_equal(self.abp, other.abp)
             )
         )
 
