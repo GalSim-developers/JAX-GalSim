@@ -1,4 +1,5 @@
 import galsim as _galsim
+import jax.numpy as jnp
 import numpy as np
 
 from jax_galsim.bounds import BoundsI
@@ -516,12 +517,12 @@ def _convertMask(image, weight=None, badpix=None):
         # otherwise, we need to convert it to the right type
         else:
             mask = ImageI(bounds=image.bounds, init_value=0)
-            mask.array[weight.array > 0.0] = 1
+            mask._array = jnp.where(weight.array > 0.0, 1, mask._array)
 
     # if badpix image was supplied, identify the nonzero (bad) pixels and set them to zero in weight
     # image; also check bounds
     if badpix is not None:
-        mask.array[badpix.array != 0] = 0
+        mask._array = jnp.where(badpix.array != 0, 0, mask._array)
 
     # if no pixels are used, raise an exception
     if not np.any(mask.array):

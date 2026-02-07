@@ -31,13 +31,18 @@ class Bounds(_galsim.Bounds):
                 self._isdefined = False
                 self.xmin = self.xmax = self.ymin = self.ymax = 0
             elif len(args) == 1:
-                if isinstance(args[0], Bounds):
+                if isinstance(
+                    args[0], (Bounds, _galsim._galsim.BoundsD, _galsim._galsim.BoundsI)
+                ):
                     self._isdefined = True
                     self.xmin = args[0].xmin
                     self.xmax = args[0].xmax
                     self.ymin = args[0].ymin
                     self.ymax = args[0].ymax
-                elif isinstance(args[0], Position):
+                elif isinstance(
+                    args[0],
+                    (Position, _galsim._galsim.PositionD, _galsim._galsim.PositionI),
+                ):
                     self._isdefined = True
                     self.xmin = self.xmax = args[0].x
                     self.ymin = self.ymax = args[0].y
@@ -48,7 +53,13 @@ class Bounds(_galsim.Bounds):
                     )
                 self._isdefined = True
             elif len(args) == 2:
-                if isinstance(args[0], Position) and isinstance(args[1], Position):
+                if isinstance(
+                    args[0],
+                    (Position, _galsim._galsim.PositionD, _galsim._galsim.PositionI),
+                ) and isinstance(
+                    args[1],
+                    (Position, _galsim._galsim.PositionD, _galsim._galsim.PositionI),
+                ):
                     self._isdefined = True
                     self.xmin = min(args[0].x, args[1].x)
                     self.xmax = max(args[0].x, args[1].x)

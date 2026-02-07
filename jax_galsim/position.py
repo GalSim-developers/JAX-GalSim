@@ -25,7 +25,10 @@ class Position(object):
             elif len(args) == 0:
                 self.x = self.y = 0
             elif len(args) == 1:
-                if isinstance(args[0], (Position,)):
+                if isinstance(
+                    args[0],
+                    (Position, _galsim._galsim.PositionD, _galsim._galsim.PositionI),
+                ):
                     self.x = args[0].x
                     self.y = args[0].y
                 else:
