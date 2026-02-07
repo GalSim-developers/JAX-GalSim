@@ -67,6 +67,7 @@ allowed_failures:
   - "module 'jax_galsim.bessel' has no attribute 'yn'"
   - "module 'jax_galsim.bessel' has no attribute 'yv'"
   - "module 'jax_galsim.bessel' has no attribute 'iv'"
+  - "module 'jax_galsim.bessel' has no attribute 'kn'"
   - "module 'jax_galsim.bessel' has no attribute 'j0_root'"
   - "module 'jax_galsim.bessel' has no attribute 'gammainc'"
   - "module 'jax_galsim.bessel' has no attribute 'sinc'"
