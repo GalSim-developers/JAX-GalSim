@@ -321,8 +321,23 @@ def _bessel_k1(x):
 
 # =====================================================================
 # Modified Bessel K_v(x) for fractional order
-# Ported from TensorFlow Probability's bessel.py (Apache 2.0 License)
-# Uses Temme's method (|v| < 50) + Olver's uniform asymptotic (|v| >= 50)
+#
+# The functions below (_sqrt1px2, _evaluate_temme_coeffs,
+# _temme_series_kve, _continued_fraction_kve, _olver_kve, _temme_kve,
+# _kve_core) and the _ASYMPTOTIC_OLVER_COEFFICIENTS constant are
+# derived from TensorFlow Probability's bessel.py:
+#   https://github.com/tensorflow/probability
+#
+# Original copyright and license:
+#   Copyright 2020 The TensorFlow Probability Authors.
+#   Licensed under the Apache License, Version 2.0.
+#
+# Modifications from the original:
+#   - Ported from TensorFlow/TFP APIs to pure JAX (jax.numpy, jax.lax)
+#   - Removed I_v (bessel_ive) computation; only K_v is computed
+#   - Removed log-space output option
+#   - Removed negative-v correction for I_v
+#   - Simplified to scalar-only core (vectorization via jax.vmap)
 # =====================================================================
 
 # Olver expansion polynomial coefficients (10 terms, up to 31 coefficients each)
