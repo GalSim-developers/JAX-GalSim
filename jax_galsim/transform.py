@@ -56,7 +56,7 @@ class Transformation(GSObject):
             obj = obj.withGSParams(self._gsparams)
 
         if jac is None:
-            jac = (1.0, 0.0, 0.0, 1.0)
+            jac = jnp.array([1.0, 0.0, 0.0, 1.0])
 
         self._params = {
             "jac": jac,
