@@ -41,7 +41,7 @@ jobs:
       - name: Test with pytest
         run: |
           git submodule update --init --recursive
-          pytest -n auto -v --durations=100 --randomly-seed=42
+          pytest -n 3 -v --durations=100 --randomly-seed=42
 
   build-status:
     needs: build
