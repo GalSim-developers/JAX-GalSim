@@ -189,6 +189,15 @@ def pytest_pycollect_makemodule(module_path, path, parent):
 
         module.obj._convert_galsim_to_jax_galsim = _convert_galsim_to_jax_galsim
 
+    if str(module_path).endswith("tests/GalSim/tests/test_random.py"):
+        module.obj.uResult = (0.0303194914, 0.0910759047, 0.1208923360)
+        module.obj.gResult = (-1.3035798312, 0.4306917482, 0.9542795210)
+        module.obj.bResult = (7, 6, 7)
+        module.obj.pResult = (5, 8, 6)
+        module.obj.wResult = (3.7699892848, 5.0030654033, 5.3921485618)
+        module.obj.gammaResult = (0.7985896238, 22.0508132116, 33.1369864688)
+        module.obj.chi2Result = (19.2174896025, 47.3448788104, 55.8177548146)
+
     return module
 
 
