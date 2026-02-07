@@ -19,7 +19,6 @@ dependencies = [
     "galsim >=2.7.0",
     "jax >=0.8.0",
     "astropy >=2.0",
-    "tfp-nightly",
     "quadax",
 ]
 
