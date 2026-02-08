@@ -1117,14 +1117,26 @@ class Image(object):
     @classmethod
     def from_galsim(cls, galsim_image):
         """Create a `Image` from a `galsim.Image` instance."""
+        wcs = (
+            BaseWCS.from_galsim(galsim_image.wcs)
+            if galsim_image.wcs is not None
+            else None
+        )
         im = cls(
             array=galsim_image.array,
-            wcs=BaseWCS.from_galsim(galsim_image.wcs),
+            wcs=wcs,
             bounds=Bounds.from_galsim(galsim_image.bounds),
         )
         if hasattr(galsim_image, "header"):
             im.header = galsim_image.header
         return im
+
+    def to_galsim(self):
+        """Create a galsim `Image` from a `jax_galsim.Image` object."""
+        wcs = self.wcs.to_galsim() if self.wcs is not None else None
+        return _galsim.Image(
+            np.asarray(self.array), bounds=self.bounds.to_galsim(), wcs=wcs
+        )
 
 
 @implements(
