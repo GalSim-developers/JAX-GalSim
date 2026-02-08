@@ -1138,6 +1138,19 @@ class Image(object):
             np.asarray(self.array), bounds=self.bounds.to_galsim(), wcs=wcs
         )
 
+    @implements(
+        _galsim.Image.FindAdaptiveMom,
+        lax_description=(
+            "This method converts the current `jax_galsim.Image` to a native "
+            "`galsim.Image` and delegates the computation to "
+            "`galsim.hsm.FindAdaptiveMom`. The returned object is GalSim's "
+            "`ShapeData`."
+        ),
+    )
+    def FindAdaptiveMom(self, *args, **kwargs):
+        gs_image = self.to_galsim()
+        return gs_image.FindAdaptiveMom(*args, **kwargs)
+
 
 @implements(
     _galsim._Image,

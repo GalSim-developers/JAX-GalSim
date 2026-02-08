@@ -41,6 +41,8 @@ import logging
 import os
 import sys
 
+import galsim
+
 import jax_galsim
 
 
@@ -149,7 +151,7 @@ def main(argv):
     logger.info("Wrote image to %r", file_name)
     logger.info("Wrote effective PSF image to %r", file_name_epsf)
 
-    results = jax_galsim.hsm.EstimateShear(image, image_epsf)
+    results = galsim.hsm.EstimateShear(image.to_galsim(), image_epsf.to_galsim())
 
     logger.info("HSM reports that the image has observed shape and size:")
     logger.info(
