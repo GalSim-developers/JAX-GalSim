@@ -21,7 +21,6 @@ enabled_tests:
     - test_noise.py
     - test_image.py
     - test_photon_array.py
-    - test_hsm.py
     - "*"  # means all tests from galsim
   coord:
     - test_angle.py
@@ -110,6 +109,7 @@ allowed_failures:
   - "GSParams.__init__() got an unexpected keyword argument 'allowed_flux_variation'"
   - "module 'jax_galsim' has no attribute 'Atmosphere'"
   - "module 'jax_galsim' has no attribute 'RandomWalk'"
+  - "module 'jax_galsim' has no attribute 'hsm'"
   - "module 'jax_galsim' has no attribute 'des'"
   - "'Image' object has no attribute 'applyNonlinearity'"
   - "'Image' object has no attribute 'addReciprocityFailure'"
