@@ -24,7 +24,7 @@ import jax.numpy as jnp
 import numpy as np
 from jax.tree_util import register_pytree_node_class
 
-from jax_galsim.core.utils import ensure_hashable, implements, is_equal_with_arrays
+from jax_galsim.core.utils import ensure_hashable, implements
 from jax_galsim.errors import (
     GalSimError,
     GalSimIncompatibleValuesError,
@@ -101,7 +101,9 @@ class SED:
             )
 
         self.redshift = redshift
-        self.fast = True  # Always fast in JAX-GalSim
+        self.fast = (
+            True  # Always fast in JAX-GalSim (fast param accepted for API compat)
+        )
 
         # Convert string/file/number input into a callable/LookupTable
         self._orig_spec = spec
@@ -203,9 +205,7 @@ class SED:
         """Build the fast spec that returns photons/nm/cm^2/s (spectral) or
         dimensionless value, given wavelength in nm in the rest frame."""
         if self._const:
-            self._fast_spec = float(
-                self._spec if isinstance(self._spec, (int, float)) else self._spec
-            )
+            self._fast_spec = float(self._spec)
             return
 
         if self.wave_factor == 1.0 and self.flux_factor == 1.0:
@@ -284,12 +284,7 @@ class SED:
         self._check_bounds(wave)
 
         if self._const:
-            val = (
-                self._fast_spec
-                if isinstance(self._fast_spec, (int, float))
-                else self._fast_spec
-            )
-            return jnp.full_like(wave, val, dtype=float)
+            return jnp.full_like(wave, self._fast_spec, dtype=float)
 
         rest_wave = wave / (1.0 + self.redshift)
         if isinstance(self._fast_spec, LookupTable):
@@ -325,11 +320,11 @@ class SED:
         if bandpass is None:
             from .bandpass import Bandpass
 
-            bandpass = Bandpass(lambda w: 1.0, "nm", blue_limit=0.0, red_limit=1e30)
-
-        from . import utilities
+            bandpass = Bandpass(lambda _: 1.0, "nm", blue_limit=0.0, red_limit=1e30)
 
         if len(bandpass.wave_list) > 0 or len(self.wave_list) > 0:
+            from . import utilities
+
             slop = 1e-6
             if (
                 self.blue_limit > bandpass.blue_limit + slop
@@ -345,7 +340,7 @@ class SED:
             wmin = max(self.blue_limit, bandpass.blue_limit)
             wmax = min(self.red_limit, bandpass.red_limit)
 
-            if self.fast and isinstance(self._fast_spec, LookupTable):
+            if isinstance(self._fast_spec, LookupTable):
                 wf = 1.0 / (1.0 + self.redshift) / bandpass.wave_factor
                 ff = 1.0 / bandpass.wave_factor
                 _wmin = wmin * bandpass.wave_factor
@@ -355,13 +350,15 @@ class SED:
                     * ff
                 )
             else:
-                w, _, _ = utilities.combine_wave_list(self, bandpass)
+                wave, _, _ = utilities.combine_wave_list(self, bandpass)
                 interpolant = (
                     bandpass._tp.interpolant
                     if hasattr(bandpass._tp, "interpolant")
                     else "linear"
                 )
-                return _LookupTable(w, bandpass(w), interpolant).integrate_product(self)
+                return _LookupTable(
+                    wave, bandpass(wave), interpolant
+                ).integrate_product(self)
         else:
             from jax_galsim.integ import int1d
 
@@ -491,8 +488,7 @@ class SED:
                 interpolant=self._spec.interpolant,
             )
         elif self._const and not spectral:
-            val = self._spec if isinstance(self._spec, (int, float)) else self._spec
-            spec = float(val) * other
+            spec = float(self._spec) * other
             wave_type = "nm"
             flux_type = "1"
         else:
@@ -520,15 +516,13 @@ class SED:
                     other=other,
                 )
             if other._const:
-                val = (
-                    other._spec
-                    if isinstance(other._spec, (int, float))
-                    else other._spec
+                return self._mul_scalar(
+                    float(other._spec), self.spectral or other.spectral
                 )
-                return self._mul_scalar(float(val), self.spectral or other.spectral)
             elif self._const:
-                val = self._spec if isinstance(self._spec, (int, float)) else self._spec
-                return other._mul_scalar(float(val), self.spectral or other.spectral)
+                return other._mul_scalar(
+                    float(self._spec), self.spectral or other.spectral
+                )
             else:
                 return self._mul_sed(other)
 
@@ -670,7 +664,7 @@ class SED:
     def __eq__(self, other):
         return self is other or (
             isinstance(other, SED)
-            and is_equal_with_arrays(self._orig_spec, other._orig_spec)
+            and self._orig_spec == other._orig_spec
             and self.fast == other.fast
             and self.wave_type == other.wave_type
             and self.flux_type == other.flux_type

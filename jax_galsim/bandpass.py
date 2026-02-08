@@ -59,23 +59,10 @@ class Bandpass:
         self.zeropoint = zeropoint
         self.interpolant = interpolant
 
-        # Parse wave_type
-        if isinstance(wave_type, str):
-            if wave_type.lower() in ("nm", "nanometer", "nanometers"):
-                self.wave_type = "nm"
-                self.wave_factor = 1.0
-            elif wave_type.lower() in ("a", "ang", "angstrom", "angstroms"):
-                self.wave_type = "Angstrom"
-                self.wave_factor = 10.0
-            else:
-                raise GalSimValueError(
-                    "Invalid wave_type.", wave_type, ("nm", "Angstrom")
-                )
-        else:
-            raise GalSimValueError(
-                "Only string wave_type values are supported in jax_galsim.Bandpass",
-                wave_type,
-            )
+        # Parse wave_type (reuse SED's parser for consistency)
+        from .sed import SED
+
+        self.wave_type, self.wave_factor = SED._parse_wave_type(wave_type)
 
         self.blue_limit = blue_limit
         self.red_limit = red_limit
@@ -158,33 +145,20 @@ class Bandpass:
 
     def __call__(self, wave):
         wave = jnp.asarray(wave, dtype=float)
-        if wave.shape == ():
-            in_range = (wave >= self.blue_limit) & (wave <= self.red_limit)
-            if isinstance(self._tp, LookupTable):
-                val = self._tp(wave * self.wave_factor)
-            elif callable(self._tp):
-                val = self._tp(jnp.asarray(wave * self.wave_factor, dtype=float))
-            else:
-                val = self._tp
-            return jnp.where(in_range, val, 0.0)
+        in_range = (wave >= self.blue_limit) & (wave <= self.red_limit)
+        wave_native = wave * self.wave_factor
+
+        if isinstance(self._tp, LookupTable):
+            # Clip to avoid out-of-range errors; out-of-range values
+            # are zeroed out by the jnp.where below.
+            clipped = jnp.clip(wave_native, self._tp.x_min, self._tp.x_max)
+            vals = self._tp(clipped)
+        elif callable(self._tp):
+            vals = jnp.asarray(self._tp(wave_native), dtype=float)
         else:
-            in_range = (wave >= self.blue_limit) & (wave <= self.red_limit)
-            if isinstance(self._tp, LookupTable):
-                # Clip to avoid out-of-range errors, then zero out
-                clipped = jnp.clip(
-                    wave * self.wave_factor,
-                    self._tp.x_min,
-                    self._tp.x_max,
-                )
-                vals = self._tp(clipped)
-            elif callable(self._tp):
-                vals = jnp.asarray(
-                    self._tp(jnp.asarray(wave * self.wave_factor, dtype=float)),
-                    dtype=float,
-                )
-            else:
-                vals = jnp.full_like(wave, float(self._tp))
-            return jnp.where(in_range, vals, 0.0)
+            vals = jnp.full_like(wave, float(self._tp))
+
+        return jnp.where(in_range, vals, 0.0)
 
     @property
     def effective_wavelength(self):
@@ -220,16 +194,14 @@ class Bandpass:
         return self._effective_wavelength
 
     def withZeropoint(self, zeropoint):
+        from .sed import SED
+
         if isinstance(zeropoint, str):
             if zeropoint.upper() == "AB":
                 AB_source = 3631e-23  # 3631 Jy in units of erg/s/Hz/cm^2
-                from .sed import SED
-
                 sed = SED(lambda wave: AB_source, wave_type="nm", flux_type="fnu")
             elif zeropoint.upper() == "ST":
                 ST_flambda = 3.63e-8  # erg/s/cm^2/nm
-                from .sed import SED
-
                 sed = SED(lambda wave: ST_flambda, wave_type="nm", flux_type="flambda")
             else:
                 raise GalSimValueError(
@@ -238,8 +210,6 @@ class Bandpass:
                     ("AB", "ST"),
                 )
             zeropoint = sed
-
-        from .sed import SED
 
         if isinstance(zeropoint, SED):
             flux = zeropoint.calculateFlux(self)

@@ -186,30 +186,11 @@ class SimpleChromaticTransformation(ChromaticObject):
         return self._flux_ratio * self._original.flux
 
     @property
-    def wave_list(self):
-        return self.sed.wave_list
-
-    @property
     def gsparams(self):
         return self._gsparams
 
-    @property
-    def spectral(self):
-        return self.sed.spectral
-
-    @property
-    def dimensionless(self):
-        return self.sed.dimensionless
-
     def evaluateAtWavelength(self, wave):
         return self._original.withFlux(self.sed(wave))
-
-    def drawImage(self, bandpass, image=None, integrator="quadratic", **kwargs):
-        if self.sed.dimensionless:
-            raise GalSimSEDError(
-                "Can only draw ChromaticObjects with spectral SEDs.", self.sed
-            )
-        return ChromaticObject.drawImage(self, bandpass, image, integrator, **kwargs)
 
     def __eq__(self, other):
         return self is other or (
