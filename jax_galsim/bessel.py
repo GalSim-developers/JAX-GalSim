@@ -207,7 +207,7 @@ _ASYMPTOTIC_OLVER_COEFFICIENTS = [
 
 def _sqrt1px2(x):
     """Numerically stable sqrt(1 + x^2)."""
-    eps = _const(x, jnp.finfo(jnp.float64).eps)
+    eps = _const(x, jnp.finfo(x.dtype).eps)
     return jnp.where(
         jnp.abs(x) * jnp.sqrt(eps) <= _const(x, 1.0),
         jnp.exp(_const(x, 0.5) * jnp.log1p(x * x)),
@@ -259,7 +259,7 @@ def _temme_series_kve(v, z):
     Uses fori_loop with fixed 15 iterations (empirically, max needed is 12
     for f64 across the valid domain).
     """
-    tol = _const(z, jnp.finfo(jnp.float64).eps)
+    tol = _const(z, jnp.finfo(z.dtype).eps)
 
     coeff1, coeff2, gamma1pv_inv, gamma1mv_inv = _evaluate_temme_coeffs(v)
 
@@ -324,7 +324,7 @@ def _continued_fraction_kve(v, z):
     Uses fori_loop with fixed 80 iterations (empirically, max needed is 77
     for f64 at z~2).
     """
-    tol = _const(z, jnp.finfo(jnp.float64).eps)
+    tol = _const(z, jnp.finfo(z.dtype).eps)
 
     initial_numerator = v * v - _const(v, 0.25)
     initial_denominator = _const(z, 2.0) * (z + _const(z, 1.0))
