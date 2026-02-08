@@ -391,6 +391,15 @@ class Angle(object):
         ret._rad = children[0]
         return ret
 
+    @staticmethod
+    def from_galsim(gs_angle):
+        """Create a jax_galsim `Angle` from a `galsim.Angle` object."""
+        return _Angle(gs_angle._rad)
+
+    def to_galsim(self):
+        """Create a galsim `Angle` from a `jax_galsim.Angle` object."""
+        return _galsim.angle._Angle(float(self._rad))
+
 
 @implements(_galsim._Angle)
 def _Angle(theta):
