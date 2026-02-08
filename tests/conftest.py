@@ -19,7 +19,7 @@ import jax_galsim  # noqa: E402
 test_directory = os.path.dirname(os.path.abspath(__file__))
 
 # make the output directory for the test output
-os.makedirs(os.path.join("..", "output"), exist_ok=True)
+os.makedirs("output", exist_ok=True)
 
 # Loading which tests to run
 with open(os.path.join(test_directory, "galsim_tests_config.yaml"), "r") as f:
