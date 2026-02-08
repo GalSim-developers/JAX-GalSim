@@ -42,4 +42,4 @@ jobs:
         with:
           token: ${{ secrets.CODSPEED_TOKEN }}
           run: pytest -vvs --codspeed
-          mode: instrumentation
+          mode: simulation
