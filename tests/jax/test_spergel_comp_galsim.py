@@ -113,7 +113,7 @@ def _run_time_test(kind, func):
 
 
 @pytest.mark.parametrize("kind", ["compile", "run"])
-def test_spergel_comp_galsim_perf_conv(benchmark, kind):
+def test_spergel_comp_galsim_perf_conv(kind):
     dt = _run_time_test(kind, lambda: _run_spergel_bench_conv_jit().block_until_ready())
     print(f"\njax-galsim time: {dt:0.4g} ms")
 
@@ -125,7 +125,7 @@ def test_spergel_comp_galsim_perf_conv(benchmark, kind):
 
 
 @pytest.mark.parametrize("kind", ["compile", "run"])
-def test_spergel_comp_galsim_perf_kvalue(benchmark, kind):
+def test_spergel_comp_galsim_perf_kvalue(kind):
     dt = _run_time_test(
         kind, lambda: _run_spergel_bench_kvalue_jit().block_until_ready()
     )
@@ -139,7 +139,7 @@ def test_spergel_comp_galsim_perf_kvalue(benchmark, kind):
 
 
 @pytest.mark.parametrize("kind", ["compile", "run"])
-def test_spergel_comp_galsim_perf_xvalue(benchmark, kind):
+def test_spergel_comp_galsim_perf_xvalue(kind):
     dt = _run_time_test(
         kind, lambda: _run_spergel_bench_xvalue_jit().block_until_ready()
     )
