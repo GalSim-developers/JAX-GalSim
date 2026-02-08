@@ -924,7 +924,14 @@ class CelestialCoord(object):
 
     @staticmethod
     def from_galsim(gcoord):
+        """Create a jax_galsim `CelestialCoord` from a `galsim.CelestialCoord` object."""
         return _CelestialCoord(_Angle(gcoord.ra.rad), _Angle(gcoord.dec.rad))
+
+    def to_galsim(self):
+        """Create a galsim `CelestialCoord` from a `jax_galsim.CelestialCoord` object."""
+        return _galsim.celestial.CelestialCoord(
+            self.ra.to_galsim(), self.dec.to_galsim()
+        )
 
 
 @implements(_coord._CelestialCoord)

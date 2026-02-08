@@ -126,6 +126,10 @@ def _run_object_checks(obj, cls, kind):
 
         # check that we can hash the object
         hash(obj)
+    elif kind == "to-from-galsim":
+        gs_obj = obj.to_galsim()
+        jgs_obj = obj.from_galsim(gs_obj)
+        assert jgs_obj == obj
     elif kind == "pickle-eval-repr-img" or kind == "pickle-eval-repr-nohash":
         from numpy import array  # noqa: F401
 
@@ -342,6 +346,7 @@ def _run_object_checks(obj, cls, kind):
                     "tree_flatten",
                     "tree_unflatten",
                     "from_galsim",
+                    "to_galsim",
                 ]:
                     # this deprecated method doesn't have consistent doc strings in galsim
                     if (
@@ -453,6 +458,7 @@ def test_api_gsobject(kind):
 def test_api_shear(obj):
     _run_object_checks(obj, jax_galsim.Shear, "docs-methods")
     _run_object_checks(obj, jax_galsim.Shear, "pickle-eval-repr")
+    _run_object_checks(obj, jax_galsim.Shear, "to-from-galsim")
 
     def _reg_sfun(g1):
         return (jax_galsim.Shear(g1=g1, g2=0.2) + jax_galsim.Shear(g1=g1, g2=-0.1)).eta1
@@ -497,6 +503,7 @@ def test_api_shear(obj):
 def test_api_bounds(obj):
     _run_object_checks(obj, obj.__class__, "docs-methods")
     _run_object_checks(obj, obj.__class__, "pickle-eval-repr")
+    _run_object_checks(obj, obj.__class__, "to-from-galsim")
 
     # JAX tracing should be an identity
     assert obj.__class__.tree_unflatten(*((obj.tree_flatten())[::-1])) == obj
@@ -550,6 +557,7 @@ def test_api_bounds(obj):
 def test_api_position(obj):
     _run_object_checks(obj, obj.__class__, "docs-methods")
     _run_object_checks(obj, obj.__class__, "pickle-eval-repr")
+    _run_object_checks(obj, obj.__class__, "to-from-galsim")
 
     # JAX tracing should be an identity
     assert obj.__class__.tree_unflatten(*((obj.tree_flatten())[::-1])) == obj
@@ -727,6 +735,7 @@ def test_api_wcs():
             tested.add(cls.__name__)
             _run_object_checks(obj, cls, "docs-methods")
             _run_object_checks(obj, cls, "pickle-eval-repr-wcs")
+            _run_object_checks(obj, cls, "to-from-galsim")
             if isinstance(obj, jax_galsim.wcs.CelestialWCS):
                 _run_object_checks(obj, cls, "vmap-jit-grad-celestialwcs")
             else:
@@ -781,6 +790,7 @@ def test_api_angle():
     obj = jax_galsim.Angle(jnp.array(0.1) * jax_galsim.degrees)
     _run_object_checks(obj, obj.__class__, "docs-methods")
     _run_object_checks(obj, obj.__class__, "pickle-eval-repr")
+    _run_object_checks(obj, obj.__class__, "to-from-galsim")
 
     # JAX tracing should be an identity
     assert obj.__class__.tree_unflatten(*((obj.tree_flatten())[::-1])) == obj
@@ -818,6 +828,7 @@ def test_api_celestial_coord():
     obj = jax_galsim.CelestialCoord(45 * jax_galsim.degrees, -30 * jax_galsim.degrees)
     _run_object_checks(obj, obj.__class__, "docs-methods")
     _run_object_checks(obj, obj.__class__, "pickle-eval-repr")
+    _run_object_checks(obj, obj.__class__, "to-from-galsim")
 
     # JAX tracing should be an identity
     assert obj.__class__.tree_unflatten(*((obj.tree_flatten())[::-1])) == obj
