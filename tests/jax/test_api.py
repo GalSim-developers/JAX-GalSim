@@ -604,7 +604,7 @@ def test_api_position(obj):
 def test_api_image(obj):
     _run_object_checks(obj, obj.__class__, "docs-methods")
     _run_object_checks(obj, obj.__class__, "pickle-eval-repr-img")
-    # _run_object_checks(obj, obj.__class__, "to-from-galsim")
+    _run_object_checks(obj, obj.__class__, "to-from-galsim")
 
     # JAX tracing should be an identity
     assert obj.__class__.tree_unflatten(*((obj.tree_flatten())[::-1])) == obj
