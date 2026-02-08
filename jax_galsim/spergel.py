@@ -410,13 +410,19 @@ class Spergel(GSObject):
 
     @jax.jit
     def _xValue(self, pos):
-        r = jnp.sqrt(pos.x**2 + pos.y**2) * self._inv_r0
+        return self._xValue_array(pos.x, pos.y)
+
+    def _xValue_array(self, x, y):
+        r = jnp.sqrt(x**2 + y**2) * self._inv_r0
         res = jnp.where(r == 0, self._xnorm0, fz_nu(r, self.nu))
         return self._xnorm * res
 
     @jax.jit
     def _kValue(self, kpos):
-        ksq = (kpos.x**2 + kpos.y**2) * self._r0_sq
+        return self._kValue_array(kpos.x, kpos.y)
+
+    def _kValue_array(self, kx, ky):
+        ksq = (kx**2 + ky**2) * self._r0_sq
         return self.flux * jnp.power(1.0 + ksq, -1.0 - self.nu)
 
     def _drawReal(self, image, jac=None, offset=(0.0, 0.0), flux_scaling=1.0):

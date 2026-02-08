@@ -763,6 +763,18 @@ class _InterpolatedImageImpl(GSObject):
             self._x_interpolant,
         )[0]
 
+    def _xValue_array(self, x, y):
+        return _xValue_arr(
+            x,
+            y,
+            self._offset.x,
+            self._offset.y,
+            self._pad_image.bounds.xmin,
+            self._pad_image.bounds.ymin,
+            self._pad_image.array,
+            self._x_interpolant,
+        )
+
     def _kValue(self, kpos):
         kx = jnp.array([kpos.x], dtype=float)
         ky = jnp.array([kpos.y], dtype=float)
@@ -778,6 +790,20 @@ class _InterpolatedImageImpl(GSObject):
             self._x_interpolant,
             self._k_interpolant,
         )[0]
+
+    def _kValue_array(self, kx, ky):
+        return _kValue_arr(
+            kx,
+            ky,
+            self._offset.x,
+            self._offset.y,
+            self._kim.bounds.xmin,
+            self._kim.bounds.ymin,
+            self._kim.array,
+            self._kim.scale,
+            self._x_interpolant,
+            self._k_interpolant,
+        )
 
     def _drawReal(self, image, jac=None, offset=(0.0, 0.0), flux_scaling=1.0):
         jacobian = jnp.eye(2) if jac is None else jac

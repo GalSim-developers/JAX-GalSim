@@ -330,8 +330,10 @@ class Moffat(GSObject):
 
     @jax.jit
     def _xValue(self, pos):
-        rsq = (pos.x**2 + pos.y**2) * self._inv_r0_sq
-        # trunc if r>maxR with r0 scaled version
+        return self._xValue_array(pos.x, pos.y)
+
+    def _xValue_array(self, x, y):
+        rsq = (x**2 + y**2) * self._inv_r0_sq
         return jnp.where(
             rsq > self._maxRrD_sq, 0.0, self._norm * jnp.power(1.0 + rsq, -self.beta)
         )
@@ -357,9 +359,13 @@ class Moffat(GSObject):
         """computation of the Moffat response in k-space with switch of truncated/untracated case
         kpos can be a scalar or a vector (typically, scalar for debug and 2D considering an image)
         """
-        k = jnp.sqrt((kpos.x**2 + kpos.y**2) * self._r0_sq)
+        return self._kValue_array(kpos.x, kpos.y)
+
+    def _kValue_array(self, kx, ky):
+        k = jnp.sqrt((kx**2 + ky**2) * self._r0_sq)
         out_shape = jnp.shape(k)
-        k = jnp.atleast_1d(k)
+        # Flatten to 1D for _hankel's vmap which only maps over axis 0
+        k = jnp.atleast_1d(k).ravel()
         res = jax.lax.cond(
             self.trunc > 0,
             lambda x: self._kValue_trunc(x),

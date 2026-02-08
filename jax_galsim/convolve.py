@@ -292,10 +292,13 @@ class Convolution(GSObject):
         raise NotImplementedError("Real-space convolutions are not implemented")
 
     def _kValue(self, kpos):
-        kv_list = [
-            obj.kValue(kpos) for obj in self.obj_list
-        ]  # In GalSim one uses obj.kValue
-        return jnp.prod(jnp.array(kv_list))
+        return self._kValue_array(kpos.x, kpos.y)
+
+    def _kValue_array(self, kx, ky):
+        result = self.obj_list[0]._kValue_array(kx, ky)
+        for obj in self.obj_list[1:]:
+            result = result * obj._kValue_array(kx, ky)
+        return result
 
     def _drawReal(self, image, jac=None, offset=(0.0, 0.0), flux_scaling=1.0):
         raise NotImplementedError("Real-space convolutions are not implemented")
@@ -313,10 +316,23 @@ class Convolution(GSObject):
             photons.convolve(p1, rng)
 
     def _drawKImage(self, image, jac=None):
+        from jax_galsim import Image
+
         image = self.obj_list[0]._drawKImage(image, jac)
         if len(self.obj_list) > 1:
             for obj in self.obj_list[1:]:
-                image *= obj._drawKImage(image, jac)
+                # Use a fresh blank image with matching metadata to sever
+                # the false AD dependency on the galaxy-filled array.
+                # The PSF's _drawKImage only uses image metadata (bounds,
+                # scale, wcs), never the array data.
+                blank = Image(bounds=image.bounds, dtype=image.dtype, scale=image.scale)
+                obj_kimage = obj._drawKImage(blank, jac)
+                image = Image(
+                    array=image.array * obj_kimage.array,
+                    bounds=image.bounds,
+                    wcs=image.wcs,
+                    _check_bounds=False,
+                )
         return image
 
     def tree_flatten(self):
@@ -474,10 +490,13 @@ class Deconvolution(GSObject):
         return -self.orig_obj.max_sb / self.orig_obj.flux**2
 
     def _kValue(self, pos):
+        return self._kValue_array(pos.x, pos.y)
+
+    def _kValue_array(self, kx, ky):
         # Really, for very low original kvalues, this gets very high, which can be unstable
         # in the presence of noise.  So if the original value is less than min_acc_kvalue,
         # we instead just return 1/min_acc_kvalue rather than the real inverse.
-        kval = self.orig_obj._kValue(pos)
+        kval = self.orig_obj._kValue_array(kx, ky)
         return jnp.where(
             jnp.abs(kval) < self._min_acc_kvalue,
             self._inv_min_acc_kvalue,

@@ -126,11 +126,17 @@ class Exponential(GSObject):
         return self._norm
 
     def _xValue(self, pos):
-        r = jnp.sqrt(pos.x**2 + pos.y**2)
+        return self._xValue_array(pos.x, pos.y)
+
+    def _xValue_array(self, x, y):
+        r = jnp.sqrt(x**2 + y**2)
         return self._norm * jnp.exp(-r * self._inv_r0)
 
     def _kValue(self, kpos):
-        ksqp1 = (kpos.x**2 + kpos.y**2) * self._r0**2 + 1.0
+        return self._kValue_array(kpos.x, kpos.y)
+
+    def _kValue_array(self, kx, ky):
+        ksqp1 = (kx**2 + ky**2) * self._r0**2 + 1.0
         return self.flux / (ksqp1 * jnp.sqrt(ksqp1))
 
     def _drawReal(self, image, jac=None, offset=(0.0, 0.0), flux_scaling=1.0):

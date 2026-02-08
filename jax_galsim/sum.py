@@ -153,12 +153,22 @@ class Sum(GSObject):
         return jnp.sum(sb_list)
 
     def _xValue(self, pos):
-        xv_list = jnp.array([obj._xValue(pos) for obj in self.obj_list])
-        return jnp.sum(xv_list, axis=0)
+        return self._xValue_array(pos.x, pos.y)
+
+    def _xValue_array(self, x, y):
+        result = self.obj_list[0]._xValue_array(x, y)
+        for obj in self.obj_list[1:]:
+            result = result + obj._xValue_array(x, y)
+        return result
 
     def _kValue(self, pos):
-        kv_list = jnp.array([obj._kValue(pos) for obj in self.obj_list])
-        return jnp.sum(kv_list, axis=0)
+        return self._kValue_array(pos.x, pos.y)
+
+    def _kValue_array(self, kx, ky):
+        result = self.obj_list[0]._kValue_array(kx, ky)
+        for obj in self.obj_list[1:]:
+            result = result + obj._kValue_array(kx, ky)
+        return result
 
     def _drawReal(self, image, jac=None, offset=(0.0, 0.0), flux_scaling=1.0):
         image = self.obj_list[0]._drawReal(image, jac, offset, flux_scaling)
@@ -168,10 +178,21 @@ class Sum(GSObject):
         return image
 
     def _drawKImage(self, image, jac=None):
+        from jax_galsim import Image
+
         image = self.obj_list[0]._drawKImage(image, jac)
         if len(self.obj_list) > 1:
             for obj in self.obj_list[1:]:
-                image += obj._drawKImage(image, jac)
+                # Use a fresh blank image with matching metadata to sever
+                # the false AD dependency on the previously-filled array.
+                blank = Image(bounds=image.bounds, dtype=image.dtype, scale=image.scale)
+                obj_kimage = obj._drawKImage(blank, jac)
+                image = Image(
+                    array=image.array + obj_kimage.array,
+                    bounds=image.bounds,
+                    wcs=image.wcs,
+                    _check_bounds=False,
+                )
         return image
 
     @property

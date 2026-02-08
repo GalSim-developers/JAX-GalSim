@@ -224,6 +224,32 @@ class GSObject:
             "%s does not implement kValue" % self.__class__.__name__
         )
 
+    def _kValue_array(self, kx, ky):
+        """Evaluate the k-space profile at arrays of kx, ky coordinates.
+
+        By default falls back to vmap over _kValue with PositionD. Concrete
+        profiles should override this with direct array operations for better
+        performance (avoids per-pixel PositionD construction).
+        """
+        out_shape = jnp.shape(kx)
+        kx = jnp.atleast_1d(jnp.asarray(kx)).ravel()
+        ky = jnp.atleast_1d(jnp.asarray(ky)).ravel()
+        result = jax.vmap(lambda x, y: self._kValue(PositionD(x, y)))(kx, ky)
+        return result.reshape(out_shape)
+
+    def _xValue_array(self, x, y):
+        """Evaluate the real-space profile at arrays of x, y coordinates.
+
+        By default falls back to vmap over _xValue with PositionD. Concrete
+        profiles should override this with direct array operations for better
+        performance (avoids per-pixel PositionD construction).
+        """
+        out_shape = jnp.shape(x)
+        x = jnp.atleast_1d(jnp.asarray(x)).ravel()
+        y = jnp.atleast_1d(jnp.asarray(y)).ravel()
+        result = jax.vmap(lambda xx, yy: self._xValue(PositionD(xx, yy)))(x, y)
+        return result.reshape(out_shape)
+
     @implements(_galsim.GSObject.withGSParams)
     def withGSParams(self, gsparams=None, **kwargs):
         if gsparams == self.gsparams:

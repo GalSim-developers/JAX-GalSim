@@ -337,13 +337,41 @@ class Transformation(GSObject):
         return self._amp_scaling * self._original.max_sb
 
     def _xValue(self, pos):
-        pos -= self._offset
-        inv_pos = PositionD(self._inv(pos.x, pos.y))
-        return self._original._xValue(inv_pos) * self._amp_scaling
+        return self._xValue_array(pos.x, pos.y)
+
+    def _xValue_array(self, x, y):
+        x = x - self._offset.x
+        y = y - self._offset.y
+        inv_x, inv_y = self._inv_array(x, y)
+        return self._original._xValue_array(inv_x, inv_y) * self._amp_scaling
 
     def _kValue(self, kpos):
-        fwdT_kpos = PositionD(self._fwdT(kpos.x, kpos.y))
-        return self._original._kValue(fwdT_kpos) * self._kfactor(kpos.x, kpos.y)
+        return self._kValue_array(kpos.x, kpos.y)
+
+    def _kValue_array(self, kx, ky):
+        fwdT_kx, fwdT_ky = self._fwdT_array(kx, ky)
+        return self._original._kValue_array(fwdT_kx, fwdT_ky) * self._kfactor_array(
+            kx, ky
+        )
+
+    def _fwdT_array(self, x, y):
+        """Like _fwdT but works on arrays of any shape."""
+        m = self._jac.T
+        rx = m[0, 0] * x + m[0, 1] * y
+        ry = m[1, 0] * x + m[1, 1] * y
+        return rx, ry
+
+    def _inv_array(self, x, y):
+        """Like _inv but works on arrays of any shape."""
+        m = self._invjac
+        rx = m[0, 0] * x + m[0, 1] * y
+        ry = m[1, 0] * x + m[1, 1] * y
+        return rx, ry
+
+    def _kfactor_array(self, kx, ky):
+        """Like _kfactor but works on arrays of any shape without mutating locals."""
+        arg = -1j * self._offset.x * kx + (-1j * self._offset.y) * ky
+        return self._flux_scaling * jnp.exp(arg)
 
     def _drawReal(self, image, jac=None, offset=(0.0, 0.0), flux_scaling=1.0):
         dx, dy = offset

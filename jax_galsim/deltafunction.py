@@ -1,5 +1,4 @@
 import galsim as _galsim
-import jax
 import jax.numpy as jnp
 from jax.tree_util import register_pytree_node_class
 
@@ -54,16 +53,16 @@ class DeltaFunction(GSObject):
         return DeltaFunction._mock_inf
 
     def _xValue(self, pos):
-        return jax.lax.cond(
-            jnp.array(pos.x == 0.0, dtype=bool) & jnp.array(pos.y == 0.0, dtype=bool),
-            lambda *a: DeltaFunction._mock_inf,
-            lambda *a: 0.0,
-        )
+        return self._xValue_array(pos.x, pos.y)
+
+    def _xValue_array(self, x, y):
+        return jnp.where((x == 0.0) & (y == 0.0), DeltaFunction._mock_inf, 0.0)
 
     def _kValue(self, kpos):
-        # this is a wasteful and fancy way to get the shape to broadcast to
-        # to match the input kpos
-        return self.flux + kpos.x * (0.0 + 0.0j)
+        return self._kValue_array(kpos.x, kpos.y)
+
+    def _kValue_array(self, kx, ky):
+        return self.flux + kx * (0.0 + 0.0j)
 
     @implements(_galsim.DeltaFunction._shoot)
     def _shoot(self, photons, rng):

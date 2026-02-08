@@ -128,11 +128,17 @@ class Gaussian(GSObject):
         return self._norm
 
     def _xValue(self, pos):
-        rsq = pos.x**2 + pos.y**2
+        return self._xValue_array(pos.x, pos.y)
+
+    def _xValue_array(self, x, y):
+        rsq = x**2 + y**2
         return self._norm * jnp.exp(-0.5 * rsq * self._inv_sigsq)
 
     def _kValue(self, kpos):
-        ksq = (kpos.x**2 + kpos.y**2) * self._sigsq
+        return self._kValue_array(kpos.x, kpos.y)
+
+    def _kValue_array(self, kx, ky):
+        ksq = (kx**2 + ky**2) * self._sigsq
         return self.flux * jnp.exp(-0.5 * ksq)
 
     def _drawReal(self, image, jac=None, offset=(0.0, 0.0), flux_scaling=1.0):

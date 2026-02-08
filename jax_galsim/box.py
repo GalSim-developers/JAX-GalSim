@@ -79,17 +79,23 @@ class Box(GSObject):
         return self.flux / (self.width * self.height)
 
     def _xValue(self, pos):
+        return self._xValue_array(pos.x, pos.y)
+
+    def _xValue_array(self, x, y):
         norm = self.flux / (self.width * self.height)
         return jnp.where(
-            2.0 * jnp.abs(pos.x) < self.width,
-            jnp.where(2.0 * jnp.abs(pos.y) < self.height, norm, 0.0),
+            2.0 * jnp.abs(x) < self.width,
+            jnp.where(2.0 * jnp.abs(y) < self.height, norm, 0.0),
             0.0,
         )
 
     def _kValue(self, kpos):
+        return self._kValue_array(kpos.x, kpos.y)
+
+    def _kValue_array(self, kx, ky):
         _wo2pi = self.width / (2.0 * jnp.pi)
         _ho2pi = self.height / (2.0 * jnp.pi)
-        return self.flux * jnp.sinc(kpos.x * _wo2pi) * jnp.sinc(kpos.y * _ho2pi)
+        return self.flux * jnp.sinc(kx * _wo2pi) * jnp.sinc(ky * _ho2pi)
 
     def _drawReal(self, image, jac=None, offset=(0.0, 0.0), flux_scaling=1.0):
         _jac = jnp.eye(2) if jac is None else jac
