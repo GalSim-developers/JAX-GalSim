@@ -24,7 +24,7 @@ import jax.numpy as jnp
 import numpy as np
 from jax.tree_util import register_pytree_node_class
 
-from jax_galsim.core.utils import ensure_hashable, implements
+from jax_galsim.core.utils import ensure_hashable, has_tracers, implements
 from jax_galsim.errors import (
     GalSimError,
     GalSimIncompatibleValuesError,
@@ -257,6 +257,10 @@ class SED:
         return not self.spectral
 
     def _check_bounds(self, wave):
+        # Skip bounds checking when JAX is tracing (inside jit/vmap/grad)
+        if has_tracers(wave):
+            return
+
         if hasattr(wave, "__iter__"):
             wmin = np.min(wave)
             wmax = np.max(wave)
