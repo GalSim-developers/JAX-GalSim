@@ -63,16 +63,17 @@ jobs:
 
       - name: Test with pytest
         run: |
-          mkdir output
+          pushd tests
           pytest \
             -vv \
             --durations=100 \
             --randomly-seed=42 \
             --splits ${NUM_SPLITS} --group ${{ matrix.group }} \
             --store-durations \
-            --durations-path=.test_durations.${{ matrix.group }} \
+            --durations-path=../.test_durations.${{ matrix.group }} \
             --splitting-algorithm least_duration \
             --clean-durations
+          popd
 
       - name: Upload test durations
         uses: actions/upload-artifact@v6
