@@ -232,8 +232,8 @@ class GSObject:
         performance (avoids per-pixel PositionD construction).
         """
         out_shape = jnp.shape(kx)
-        kx = jnp.atleast_1d(jnp.asarray(kx)).ravel()
-        ky = jnp.atleast_1d(jnp.asarray(ky)).ravel()
+        kx = jnp.atleast_1d(kx).ravel()
+        ky = jnp.atleast_1d(ky).ravel()
         result = jax.vmap(lambda x, y: self._kValue(PositionD(x, y)))(kx, ky)
         return result.reshape(out_shape)
 
@@ -245,8 +245,8 @@ class GSObject:
         performance (avoids per-pixel PositionD construction).
         """
         out_shape = jnp.shape(x)
-        x = jnp.atleast_1d(jnp.asarray(x)).ravel()
-        y = jnp.atleast_1d(jnp.asarray(y)).ravel()
+        x = jnp.atleast_1d(x).ravel()
+        y = jnp.atleast_1d(y).ravel()
         result = jax.vmap(lambda xx, yy: self._xValue(PositionD(xx, yy)))(x, y)
         return result.reshape(out_shape)
 

@@ -355,22 +355,22 @@ class Transformation(GSObject):
         )
 
     def _fwdT_array(self, x, y):
-        """Like _fwdT but works on arrays of any shape."""
+        """Apply the transposed Jacobian without constructing intermediate arrays."""
         m = self._jac.T
         rx = m[0, 0] * x + m[0, 1] * y
         ry = m[1, 0] * x + m[1, 1] * y
         return rx, ry
 
     def _inv_array(self, x, y):
-        """Like _inv but works on arrays of any shape."""
+        """Apply the inverse Jacobian without constructing intermediate arrays."""
         m = self._invjac
         rx = m[0, 0] * x + m[0, 1] * y
         ry = m[1, 0] * x + m[1, 1] * y
         return rx, ry
 
     def _kfactor_array(self, kx, ky):
-        """Like _kfactor but works on arrays of any shape without mutating locals."""
-        arg = -1j * self._offset.x * kx + (-1j * self._offset.y) * ky
+        """Compute the k-space phase factor on arrays without mutating locals."""
+        arg = -1j * (self._offset.x * kx + self._offset.y * ky)
         return self._flux_scaling * jnp.exp(arg)
 
     def _drawReal(self, image, jac=None, offset=(0.0, 0.0), flux_scaling=1.0):

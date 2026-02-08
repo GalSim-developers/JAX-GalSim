@@ -328,7 +328,6 @@ class Moffat(GSObject):
     def _max_sb(self):
         return self._norm
 
-    @jax.jit
     def _xValue(self, pos):
         return self._xValue_array(pos.x, pos.y)
 
@@ -354,11 +353,7 @@ class Moffat(GSObject):
             0.0,
         )
 
-    @jax.jit
     def _kValue(self, kpos):
-        """computation of the Moffat response in k-space with switch of truncated/untracated case
-        kpos can be a scalar or a vector (typically, scalar for debug and 2D considering an image)
-        """
         return self._kValue_array(kpos.x, kpos.y)
 
     def _kValue_array(self, kx, ky):

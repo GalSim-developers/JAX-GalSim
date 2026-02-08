@@ -408,7 +408,6 @@ class Spergel(GSObject):
         # from SBSpergelImpl.h
         return jnp.abs(self._xnorm) * self._xnorm0
 
-    @jax.jit
     def _xValue(self, pos):
         return self._xValue_array(pos.x, pos.y)
 
@@ -417,7 +416,6 @@ class Spergel(GSObject):
         res = jnp.where(r == 0, self._xnorm0, fz_nu(r, self.nu))
         return self._xnorm * res
 
-    @jax.jit
     def _kValue(self, kpos):
         return self._kValue_array(kpos.x, kpos.y)
 

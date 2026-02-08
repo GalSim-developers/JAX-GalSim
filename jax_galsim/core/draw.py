@@ -49,7 +49,7 @@ def draw_by_kValue(gsobject, image, jacobian=jnp.eye(2)):
 
     # Draw the object
     im = gsobject._kValue_array(coords[..., 0], coords[..., 1])
-    im = (im).astype(image.dtype)
+    im = im.astype(image.dtype)
 
     # Return an image
     return Image(array=im, bounds=image.bounds, wcs=image.wcs, _check_bounds=False)
