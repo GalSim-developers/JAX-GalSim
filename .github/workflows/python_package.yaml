@@ -56,10 +56,10 @@ jobs:
         run: |
           if [[ -f .test_durations ]]; then
             cp .test_durations .test_durations.${{ matrix.group }}
+            ls -lah .test_durations*
+            echo " "
+            cat .test_durations*
           fi
-          ls -lah .test_durations*
-          echo " "
-          cat .test_durations*
 
       - name: Test with pytest
         run: |
