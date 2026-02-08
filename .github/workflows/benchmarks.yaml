@@ -21,9 +21,6 @@ jobs:
       fail-fast: false
       matrix:
         python-version: ["3.12"]
-    #     group: [1, 2, 3, 4]
-    # env:
-    #   NUM_SPLITS: 4
 
     steps:
       - uses: actions/checkout@v6
@@ -47,6 +44,5 @@ jobs:
         uses: CodSpeedHQ/action@v4
         with:
           token: ${{ secrets.CODSPEED_TOKEN }}
-          # run: pytest -vvs --codspeed --splits ${{ env.NUM_SPLITS }} --group ${{ matrix.group }}
           run: pytest -vvs --codspeed
           mode: simulation
