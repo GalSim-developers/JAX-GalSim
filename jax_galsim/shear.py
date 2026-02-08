@@ -292,6 +292,7 @@ class Shear(object):
 
     @classmethod
     def from_galsim(cls, galsim_shear):
+        """Create a jax_galsim `Shear` from a `galsim.Shear` object."""
         return cls(g1=galsim_shear.g1, g2=galsim_shear.g2)
 
     def to_galsim(self):

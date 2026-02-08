@@ -789,6 +789,7 @@ def test_api_angle():
     obj = jax_galsim.Angle(jnp.array(0.1) * jax_galsim.degrees)
     _run_object_checks(obj, obj.__class__, "docs-methods")
     _run_object_checks(obj, obj.__class__, "pickle-eval-repr")
+    _run_object_checks(obj, obj.__class__, "to-from-galsim")
 
     # JAX tracing should be an identity
     assert obj.__class__.tree_unflatten(*((obj.tree_flatten())[::-1])) == obj
@@ -826,6 +827,7 @@ def test_api_celestial_coord():
     obj = jax_galsim.CelestialCoord(45 * jax_galsim.degrees, -30 * jax_galsim.degrees)
     _run_object_checks(obj, obj.__class__, "docs-methods")
     _run_object_checks(obj, obj.__class__, "pickle-eval-repr")
+    _run_object_checks(obj, obj.__class__, "to-from-galsim")
 
     # JAX tracing should be an identity
     assert obj.__class__.tree_unflatten(*((obj.tree_flatten())[::-1])) == obj
