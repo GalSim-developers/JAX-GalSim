@@ -458,6 +458,7 @@ def test_api_gsobject(kind):
 def test_api_shear(obj):
     _run_object_checks(obj, jax_galsim.Shear, "docs-methods")
     _run_object_checks(obj, jax_galsim.Shear, "pickle-eval-repr")
+    _run_object_checks(obj, obj.__class__, "to-from-galsim")
 
     def _reg_sfun(g1):
         return (jax_galsim.Shear(g1=g1, g2=0.2) + jax_galsim.Shear(g1=g1, g2=-0.1)).eta1
