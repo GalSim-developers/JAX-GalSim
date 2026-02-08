@@ -48,5 +48,5 @@ jobs:
         with:
           token: ${{ secrets.CODSPEED_TOKEN }}
           # run: pytest -vvs --codspeed --splits ${{ env.NUM_SPLITS }} --group ${{ matrix.group }}
-          run: pytest -vvs --codspeed --splits ${{ env.NUM_SPLITS }} --group ${{ matrix.group }}
+          run: pytest -vvs --codspeed
           mode: simulation
