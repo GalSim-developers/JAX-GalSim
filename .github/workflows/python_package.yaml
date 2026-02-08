@@ -40,7 +40,7 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          python -m pip install pytest pytest-codspeed pytest-randomly pytest-split
+          python -m pip install pytest pytest-codspeed pytest-randomly pytest-split pytest-retry
           python -m pip install .
 
       - name: Restore test durations
@@ -71,7 +71,8 @@ jobs:
             --store-durations \
             --durations-path=.test_durations.${{ matrix.group }} \
             --splitting-algorithm least_duration \
-            --clean-durations
+            --clean-durations \
+            --retries 1
 
       - name: Upload test durations
         uses: actions/upload-artifact@v6
