@@ -28,9 +28,9 @@ jobs:
 
       - name: Build release distributions
         run: |
-          # NOTE: put your own distribution build steps here.
           python -m pip install build
           python -m build
+          python -m build --sdist .
 
       - name: Upload distributions
         uses: actions/upload-artifact@v4
