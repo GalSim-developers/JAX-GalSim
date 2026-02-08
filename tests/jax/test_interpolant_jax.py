@@ -11,7 +11,8 @@ import galsim as ref_galsim
 import jax
 import numpy as np
 import pytest
-from galsim_test_helpers import assert_raises, timer
+from galsim.utilities import timer
+from numpy.testing import assert_raises
 from scipy.special import sici
 
 import jax_galsim as galsim

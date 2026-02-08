@@ -1,7 +1,7 @@
 import jax
 import numpy as np
 import pytest
-from galsim_test_helpers import timer
+from galsim.utilities import timer
 
 import jax_galsim as galsim
 from jax_galsim.core.wrap_image import (
