@@ -168,6 +168,20 @@ class Position(object):
             )
         return _cls(galsim_position.x, galsim_position.y)
 
+    def to_galsim(self):
+        """Create a galsim `PositionD/I` from a `jax_galsim.PositionD/I` object."""
+        if isinstance(self, PositionI):
+            gs_class = _galsim.bounds.PositionI
+            cast = int
+        else:
+            gs_class = _galsim.bounds.PositionD
+            cast = float
+
+        return gs_class(
+            cast(self.x),
+            cast(self.y),
+        )
+
 
 @implements(_galsim.PositionD)
 @register_pytree_node_class
