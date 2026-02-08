@@ -1,5 +1,6 @@
 import galsim as _galsim
 import jax.numpy as jnp
+import numpy as np
 from jax.tree_util import register_pytree_node_class
 
 from jax_galsim.angle import AngleUnit, arcsec, radians
@@ -262,6 +263,57 @@ class BaseWCS(_galsim.BaseWCS):
                     galsim_wcs.pv,
                     galsim_wcs.ab,
                     galsim_wcs.abp,
+                ],
+            )
+
+    def to_galsim(self):
+        """Create a galsim WCS object from a jax_galsim WCS object."""
+        # keep this import here to avoid circular imports
+        from jax_galsim.fitswcs import GSFitsWCS
+
+        if isinstance(self, PixelScale):
+            return _galsim.PixelScale(float(self.scale))
+        elif isinstance(self, ShearWCS):
+            return _galsim.ShearWCS(float(self.scale), self.shear.to_galsim())
+        elif isinstance(self, JacobianWCS):
+            return _galsim.JacobianWCS(
+                float(self.dudx),
+                float(self.dudy),
+                float(self.dvdx),
+                float(self.dvdy),
+            )
+        elif isinstance(self, OffsetWCS):
+            return _galsim.OffsetWCS(
+                float(self.scale),
+                origin=self.origin.to_galsim(),
+                world_origin=self.world_origin.to_galsim(),
+            )
+        elif isinstance(self, OffsetShearWCS):
+            return _galsim.OffsetShearWCS(
+                float(self.scale),
+                self.shear.to_galsim(),
+                origin=self.origin.to_galsim(),
+                world_origin=self.world_origin.to_galsim(),
+            )
+        elif isinstance(self, AffineTransform):
+            return _galsim.AffineTransform(
+                float(self.dudx),
+                float(self.dudy),
+                float(self.dvdx),
+                float(self.dvdy),
+                origin=self.origin.to_galsim(),
+                world_origin=self.world_origin.to_galsim(),
+            )
+        elif isinstance(self, GSFitsWCS):
+            return _galsim.GSFitsWCS(
+                _data=[
+                    self.wcs_type,
+                    np.asarray(self.crpix),
+                    np.asarray(self.cd),
+                    self.center.to_galsim(),
+                    np.asarray(self.pv) if self.pv is not None else None,
+                    np.asarray(self.ab) if self.ab is not None else None,
+                    np.asarray(self.abp) if self.abp is not None else None,
                 ],
             )
 

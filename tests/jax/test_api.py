@@ -735,6 +735,7 @@ def test_api_wcs():
             tested.add(cls.__name__)
             _run_object_checks(obj, cls, "docs-methods")
             _run_object_checks(obj, cls, "pickle-eval-repr-wcs")
+            _run_object_checks(obj, cls, "to-from-galsim")
             if isinstance(obj, jax_galsim.wcs.CelestialWCS):
                 _run_object_checks(obj, cls, "vmap-jit-grad-celestialwcs")
             else:
