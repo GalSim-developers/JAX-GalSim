@@ -264,6 +264,25 @@ class Bounds(_galsim.Bounds):
         else:
             return _cls()
 
+    def to_galsim(self):
+        """Create a galsim `BoundsD/I` from a `jax_galsim.BoundsD/I` object."""
+        if isinstance(self, BoundsI):
+            gs_class = _galsim.bounds.BoundsI
+            cast = int
+        else:
+            gs_class = _galsim.bounds.BoundsD
+            cast = float
+
+        if self.isDefined():
+            return gs_class(
+                cast(self.xmin),
+                cast(self.xmax),
+                cast(self.ymin),
+                cast(self.ymax),
+            )
+        else:
+            return gs_class()
+
 
 @implements(_galsim.BoundsD, lax_description=BOUNDS_LAX_DESCR)
 @register_pytree_node_class
