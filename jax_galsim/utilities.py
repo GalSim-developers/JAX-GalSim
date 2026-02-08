@@ -5,7 +5,11 @@ import jax
 import jax.numpy as jnp
 
 from jax_galsim.core.utils import has_tracers, implements
-from jax_galsim.errors import GalSimIncompatibleValuesError, GalSimValueError
+from jax_galsim.errors import (
+    GalSimError,
+    GalSimIncompatibleValuesError,
+    GalSimValueError,
+)
 from jax_galsim.position import PositionD, PositionI
 
 printoptions = _galsim.utilities.printoptions
@@ -253,3 +257,53 @@ def horner2d(x, y, coefs, dtype=None, triangle=False):
     )
 
     return res.astype(res_dtype)
+
+
+@implements(
+    _galsim.utilities.merge_sorted,
+    lax_description="Uses np.unique(np.concatenate(...)) instead of C++ implementation.",
+)
+def merge_sorted(arrays):
+    import numpy as np
+
+    arrays = [np.asarray(a, dtype=float) for a in arrays]
+    return np.unique(np.concatenate(arrays))
+
+
+@implements(
+    _galsim.utilities.combine_wave_list,
+    lax_description="Same as GalSim version but uses numpy operations.",
+)
+def combine_wave_list(*args):
+    import numpy as np
+
+    if len(args) == 1:
+        if isinstance(args[0], (list, tuple)):
+            args = args[0]
+        else:
+            raise TypeError("Single input argument must be a list or tuple")
+
+    if len(args) == 0:
+        return np.array([], dtype=float), 0.0, np.inf
+
+    if len(args) == 1:
+        obj = args[0]
+        return (
+            np.asarray(obj.wave_list),
+            getattr(obj, "blue_limit", 0.0),
+            getattr(obj, "red_limit", np.inf),
+        )
+
+    blue_limit = np.max([getattr(obj, "blue_limit", 0.0) for obj in args])
+    red_limit = np.min([getattr(obj, "red_limit", np.inf) for obj in args])
+    if blue_limit > red_limit:
+        raise GalSimError("Empty wave_list intersection.")
+
+    waves = [np.asarray(obj.wave_list) for obj in args]
+    waves = [w[(blue_limit <= w) & (w <= red_limit)] for w in waves]
+    # Make sure both limits are included in final list
+    if any(len(w) > 0 for w in waves):
+        waves.append(np.array([blue_limit, red_limit]))
+    wave_list = merge_sorted(waves)
+
+    return wave_list, blue_limit, red_limit

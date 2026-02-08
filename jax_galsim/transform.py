@@ -14,7 +14,10 @@ from jax_galsim.position import PositionD
 
 @implements(
     _galsim.Transform,
-    lax_description="Does not support Chromatic Objects or Convolutions.",
+    lax_description="""\
+Supports SED as flux_ratio, which creates a SimpleChromaticTransformation.
+Other callable arguments are not supported.
+""",
 )
 def Transform(
     obj,
@@ -26,6 +29,19 @@ def Transform(
 ):
     if not (isinstance(obj, GSObject)):
         raise TypeError("Argument to Transform must be a GSObject.")
+
+    # Check if flux_ratio is an SED -> create ChromaticObject
+    from jax_galsim.sed import SED
+
+    if isinstance(flux_ratio, SED):
+        from jax_galsim.chromatic import SimpleChromaticTransformation
+
+        return SimpleChromaticTransformation(
+            obj,
+            sed=flux_ratio,
+            gsparams=gsparams,
+            propagate_gsparams=propagate_gsparams,
+        )
     elif (
         hasattr(jac, "__call__")
         or hasattr(offset, "__call__")

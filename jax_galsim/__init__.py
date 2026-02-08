@@ -98,6 +98,12 @@ from .interpolatedimage import InterpolatedImage, _InterpolatedImage
 from .photon_array import PhotonArray
 from .sensor import Sensor
 
+# Spectral / Chromatic
+from .table import LookupTable, _LookupTable, trapz
+from .sed import SED
+from .bandpass import Bandpass
+from .chromatic import ChromaticObject, SimpleChromaticTransformation
+
 # packages kept separate
 from . import bessel
 from . import fits
