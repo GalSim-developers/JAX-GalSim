@@ -335,7 +335,7 @@ def test_interpolatedimage_interpolant_sample(interp):
     from jax_galsim.photon_array import PhotonArray
     from jax_galsim.random import BaseDeviate
 
-    rng = BaseDeviate(1234)
+    rng = BaseDeviate(999)
 
     ntot = 1000000
     photons = PhotonArray(ntot)

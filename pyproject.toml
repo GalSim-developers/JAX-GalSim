@@ -16,10 +16,9 @@ license = {file = "LICENSE"}
 readme = "README.md"
 dependencies = [
     "numpy >=1.18.0",
-    "galsim >=2.3.0",
+    "galsim >=2.7.0",
     "jax >=0.8.0",
     "astropy >=2.0",
-    "tfp-nightly",
     "quadax",
 ]
 
@@ -32,7 +31,7 @@ home = "https://github.com/GalSim-developers/JAX-GalSim"
 [tool.setuptools.packages.find]
 include = ["jax_galsim*"]
 
-[tool.setuptools-scm]
+[tool.setuptools_scm]
 write_to = "jax_galsim/_version.py"
 fallback_version = "0.0.1.dev0"
 

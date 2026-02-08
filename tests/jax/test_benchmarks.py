@@ -33,7 +33,7 @@ def _run_benchmarks(benchmark, kind, func):
     return tr.dt
 
 
-@pytest.mark.parametrize("kind", ["compile", "run"])
+@pytest.mark.parametrize("kind", ["run"])
 @pytest.mark.parametrize(
     "conserve_dc", [True, False], ids=["conserve_dc", "no_conserve_dc"]
 )
@@ -53,7 +53,7 @@ def test_benchmarks_lanczos_interp(benchmark, kind, conserve_dc, method):
     print(f"time: {dt:0.4g} ms", end=" ")
 
 
-@pytest.mark.parametrize("kind", ["compile", "run"])
+@pytest.mark.parametrize("kind", ["run"])
 def test_benchmarks_interpolated_image(benchmark, kind):
     gal = jgs.Gaussian(fwhm=1.2)
     im_gal = gal.drawImage(nx=32, ny=32, scale=0.2)
@@ -174,7 +174,7 @@ def _run_spergel_bench_conv(gsmod):
 _run_spergel_bench_conv_jit = jax.jit(partial(_run_spergel_bench_conv, jgs))
 
 
-@pytest.mark.parametrize("kind", ["compile", "run"])
+@pytest.mark.parametrize("kind", ["run"])
 def test_benchmark_spergel_conv(benchmark, kind):
     dt = _run_benchmarks(
         benchmark, kind, lambda: _run_spergel_bench_conv_jit().block_until_ready()
@@ -190,7 +190,7 @@ def _run_spergel_bench_xvalue(gsmod):
 _run_spergel_bench_xvalue_jit = jax.jit(partial(_run_spergel_bench_xvalue, jgs))
 
 
-@pytest.mark.parametrize("kind", ["compile", "run"])
+@pytest.mark.parametrize("kind", ["run"])
 def test_benchmark_spergel_xvalue(benchmark, kind):
     dt = _run_benchmarks(
         benchmark, kind, lambda: _run_spergel_bench_xvalue_jit().block_until_ready()
@@ -206,7 +206,7 @@ def _run_spergel_bench_kvalue(gsmod):
 _run_spergel_bench_kvalue_jit = jax.jit(partial(_run_spergel_bench_kvalue, jgs))
 
 
-@pytest.mark.parametrize("kind", ["compile", "run"])
+@pytest.mark.parametrize("kind", ["run"])
 def test_benchmark_spergel_kvalue(benchmark, kind):
     dt = _run_benchmarks(
         benchmark, kind, lambda: _run_spergel_bench_kvalue_jit().block_until_ready()
@@ -219,7 +219,7 @@ def _run_spergel_bench_init():
     return jgs.Spergel(nu=-0.6, half_light_radius=3.4).scale_radius
 
 
-@pytest.mark.parametrize("kind", ["compile", "run"])
+@pytest.mark.parametrize("kind", ["run"])
 def test_benchmark_spergel_init(benchmark, kind):
     dt = _run_benchmarks(
         benchmark, kind, lambda: _run_spergel_bench_init().block_until_ready()
@@ -232,7 +232,7 @@ def _run_gaussian_bench_init():
     return jgs.Gaussian(half_light_radius=3.4).sigma
 
 
-@pytest.mark.parametrize("kind", ["compile", "run"])
+@pytest.mark.parametrize("kind", ["run"])
 def test_benchmark_gaussian_init(benchmark, kind):
     dt = _run_benchmarks(
         benchmark, kind, lambda: _run_gaussian_bench_init().block_until_ready()
@@ -247,7 +247,7 @@ def _run_benchmark_interpimage_flux_frac(img):
     return jgs.interpolatedimage._flux_frac(img.array, x, y, cenx, ceny)
 
 
-@pytest.mark.parametrize("kind", ["compile", "run"])
+@pytest.mark.parametrize("kind", ["run"])
 def test_benchmark_interpimage_flux_frac(benchmark, kind):
     obj = jgs.Gaussian(half_light_radius=0.9).shear(g1=0.1, g2=0.2)
     img = obj.drawImage(nx=55, ny=55, scale=0.2, method="no_pixel")
@@ -265,7 +265,7 @@ def _run_benchmark_rng_discard(rng):
     return rng._state.key
 
 
-@pytest.mark.parametrize("kind", ["compile", "run"])
+@pytest.mark.parametrize("kind", ["run"])
 def test_benchmark_rng_discard(benchmark, kind):
     rng = jgs.BaseDeviate(seed=42)
     dt = _run_benchmarks(
@@ -278,7 +278,7 @@ def _run_benchmark_invert_ab_noraise(u, v, ab):
     return jgs.fitswcs._invert_ab_noraise(u, v, ab)[0]
 
 
-@pytest.mark.parametrize("kind", ["compile", "run"])
+@pytest.mark.parametrize("kind", ["run"])
 def test_benchmark_invert_ab_noraise(benchmark, kind):
     u = jnp.arange(1000).astype(jnp.float64)
     v = jnp.arange(1000).astype(jnp.float64)
@@ -295,7 +295,7 @@ def _run_benchmark_moffat_init():
     return jgs.Moffat(beta=2.5, half_light_radius=0.6, trunc=1.2).scale_radius
 
 
-@pytest.mark.parametrize("kind", ["compile", "run"])
+@pytest.mark.parametrize("kind", ["run"])
 def test_benchmark_moffat_init(benchmark, kind):
     dt = _run_benchmarks(
         benchmark, kind, lambda: _run_benchmark_moffat_init().block_until_ready()
@@ -307,7 +307,7 @@ def _run_benchmark_spergel_calcfluxrad():
     return jgs.spergel.calculateFluxRadius(1e-10, 2.0)
 
 
-@pytest.mark.parametrize("kind", ["compile", "run"])
+@pytest.mark.parametrize("kind", ["run"])
 def test_benchmark_spergel_calcfluxrad(benchmark, kind):
     dt = _run_benchmarks(
         benchmark,

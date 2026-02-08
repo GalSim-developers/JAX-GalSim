@@ -21,6 +21,9 @@ jobs:
       fail-fast: false
       matrix:
         python-version: ["3.12"]
+        group: [1, 2, 3, 4]
+    env:
+      NUM_SPLITS: 4
 
     steps:
       - uses: actions/checkout@v6
@@ -37,20 +40,67 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          python -m pip install pytest pytest-codspeed pytest-randomly
+          python -m pip install pytest pytest-codspeed pytest-randomly pytest-split
           python -m pip install .
-          # temp pin until 0.5 is on conda
-          python -m pip install "jax<0.5.0"
+
+      - name: Restore test durations
+        uses: actions/cache/restore@cdf6c1fa76f9f475f3d7449005a359c84ca0f306  # v5.0.3
+        with:
+          path: .test_durations
+          key: test-durations-${{ github.ref }}-${{ github.sha }}
+          restore-keys: |
+            test-durations-${{ github.ref }}-
+            test-durations-
+
+      - name: Post-process test durations
+        run: |
+          if [[ -f .test_durations ]]; then
+            cp .test_durations .test_durations.${{ matrix.group }}
+            ls -lah .test_durations*
+            echo " "
+            cat .test_durations*
+          fi
 
       - name: Test with pytest
         run: |
-          pytest -vv --durations=100 --randomly-seed=42
+          pytest \
+            -vv \
+            --durations=100 \
+            --randomly-seed=42 \
+            --splits ${NUM_SPLITS} --group ${{ matrix.group }} \
+            --store-durations \
+            --durations-path=.test_durations.${{ matrix.group }} \
+            --splitting-algorithm least_duration \
+            --clean-durations
+
+      - name: Upload test durations
+        uses: actions/upload-artifact@v6
+        with:
+          name: test-durations-${{ matrix.group }}
+          path: .test_durations.${{ matrix.group }}
+          include-hidden-files: true
 
   build-status:
     needs: build
     runs-on: ubuntu-latest
 
     steps:
+      - name: Download test duration artifacts
+        uses: actions/download-artifact@v7
+        with:
+          pattern: test-durations-*
+
+      - name: Combine test durations
+        run: |
+          # see https://stackoverflow.com/a/71416016/1745538
+          jq 'reduce inputs as $i (.; . + $i)' test-durations-*/.test_durations.* > .test_durations
+
+      - name: Save test durations
+        uses: actions/cache/save@v5
+        with:
+          path: .test_durations
+          key: test-durations-${{ github.ref }}-${{ github.sha }}
+
       - name: check status
         run: |
           echo "Builds all passed!"

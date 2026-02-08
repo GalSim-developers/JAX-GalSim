@@ -17,10 +17,12 @@ Once you have some code you wish to contribute, you can follow this procedure to
   ```bash
   git clone --recurse-submodules https://github.com/YOUR_USERNAME/JAX-GalSim
   cd JAX-GalSim
-  pip install --user -e .
+  python -m venv .venv && source .venv/bin/activate
+  pip install -e ".[dev]"
+  pre-commit install
   ```
 
-  This will install your local fork in editable mode, meaning you can directly modify source files in this folder without having to reinstall the package for them to be taken into account. Note the option `--recurse-submodules` needed to donwload the submodules required to run the tests.
+  This will install your local fork in editable mode, meaning you can directly modify source files in this folder without having to reinstall the package for them to be taken into account. Note the option `--recurse-submodules` needed to download the submodules required to run the tests.
 
 - Open a branch for your developments:
 
@@ -36,10 +38,10 @@ Once you have some code you wish to contribute, you can follow this procedure to
 
 - Once you are happy with your modifications, commit them, and push your changes to GitHub:
 
-  ```python
+  ```bash
   git add file_I_changed.py
   git commit -m "a message that describes your modifications"
-  git push -set-upstream origin name-that-describes-my-feature
+  git push --set-upstream origin name-that-describes-my-feature
   ```
 
 - From your GitHub interface, you should now be able to open a Pull Request to the JAX-GalSim repository.
@@ -68,15 +70,18 @@ Before submitting your PR, have a look at the procedure documented below.
 
   Ideally there should be some new unit tests for the new functionality, unless the work is completely covered by existing unit tests.
 
-- Make sure your code conforms to the [Black](https://github.com/psf/black) style:
+- Make sure your code passes linting and formatting:
 
   ```bash
-  black .
+  ruff check . --fix
+  ruff format .
   ```
 
-  If you haven't installed it already, you can install Black with `pip install black`.
+  Or simply run the pre-commit hooks:
 
-- Update CHANGELOG.md to mention your change.
+  ```bash
+  pre-commit run --all-files
+  ```
 
 - Make sure any new files have BSD license at the top.
 
@@ -114,17 +119,9 @@ git rebase -i
 
 ### Code Style
 
-In this project we follow the [Black](https://github.com/psf/black) code formatting guidelines` (Any color you like...) This means that all code should be automatically formatted using Black and CI will fail if that's not the case.
+This project uses [Ruff](https://github.com/astral-sh/ruff) for linting and formatting. Pre-commit hooks run Ruff automatically on every commit.
 
-You can install Black locally like so:
-
-```bash
-pip install black
-```
-
-And run it manually from the root directory of your local clone with `black .`
-
-We highly recommend installing `pre-commit`, which will take care of running Black for you before any commit you make:
+We highly recommend installing `pre-commit`, which will take care of running the checks for you before any commit you make:
 
 ```bash
 pip install pre-commit

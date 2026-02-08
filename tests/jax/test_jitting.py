@@ -257,7 +257,7 @@ def test_jitting_draw_phot():
             [gal, psf],
         )
         n = final.getGoodImageSize(0.2).item()
-        n += 1
+        n += 4
         n_photons = calculate_n_photons(
             final.flux,
             final._flux_per_photon,
@@ -351,7 +351,7 @@ def test_jitting_draw_phot_fixed():
             [gal, psf],
         )
         n = final.getGoodImageSize(0.2).item()
-        n += 1
+        n += 4
         n_photons = calculate_n_photons(
             final.flux,
             final._flux_per_photon,
