@@ -255,6 +255,9 @@ def _spergel_hlr_pade(x):
             \hat{I}(k) = flux / (1 + (k r_0)^2)^{1+\nu}
 
     where :math:`r_0` is the ``scale_radius``, and :math: `\nu` mandatory to be in [-0.85,4.0]
+
+    The JAX Spergel profile does not support differentiation with respect to the :math:`\nu`
+    parameter.
     """,
 )
 @register_pytree_node_class
@@ -275,6 +278,8 @@ class Spergel(GSObject):
         flux=1.0,
         gsparams=None,
     ):
+        nu = jax.lax.stop_gradient(nu)
+
         # Parse the radius options
         if half_light_radius is not None:
             if scale_radius is not None:
