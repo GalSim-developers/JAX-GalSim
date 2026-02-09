@@ -1125,8 +1125,13 @@ class Image(object):
         ),
     )
     def FindAdaptiveMom(self, *args, **kwargs):
+        args_ = [arg.to_galsim() if hasattr(arg, "to_galsim") else arg for arg in args]
+        kwargs_ = {
+            key: val.to_galsim() if hasattr(val, "to_galsim") else val
+            for key, val in kwargs.items()
+        }
         gs_image = self.to_galsim()
-        return gs_image.FindAdaptiveMom(*args, **kwargs)
+        return gs_image.FindAdaptiveMom(*args_, **kwargs_)
 
 
 @implements(
