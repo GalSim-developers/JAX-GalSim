@@ -1094,14 +1094,44 @@ class Image(object):
     @classmethod
     def from_galsim(cls, galsim_image):
         """Create a `Image` from a `galsim.Image` instance."""
+        wcs = (
+            BaseWCS.from_galsim(galsim_image.wcs)
+            if galsim_image.wcs is not None
+            else None
+        )
         im = cls(
             array=galsim_image.array,
-            wcs=BaseWCS.from_galsim(galsim_image.wcs),
+            wcs=wcs,
             bounds=Bounds.from_galsim(galsim_image.bounds),
         )
         if hasattr(galsim_image, "header"):
             im.header = galsim_image.header
         return im
+
+    def to_galsim(self):
+        """Create a galsim `Image` from a `jax_galsim.Image` object."""
+        wcs = self.wcs.to_galsim() if self.wcs is not None else None
+        return _galsim.Image(
+            np.asarray(self.array), bounds=self.bounds.to_galsim(), wcs=wcs
+        )
+
+    @implements(
+        _galsim.Image.FindAdaptiveMom,
+        lax_description=(
+            "This method converts the current `jax_galsim.Image` to a native "
+            "`galsim.Image` and delegates the computation to "
+            "`galsim.hsm.FindAdaptiveMom`. The returned object is GalSim's "
+            "`ShapeData`."
+        ),
+    )
+    def FindAdaptiveMom(self, *args, **kwargs):
+        args_ = [arg.to_galsim() if hasattr(arg, "to_galsim") else arg for arg in args]
+        kwargs_ = {
+            key: val.to_galsim() if hasattr(val, "to_galsim") else val
+            for key, val in kwargs.items()
+        }
+        gs_image = self.to_galsim()
+        return gs_image.FindAdaptiveMom(*args_, **kwargs_)
 
 
 @implements(
