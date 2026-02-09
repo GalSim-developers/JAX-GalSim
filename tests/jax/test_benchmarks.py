@@ -315,3 +315,24 @@ def test_benchmark_spergel_calcfluxrad(benchmark, kind):
         lambda: _run_benchmark_spergel_calcfluxrad().block_until_ready(),
     )
     print(f"time: {dt:0.4g} ms", end=" ")
+
+
+def _run_moffat_bench_conv(gsmod):
+    obj = gsmod.Spergel(nu=-0.6, scale_radius=5)
+    psf = gsmod.Moffat(beta=2.5, fwhm=0.9)
+    obj = gsmod.Convolve(
+        [obj, psf],
+        gsparams=gsmod.GSParams(minimum_fft_size=2048, maximum_fft_size=2048),
+    )
+    return obj.drawImage(nx=50, ny=50, scale=0.2).array
+
+
+_run_moffat_bench_conv_jit = jax.jit(partial(_run_moffat_bench_conv, jgs))
+
+
+@pytest.mark.parametrize("kind", ["run"])
+def test_benchmark_moffat_conv(benchmark, kind):
+    dt = _run_benchmarks(
+        benchmark, kind, lambda: _run_moffat_bench_conv_jit().block_until_ready()
+    )
+    print(f"time: {dt:0.4g} ms", end=" ")
