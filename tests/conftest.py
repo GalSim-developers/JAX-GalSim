@@ -1,11 +1,13 @@
 # Define the accuracy for running the tests
+import sys
+
 import jax
 
-jax.config.update("jax_enable_x64", True)
+if "--test-in-float32" not in sys.argv:
+    jax.config.update("jax_enable_x64", True)
 
 import inspect  # noqa: E402
 import os  # noqa: E402
-import sys  # noqa: E402
 from functools import lru_cache, partial  # noqa: E402
 from unittest.mock import patch  # noqa: E402
 
@@ -216,3 +218,29 @@ def pytest_runtest_logreport(report):
             report.outcome = "allowed failure"
 
     yield report
+
+
+def pytest_addoption(parser):
+    parser.addoption(
+        "--test-in-float32",
+        action="store_true",
+        default=False,
+        help="Run tests in float32 instead of float64.",
+    )
+
+
+def pytest_configure(config):
+    config.addinivalue_line(
+        "markers", "test_in_float32: mark test to run in float32 tests."
+    )
+
+
+def pytest_report_header(config):
+    return [f"JAX float64 enabled: {jax.config.read('jax_enable_x64')}"]
+
+
+def pytest_runtest_setup(item):
+    if "test_in_float32" not in item.keywords and item.config.getoption(
+        "--test-in-float32"
+    ):
+        pytest.skip("Skipped test not marked to be run in float32.")
