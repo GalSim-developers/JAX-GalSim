@@ -1,6 +1,7 @@
 import galsim as _galsim
 import jax.numpy as jnp
 import numpy as np
+import pytest
 
 import jax_galsim as galsim
 
@@ -57,6 +58,7 @@ def test_moffat_comp_galsim_maxk():
             np.testing.assert_allclose(gpsf.maxk, psf.maxk, rtol=0.25, atol=0)
 
 
+@pytest.mark.test_in_float32
 def test_moffat_conv_nan_float32():
     # test case from https://github.com/GalSim-developers/JAX-GalSim/issues/179
     gal_flux = 1.0e5  # counts

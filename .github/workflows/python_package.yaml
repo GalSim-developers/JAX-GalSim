@@ -74,6 +74,13 @@ jobs:
             --clean-durations \
             --retries 1
 
+      - name: Test with pytest in float32
+        if: ${{ matrix.group == '1' }}
+        run: |
+          pytest \
+            -vv \
+            --test-in-float32
+
       - name: Upload test durations
         uses: actions/upload-artifact@v6
         with:
