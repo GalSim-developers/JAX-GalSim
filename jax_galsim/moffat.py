@@ -72,7 +72,13 @@ def _MoffatCalculateSRFromHLR(re, rm, beta, nitr=100):
     return jax.lax.fori_loop(0, 100, body, re, unroll=True)
 
 
-@implements(_galsim.Moffat)
+@implements(
+    _galsim.Moffat,
+    lax_description="""\
+The JAX implementation of the Moffat profile does not
+support autodiff with respect to the `beta` parameter.
+""",
+)
 @register_pytree_node_class
 class Moffat(GSObject):
     _is_axisymmetric = True
@@ -89,6 +95,9 @@ class Moffat(GSObject):
         flux=1.0,
         gsparams=None,
     ):
+        # beta doesn't have gradients to mark that right away
+        beta = jax.lax.stop_gradient(beta)
+
         # notice that trunc==0. means no truncated Moffat.
         # let define beta_thr a threshold to trigger the truncature
         self._beta_thr = 1.1
