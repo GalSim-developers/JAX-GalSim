@@ -1,4 +1,5 @@
 import galsim as _galsim
+import jax.numpy as jnp
 import numpy as np
 
 import jax_galsim as galsim
@@ -54,3 +55,30 @@ def test_moffat_comp_galsim_maxk():
                 psf.kValue(1.0, 0.0), gpsf.kValue(1.0, 0.0), rtol=1e-5
             )
             np.testing.assert_allclose(gpsf.maxk, psf.maxk, rtol=0.25, atol=0)
+
+
+def test_moffat_conv_nan_float32():
+    # test case from https://github.com/GalSim-developers/JAX-GalSim/issues/179
+    gal_flux = 1.0e5  # counts
+    gal_r0 = 2.7  # arcsec
+    g1 = 0.1  #
+    g2 = 0.2  #
+    psf_beta = 5  #
+    psf_re = 1.0  # arcsec
+    pixel_scale = 0.2  # arcsec / pixel
+
+    # Define the galaxy profile.
+    gal = galsim.Exponential(flux=gal_flux, scale_radius=gal_r0)
+
+    # Shear the galaxy by some value.
+    gal = gal.shear(g1=g1, g2=g2)
+
+    # Define the PSF profile.
+    psf = galsim.Moffat(beta=psf_beta, flux=1.0, half_light_radius=psf_re)
+
+    # Final profile is the convolution of these.
+    final = galsim.Convolve([gal, psf])
+
+    img_arr = final.drawImage(scale=pixel_scale, dtype=jnp.float32).array
+
+    assert jnp.all(jnp.isfinite(img_arr))
