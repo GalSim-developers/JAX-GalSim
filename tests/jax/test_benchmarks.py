@@ -315,3 +315,48 @@ def test_benchmark_spergel_calcfluxrad(benchmark, kind):
         lambda: _run_benchmark_spergel_calcfluxrad().block_until_ready(),
     )
     print(f"time: {dt:0.4g} ms", end=" ")
+
+
+def _run_moffat_bench_conv(gsmod):
+    obj = gsmod.Spergel(nu=-0.6, scale_radius=5)
+    psf = gsmod.Moffat(beta=2.5, fwhm=0.9)
+    obj = gsmod.Convolve(
+        [obj, psf],
+        gsparams=gsmod.GSParams(minimum_fft_size=2048, maximum_fft_size=2048),
+    )
+    return obj.drawImage(nx=50, ny=50, scale=0.2).array
+
+
+_run_moffat_bench_conv_jit = jax.jit(partial(_run_moffat_bench_conv, jgs))
+
+
+@pytest.mark.parametrize("kind", ["run"])
+def test_benchmark_moffat_conv(benchmark, kind):
+    dt = _run_benchmarks(
+        benchmark, kind, lambda: _run_moffat_bench_conv_jit().block_until_ready()
+    )
+    print(f"time: {dt:0.4g} ms", end=" ")
+
+
+def _run_moffat_bench_conv_grad(scale_radius):
+    obj = jgs.Spergel(nu=-0.6, scale_radius=scale_radius)
+    psf = jgs.Moffat(beta=2.5, fwhm=0.9)
+    obj = jgs.Convolve(
+        [obj, psf],
+        gsparams=jgs.GSParams(minimum_fft_size=2048, maximum_fft_size=2048),
+    )
+    return jnp.sum(obj.drawImage(nx=50, ny=50, scale=0.2).array ** 2)
+
+
+_run_moffat_bench_conv_grad_jit = jax.jit(jax.grad(_run_moffat_bench_conv_grad))
+
+
+@pytest.mark.parametrize("kind", ["run"])
+def test_benchmark_moffat_conv_grad(benchmark, kind):
+    scale_radius = jnp.array(0.5)
+    dt = _run_benchmarks(
+        benchmark,
+        kind,
+        lambda: _run_moffat_bench_conv_grad_jit(scale_radius).block_until_ready(),
+    )
+    print(f"time: {dt:0.4g} ms", end=" ")

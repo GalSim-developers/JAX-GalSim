@@ -86,7 +86,6 @@ allowed_failures:
   - "'Image' object has no attribute 'bin'"
   - "module 'jax_galsim' has no attribute 'InterpolatedKImage'"
   - "module 'jax_galsim' has no attribute 'CorrelatedNoise'"
-  - "'Image' object has no attribute 'FindAdaptiveMom'"
   - "CelestialCoord.precess is too slow"  # cannot get jax to warmup but once it does it passes
   - "ValueError not raised by from_xyz"
   - "ValueError not raised by greatCirclePoint"
