@@ -138,7 +138,7 @@ def akima_interp(x, xp, yp, coeffs, fixed_spacing=False):
         The values of the Akima cubic spline at the points x.
     """
     xp = jnp.asarray(xp)
-    # yp = jnp.array(yp)  # unused
+    yp = jnp.asarray(yp)
     if fixed_spacing:
         dxp = xp[1] - xp[0]
         i = jnp.floor((x - xp[0]) / dxp).astype(jnp.int32)
@@ -160,6 +160,6 @@ def akima_interp(x, xp, yp, coeffs, fixed_spacing=False):
     dx3 = dx2 * dx
     xval = a[i] + b[i] * dx + c[i] * dx2 + d[i] * dx3
 
-    xval = jnp.where(x < xp[0], 0, xval)
-    xval = jnp.where(x > xp[-1], 0, xval)
+    xval = jnp.where(x < xp[0], yp[0], xval)
+    xval = jnp.where(x > xp[-1], yp[-1], xval)
     return xval

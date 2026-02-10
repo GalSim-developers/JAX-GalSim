@@ -11,7 +11,6 @@ from jax_galsim.core.interpolate import akima_interp, akima_interp_coeffs
 from jax_galsim.core.utils import bisect_for_root, ensure_hashable, implements
 from jax_galsim.gsobject import GSObject
 from jax_galsim.random import UniformDeviate
-from jax_galsim.utilities import lazy_property
 
 
 @jax.jit
@@ -382,10 +381,10 @@ class Moffat(GSObject):
             k * _r0,
         )
 
-    @lazy_property
+    @jax.jit
     def _kValue_interp_coeffs(self):
-        n_pts = 1000
-        k_min = 0.0
+        n_pts = 5000
+        k_min = 0
         k_max = self._maxk
         k = jnp.linspace(k_min, k_max, n_pts)
         vals = self._kValue_func(
@@ -398,7 +397,6 @@ class Moffat(GSObject):
             self.trunc,
             self._r0,
         )
-
         return k, vals, akima_interp_coeffs(k, vals)
 
     def _kValue_untrunc(self, k):
@@ -429,7 +427,7 @@ class Moffat(GSObject):
         k = jnp.sqrt((kpos.x**2 + kpos.y**2))
         out_shape = jnp.shape(k)
         k = jnp.atleast_1d(k)
-        k_, vals_, coeffs = self._kValue_interp_coeffs
+        k_, vals_, coeffs = self._kValue_interp_coeffs()
         res = akima_interp(k, k_, vals_, coeffs, fixed_spacing=True)
 
         return res.reshape(out_shape)
