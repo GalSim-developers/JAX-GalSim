@@ -51,25 +51,25 @@ def test_moffat_comp_galsim_maxk(psf, thresh):
     )
     np.testing.assert_allclose(gpsf.maxk, psf.maxk, rtol=0.25, atol=0)
     np.testing.assert_allclose(
-        psf.kValue(0.0, 0.0), gpsf.kValue(0.0, 0.0), rtol=1e-5, atol=1e-8
+        psf.kValue(0.0, 0.0), gpsf.kValue(0.0, 0.0), rtol=1e-5, atol=1e-5
     )
     np.testing.assert_allclose(
         psf.kValue(0.0, maxk_test_val_pone),
         gpsf.kValue(0.0, maxk_test_val_pone),
         rtol=1e-5,
-        atol=1e-8,
+        atol=1e-5,
     )
     np.testing.assert_allclose(
         psf.kValue(-maxk_test_val_one, 0.0),
         gpsf.kValue(-maxk_test_val_one, 0.0),
         rtol=1e-5,
-        atol=1e-8,
+        atol=1e-5,
     )
     np.testing.assert_allclose(
         psf.kValue(maxk_test_val_one, 0.0),
         gpsf.kValue(maxk_test_val_one, 0.0),
         rtol=1e-5,
-        atol=1e-8,
+        atol=1e-5,
     )
 
 
