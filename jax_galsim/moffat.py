@@ -391,7 +391,7 @@ class Moffat(GSObject):
         # it should not be needed in principle since the profile is not
         # evaluated above maxk, but it appears to be needed anyway and
         # IDK why
-        k_max = self._maxk * 2
+        k_max = self._maxk * 5
         k = jnp.linspace(k_min, k_max, n_pts)
         vals = self._kValue_func(
             self.beta,
