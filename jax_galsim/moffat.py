@@ -103,7 +103,7 @@ class Moffat(GSObject):
                     fwhm=fwhm,
                 )
             else:
-                trunc_ = jnp.where(trunc > 0, trunc, 100.0)
+                trunc_ = jnp.where(trunc > 0, trunc, 50.0)
                 super().__init__(
                     beta=beta,
                     scale_radius=(
