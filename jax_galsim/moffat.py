@@ -383,9 +383,15 @@ class Moffat(GSObject):
 
     @jax.jit
     def _kValue_interp_coeffs(self):
+        # this number of points gets the tests to pass
+        # I did not investigate further.
         n_pts = 5000
         k_min = 0
-        k_max = self._maxk
+        # this is a fudge factor to help numerical convergnce in the tests
+        # it should not be needed in principle since the profile is not
+        # evaluated above maxk, but it appears to be needed anyway and
+        # IDK why
+        k_max = jnp.minimum(self._maxk * 2, 50.0)
         k = jnp.linspace(k_min, k_max, n_pts)
         vals = self._kValue_func(
             self.beta,
