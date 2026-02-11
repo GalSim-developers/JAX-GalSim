@@ -107,12 +107,11 @@ class Moffat(GSObject):
                 super().__init__(
                     beta=beta,
                     scale_radius=(
-                        jax.lax.cond(
+                        jnp.where(
                             trunc > 0,
-                            lambda x: _MoffatCalculateSRFromHLR(x, trunc_, beta),
-                            lambda x: x
+                            _MoffatCalculateSRFromHLR(half_light_radius, trunc_, beta),
+                            half_light_radius
                             / jnp.sqrt(jnp.power(0.5, 1.0 / (1.0 - beta)) - 1.0),
-                            half_light_radius,
                         )
                     ),
                     trunc=trunc,

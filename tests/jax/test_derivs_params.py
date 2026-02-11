@@ -43,7 +43,7 @@ def test_deriv_params_gsobject(params, gsobj, args):
         np.testing.assert_allclose(gval, gfdiff, rtol=0, atol=1e-6)
 
 
-def test_deriv_params_moffat_trunc():
+def test_deriv_params_moffat_with_trunc():
     val = 2.0
     eps = 1e-5
 
@@ -51,8 +51,34 @@ def test_deriv_params_moffat_trunc():
         return jnp.max(
             jgs.Moffat(
                 2.5,
-                scale_radius=val_,
+                half_light_radius=val_,
                 trunc=20.0,
+                gsparams=jgs.GSParams(minimum_fft_size=64, maximum_fft_size=64),
+            )
+            .drawImage(nx=48, ny=48, scale=0.2)
+            .array[24, 24]
+            ** 2
+        )
+
+    gfunc = jax.jit(jax.grad(_run))
+    with jax.disable_jit(), jax.debug_nans():
+        gval = gfunc(val)
+
+    gfdiff = (_run(val + eps) - _run(val - eps)) / 2.0 / eps
+
+    np.testing.assert_allclose(gval, gfdiff, rtol=0, atol=1e-6)
+
+
+def test_deriv_params_moffat_with_respect_to_trunc():
+    val = 20.0
+    eps = 1e-5
+
+    def _run(val_):
+        return jnp.max(
+            jgs.Moffat(
+                2.5,
+                half_light_radius=2.0,
+                trunc=val_,
                 gsparams=jgs.GSParams(minimum_fft_size=64, maximum_fft_size=64),
             )
             .drawImage(nx=48, ny=48, scale=0.2)
