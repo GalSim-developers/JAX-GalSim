@@ -107,11 +107,12 @@ class Moffat(GSObject):
                 super().__init__(
                     beta=beta,
                     scale_radius=(
-                        jax.lax.select(
+                        jax.lax.cond(
                             trunc > 0,
-                            _MoffatCalculateSRFromHLR(half_light_radius, trunc_, beta),
-                            half_light_radius
+                            lambda x: _MoffatCalculateSRFromHLR(x, trunc_, beta),
+                            lambda x: x
                             / jnp.sqrt(jnp.power(0.5, 1.0 / (1.0 - beta)) - 1.0),
+                            half_light_radius,
                         )
                     ),
                     trunc=trunc,
@@ -395,7 +396,7 @@ class Moffat(GSObject):
             * jnp.sqrt(jnp.pi / 2 / kr0)
         )
 
-    def _kValue_interp_coeffs(self):
+    def _kValue_untrunc_interp_coeffs(self):
         # this number of points gets the tests to pass
         # I did not investigate further.
         n_pts = 5000
@@ -406,14 +407,11 @@ class Moffat(GSObject):
         # IDK why
         k_max = self._maxk * 2
         k = jnp.linspace(k_min, k_max, n_pts)
-        vals = self._kValue_func(
+        vals = self._kValue_untrunc_func(
             self.beta,
             k,
             self._knorm_bis,
             self._knorm,
-            self._prefactor,
-            self._maxRrD,
-            self.trunc,
             self._r0,
         )
 
@@ -426,26 +424,6 @@ class Moffat(GSObject):
 
         return k, vals, akima_interp_coeffs(k, vals), slp
 
-    # def _kValue_untrunc(self, k):
-    #     """Non truncated version of _kValue"""
-    #     k_ = jnp.where(k > 0, k, 1.0) * self._r0
-    #     return jnp.where(
-    #         k > 0,
-    #         self._knorm_bis
-    #         * jnp.power(k_, self.beta - 1.0)
-    #         * _Knu(self.beta - 1.0, k_),
-    #         self._knorm,
-    #     )
-
-    # def _kValue_trunc(self, k):
-    #     """Truncated version of _kValue"""
-    #     k_ = jnp.where(k <= 50.0, k, 50.0) * self._r0
-    #     return jnp.where(
-    #         k <= 50.0,
-    #         self._knorm * self._prefactor * _hankel(k_, self.beta, self._maxRrD),
-    #         0.0,
-    #     )
-
     @jax.jit
     def _kValue(self, kpos):
         """computation of the Moffat response in k-space with switch of truncated/untracated case
@@ -454,19 +432,29 @@ class Moffat(GSObject):
         k = jnp.sqrt((kpos.x**2 + kpos.y**2))
         out_shape = jnp.shape(k)
         k = jnp.atleast_1d(k)
-        k_, vals_, coeffs, slp = self._kValue_interp_coeffs()
-        res = akima_interp(k, k_, vals_, coeffs, fixed_spacing=True)
+
+        # for untruncated profiles, we interpolate and use and asymptotic
+        # expansion for extrapolation
+        def _run_untrunc(krun):
+            k_, vals_, coeffs, slp = self._kValue_untrunc_interp_coeffs()
+            res = akima_interp(krun, k_, vals_, coeffs, fixed_spacing=True)
+            krun = jnp.where(krun > 0, krun, k_[1])
+            return jnp.where(
+                krun > k_[-1],
+                self._kValue_untrunc_asymp_func(
+                    self.beta, krun, self._knorm_bis, self._r0
+                )
+                * (1.0 + slp / krun / self._r0),
+                res,
+            )
 
         res = jax.lax.cond(
             self.trunc > 0,
-            lambda x: res,
-            lambda x: jnp.where(
-                k > k_[-1],
-                self._kValue_untrunc_asymp_func(self.beta, x, self._knorm_bis, self._r0)
-                * (1.0 + slp / x / self._r0),
-                res,
+            lambda x: Moffat._kValue_trunc_func(
+                self.beta, x, self._knorm, self._prefactor, self._maxRrD, self._r0
             ),
-            jnp.where(k > 0, k, k_[1]),
+            lambda x: _run_untrunc(x),
+            k,
         )
 
         return res.reshape(out_shape)
