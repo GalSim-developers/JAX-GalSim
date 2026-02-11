@@ -7,9 +7,9 @@ from jax.tree_util import register_pytree_node_class
 from jax_galsim.bessel import j0, kv
 from jax_galsim.core.draw import draw_by_kValue, draw_by_xValue
 from jax_galsim.core.integrate import ClenshawCurtisQuad, quad_integral
+from jax_galsim.core.interpolate import akima_interp, akima_interp_coeffs
 from jax_galsim.core.utils import bisect_for_root, ensure_hashable, implements
 from jax_galsim.gsobject import GSObject
-from jax_galsim.position import PositionD
 from jax_galsim.random import UniformDeviate
 
 
@@ -103,12 +103,13 @@ class Moffat(GSObject):
                     fwhm=fwhm,
                 )
             else:
+                trunc_ = jnp.where(trunc > 0, trunc, 50.0)
                 super().__init__(
                     beta=beta,
                     scale_radius=(
-                        jax.lax.select(
+                        jnp.where(
                             trunc > 0,
-                            _MoffatCalculateSRFromHLR(half_light_radius, trunc, beta),
+                            _MoffatCalculateSRFromHLR(half_light_radius, trunc_, beta),
                             half_light_radius
                             / jnp.sqrt(jnp.power(0.5, 1.0 / (1.0 - beta)) - 1.0),
                         )
@@ -281,7 +282,19 @@ class Moffat(GSObject):
     @jax.jit
     def _maxk_func(self, k):
         return (
-            jnp.abs(self._kValue(PositionD(x=k, y=0)).real / self.flux)
+            jnp.abs(
+                self._kValue_func(
+                    self.beta,
+                    jnp.atleast_1d(k),
+                    self._knorm_bis,
+                    self._knorm,
+                    self._prefactor,
+                    self._maxRrD,
+                    self.trunc,
+                    self._r0,
+                )[0].real
+                / self.flux
+            )
             - self.gsparams.maxk_threshold
         )
 
@@ -336,36 +349,113 @@ class Moffat(GSObject):
             rsq > self._maxRrD_sq, 0.0, self._norm * jnp.power(1.0 + rsq, -self.beta)
         )
 
-    def _kValue_untrunc(self, k):
+    @staticmethod
+    @jax.jit
+    def _kValue_untrunc_func(beta, k, _knorm_bis, _knorm, _r0):
         """Non truncated version of _kValue"""
+        k_ = jnp.where(k > 0, k * _r0, 1.0)
         return jnp.where(
             k > 0,
-            self._knorm_bis * jnp.power(k, self.beta - 1.0) * _Knu(self.beta - 1.0, k),
-            self._knorm,
+            _knorm_bis * jnp.power(k_, beta - 1.0) * _Knu(beta - 1.0, k_),
+            _knorm,
         )
 
-    def _kValue_trunc(self, k):
+    @staticmethod
+    @jax.jit
+    def _kValue_trunc_func(beta, k, _knorm, _prefactor, _maxRrD, _r0):
         """Truncated version of _kValue"""
+        k_ = k * _r0
+        k_ = jnp.where(k_ <= 50.0, k_, 50.0)
         return jnp.where(
-            k <= 50.0,
-            self._knorm * self._prefactor * _hankel(k, self.beta, self._maxRrD),
+            k_ <= 50.0,
+            _knorm * _prefactor * _hankel(k_, beta, _maxRrD),
             0.0,
         )
+
+    @staticmethod
+    @jax.jit
+    def _kValue_func(beta, k, _knorm_bis, _knorm, _prefactor, _maxRrD, trunc, _r0):
+        return jax.lax.cond(
+            trunc > 0,
+            lambda x: Moffat._kValue_trunc_func(
+                beta, x, _knorm, _prefactor, _maxRrD, _r0
+            ),
+            lambda x: Moffat._kValue_untrunc_func(beta, x, _knorm_bis, _knorm, _r0),
+            k,
+        )
+
+    @staticmethod
+    @jax.jit
+    def _kValue_untrunc_asymp_func(beta, k, _knorm_bis, _r0):
+        kr0 = k * _r0
+        return (
+            _knorm_bis
+            * jnp.power(kr0, beta - 1.0)
+            * jnp.exp(-kr0)
+            * jnp.sqrt(jnp.pi / 2 / kr0)
+        )
+
+    def _kValue_untrunc_interp_coeffs(self):
+        # this number of points gets the tests to pass
+        # I did not investigate further.
+        n_pts = 2000
+        k_min = 0
+        # this is a fudge factor to help numerical convergnce in the tests
+        # it should not be needed in principle since the profile is not
+        # evaluated above maxk, but it appears to be needed anyway and
+        # IDK why
+        k_max = self._maxk * 2
+        k = jnp.linspace(k_min, k_max, n_pts)
+        vals = self._kValue_untrunc_func(
+            self.beta,
+            k,
+            self._knorm_bis,
+            self._knorm,
+            self._r0,
+        )
+
+        # slope to match the interpolant onto an asymptotic expansion of kv
+        # that is kv(x) ~ sqrt(pi/2/x) * exp(-x) * (1 + slp/x)
+        aval = self._kValue_untrunc_asymp_func(
+            self.beta, k[-1], self._knorm_bis, self._r0
+        )
+        slp = (vals[-1] / aval - 1) * k[-1] * self._r0
+
+        return k, vals, akima_interp_coeffs(k, vals), slp
 
     @jax.jit
     def _kValue(self, kpos):
         """computation of the Moffat response in k-space with switch of truncated/untracated case
         kpos can be a scalar or a vector (typically, scalar for debug and 2D considering an image)
         """
-        k = jnp.sqrt((kpos.x**2 + kpos.y**2) * self._r0_sq)
+        k = jnp.sqrt((kpos.x**2 + kpos.y**2))
         out_shape = jnp.shape(k)
         k = jnp.atleast_1d(k)
+
+        # for untruncated profiles, we interpolate and use and asymptotic
+        # expansion for extrapolation
+        def _run_untrunc(krun):
+            k_, vals_, coeffs, slp = self._kValue_untrunc_interp_coeffs()
+            res = akima_interp(krun, k_, vals_, coeffs, fixed_spacing=True)
+            krun = jnp.where(krun > 0, krun, k_[1])
+            return jnp.where(
+                krun > k_[-1],
+                self._kValue_untrunc_asymp_func(
+                    self.beta, krun, self._knorm_bis, self._r0
+                )
+                * (1.0 + slp / krun / self._r0),
+                res,
+            )
+
         res = jax.lax.cond(
             self.trunc > 0,
-            lambda x: self._kValue_trunc(x),
-            lambda x: self._kValue_untrunc(x),
+            lambda x: Moffat._kValue_trunc_func(
+                self.beta, x, self._knorm, self._prefactor, self._maxRrD, self._r0
+            ),
+            lambda x: _run_untrunc(x),
             k,
         )
+
         return res.reshape(out_shape)
 
     def _drawReal(self, image, jac=None, offset=(0.0, 0.0), flux_scaling=1.0):
