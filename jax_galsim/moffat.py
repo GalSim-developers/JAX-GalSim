@@ -351,9 +351,9 @@ class Moffat(GSObject):
 
     @staticmethod
     @jax.jit
-    def _kValue_untrunc_func(beta, k, _knorm_bis, _knorm):
+    def _kValue_untrunc_func(beta, k, _knorm_bis, _knorm, _r0):
         """Non truncated version of _kValue"""
-        k_ = jnp.where(k > 0, k, 1.0)
+        k_ = jnp.where(k > 0, k, 1.0) * _r0
         return jnp.where(
             k > 0,
             _knorm_bis * jnp.power(k_, beta - 1.0) * _Knu(beta - 1.0, k_),
@@ -362,9 +362,9 @@ class Moffat(GSObject):
 
     @staticmethod
     @jax.jit
-    def _kValue_trunc_func(beta, k, _knorm, _prefactor, _maxRrD):
+    def _kValue_trunc_func(beta, k, _knorm, _prefactor, _maxRrD, _r0):
         """Truncated version of _kValue"""
-        k_ = jnp.where(k <= 50.0, k, 50.0)
+        k_ = jnp.where(k <= 50.0, k, 50.0) * _r0
         return jnp.where(
             k <= 50.0,
             _knorm * _prefactor * _hankel(k_, beta, _maxRrD),
@@ -376,14 +376,16 @@ class Moffat(GSObject):
     def _kValue_func(beta, k, _knorm_bis, _knorm, _prefactor, _maxRrD, trunc, _r0):
         return jax.lax.cond(
             trunc > 0,
-            lambda x: Moffat._kValue_trunc_func(beta, x, _knorm, _prefactor, _maxRrD),
-            lambda x: Moffat._kValue_untrunc_func(beta, x, _knorm_bis, _knorm),
-            k * _r0,
+            lambda x: Moffat._kValue_trunc_func(
+                beta, x, _knorm, _prefactor, _maxRrD, _r0
+            ),
+            lambda x: Moffat._kValue_untrunc_func(beta, x, _knorm_bis, _knorm, _r0),
+            k,
         )
 
     @staticmethod
     @jax.jit
-    def _kValue_func_untrunc_asymp(beta, k, _knorm_bis, _r0):
+    def _kValue_untrunc_asymp_func(beta, k, _knorm_bis, _r0):
         kr0 = k * _r0
         return (
             _knorm_bis
@@ -416,7 +418,7 @@ class Moffat(GSObject):
 
         # slope to match the interpolant onto an asymptotic expansion of kv
         # that is kv(x) ~ sqrt(pi/2/x) * exp(-x) * (1 + slp/x)
-        aval = self._kValue_func_untrunc_asymp(
+        aval = self._kValue_untrunc_asymp_func(
             self.beta, k[-1], self._knorm_bis, self._r0
         )
         slp = (vals[-1] / aval - 1) * k[-1] * self._r0
@@ -425,7 +427,7 @@ class Moffat(GSObject):
 
     def _kValue_untrunc(self, k):
         """Non truncated version of _kValue"""
-        k_ = jnp.where(k > 0, k, 1.0)
+        k_ = jnp.where(k > 0, k, 1.0) * self._r0
         return jnp.where(
             k > 0,
             self._knorm_bis
@@ -436,7 +438,7 @@ class Moffat(GSObject):
 
     def _kValue_trunc(self, k):
         """Truncated version of _kValue"""
-        k_ = jnp.where(k <= 50.0, k, 50.0)
+        k_ = jnp.where(k <= 50.0, k, 50.0) * self._r0
         return jnp.where(
             k <= 50.0,
             self._knorm * self._prefactor * _hankel(k_, self.beta, self._maxRrD),
@@ -451,7 +453,7 @@ class Moffat(GSObject):
         k = jnp.sqrt((kpos.x**2 + kpos.y**2))
         out_shape = jnp.shape(k)
         k = jnp.atleast_1d(k)
-        k_, vals_, coeffs, _ = self._kValue_interp_coeffs()
+        k_, vals_, coeffs, slp = self._kValue_interp_coeffs()
         res = akima_interp(k, k_, vals_, coeffs, fixed_spacing=True)
 
         res = jax.lax.cond(
@@ -459,9 +461,8 @@ class Moffat(GSObject):
             lambda x: res,
             lambda x: jnp.where(
                 x > k_[-1],
-                self._kValue_func_untrunc_asymp(
-                    self.beta, x, self._knorm_bis, self._r0
-                ),
+                self._kValue_untrunc_asymp_func(self.beta, x, self._knorm_bis, self._r0)
+                * (1.0 + slp / x / self._r0),
                 res,
             ),
             k,
