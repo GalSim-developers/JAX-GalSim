@@ -72,7 +72,13 @@ def _MoffatCalculateSRFromHLR(re, rm, beta, nitr=100):
     return jax.lax.fori_loop(0, 100, body, re, unroll=True)
 
 
-@implements(_galsim.Moffat)
+@implements(
+    _galsim.Moffat,
+    lax_description="""\
+The JAX version of the Moffat profile uses `None` as the default value for the
+`trunc` parameter to indicate no truncation of the profile.
+""",
+)
 @register_pytree_node_class
 class Moffat(GSObject):
     _is_axisymmetric = True
@@ -85,7 +91,7 @@ class Moffat(GSObject):
         scale_radius=None,
         half_light_radius=None,
         fwhm=None,
-        trunc=0.0,
+        trunc=None,
         flux=1.0,
         gsparams=None,
     ):
@@ -103,16 +109,16 @@ class Moffat(GSObject):
                     fwhm=fwhm,
                 )
             else:
+                if trunc is not None:
+                    sr_val = _MoffatCalculateSRFromHLR(half_light_radius, trunc, beta)
+                else:
+                    sr_val = half_light_radius / jnp.sqrt(
+                        jnp.power(0.5, 1.0 / (1.0 - beta)) - 1.0
+                    )
+
                 super().__init__(
                     beta=beta,
-                    scale_radius=(
-                        jax.lax.select(
-                            trunc > 0,
-                            _MoffatCalculateSRFromHLR(half_light_radius, trunc, beta),
-                            half_light_radius
-                            / jnp.sqrt(jnp.power(0.5, 1.0 / (1.0 - beta)) - 1.0),
-                        )
-                    ),
+                    scale_radius=sr_val,
                     trunc=trunc,
                     flux=flux,
                     gsparams=gsparams,
@@ -183,13 +189,12 @@ class Moffat(GSObject):
     @property
     def _maxRrD(self):
         """maxR/rd ; fluxFactor Integral of total flux in terms of 'rD' units."""
-        return jax.lax.select(
-            self.trunc > 0.0,
-            self.trunc * self._inv_r0,
-            jnp.sqrt(
+        if self.trunc is not None:
+            return self.trunc * self._inv_r0
+        else:
+            return jnp.sqrt(
                 jnp.power(self.gsparams.xvalue_accuracy, 1.0 / (1.0 - self.beta)) - 1.0
-            ),
-        )
+            )
 
     @property
     def _maxR(self):
@@ -202,11 +207,10 @@ class Moffat(GSObject):
 
     @property
     def _fluxFactor(self):
-        return jax.lax.select(
-            self.trunc > 0.0,
-            1.0 - jnp.power(1 + self._maxRrD * self._maxRrD, (1.0 - self.beta)),
-            1.0,
-        )
+        if self.trunc is not None:
+            return 1.0 - jnp.power(1 + self._maxRrD * self._maxRrD, (1.0 - self.beta))
+        else:
+            return 1.0
 
     @property
     @implements(_galsim.moffat.Moffat.half_light_radius)
@@ -360,12 +364,11 @@ class Moffat(GSObject):
         k = jnp.sqrt((kpos.x**2 + kpos.y**2) * self._r0_sq)
         out_shape = jnp.shape(k)
         k = jnp.atleast_1d(k)
-        res = jax.lax.cond(
-            self.trunc > 0,
-            lambda x: self._kValue_trunc(x),
-            lambda x: self._kValue_untrunc(x),
-            k,
-        )
+        if self.trunc is not None:
+            res = self._kValue_trunc(k)
+        else:
+            res = self._kValue_untrunc(k)
+
         return res.reshape(out_shape)
 
     def _drawReal(self, image, jac=None, offset=(0.0, 0.0), flux_scaling=1.0):
