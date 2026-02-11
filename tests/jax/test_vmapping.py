@@ -7,7 +7,7 @@ e = jnp.ones(2)
 
 
 def duplicate(params):
-    return {x: y * e for x, y in params.items()}
+    return {x: y * e if y is not None else [None] * 2 for x, y in params.items()}
 
 
 def test_gaussian_vmapping():
