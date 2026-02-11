@@ -465,7 +465,7 @@ class Moffat(GSObject):
                 * (1.0 + slp / x / self._r0),
                 res,
             ),
-            k,
+            jnp.where(k > 0, k, k_[1]),
         )
 
         return res.reshape(out_shape)
