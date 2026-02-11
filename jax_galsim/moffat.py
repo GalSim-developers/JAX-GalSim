@@ -353,9 +353,10 @@ class Moffat(GSObject):
     @jax.jit
     def _kValue_untrunc_func(beta, k, _knorm_bis, _knorm, _r0):
         """Non truncated version of _kValue"""
-        k_ = jnp.where(k > 0, k, 1.0) * _r0
+        k_ = k * _r0
+        k_ = jnp.where(k_ > 0, k_, 1.0)
         return jnp.where(
-            k > 0,
+            k_ > 0,
             _knorm_bis * jnp.power(k_, beta - 1.0) * _Knu(beta - 1.0, k_),
             _knorm,
         )
@@ -364,9 +365,10 @@ class Moffat(GSObject):
     @jax.jit
     def _kValue_trunc_func(beta, k, _knorm, _prefactor, _maxRrD, _r0):
         """Truncated version of _kValue"""
-        k_ = jnp.where(k <= 50.0, k, 50.0) * _r0
+        k_ = k * _r0
+        k_ = jnp.where(k_ <= 50.0, k_, 50.0)
         return jnp.where(
-            k <= 50.0,
+            k_ <= 50.0,
             _knorm * _prefactor * _hankel(k_, beta, _maxRrD),
             0.0,
         )
