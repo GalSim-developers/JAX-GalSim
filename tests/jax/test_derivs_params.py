@@ -30,7 +30,7 @@ def test_deriv_params_gsobject(params, gsobj, args):
                     **kwargs,
                     gsparams=jgs.GSParams(minimum_fft_size=64, maximum_fft_size=64),
                 )
-                .drawImage(nx=48, ny=48, scale=0.2)
+                .drawImage(nx=48, ny=48, scale=0.2, method="fft")
                 .array[24, 24]
                 ** 2
             )
@@ -41,3 +41,29 @@ def test_deriv_params_gsobject(params, gsobj, args):
         gfdiff = (_run(val + eps) - _run(val - eps)) / 2.0 / eps
 
         np.testing.assert_allclose(gval, gfdiff, rtol=0, atol=1e-6)
+
+
+def test_deriv_params_moffat_trunc():
+    val = 2.0
+    eps = 1e-5
+
+    def _run(val_):
+        return jnp.max(
+            jgs.Moffat(
+                2.5,
+                scale_radius=val_,
+                trunc=20.0,
+                gsparams=jgs.GSParams(minimum_fft_size=64, maximum_fft_size=64),
+            )
+            .drawImage(nx=48, ny=48, scale=0.2)
+            .array[24, 24]
+            ** 2
+        )
+
+    gfunc = jax.jit(jax.grad(_run))
+    with jax.disable_jit(), jax.debug_nans():
+        gval = gfunc(val)
+
+    gfdiff = (_run(val + eps) - _run(val - eps)) / 2.0 / eps
+
+    np.testing.assert_allclose(gval, gfdiff, rtol=0, atol=1e-6)
