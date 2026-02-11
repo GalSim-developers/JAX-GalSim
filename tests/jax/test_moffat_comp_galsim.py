@@ -41,7 +41,7 @@ def test_moffat_comp_galsim_maxk():
             fk = psf.kValue(psf.maxk, 0).real / psf.flux
 
             print(
-                f"{psf.beta} \t {int(psf.trunc)} \t {thresh:.1e} \t {fk:.3e} \t {psf.maxk:.3e} \t {gpsf.maxk:.3e}"
+                f"{psf.beta} \t {int(psf.trunc or 0.0)} \t {thresh:.1e} \t {fk:.3e} \t {psf.maxk:.3e} \t {gpsf.maxk:.3e}"
             )
             np.testing.assert_allclose(
                 psf.kValue(0.0, 0.0), gpsf.kValue(0.0, 0.0), rtol=1e-5
