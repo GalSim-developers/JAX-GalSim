@@ -353,10 +353,9 @@ class Moffat(GSObject):
     @jax.jit
     def _kValue_untrunc_func(beta, k, _knorm_bis, _knorm, _r0):
         """Non truncated version of _kValue"""
-        k_ = k * _r0
-        k_ = jnp.where(k_ > 0, k_, 1.0)
+        k_ = jnp.where(k > 0, k * _r0, 1.0)
         return jnp.where(
-            k_ > 0,
+            k > 0,
             _knorm_bis * jnp.power(k_, beta - 1.0) * _Knu(beta - 1.0, k_),
             _knorm,
         )
@@ -427,25 +426,25 @@ class Moffat(GSObject):
 
         return k, vals, akima_interp_coeffs(k, vals), slp
 
-    def _kValue_untrunc(self, k):
-        """Non truncated version of _kValue"""
-        k_ = jnp.where(k > 0, k, 1.0) * self._r0
-        return jnp.where(
-            k > 0,
-            self._knorm_bis
-            * jnp.power(k_, self.beta - 1.0)
-            * _Knu(self.beta - 1.0, k_),
-            self._knorm,
-        )
+    # def _kValue_untrunc(self, k):
+    #     """Non truncated version of _kValue"""
+    #     k_ = jnp.where(k > 0, k, 1.0) * self._r0
+    #     return jnp.where(
+    #         k > 0,
+    #         self._knorm_bis
+    #         * jnp.power(k_, self.beta - 1.0)
+    #         * _Knu(self.beta - 1.0, k_),
+    #         self._knorm,
+    #     )
 
-    def _kValue_trunc(self, k):
-        """Truncated version of _kValue"""
-        k_ = jnp.where(k <= 50.0, k, 50.0) * self._r0
-        return jnp.where(
-            k <= 50.0,
-            self._knorm * self._prefactor * _hankel(k_, self.beta, self._maxRrD),
-            0.0,
-        )
+    # def _kValue_trunc(self, k):
+    #     """Truncated version of _kValue"""
+    #     k_ = jnp.where(k <= 50.0, k, 50.0) * self._r0
+    #     return jnp.where(
+    #         k <= 50.0,
+    #         self._knorm * self._prefactor * _hankel(k_, self.beta, self._maxRrD),
+    #         0.0,
+    #     )
 
     @jax.jit
     def _kValue(self, kpos):
@@ -462,7 +461,7 @@ class Moffat(GSObject):
             self.trunc > 0,
             lambda x: res,
             lambda x: jnp.where(
-                x > k_[-1],
+                k > k_[-1],
                 self._kValue_untrunc_asymp_func(self.beta, x, self._knorm_bis, self._r0)
                 * (1.0 + slp / x / self._r0),
                 res,
