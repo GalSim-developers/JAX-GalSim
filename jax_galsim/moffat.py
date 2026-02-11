@@ -381,7 +381,17 @@ class Moffat(GSObject):
             k * _r0,
         )
 
+    @staticmethod
     @jax.jit
+    def _kValue_func_untrunc_asymp(beta, k, _knorm_bis, _r0):
+        kr0 = k * _r0
+        return (
+            _knorm_bis
+            * jnp.power(kr0, beta - 1.0)
+            * jnp.exp(-kr0)
+            * jnp.sqrt(jnp.pi / 2 / kr0)
+        )
+
     def _kValue_interp_coeffs(self):
         # this number of points gets the tests to pass
         # I did not investigate further.
@@ -391,7 +401,7 @@ class Moffat(GSObject):
         # it should not be needed in principle since the profile is not
         # evaluated above maxk, but it appears to be needed anyway and
         # IDK why
-        k_max = self._maxk * 5
+        k_max = self._maxk * 2
         k = jnp.linspace(k_min, k_max, n_pts)
         vals = self._kValue_func(
             self.beta,
@@ -403,7 +413,15 @@ class Moffat(GSObject):
             self.trunc,
             self._r0,
         )
-        return k, vals, akima_interp_coeffs(k, vals)
+
+        # slope to match the interpolant onto an asymptotic expansion of kv
+        # that is kv(x) ~ sqrt(pi/2/x) * exp(-x) * (1 + slp/x)
+        aval = self._kValue_func_untrunc_asymp(
+            self.beta, k[-1], self._knorm_bis, self._r0
+        )
+        slp = (vals[-1] / aval - 1) * k[-1] * self._r0
+
+        return k, vals, akima_interp_coeffs(k, vals), slp
 
     def _kValue_untrunc(self, k):
         """Non truncated version of _kValue"""
@@ -433,8 +451,21 @@ class Moffat(GSObject):
         k = jnp.sqrt((kpos.x**2 + kpos.y**2))
         out_shape = jnp.shape(k)
         k = jnp.atleast_1d(k)
-        k_, vals_, coeffs = self._kValue_interp_coeffs()
+        k_, vals_, coeffs, _ = self._kValue_interp_coeffs()
         res = akima_interp(k, k_, vals_, coeffs, fixed_spacing=True)
+
+        res = jax.lax.cond(
+            self.trunc > 0,
+            lambda x: res,
+            lambda x: jnp.where(
+                x > k_[-1],
+                self._kValue_func_untrunc_asymp(
+                    self.beta, x, self._knorm_bis, self._r0
+                ),
+                res,
+            ),
+            k,
+        )
 
         return res.reshape(out_shape)
 
