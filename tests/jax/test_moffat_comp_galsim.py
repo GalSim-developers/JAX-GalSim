@@ -35,7 +35,7 @@ def test_moffat_comp_galsim_maxk():
                 beta=psf.beta,
                 scale_radius=psf.scale_radius,
                 flux=psf.flux,
-                trunc=psf.trunc,
+                trunc=psf.trunc or 0.0,
             )
             gpsf = gpsf.withGSParams(maxk_threshold=thresh)
             fk = psf.kValue(psf.maxk, 0).real / psf.flux
