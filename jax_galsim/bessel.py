@@ -251,8 +251,9 @@ def _temme_series_kve(v, z):
     z_sq = z * z
     logzo2 = jnp.log(z / 2.0)
     mu = -v * logzo2
-    sinc_v = jnp.where(v == 0.0, 1.0, jnp.sin(jnp.pi * v) / (jnp.pi * v))
-    sinhc_mu = jnp.where(mu == 0.0, 1.0, jnp.sinh(mu) / mu)
+    sinc_v = jnp.sinc(v)
+    mu_msk = jnp.where(mu == 0.0, 1.0, mu)
+    sinhc_mu = jnp.where(mu == 0.0, 1.0, jnp.sinh(mu_msk) / mu_msk)
 
     initial_f = (coeff1 * jnp.cosh(mu) + coeff2 * (-logzo2) * sinhc_mu) / sinc_v
     initial_p = 0.5 * jnp.exp(mu) / gamma1pv_inv
@@ -711,6 +712,7 @@ def j0(x):
         return factor * (rc * (cx + sx) - y * rs * (sx - cx))
 
     x = jnp.abs(x)
+    x_ = jnp.where(x != 0, x, 1.0)
     return jnp.select(
-        [x == 0, x <= 4, x <= 8, x > 8], [1, t1(x), t2(x), t3(x)], default=x
+        [x == 0, x <= 4, x <= 8, x > 8], [1, t1(x_), t2(x_), t3(x_)], default=x
     ).reshape(orig_shape)

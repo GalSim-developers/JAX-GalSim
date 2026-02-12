@@ -7,6 +7,7 @@ from jax.tree_util import register_pytree_node_class
 from jax_galsim.bessel import j0, kv
 from jax_galsim.core.draw import draw_by_kValue, draw_by_xValue
 from jax_galsim.core.integrate import ClenshawCurtisQuad, quad_integral
+from jax_galsim.core.math import safe_sqrt
 from jax_galsim.core.utils import bisect_for_root, ensure_hashable, implements
 from jax_galsim.gsobject import GSObject
 from jax_galsim.position import PositionD
@@ -103,12 +104,15 @@ class Moffat(GSObject):
                     fwhm=fwhm,
                 )
             else:
+                trunc_msk = jnp.where(trunc > 0, trunc, 50.0)
                 super().__init__(
                     beta=beta,
                     scale_radius=(
                         jax.lax.select(
                             trunc > 0,
-                            _MoffatCalculateSRFromHLR(half_light_radius, trunc, beta),
+                            _MoffatCalculateSRFromHLR(
+                                half_light_radius, trunc_msk, beta
+                            ),
                             half_light_radius
                             / jnp.sqrt(jnp.power(0.5, 1.0 / (1.0 - beta)) - 1.0),
                         )
@@ -288,7 +292,7 @@ class Moffat(GSObject):
     @property
     @jax.jit
     def _maxk(self):
-        return bisect_for_root(partial(self._maxk_func), 0.0, 1e5, niter=75)
+        return bisect_for_root(partial(self._maxk_func), 0.0, 1e5, niter=20)
 
     @property
     def _stepk_lowbeta(self):
@@ -338,17 +342,21 @@ class Moffat(GSObject):
 
     def _kValue_untrunc(self, k):
         """Non truncated version of _kValue"""
+        k_msk = jnp.where(k > 0, k, 1.0)
         return jnp.where(
             k > 0,
-            self._knorm_bis * jnp.power(k, self.beta - 1.0) * _Knu(self.beta - 1.0, k),
+            self._knorm_bis
+            * jnp.power(k_msk, self.beta - 1.0)
+            * _Knu(self.beta - 1.0, k_msk),
             self._knorm,
         )
 
     def _kValue_trunc(self, k):
         """Truncated version of _kValue"""
+        k_msk = jnp.where(k <= 50, k, 50.0)
         return jnp.where(
             k <= 50.0,
-            self._knorm * self._prefactor * _hankel(k, self.beta, self._maxRrD),
+            self._knorm * self._prefactor * _hankel(k_msk, self.beta, self._maxRrD),
             0.0,
         )
 
@@ -357,7 +365,7 @@ class Moffat(GSObject):
         """computation of the Moffat response in k-space with switch of truncated/untracated case
         kpos can be a scalar or a vector (typically, scalar for debug and 2D considering an image)
         """
-        k = jnp.sqrt((kpos.x**2 + kpos.y**2) * self._r0_sq)
+        k = safe_sqrt((kpos.x**2 + kpos.y**2) * self._r0_sq)
         out_shape = jnp.shape(k)
         k = jnp.atleast_1d(k)
         res = jax.lax.cond(
