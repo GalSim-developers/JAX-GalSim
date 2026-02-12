@@ -57,11 +57,6 @@ class Moffat(GSObject):
         if has_tracers(trunc) or np.any(trunc != 0):
             raise ValueError("JAX-GalSim does not support truncated Moffat profiles!")
 
-        if self.gsparams.maxk_threshold > 0.1:
-            raise ValueError(
-                "JAX-GalSim Moffat profiles do not support gsparams.maxk_threshold values greater than 0.1!"
-            )
-
         # Parse the radius options
         if half_light_radius is not None:
             if scale_radius is not None or fwhm is not None:
@@ -112,6 +107,11 @@ class Moffat(GSObject):
                 trunc=trunc,
                 flux=flux,
                 gsparams=gsparams,
+            )
+
+        if self.gsparams.maxk_threshold > 0.1:
+            raise ValueError(
+                "JAX-GalSim Moffat profiles do not support gsparams.maxk_threshold values greater than 0.1!"
             )
 
     @property
