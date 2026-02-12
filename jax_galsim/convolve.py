@@ -63,58 +63,61 @@ class Convolution(GSObject):
                 % kwargs.keys()
             )
 
-        # Check whether to perform real space convolution...
-        # Start by checking if all objects have a hard edge.
-        hard_edge = True
-        for obj in args:
-            if not isinstance(obj, GSObject):
-                raise TypeError(
-                    "Arguments to Convolution must be GSObjects, not %s" % obj
-                )
-            if not obj.has_hard_edges:
-                hard_edge = False
+        # MRB: We do not support real-space convolutions and so this
+        # bit of code is commented out since it causes issues with tracing.
+        # # Check whether to perform real space convolution...
+        # # Start by checking if all objects have a hard edge.
+        # hard_edge = True
+        # for obj in args:
+        #     if not isinstance(obj, GSObject):
+        #         raise TypeError(
+        #             "Arguments to Convolution must be GSObjects, not %s" % obj
+        #         )
+        #     if not obj.has_hard_edges:
+        #         hard_edge = False
 
-        if real_space is None:
-            # The automatic determination is to use real_space if 2 items, both with hard edges.
-            if len(args) <= 2:
-                real_space = hard_edge
-            else:
-                real_space = False
-        elif bool(real_space) != real_space:
-            raise TypeError("real_space must be a boolean")
+        # if real_space is None:
+        #     # The automatic determination is to use real_space if 2 items, both with hard edges.
+        #     if len(args) <= 2:
+        #         real_space = hard_edge
+        #     else:
+        #         real_space = False
+        # elif bool(real_space) != real_space:
+        #     raise TypeError("real_space must be a boolean")
 
-        # Warn if doing DFT convolution for objects with hard edges
-        if not real_space and hard_edge:
-            if len(args) == 2:
-                galsim_warn(
-                    "Doing convolution of 2 objects, both with hard edges. "
-                    "This might be more accurate with `real_space=True`, "
-                    "but this functionality has not yet been implemented in JAX-Galsim."
-                )
-            else:
-                galsim_warn(
-                    "Doing convolution where all objects have hard edges. "
-                    "There might be some inaccuracies due to ringing in k-space."
-                )
-        if real_space:
-            # Can't do real space if nobj > 2
-            if len(args) > 2:
-                galsim_warn(
-                    "Real-space convolution of more than 2 objects is not implemented. "
-                    "Switching to DFT method."
-                )
-                real_space = False
+        # # Warn if doing DFT convolution for objects with hard edges
+        # if not real_space and hard_edge:
+        #     if len(args) == 2:
+        #         galsim_warn(
+        #             "Doing convolution of 2 objects, both with hard edges. "
+        #             "This might be more accurate with `real_space=True`, "
+        #             "but this functionality has not yet been implemented in JAX-Galsim."
+        #         )
+        #     else:
+        #         galsim_warn(
+        #             "Doing convolution where all objects have hard edges. "
+        #             "There might be some inaccuracies due to ringing in k-space."
+        #         )
+        # if real_space:
+        #     # Can't do real space if nobj > 2
+        #     if len(args) > 2:
+        #         galsim_warn(
+        #             "Real-space convolution of more than 2 objects is not implemented. "
+        #             "Switching to DFT method."
+        #         )
+        #         real_space = False
 
-            # Also can't do real space if any object is not analytic, so check for that.
-            else:
-                for obj in args:
-                    if not obj.is_analytic_x:
-                        galsim_warn(
-                            "A component to be convolved is not analytic in real space. "
-                            "Cannot use real space convolution. Switching to DFT method."
-                        )
-                        real_space = False
-                        break
+        #     # Also can't do real space if any object is not analytic, so check for that.
+        #     else:
+        #         for obj in args:
+        #             if not obj.is_analytic_x:
+        #                 galsim_warn(
+        #                     "A component to be convolved is not analytic in real space. "
+        #                     "Cannot use real space convolution. Switching to DFT method."
+        #                 )
+        #                 real_space = False
+        #                 break
+        # MRB: end of commented code
 
         # Save the construction parameters (as they are at this point) as attributes so they
         # can be inspected later if necessary.
