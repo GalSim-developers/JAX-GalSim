@@ -292,7 +292,7 @@ class Moffat(GSObject):
     @property
     @jax.jit
     def _maxk(self):
-        return bisect_for_root(partial(self._maxk_func), 0.0, 1e5, niter=20)
+        return bisect_for_root(partial(self._maxk_func), 0.0, 1e5, niter=75)
 
     @property
     def _stepk_lowbeta(self):
