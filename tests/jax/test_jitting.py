@@ -55,13 +55,11 @@ def test_exponential_jitting():
 
 def test_moffat_jitting():
     # Test Moffat objects
-    fwhm_backwards_compatible = 1.3178976627539716
     objects = [
         galsim.Moffat(beta=5.0, flux=0.2, scale_radius=1.0, gsparams=gsparams),
         galsim.Moffat(
             beta=2.0,
             half_light_radius=1.0,
-            trunc=5 * fwhm_backwards_compatible,
             flux=1.0,
             gsparams=gsparams,
         ),

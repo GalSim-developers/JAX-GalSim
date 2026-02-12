@@ -145,3 +145,4 @@ allowed_failures:
   - "module 'jax_galsim' has no attribute 'LookupTable2D'"
   - "module 'jax_galsim' has no attribute 'zernike'"
   - "Invalid TFORM4: 1PE(7)"  # see https://github.com/astropy/astropy/issues/15477
+  - "JAX-GalSim does not support truncated Moffat"

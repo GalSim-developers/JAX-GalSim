@@ -292,7 +292,7 @@ def test_benchmark_invert_ab_noraise(benchmark, kind):
 
 
 def _run_benchmark_moffat_init():
-    return jgs.Moffat(beta=2.5, half_light_radius=0.6, trunc=1.2).scale_radius
+    return jgs.Moffat(beta=2.5, half_light_radius=0.6).scale_radius
 
 
 @pytest.mark.parametrize("kind", ["run"])
