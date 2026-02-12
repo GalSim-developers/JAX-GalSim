@@ -47,10 +47,7 @@ def test_deriv_gsobject_radii(params, gsobj, args, kwargs):
 
         gfdiff = (_run(val + eps) - _run(val - eps)) / 2.0 / eps
 
-        if isinstance(gsobj, jgs.Moffat) and param == "fwhm":
-            atol = 1e-5
-        else:
-            atol = 1e-6
+        atol = 1e-5
 
         np.testing.assert_allclose(gval, gfdiff, rtol=0, atol=atol)
 
