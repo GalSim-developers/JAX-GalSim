@@ -883,4 +883,5 @@ def _moffat_maxk(beta, maxk_threshold, r0):
     coeffs = akima_interp_coeffs(LOG_MKTS, maxk_vals)
     return akima_interp(log_maxk_threshold, LOG_MKTS, maxk_vals, coeffs) / r0
 
+
 # END OF GENERATED CODE
