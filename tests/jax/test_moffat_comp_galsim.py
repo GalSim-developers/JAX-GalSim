@@ -22,9 +22,6 @@ def test_moffat_comp_galsim_maxk():
         galsim.Moffat(beta=1.22, scale_radius=23, flux=23),
         galsim.Moffat(beta=3.6, scale_radius=2, flux=23),
         galsim.Moffat(beta=12.9, scale_radius=5, flux=23),
-        galsim.Moffat(beta=1.22, scale_radius=7, flux=23, trunc=30),
-        galsim.Moffat(beta=3.6, scale_radius=9, flux=23, trunc=50),
-        galsim.Moffat(beta=12.9, scale_radius=11, flux=23, trunc=1000),
     ]
     threshs = [1.0e-3, 1.0e-4, 0.03]
     print("\nbeta \t trunc \t thresh \t kValue(maxk) \t jgs-maxk \t gs-maxk")

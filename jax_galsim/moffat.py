@@ -1,13 +1,18 @@
 import galsim as _galsim
 import jax
 import jax.numpy as jnp
+import numpy as np
 from jax.tree_util import Partial as partial
 from jax.tree_util import register_pytree_node_class
 
-from jax_galsim.bessel import j0, kv
+from jax_galsim.bessel import kv
 from jax_galsim.core.draw import draw_by_kValue, draw_by_xValue
-from jax_galsim.core.integrate import ClenshawCurtisQuad, quad_integral
-from jax_galsim.core.utils import bisect_for_root, ensure_hashable, implements
+from jax_galsim.core.utils import (
+    bisect_for_root,
+    ensure_hashable,
+    has_tracers,
+    implements,
+)
 from jax_galsim.gsobject import GSObject
 from jax_galsim.position import PositionD
 from jax_galsim.random import UniformDeviate
@@ -19,65 +24,21 @@ def _Knu(nu, x):
     return kv(nu, x)
 
 
-@jax.jit
-def _MoffatIntegrant(x, k, beta):
-    """For truncated Hankel used in truncated Moffat"""
-    return x * jnp.power(1 + x**2, -beta) * j0(k * x)
+@implements(
+    _galsim.Moffat,
+    lax_description="""\
+The LAX version of the Moffat profile
 
-
-def _xMoffatIntegrant(k, beta, rmax, quad):
-    return quad_integral(partial(_MoffatIntegrant, k=k, beta=beta), 0.0, rmax, quad)
-
-
-@jax.jit
-def _hankel(k, beta, rmax):
-    quad = ClenshawCurtisQuad.init(150)
-    g = partial(_xMoffatIntegrant, beta=beta, rmax=rmax, quad=quad)
-    return jax.vmap(g)(k)
-
-
-@jax.jit
-def _bodymi(xcur, rm, re, beta):
-    x = (1 + jnp.power(1 + (rm / xcur) ** 2, 1 - beta)) / 2
-    x = jnp.power(x, 1 / (1 - beta))
-    x = jnp.sqrt(x - 1)
-    return re / x
-
-
-@partial(jax.jit, static_argnames=("nitr",))
-def _MoffatCalculateSRFromHLR(re, rm, beta, nitr=100):
-    """
-    The basic equation that is relevant here is the flux of a Moffat profile
-    out to some radius.
-
-    flux(R) = int( (1+r^2/rd^2 )^(-beta) 2pi r dr, r=0..R )
-            = (pi rd^2 / (beta-1)) (1 - (1+R^2/rd^2)^(1-beta) )
-    For now, we can ignore the first factor.  We call the second factor fluxfactor below,
-    or in this function f(R).
-    We are given two values of R for which we know that the ratio of their fluxes is 1/2:
-    f(re) = 0.5 * f(rm)
-
-    nb1. rd aka r0 aka the scale radius
-    nb2. In GalSim definition rm = 0 (ex. no truncated Moffat) means in reality rm=+Inf.
-         BUT the case rm==0 is already done, so HERE rm != 0
-    """
-
-    # fix loop iteration is faster and reach eps=1e-6 (single precision)
-    def body(i, xcur):
-        x = (1 + jnp.power(1 + (rm / xcur) ** 2, 1 - beta)) / 2
-        x = jnp.power(x, 1 / (1 - beta))
-        x = jnp.sqrt(x - 1)
-        return re / x
-
-    return jax.lax.fori_loop(0, 100, body, re, unroll=True)
-
-
-@implements(_galsim.Moffat)
+- does not support truncation or beta < 1.1
+- does not support gsparams.maxk_thresholds > 0.1
+""",
+)
 @register_pytree_node_class
 class Moffat(GSObject):
     _is_axisymmetric = True
     _is_analytic_x = True
     _is_analytic_k = True
+    _has_hard_edges = False
 
     def __init__(
         self,
@@ -93,6 +54,14 @@ class Moffat(GSObject):
         # let define beta_thr a threshold to trigger the truncature
         self._beta_thr = 1.1
 
+        if has_tracers(trunc) or np.any(trunc != 0):
+            raise ValueError("JAX-GalSim does not support truncated Moffat profiles!")
+
+        if self.gsparams.maxk_threshold > 0.1:
+            raise ValueError(
+                "JAX-GalSim Moffat profiles do not support gsparams.maxk_threshold values greater than 0.1!"
+            )
+
         # Parse the radius options
         if half_light_radius is not None:
             if scale_radius is not None or fwhm is not None:
@@ -106,12 +75,8 @@ class Moffat(GSObject):
                 super().__init__(
                     beta=beta,
                     scale_radius=(
-                        jax.lax.select(
-                            trunc > 0,
-                            _MoffatCalculateSRFromHLR(half_light_radius, trunc, beta),
-                            half_light_radius
-                            / jnp.sqrt(jnp.power(0.5, 1.0 / (1.0 - beta)) - 1.0),
-                        )
+                        half_light_radius
+                        / jnp.sqrt(jnp.power(0.5, 1.0 / (1.0 - beta)) - 1.0)
                     ),
                     trunc=trunc,
                     flux=flux,
@@ -183,12 +148,8 @@ class Moffat(GSObject):
     @property
     def _maxRrD(self):
         """maxR/rd ; fluxFactor Integral of total flux in terms of 'rD' units."""
-        return jax.lax.select(
-            self.trunc > 0.0,
-            self.trunc * self._inv_r0,
-            jnp.sqrt(
-                jnp.power(self.gsparams.xvalue_accuracy, 1.0 / (1.0 - self.beta)) - 1.0
-            ),
+        return jnp.sqrt(
+            jnp.power(self.gsparams.xvalue_accuracy, 1.0 / (1.0 - self.beta)) - 1.0
         )
 
     @property
@@ -202,11 +163,7 @@ class Moffat(GSObject):
 
     @property
     def _fluxFactor(self):
-        return jax.lax.select(
-            self.trunc > 0.0,
-            1.0 - jnp.power(1 + self._maxRrD * self._maxRrD, (1.0 - self.beta)),
-            1.0,
-        )
+        return 1.0
 
     @property
     @implements(_galsim.moffat.Moffat.half_light_radius)
@@ -321,10 +278,6 @@ class Moffat(GSObject):
         )
 
     @property
-    def _has_hard_edges(self):
-        return self.trunc != 0.0
-
-    @property
     def _max_sb(self):
         return self._norm
 
@@ -344,14 +297,6 @@ class Moffat(GSObject):
             self._knorm,
         )
 
-    def _kValue_trunc(self, k):
-        """Truncated version of _kValue"""
-        return jnp.where(
-            k <= 50.0,
-            self._knorm * self._prefactor * _hankel(k, self.beta, self._maxRrD),
-            0.0,
-        )
-
     @jax.jit
     def _kValue(self, kpos):
         """computation of the Moffat response in k-space with switch of truncated/untracated case
@@ -360,12 +305,7 @@ class Moffat(GSObject):
         k = jnp.sqrt((kpos.x**2 + kpos.y**2) * self._r0_sq)
         out_shape = jnp.shape(k)
         k = jnp.atleast_1d(k)
-        res = jax.lax.cond(
-            self.trunc > 0,
-            lambda x: self._kValue_trunc(x),
-            lambda x: self._kValue_untrunc(x),
-            k,
-        )
+        res = self._kValue_untrunc(k)
         return res.reshape(out_shape)
 
     def _drawReal(self, image, jac=None, offset=(0.0, 0.0), flux_scaling=1.0):
