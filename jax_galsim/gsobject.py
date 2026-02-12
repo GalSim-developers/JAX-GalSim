@@ -563,7 +563,7 @@ class GSObject:
                 lambda wcs, nqs: (
                     PixelScale(jnp.float_(nqs)) if default_wcs is None else default_wcs
                 ),
-                lambda wcs, nqs: PixelScale(jnp.float_(wcs.scale)),
+                lambda wcs, nqs: PixelScale(jnp.float_(wcs.scale) * jnp.ones_like(nqs)),
                 wcs,
                 self.nyquist_scale,
             )

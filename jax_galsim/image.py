@@ -195,7 +195,7 @@ class Image(object):
                 self._array = self._array + init_value
         elif array is not None:
             self._array = array.view(dtype=self._dtype)
-            nrow, ncol = array.shape
+            nrow, ncol = array.shape[:2]
             self._bounds = BoundsI(xmin, xmin + ncol - 1, ymin, ymin + nrow - 1)
             if init_value is not None:
                 raise _galsim.GalSimIncompatibleValuesError(

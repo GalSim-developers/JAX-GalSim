@@ -187,7 +187,7 @@ class Moffat(GSObject):
         return jax.lax.select(
             self.trunc > 0.0,
             self.trunc * self._inv_r0,
-            jnp.sqrt(
+            jnp.ones_like(self.trunc) * jnp.sqrt(
                 jnp.power(self.gsparams.xvalue_accuracy, 1.0 / (1.0 - self.beta)) - 1.0
             ),
         )
@@ -206,7 +206,7 @@ class Moffat(GSObject):
         return jax.lax.select(
             self.trunc > 0.0,
             1.0 - jnp.power(1 + self._maxRrD * self._maxRrD, (1.0 - self.beta)),
-            1.0,
+            jnp.ones_like(self.trunc),
         )
 
     @property
@@ -375,13 +375,12 @@ class Moffat(GSObject):
     @staticmethod
     @jax.jit
     def _kValue_func(beta, k, _knorm_bis, _knorm, _prefactor, _maxRrD, trunc, _r0):
-        return jax.lax.cond(
+        return jnp.where(
             trunc > 0,
-            lambda x: Moffat._kValue_trunc_func(
-                beta, x, _knorm, _prefactor, _maxRrD, _r0
+            Moffat._kValue_trunc_func(
+                beta, k, _knorm, _prefactor, _maxRrD, _r0
             ),
-            lambda x: Moffat._kValue_untrunc_func(beta, x, _knorm_bis, _knorm, _r0),
-            k,
+            Moffat._kValue_untrunc_func(beta, k, _knorm_bis, _knorm, _r0),
         )
 
     @staticmethod

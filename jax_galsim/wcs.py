@@ -862,7 +862,7 @@ class PixelScale(LocalWCS):
     def _profileToWorld(self, image_profile, flux_ratio, offset):
         return _Transform(
             image_profile,
-            (self._scale, 0.0, 0.0, self._scale),
+            (self._scale, jnp.zeros_like(self._scale), jnp.zeros_like(self._scale), self._scale),
             flux_ratio=self._scale**-2 * flux_ratio,
             offset=offset,
         )
@@ -870,7 +870,7 @@ class PixelScale(LocalWCS):
     def _profileToImage(self, world_profile, flux_ratio, offset):
         return _Transform(
             world_profile,
-            (1.0 / self._scale, 0.0, 0.0, 1.0 / self._scale),
+            (1.0 / self._scale, jnp.zeros_like(self._scale), jnp.zeros_like(self._scale), 1.0 / self._scale),
             flux_ratio=self._scale**2 * flux_ratio,
             offset=offset,
         )
@@ -895,7 +895,7 @@ class PixelScale(LocalWCS):
         return PixelScale(1.0 / self._scale)
 
     def _toJacobian(self):
-        return JacobianWCS(self._scale, 0.0, 0.0, self._scale)
+        return JacobianWCS(self._scale, jnp.zeros_like(self._scale), jnp.zeros_like(self._scale), self._scale)
 
     def _writeHeader(self, header, bounds):
         header["GS_WCS"] = ("PixelScale", "GalSim WCS name")

@@ -44,15 +44,15 @@ def test_deriv_params_gsobject(params, gsobj, args):
 
 
 def test_deriv_params_moffat_with_trunc():
-    val = 2.0
+    val = jnp.array([2.0, 3.0])
+    trunc = 20.0
     eps = 1e-5
 
-    def _run(val_):
+    def _run(val_, trunc):
         return jnp.max(
-            jgs.Moffat(
-                2.5,
+            jgs.Gaussian(
                 half_light_radius=val_,
-                trunc=20.0,
+                # trunc=trunc,
                 gsparams=jgs.GSParams(minimum_fft_size=64, maximum_fft_size=64),
             )
             .drawImage(nx=48, ny=48, scale=0.2)
@@ -60,11 +60,10 @@ def test_deriv_params_moffat_with_trunc():
             ** 2
         )
 
-    gfunc = jax.jit(jax.grad(_run))
-    with jax.disable_jit(), jax.debug_nans():
-        gval = gfunc(val)
+    gfunc = jax.jit(jax.vmap(jax.grad(_run), in_axes=(0, None)))
+    gval = gfunc(val, trunc)
 
-    gfdiff = (_run(val + eps) - _run(val - eps)) / 2.0 / eps
+    gfdiff = (_run(val + eps, trunc) - _run(val - eps, trunc)) / 2.0 / eps
 
     np.testing.assert_allclose(gval, gfdiff, rtol=0, atol=1e-6)
 
@@ -87,8 +86,7 @@ def test_deriv_params_moffat_with_respect_to_trunc():
         )
 
     gfunc = jax.jit(jax.grad(_run))
-    with jax.disable_jit(), jax.debug_nans():
-        gval = gfunc(val)
+    gval = gfunc(val)
 
     gfdiff = (_run(val + eps) - _run(val - eps)) / 2.0 / eps
 

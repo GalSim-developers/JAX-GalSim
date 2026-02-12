@@ -79,7 +79,7 @@ def apply_kImage_phases(offset, image, jacobian=jnp.eye(2)):
         kcoords[..., 0], kcoords[..., 1]
     )
     return Image(
-        array=image.array * im_phase,
+        array=(image.array.T * im_phase.T).T,
         bounds=image.bounds,
         wcs=image.wcs,
         _check_bounds=False,

@@ -98,11 +98,16 @@ class Transformation(GSObject):
 
     @property
     def _jac(self):
+        import jax
         jac = self._params["jac"]
-        return jnp.asarray(
-            jnp.broadcast_to(jnp.array(jac, dtype=float).ravel(), (4,)),
-            dtype=float,
-        ).reshape((2, 2))
+        jac = jnp.squeeze(
+            jnp.moveaxis(jnp.asarray(jac).reshape(4, -1).T.reshape(2, 2, -1), -1, 0)
+        )
+        jax.debug.print("_jac={jac}", jac=jac)
+        #     jnp.broadcast_to(jnp.array(jac, dtype=float).ravel(), (4,)),
+        #     dtype=float,
+        # ).reshape((2, 2))
+        return jac
 
     @property
     @implements(_galsim.transform.Transformation.original)
@@ -366,6 +371,7 @@ class Transformation(GSObject):
 
     def _drawKImage(self, image, jac=None):
         from jax_galsim.core.draw import apply_kImage_phases
+        import jax
 
         jac1 = (
             self._jac
@@ -374,6 +380,8 @@ class Transformation(GSObject):
             if self._jac is None
             else jac.dot(self._jac)
         )
+        jax.debug.print("_jac={_jac}, jac={jac}, jac1={jac1}", _jac=self._jac, jac=jac, jac1=jac1)
+
         image = self._original._drawKImage(image, jac1)
 
         _jac = jnp.eye(2) if jac is None else jac
