@@ -37,7 +37,7 @@ def test_implements():
     p = _parse_galsimdoc(docstring)
 
     assert p.signature == ""
-    assert p.summary == "The summary is\n    cool."
+    assert p.summary == "The summary is\ncool."
     assert "This is front matter." in p.front_matter
     assert "LAX" not in p.front_matter
     assert p.sections == {}
@@ -45,7 +45,7 @@ def test_implements():
     docstring = LAXTestImplements.__doc__
     p = _parse_galsimdoc(docstring)
     assert p.signature == ""
-    assert p.summary == "The summary is\n    cool."
+    assert p.summary == "The summary is\ncool."
     assert "This is front matter." in p.front_matter
     assert "LAX" in p.front_matter
     assert p.sections == {}
