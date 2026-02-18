@@ -29,10 +29,12 @@ def _Knu(nu, x):
 @implements(
     _galsim.Moffat,
     lax_description="""\
-The LAX version of the Moffat profile
+The JAX-GalSim version of the Moffat profile
 
 - does not support truncation or beta < 1.1
 - does not support gsparams.maxk_thresholds > 0.1
+- does not support autodiff with respect to the `beta` parameter
+  for Fourier-space evaluations
 """,
 )
 @register_pytree_node_class
@@ -333,8 +335,10 @@ class Moffat(GSObject):
         k_min = 0
         k_max = self._maxk
         k = jnp.linspace(k_min, k_max, n_pts)
+
+        beta = jax.lax.stop_gradient(self.beta)
         vals = self._kValue_untrunc_func(
-            self.beta,
+            beta,
             k,
             self._knorm_bis,
             self._knorm,
@@ -343,9 +347,7 @@ class Moffat(GSObject):
 
         # slope to match the interpolant onto an asymptotic expansion of kv
         # that is kv(x) ~ sqrt(pi/2/x) * exp(-x) * (1 + slp/x)
-        aval = self._kValue_untrunc_asymp_func(
-            self.beta, k[-1], self._knorm_bis, self._r0
-        )
+        aval = self._kValue_untrunc_asymp_func(beta, k[-1], self._knorm_bis, self._r0)
         slp = (vals[-1] / aval - 1) * k[-1] * self._r0
 
         return k, vals, akima_interp_coeffs(k, vals), slp
@@ -355,6 +357,9 @@ class Moffat(GSObject):
         """computation of the Moffat response in k-space with interpolant + expansions
         kpos can be a scalar or a vector (typically, scalar for debug and 2D considering an image)
         """
+        # we cannot compute gradients with respect to beta
+        beta = jax.lax.stop_gradient(self.beta)
+
         k = safe_sqrt(kpos.x**2 + kpos.y**2)
         out_shape = jnp.shape(k)
         k = jnp.atleast_1d(k)
@@ -364,7 +369,12 @@ class Moffat(GSObject):
         k_msk = jnp.where(k > 0, k, k_[1])
         res = jnp.where(
             k > k_[-1],
-            self._kValue_untrunc_asymp_func(self.beta, k_msk, self._knorm_bis, self._r0)
+            self._kValue_untrunc_asymp_func(
+                beta,
+                k_msk,
+                self._knorm_bis,
+                self._r0,
+            )
             * (1.0 + slp / k_msk / self._r0),
             res,
         )
