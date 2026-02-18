@@ -329,7 +329,7 @@ class Moffat(GSObject):
     def _kValue_untrunc_interp_coeffs(self):
         # MRB: this number of points gets the tests to pass
         # I did not investigate further.
-        n_pts = 500
+        n_pts = 2000
         k_min = 0
         # this is a fudge factor to help numerical convergnce in the tests
         # it should not be needed in principle since the profile is not
