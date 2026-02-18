@@ -254,7 +254,10 @@ def _spergel_hlr_pade(x):
 
             \hat{I}(k) = flux / (1 + (k r_0)^2)^{1+\nu}
 
-    where :math:`r_0` is the ``scale_radius``, and :math: `\nu` mandatory to be in [-0.85,4.0]
+    where :math:`r_0` is the ``scale_radius``, and :math:`\nu` mandatory to be in [-0.85,4.0]
+
+    The JAX-GalSim implementation does not support autodiff with respect to :math:`\nu` for
+    real-space evaluations.
     """,
 )
 @register_pytree_node_class
@@ -411,7 +414,7 @@ class Spergel(GSObject):
     @jax.jit
     def _xValue(self, pos):
         r = jnp.sqrt(pos.x**2 + pos.y**2) * self._inv_r0
-        res = jnp.where(r == 0, self._xnorm0, fz_nu(r, self.nu))
+        res = jnp.where(r == 0, self._xnorm0, fz_nu(r, jax.lax.stop_gradient(self.nu)))
         return self._xnorm * res
 
     @jax.jit

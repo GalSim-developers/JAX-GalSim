@@ -31,7 +31,7 @@ def test_deriv_gsobject_radii(params, gsobj, args, kwargs):
                     **kwargs_,
                     gsparams=jgs.GSParams(minimum_fft_size=8, maximum_fft_size=8),
                 )
-                .drawImage(nx=5, ny=5, scale=0.2, method="fft")
+                .drawImage(nx=5, ny=5, scale=0.2)
                 .array[2, 2]
                 ** 2
             )
@@ -44,3 +44,29 @@ def test_deriv_gsobject_radii(params, gsobj, args, kwargs):
         atol = 1e-5
 
         np.testing.assert_allclose(gval, gfdiff, rtol=0, atol=atol)
+
+
+def test_deriv_gsobject_spergel_nu():
+    val = 2.0
+    eps = 1e-5
+
+    def _run(val_):
+        return jnp.max(
+            jgs.Spergel(
+                val,
+                scale_radius=2.0,
+                gsparams=jgs.GSParams(minimum_fft_size=8, maximum_fft_size=8),
+            )
+            .drawImage(nx=5, ny=5, scale=0.2)
+            .array[2, 2]
+            ** 2
+        )
+
+    gfunc = jax.jit(jax.grad(_run))
+    gval = gfunc(val)
+
+    gfdiff = (_run(val + eps) - _run(val - eps)) / 2.0 / eps
+
+    atol = 1e-5
+
+    np.testing.assert_allclose(gval, gfdiff, rtol=0, atol=atol)
