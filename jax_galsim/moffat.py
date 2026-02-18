@@ -8,6 +8,7 @@ from jax.tree_util import register_pytree_node_class
 
 from jax_galsim.bessel import kv
 from jax_galsim.core.draw import draw_by_kValue, draw_by_xValue
+from jax_galsim.core.math import safe_sqrt
 from jax_galsim.core.utils import (
     ensure_hashable,
     has_tracers,
@@ -303,9 +304,12 @@ class Moffat(GSObject):
 
     def _kValue_untrunc(self, k):
         """Non truncated version of _kValue"""
+        k_msk = jnp.where(k > 0, k, 1.0)
         return jnp.where(
             k > 0,
-            self._knorm_bis * jnp.power(k, self.beta - 1.0) * _Knu(self.beta - 1.0, k),
+            self._knorm_bis
+            * jnp.power(k_msk, self.beta - 1.0)
+            * _Knu(self.beta - 1.0, k_msk),
             self._knorm,
         )
 
@@ -314,7 +318,7 @@ class Moffat(GSObject):
         """computation of the Moffat response in k-space with switch of truncated/untracated case
         kpos can be a scalar or a vector (typically, scalar for debug and 2D considering an image)
         """
-        k = jnp.sqrt((kpos.x**2 + kpos.y**2) * self._r0_sq)
+        k = safe_sqrt((kpos.x**2 + kpos.y**2) * self._r0_sq)
         out_shape = jnp.shape(k)
         k = jnp.atleast_1d(k)
         res = self._kValue_untrunc(k)
