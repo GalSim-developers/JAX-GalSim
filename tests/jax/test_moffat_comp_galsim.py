@@ -69,8 +69,6 @@ def test_moffat_comp_galsim_maxk(psf, thresh):
         atol=1e-5,
     )
 
-    # sometimes these k-values are in the extrapolation regime and so we have
-    # less accuracy
     np.testing.assert_allclose(
         psf.kValue(0.0, 0.1),
         gpsf.kValue(0.0, 0.1),
