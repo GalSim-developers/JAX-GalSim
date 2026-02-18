@@ -225,6 +225,7 @@ class Interpolant:
         )
 
     # TODO: Work out CPU-side caching and pre-generation for this
+    @property
     def _shoot_cdf(self):
         x = jnp.linspace(-self.xrange, self.xrange, 10000)
         px = jnp.abs(self._xval_noraise(jnp.abs(x)))
