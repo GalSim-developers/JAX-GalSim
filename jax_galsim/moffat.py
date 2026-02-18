@@ -359,6 +359,10 @@ class Moffat(GSObject):
         photons.flux = self.flux / photons.size()
 
 
+# this fitting function and code to build it is defined in the
+# dev notebook dev/notebooks/moffat_maxk_interp.ipynb
+# !!! DO NOT CHANGE ANY OF THE VARIABLES BELOW !!!
+
 # order of rational function in log(maxk_threshold), log(beta)
 PADE_ORDERS = [9, 11]
 
