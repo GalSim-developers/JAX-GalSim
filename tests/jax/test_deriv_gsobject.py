@@ -31,7 +31,7 @@ def test_deriv_gsobject_radii(params, gsobj, args, kwargs):
                     **kwargs_,
                     gsparams=jgs.GSParams(minimum_fft_size=8, maximum_fft_size=8),
                 )
-                .drawImage(nx=5, ny=5, scale=0.2, method="fft")
+                .drawImage(nx=5, ny=5, scale=0.2)
                 .array[2, 2]
                 ** 2
             )
@@ -57,7 +57,7 @@ def test_deriv_gsobject_spergel_nu():
                 scale_radius=2.0,
                 gsparams=jgs.GSParams(minimum_fft_size=8, maximum_fft_size=8),
             )
-            .drawImage(nx=5, ny=5, scale=0.2, method="fft")
+            .drawImage(nx=5, ny=5, scale=0.2)
             .array[2, 2]
             ** 2
         )
