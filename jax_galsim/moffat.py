@@ -8,6 +8,7 @@ from jax.tree_util import register_pytree_node_class
 
 from jax_galsim.bessel import kv
 from jax_galsim.core.draw import draw_by_kValue, draw_by_xValue
+from jax_galsim.core.math import safe_sqrt
 from jax_galsim.core.utils import (
     ensure_hashable,
     has_tracers,
