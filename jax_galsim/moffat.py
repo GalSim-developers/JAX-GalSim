@@ -308,10 +308,10 @@ class Moffat(GSObject):
     def _kValue_untrunc_func(beta, k, _knorm_bis, _knorm, _r0):
         """Non truncated version of _kValue"""
         msk = k > 0
-        k_msk = jnp.where(msk, k, 1.0) * _r0
+        kr0_msk = jnp.where(msk, k, 1.0) * _r0
         return jnp.where(
             msk,
-            _knorm_bis * jnp.power(k_msk, beta - 1.0) * _Knu(beta - 1.0, k_msk),
+            _knorm_bis * jnp.power(kr0_msk, beta - 1.0) * _Knu(beta - 1.0, kr0_msk),
             _knorm,
         )
 
