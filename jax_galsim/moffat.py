@@ -8,6 +8,7 @@ from jax.tree_util import register_pytree_node_class
 
 from jax_galsim.bessel import kv
 from jax_galsim.core.draw import draw_by_kValue, draw_by_xValue
+from jax_galsim.core.interpolate import akima_interp, akima_interp_coeffs
 from jax_galsim.core.math import safe_sqrt
 from jax_galsim.core.utils import (
     ensure_hashable,
@@ -302,26 +303,72 @@ class Moffat(GSObject):
             rsq > self._maxRrD_sq, 0.0, self._norm * jnp.power(1.0 + rsq, -self.beta)
         )
 
-    def _kValue_untrunc(self, k):
+    @staticmethod
+    @jax.jit
+    def _kValue_untrunc_func(beta, k, _knorm_bis, _knorm, _r0):
         """Non truncated version of _kValue"""
-        k_msk = jnp.where(k > 0, k, 1.0)
+        msk = k > 0
+        kr0_msk = jnp.where(msk, k, 1.0) * _r0
         return jnp.where(
-            k > 0,
-            self._knorm_bis
-            * jnp.power(k_msk, self.beta - 1.0)
-            * _Knu(self.beta - 1.0, k_msk),
-            self._knorm,
+            msk,
+            _knorm_bis * jnp.power(kr0_msk, beta - 1.0) * _Knu(beta - 1.0, kr0_msk),
+            _knorm,
         )
+
+    @staticmethod
+    @jax.jit
+    def _kValue_untrunc_asymp_func(beta, k, _knorm_bis, _r0):
+        kr0 = k * _r0
+        return (
+            _knorm_bis
+            * jnp.power(kr0, beta - 1.0)
+            * jnp.exp(-kr0)
+            * jnp.sqrt(jnp.pi / 2 / kr0)
+        )
+
+    def _kValue_untrunc_interp_coeffs(self):
+        # MRB: this number of points gets the tests to pass
+        # I did not investigate further.
+        n_pts = 700
+        k_min = 0
+        k_max = self._maxk
+        k = jnp.linspace(k_min, k_max, n_pts)
+        vals = self._kValue_untrunc_func(
+            self.beta,
+            k,
+            self._knorm_bis,
+            self._knorm,
+            self._r0,
+        )
+
+        # slope to match the interpolant onto an asymptotic expansion of kv
+        # that is kv(x) ~ sqrt(pi/2/x) * exp(-x) * (1 + slp/x)
+        aval = self._kValue_untrunc_asymp_func(
+            self.beta, k[-1], self._knorm_bis, self._r0
+        )
+        slp = (vals[-1] / aval - 1) * k[-1] * self._r0
+
+        return k, vals, akima_interp_coeffs(k, vals), slp
 
     @jax.jit
     def _kValue(self, kpos):
-        """computation of the Moffat response in k-space with switch of truncated/untracated case
+        """computation of the Moffat response in k-space with interpolant + expansions
         kpos can be a scalar or a vector (typically, scalar for debug and 2D considering an image)
         """
-        k = safe_sqrt((kpos.x**2 + kpos.y**2) * self._r0_sq)
+        k = safe_sqrt(kpos.x**2 + kpos.y**2)
         out_shape = jnp.shape(k)
         k = jnp.atleast_1d(k)
-        res = self._kValue_untrunc(k)
+
+        k_, vals_, coeffs, slp = self._kValue_untrunc_interp_coeffs()
+        res = akima_interp(k, k_, vals_, coeffs, fixed_spacing=True)
+        k_msk = jnp.where(k > 0, k, k_[1])
+        res = jnp.where(
+            k > k_[-1],
+            self._kValue_untrunc_asymp_func(self.beta, k_msk, self._knorm_bis, self._r0)
+            * (1.0 + slp / k_msk / self._r0),
+            res,
+        )
+
         return res.reshape(out_shape)
 
     def _drawReal(self, image, jac=None, offset=(0.0, 0.0), flux_scaling=1.0):
