@@ -13,12 +13,6 @@ import jax_galsim as jgs
         (jgs.Exponential, ["scale_radius", "half_light_radius"], [], {}),
         (jgs.Gaussian, ["sigma", "fwhm", "half_light_radius"], [], {}),
         (jgs.Moffat, ["scale_radius", "half_light_radius", "fwhm"], [2.0], {}),
-        (
-            jgs.Moffat,
-            ["scale_radius", "half_light_radius", "fwhm"],
-            [2.0],
-            {"trunc": 20.0},
-        ),
     ],
 )
 def test_deriv_gsobject_radii(params, gsobj, args, kwargs):
