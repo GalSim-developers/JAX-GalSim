@@ -352,7 +352,7 @@ class Moffat(GSObject):
 
     @jax.jit
     def _kValue(self, kpos):
-        """computation of the Moffat response in k-space with switch of truncated/untracated case
+        """computation of the Moffat response in k-space with interpolant + expansions
         kpos can be a scalar or a vector (typically, scalar for debug and 2D considering an image)
         """
         k = safe_sqrt(kpos.x**2 + kpos.y**2)
