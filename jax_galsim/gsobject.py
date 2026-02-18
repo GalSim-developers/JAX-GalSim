@@ -29,7 +29,6 @@ class GSObject:
     def __init__(self, *, gsparams=None, **params):
         self._params = params  # Dictionary containing all traced parameters
         self._gsparams = GSParams.check(gsparams)  # Non-traced static parameters
-        self._workspace = {}  # used by lazy_property
 
     def __getstate__(self):
         d = self.__dict__.copy()

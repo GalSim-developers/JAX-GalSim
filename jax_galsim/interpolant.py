@@ -20,7 +20,6 @@ from jax_galsim.core.utils import implements, is_equal_with_arrays
 from jax_galsim.errors import GalSimError
 from jax_galsim.gsparams import GSParams
 from jax_galsim.random import UniformDeviate
-from jax_galsim.utilities import lazy_property
 
 
 @implements(_galsim.interpolant.Interpolant)
@@ -225,7 +224,8 @@ class Interpolant:
             % self.__class__.__name__
         )
 
-    @lazy_property
+    # TODO: Work out CPU-side caching and pre-generation for this
+    @property
     def _shoot_cdf(self):
         x = jnp.linspace(-self.xrange, self.xrange, 10000)
         px = jnp.abs(self._xval_noraise(jnp.abs(x)))
@@ -1389,7 +1389,7 @@ class Lanczos(Interpolant):
             / self._n
         )
 
-    @lazy_property
+    @property
     def _umax(self):
         return _find_umax_lanczos(
             self._du,

@@ -9,7 +9,6 @@ from jax_galsim.core.draw import draw_by_kValue, draw_by_xValue
 from jax_galsim.core.utils import bisect_for_root, ensure_hashable, implements
 from jax_galsim.gsobject import GSObject
 from jax_galsim.random import UniformDeviate
-from jax_galsim.utilities import lazy_property
 
 
 @jax.jit
@@ -321,34 +320,34 @@ class Spergel(GSObject):
     def _r0(self):
         return self.scale_radius
 
-    @lazy_property
+    @property
     def _inv_r0(self):
         return 1.0 / self._r0
 
-    @lazy_property
+    @property
     def _r0_sq(self):
         return self._r0 * self._r0
 
-    @lazy_property
+    @property
     def _inv_r0_sq(self):
         return self._inv_r0 * self._inv_r0
 
-    @lazy_property
+    @property
     @implements(_galsim.spergel.Spergel.half_light_radius)
     def half_light_radius(self):
         return self._r0 * _spergel_hlr_pade(self.nu)
 
-    @lazy_property
+    @property
     def _shootxnorm(self):
         """Normalization for photon shooting"""
         return 1.0 / (2.0 * jnp.pi * jnp.power(2.0, self.nu) * _gammap1(self.nu))
 
-    @lazy_property
+    @property
     def _xnorm(self):
         """Normalization of xValue"""
         return self._shootxnorm * self.flux * self._inv_r0_sq
 
-    @lazy_property
+    @property
     def _xnorm0(self):
         """return z^nu K_nu(z) for z=0"""
         return jax.lax.select(
@@ -392,13 +391,13 @@ class Spergel(GSObject):
         s += ")"
         return s
 
-    @lazy_property
+    @property
     def _maxk(self):
         """(1+ (k r0)^2)^(-1-nu) = maxk_threshold"""
         res = jnp.power(self.gsparams.maxk_threshold, -1.0 / (1.0 + self.nu)) - 1.0
         return jnp.sqrt(res) / self._r0
 
-    @lazy_property
+    @property
     def _stepk(self):
         R = calculateFluxRadius(1.0 - self.gsparams.folding_threshold, self.nu)
         R *= self._r0
@@ -406,7 +405,7 @@ class Spergel(GSObject):
         R = jnp.maximum(R, self.gsparams.stepk_minimum_hlr * self.half_light_radius)
         return jnp.pi / R
 
-    @lazy_property
+    @property
     def _max_sb(self):
         # from SBSpergelImpl.h
         return jnp.abs(self._xnorm) * self._xnorm0
@@ -439,7 +438,7 @@ class Spergel(GSObject):
             gsparams=self.gsparams,
         )
 
-    @lazy_property
+    @property
     def _shoot_pos_cdf(self):
         zmax = calculateFluxRadius(
             1.0 - self.gsparams.shoot_accuracy, self.nu, zmax=30.0
@@ -459,7 +458,7 @@ class Spergel(GSObject):
         r = z * self._r0
         return r
 
-    @lazy_property
+    @property
     def _shoot_neg_cdf(self):
         # comment:
         # In the Galsim code the profile below rmin is linearized such that

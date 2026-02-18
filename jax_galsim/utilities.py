@@ -4,53 +4,11 @@ import galsim as _galsim
 import jax
 import jax.numpy as jnp
 
-from jax_galsim.core.utils import has_tracers, implements
+from jax_galsim.core.utils import implements
 from jax_galsim.errors import GalSimIncompatibleValuesError, GalSimValueError
 from jax_galsim.position import PositionD, PositionI
 
 printoptions = _galsim.utilities.printoptions
-
-
-@implements(
-    _galsim.utilities.lazy_property,
-    lax_description=(
-        "The LAX version of this decorator uses an `_workspace` attribute "
-        "attached to the object so that the cache can easily be discarded "
-        "for certain operations. It also will not cache jax.core.Tracer objects "
-        "in order to avoid side-effects in jit/grad/vmap transformations "
-        "unless `cache_jax_tracers=True` is given."
-    ),
-)
-def lazy_property(func_=None, cache_jax_tracers=False):
-    # the extra layer of indirection here allows the decorator to
-    # take keyword arguments and also be used without them.
-    # see https://stackoverflow.com/a/57268935
-    def _decorator(func):
-        attname = func.__name__ + "_cached"
-
-        @property
-        @functools.wraps(func)
-        def wrapper(self):
-            if not hasattr(self, "_workspace"):
-                self._workspace = {}
-            if attname not in self._workspace:
-                val = func(self)
-                if cache_jax_tracers or (not has_tracers(val)):
-                    self._workspace[attname] = val
-            else:
-                val = self._workspace[attname]
-            return val
-
-        return wrapper
-
-    if callable(func_):
-        return _decorator(func_)
-    elif func_ is None:
-        return _decorator
-    else:
-        raise RuntimeWarning(
-            "Positional arguments are not supported for the lazy_property decorator"
-        )
 
 
 @implements(_galsim.utilities.parse_pos_args)
