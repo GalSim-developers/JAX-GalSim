@@ -70,3 +70,27 @@ def test_deriv_gsobject_spergel_nu():
     atol = 1e-5
 
     np.testing.assert_allclose(gval, gfdiff, rtol=0, atol=atol)
+
+
+def test_deriv_gsobject_params_vmap():
+    val = jnp.array([2.0, 3.0])
+    eps = 1e-5
+
+    def _run(val_):
+        return jnp.max(
+            jgs.Gaussian(
+                half_light_radius=val_,
+                gsparams=jgs.GSParams(minimum_fft_size=64, maximum_fft_size=64),
+            )
+            .drawImage(nx=48, ny=48, scale=0.2)
+            .array[24, 24]
+            ** 2
+        )
+
+    _vmap_run = jax.vmap(_run)
+    gfunc = jax.jit(jax.vmap(jax.grad(_run)))
+    gval = gfunc(val)
+
+    gfdiff = (_vmap_run(val + eps) - _vmap_run(val - eps)) / 2.0 / eps
+
+    np.testing.assert_allclose(gval, gfdiff, rtol=0, atol=1e-6)
