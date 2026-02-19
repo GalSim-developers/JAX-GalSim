@@ -87,7 +87,7 @@ def test_deriv_gsobject_params_vmap():
             ** 2
         )
 
-    _vmap_run = jax.vmap(_run)
+    _vmap_run = jax.jit(jax.vmap(_run))
     gfunc = jax.jit(jax.vmap(jax.grad(_run)))
     gval = gfunc(val)
 
