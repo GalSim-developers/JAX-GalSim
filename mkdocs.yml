@@ -1,0 +1,124 @@
+site_name: JAX-GalSim
+site_description: JAX port of GalSim for GPU-accelerated, differentiable galaxy image simulations
+site_url: https://galsim-developers.github.io/JAX-GalSim/
+repo_url: https://github.com/GalSim-developers/JAX-GalSim
+repo_name: GalSim-developers/JAX-GalSim
+
+theme:
+  name: material
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  features:
+    - content.code.copy
+    - navigation.sections
+    - navigation.expand
+    - navigation.top
+    - navigation.indexes
+    - search.highlight
+    - toc.follow
+    - toc.integrate
+
+plugins:
+  - search
+  - mkdocstrings:
+      handlers:
+        python:
+          options:
+            docstring_style: numpy
+            show_source: true
+            merge_init_into_class: true
+            members_order: source
+            show_root_heading: true
+            show_root_full_path: false
+            show_if_no_docstring: true
+            show_symbol_type_heading: true
+            show_symbol_type_toc: true
+
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.arithmatex:
+      generic: true
+  - toc:
+      permalink: true
+
+extra_javascript:
+  - javascripts/mathjax.js
+  - https://unpkg.com/mathjax@3/es5/tex-mml-chtml.js
+
+nav:
+  - Home: index.md
+  - Getting Started:
+      - getting-started/index.md
+      - Installation: getting-started/installation.md
+      - Quick Start: getting-started/quickstart.md
+  - Notable Differences: notable-differences.md
+  - API Coverage: api-coverage.md
+  - API Reference:
+      - Profiles:
+          - api/profiles/gsobject.md
+          - api/profiles/gaussian.md
+          - api/profiles/moffat.md
+          - api/profiles/spergel.md
+          - api/profiles/exponential.md
+          - api/profiles/deltafunction.md
+          - api/profiles/box.md
+      - Composition:
+          - api/composition/convolve.md
+          - api/composition/sum.md
+          - api/composition/transform.md
+      - Image: api/image.md
+      - Coordinates:
+          - api/coordinates/position.md
+          - api/coordinates/bounds.md
+          - api/coordinates/angle.md
+          - api/coordinates/shear.md
+          - api/coordinates/celestial.md
+      - WCS:
+          - api/wcs/wcs.md
+          - api/wcs/fitswcs.md
+          - api/wcs/fits.md
+      - Noise & Random:
+          - api/noise/random.md
+          - api/noise/noise.md
+      - Interpolation:
+          - api/interpolation/interpolant.md
+          - api/interpolation/interpolatedimage.md
+      - Photon Shooting:
+          - api/photons/photon_array.md
+          - api/photons/sensor.md
+      - Configuration:
+          - api/config/gsparams.md
+          - api/config/errors.md
+          - api/config/utilities.md
+      - Math:
+          - api/math/bessel.md
+          - api/math/integ.md
+      - Core Internals:
+          - api/core/draw.md
+          - api/core/interpolate.md
+          - api/core/math.md
+          - api/core/utils.md
