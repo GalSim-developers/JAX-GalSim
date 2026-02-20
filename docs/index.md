@@ -16,7 +16,7 @@
 
 ## Why JAX-GalSim?
 
-JAX-GalSim reimplements [GalSim](https://github.com/GalSim-developers/GalSim) in pure JAX, unlocking three capabilities for galaxy image simulation:
+JAX-GalSim reimplements [GalSim](https://github.com/GalSim-developers/GalSim) in pure JAX, unlocking:
 
 !!! tip "JIT Compilation"
 
@@ -56,7 +56,7 @@ image = final.drawImage(scale=0.2)
 image = image.addNoise(jax_galsim.GaussianNoise(sigma=30.0))
 ```
 
-Because JAX-GalSim objects are JAX pytrees, you can JIT-compile and differentiate the entire pipeline:
+JAX-GalSim objects are JAX pytrees, so you can JIT-compile and differentiate the entire pipeline:
 
 ```python
 @jax.jit

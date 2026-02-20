@@ -1,7 +1,6 @@
 # Architecture Overview
 
-JAX-GalSim mirrors GalSim's architecture while replacing NumPy/C++ internals
-with pure JAX. This page provides a high-level map of the major components.
+JAX-GalSim mirrors GalSim's architecture, replacing NumPy/C++ internals with pure JAX.
 
 ## Component Map
 
@@ -96,13 +95,10 @@ jax_galsim/
 
 ## Design Principles
 
-1. **Drop-in replacement**: Match GalSim's public API so that `import jax_galsim as galsim` works for supported features.
-
-2. **PyTree everywhere**: Every object is a registered JAX PyTree, separating traced parameters (children) from static configuration (auxiliary data).
-
-3. **Docstring inheritance**: The `@implements` decorator copies docstrings from GalSim, appending JAX-specific notes via `lax_description`.
-
-4. **Pure functions**: All operations are pure (no side effects), enabling `jit`, `grad`, and `vmap` compatibility.
+1. **Drop-in replacement**: `import jax_galsim as galsim` works for supported features.
+2. **PyTree everywhere**: Every object separates traced parameters (children) from static configuration (auxiliary data).
+3. **Docstring inheritance**: `@implements` copies GalSim docstrings, appending JAX-specific notes.
+4. **Pure functions**: No side effects, enabling `jit`, `grad`, and `vmap`.
 
 ## Deep Dives
 

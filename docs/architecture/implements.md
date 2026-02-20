@@ -1,7 +1,6 @@
 # The @implements Decorator
 
-JAX-GalSim reuses GalSim's docstrings rather than duplicating them. The
-`@implements` decorator handles this automatically.
+JAX-GalSim reuses GalSim's docstrings via the `@implements` decorator.
 
 ## Usage
 
@@ -25,7 +24,7 @@ This does three things:
 
 ## The `lax_description` Parameter
 
-Use this to document any differences from the reference GalSim implementation:
+Documents differences from the reference GalSim implementation:
 
 ```python
 @implements(_galsim.Add,
@@ -34,21 +33,14 @@ def Add(*args, **kwargs):
     return Sum(*args, **kwargs)
 ```
 
-The description is inserted at the top of the docstring, after the summary line,
-as a "LAX-backend implementation" note.
-
 ## How It Works
 
-The decorator (defined in `jax_galsim/core/utils.py`) does the following:
+The decorator (in `jax_galsim/core/utils.py`):
 
-1. Retrieves the original function's docstring
-2. Parses the GalSim-style numpydoc format (summary, parameters, etc.)
-3. Reconstructs the docstring with:
-   - The original summary line
-   - A "LAX-backend implementation of `:func:original.name`" note
-   - The `lax_description` text (if provided)
-   - The rest of the original docstring body
-4. Assigns the combined docstring to the wrapped function
+1. Copies the original GalSim docstring
+2. Inserts a "LAX-backend implementation of `:func:original.name`" note after the summary line
+3. Appends the `lax_description` text (if provided)
+4. Assigns the combined docstring to the wrapped class/function
 
 ## When to Use It
 

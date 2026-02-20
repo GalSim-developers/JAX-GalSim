@@ -1,7 +1,7 @@
 # GSObject Hierarchy
 
-`GSObject` is the base class for all surface brightness profiles in JAX-GalSim.
-Every galaxy model, PSF, and optical component inherits from it.
+`GSObject` is the base class for all surface brightness profiles. Every galaxy
+model, PSF, and optical component inherits from it.
 
 ## Class Hierarchy
 
@@ -69,23 +69,19 @@ The base class provides the public API built on these primitives:
 
 ## The `_params` Dict
 
-All traced parameters live in a `_params` dictionary. This is the canonical
-storage for values that JAX can differentiate through:
+Traced parameters live in a `_params` dictionary -- the canonical storage for
+values that JAX differentiates through. Properties like `gal.sigma` are
+accessors into `_params`:
 
 ```python
 gal = jax_galsim.Gaussian(flux=1e5, sigma=2.0)
 gal._params  # {"flux": Array(1e5), "sigma": Array(2.0)}
 ```
 
-Properties like `gal.sigma` and `gal.flux` are thin accessors into `_params`.
-
 ## Composition Objects
 
-Profiles can be combined through three composition types:
+Profiles combine through three composition types (themselves GSObjects, nestable arbitrarily):
 
-- **`Sum`** (`Add`): Adds surface brightness profiles together
+- **`Sum`** (`Add`): Adds surface brightness profiles
 - **`Convolution`** (`Convolve`): Convolves profiles (e.g., galaxy with PSF)
-- **`Transformation`** (`Transform`): Applies affine transformations (shear,
-  shift, rotation, flux scaling)
-
-These are themselves GSObjects and can be nested arbitrarily.
+- **`Transformation`** (`Transform`): Affine transforms (shear, shift, rotation, flux scaling)

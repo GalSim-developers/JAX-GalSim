@@ -121,11 +121,8 @@ the most commonly used profiles and operations, with coverage expanding over tim
 
 ## Updating Coverage
 
-The coverage list is generated automatically:
-
 ```bash
 python scripts/update_api_coverage.py
 ```
 
-This script compares GalSim's public API against `jax_galsim`'s implementations
-and updates the coverage percentage and list in `README.md`.
+Compares GalSim's public API against `jax_galsim`'s implementations and updates the coverage percentage and list in `README.md`.

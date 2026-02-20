@@ -1,12 +1,10 @@
 # Quick Start
 
-This tutorial walks through a complete galaxy image simulation, then shows how
-JAX transformations (`jit`, `grad`, `vmap`) apply to it.
+A complete galaxy image simulation, then JAX transformations (`jit`, `grad`, `vmap`) on top.
 
 ## A Simple Simulation
 
-This example creates a Gaussian galaxy, convolves it with a Gaussian PSF, draws
-the image, and adds noise — equivalent to GalSim's `demo1.py`.
+A Gaussian galaxy convolved with a Gaussian PSF, drawn and noised -- equivalent to GalSim's `demo1.py`.
 
 ```python
 import jax_galsim
@@ -35,8 +33,7 @@ image = image.addNoise(jax_galsim.GaussianNoise(sigma=noise_sigma))
 image.write("output/demo1.fits")
 ```
 
-The API is intentionally close to GalSim — most GalSim tutorials translate
-directly to JAX-GalSim by replacing `import galsim` with `import jax_galsim`.
+Most GalSim code translates directly by replacing `import galsim` with `import jax_galsim`.
 
 ## JIT Compilation
 
@@ -58,7 +55,7 @@ image = simulate(1e5, 2.0)
 
 ## Automatic Differentiation
 
-Compute gradients of any scalar output with respect to galaxy parameters:
+Compute gradients of any scalar output with respect to parameters:
 
 ```python
 def total_flux(gal_sigma, psf_sigma):
@@ -73,12 +70,11 @@ grad_fn = jax.grad(total_flux, argnums=(0, 1))
 d_gal, d_psf = grad_fn(2.0, 1.0)
 ```
 
-This is useful for fitting galaxy models to data, where gradients enable
-efficient optimization.
+Useful for fitting galaxy models to data via gradient-based optimization.
 
 ## Vectorization with vmap
 
-Simulate a batch of galaxies with different parameters without writing loops:
+Batch-simulate galaxies with different parameters without explicit loops:
 
 ```python
 import jax.numpy as jnp

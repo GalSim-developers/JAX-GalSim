@@ -1,12 +1,8 @@
 # PyTree Registration
 
-JAX transformations (`jit`, `grad`, `vmap`) decompose Python objects into a flat
-list of arrays (leaves) and a static structure (treedef). JAX-GalSim objects must
-be registered as PyTrees for this to work.
-
-## The Pattern
-
-Every JAX-GalSim class uses `@register_pytree_node_class` and implements two methods:
+JAX transformations decompose objects into arrays (leaves) and static structure
+(treedef). Every JAX-GalSim class uses `@register_pytree_node_class` and
+implements two methods:
 
 ```python
 from jax.tree_util import register_pytree_node_class
@@ -44,14 +40,9 @@ gal = jax_galsim.Gaussian(flux=1e5, sigma=2.0)
 
 ## The `__init__` Gotcha
 
-During `tree_unflatten`, JAX calls the constructor with potentially traced values
-(not concrete Python numbers). If `__init__` performs type checks like
-`isinstance(sigma, float)`, these will fail on JAX tracers.
-
-The recommended solution (from the
-[JAX docs](https://jax.readthedocs.io/en/latest/pytrees.html#custom-pytrees-and-initialization)):
-separate validation from initialization, or use `has_tracers()` to skip checks
-during tracing:
+During `tree_unflatten`, JAX calls the constructor with traced values, not
+concrete Python numbers. Type checks like `isinstance(sigma, float)` will fail
+on tracers. Use `has_tracers()` to skip validation during tracing:
 
 ```python
 from jax_galsim.core.utils import has_tracers
