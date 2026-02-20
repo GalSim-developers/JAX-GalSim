@@ -94,6 +94,5 @@ images = batch_simulate(sigmas)  # shape: (10, 64, 64)
 
 ## Next Steps
 
-- [Key Concepts](key-concepts.md) — Understand the design behind JAX-GalSim
-- [Notable Differences](../notable-differences.md) — What's different from GalSim
+- [Notable Differences](../notable-differences.md) — What changes when GalSim runs on JAX
 - [API Reference](../api/profiles/gaussian.md) — Full API documentation

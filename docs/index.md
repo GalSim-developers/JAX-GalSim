@@ -76,5 +76,5 @@ dflux, dsigma = grad_fn(1e5, 2.0)
 
 - [Installation](getting-started/installation.md) --- Set up JAX-GalSim with GPU support
 - [Quick Start](getting-started/quickstart.md) --- Walk through a complete simulation
-- [Key Concepts](getting-started/key-concepts.md) --- Understand JAX-GalSim's design
+- [Notable Differences](notable-differences.md) --- What changes when GalSim runs on JAX
 - [API Reference](api/profiles/gaussian.md) --- Browse the full API
