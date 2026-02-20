@@ -24,9 +24,14 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = ["pytest", "pytest-codspeed"]
+docs = [
+    "mkdocs-material>=9.0",
+    "mkdocstrings[python]>=0.24",
+]
 
 [project.urls]
 home = "https://github.com/GalSim-developers/JAX-GalSim"
+documentation = "https://galsim-developers.github.io/JAX-GalSim/"
 
 [tool.setuptools.packages.find]
 include = ["jax_galsim*"]
