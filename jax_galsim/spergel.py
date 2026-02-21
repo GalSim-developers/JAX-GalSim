@@ -1,6 +1,7 @@
 import galsim as _galsim
 import jax
 import jax.numpy as jnp
+import numpy as np
 from jax.tree_util import Partial as partial
 from jax.tree_util import register_pytree_node_class
 
@@ -192,52 +193,38 @@ def calculateFluxRadius(alpha, nu, zmin=0.0, zmax=40.0):
     )
 
 
+# RATIONAL_POLY_VALS is the array of rational function
+# polynomial coefficients that define the approximation
+# fmt: off
+RATIONAL_POLY_VALS = np.array(
+    [+3.0651031751484838e-03, +1.0881207976967715e-01, +8.5972666430068956e-01, +2.4585755707012957e+00,
+     +3.0048610734396695e+00, +1.5239820144462637e+00, +2.2884834100438053e-01, +9.7403074230245667e-04,
+     +5.3397788602977357e-02, +5.9314621875009266e-01, +2.3758972396906111e+00, +4.2001759224931892e+00,
+     +3.3648483673561365e+00],
+    dtype=np.float64,
+)
+# fmt: on
+RATIONAL_POLY_M = 6
+RATIONAL_POLY_N = RATIONAL_POLY_M
+
+
+@partial(jax.jit, static_argnames=("m", "n"))
+@partial(jnp.vectorize, excluded=(1, 2, 3))
+def _pade_func(x, coeffs, m, n):
+    p = jnp.polyval(coeffs[:m + 1], x)
+    q = jnp.polyval(
+        jnp.concatenate([coeffs[m + 1:], jnp.ones(1)], axis=0),
+        x,
+    )
+    return p / q
+
+
 def _spergel_hlr_pade(x):
     """A Pseudo-Pade approximation for the HLR of the Spergel profile as a function of nu.
 
     See dev/notebooks/spergel_hlr_flux_radius_approx.ipynb for code to generate this routine.
     """
-    # fmt: off
-    pm = 1.2571513771129166 + x * (
-        3.7059053890269102 + x * (
-            2.8577090425861944 + x * (
-                -0.30570486567039273 + x * (
-                    0.6589831675940833 + x * (
-                        3.375577680133867 + x * (
-                            2.8143565844741403 + x * (
-                                0.9292378858457211 + x * (
-                                    0.12096941981286179 + x * (
-                                        0.004206502758293099
-                                    )
-                                )
-                            )
-                        )
-                    )
-                )
-            )
-        )
-    )
-    qm = 1.0 + x * (
-        2.1939178810491837 + x * (
-            0.8281034080784796 + x * (
-                -0.5163329765186994 + x * (
-                    0.9164871490929886 + x * (
-                        1.8988551389326231 + x * (
-                            1.042688817291684 + x * (
-                                0.22580140592548198 + x * (
-                                    0.01681923980317362 + x * (
-                                        0.00018168506955933716
-                                    )
-                                )
-                            )
-                        )
-                    )
-                )
-            )
-        )
-    )
-    # fmt: on
-    return pm / qm
+    return jnp.exp(_pade_func(x, RATIONAL_POLY_VALS, RATIONAL_POLY_M, RATIONAL_POLY_N))
 
 
 @implements(
