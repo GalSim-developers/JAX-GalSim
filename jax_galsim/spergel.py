@@ -197,34 +197,48 @@ def calculateFluxRadius(alpha, nu, zmin=0.0, zmax=40.0):
 # polynomial coefficients that define the approximation
 # fmt: off
 RATIONAL_POLY_VALS = np.array(
-    [+3.0651031751484838e-03, +1.0881207976967715e-01, +8.5972666430068956e-01, +2.4585755707012957e+00,
-     +3.0048610734396695e+00, +1.5239820144462637e+00, +2.2884834100438053e-01, +9.7403074230245667e-04,
-     +5.3397788602977357e-02, +5.9314621875009266e-01, +2.3758972396906111e+00, +4.2001759224931892e+00,
-     +3.3648483673561365e+00],
+    [+9.4840189867417648e+03, +5.4128876103471739e+04, +7.4821090782301457e+04, +3.1319167130463913e+04,
+     +4.2987710448448051e+03, +1.8163743901729441e+02, +2.5234831371573136e+00, +1.0612952217202557e-07,
+     -3.4496620069114627e+01, +1.5421191977553108e+03, +2.6186232912487110e+04, +7.1414193965240294e+04,
+     +5.7511323721245608e+04, +1.5929827905891047e+04, +1.6210078022586222e+03, +6.4876085223011998e+01],
     dtype=np.float64,
 )
 # fmt: on
-RATIONAL_POLY_M = 6
-RATIONAL_POLY_N = RATIONAL_POLY_M
+
+NU_MIN = -0.85
+NU_MAX = 4.0
+FR_MIN = 0.1121176556198992
+FR_MAX = 3.4944869314199307
+RATIONAL_POLY_M = 7
+RATIONAL_POLY_N = 8
+
+
+def _scale_nu(nu):
+    return (nu - NU_MIN) / (NU_MAX - NU_MIN)
+
+
+def _unscale_fr(sfr):
+    return sfr * (FR_MAX - FR_MIN) + FR_MIN
 
 
 @partial(jax.jit, static_argnames=("m", "n"))
 @partial(jnp.vectorize, excluded=(1, 2, 3))
 def _pade_func(x, coeffs, m, n):
-    p = jnp.polyval(coeffs[:m + 1], x)
+    p = jnp.polyval(coeffs[: m + 1], x)
     q = jnp.polyval(
-        jnp.concatenate([coeffs[m + 1:], jnp.ones(1)], axis=0),
+        jnp.concatenate([coeffs[m + 1 :], jnp.ones(1)], axis=0),
         x,
     )
     return p / q
 
 
-def _spergel_hlr_pade(x):
-    """A Pseudo-Pade approximation for the HLR of the Spergel profile as a function of nu.
-
-    See dev/notebooks/spergel_hlr_flux_radius_approx.ipynb for code to generate this routine.
-    """
-    return jnp.exp(_pade_func(x, RATIONAL_POLY_VALS, RATIONAL_POLY_M, RATIONAL_POLY_N))
+@jax.jit
+@jnp.vectorize
+def _spergel_hlr_pade(nu):
+    """A Pseudo-Pade approximation for the HLR of the Spergel profile as a function of nu."""
+    return _unscale_fr(
+        _pade_func(_scale_nu(nu), RATIONAL_POLY_VALS, RATIONAL_POLY_M, RATIONAL_POLY_N)
+    )
 
 
 @implements(
