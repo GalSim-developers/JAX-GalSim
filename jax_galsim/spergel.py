@@ -226,15 +226,9 @@ def _unscale_fr(sfr):
     return sfr * (FR_MAX - FR_MIN) + FR_MIN
 
 
-@partial(jax.jit, static_argnames=("m", "n", "zero_val"))
-@partial(jnp.vectorize, excluded=(1, 2, 3, 4))
 def _pade_func(x, coeffs, m, n, zero_val):
-    if zero_val is not None:
-        pcoeffs = jnp.concatenate([coeffs[:m], jnp.ones(1) * zero_val], axis=0)
-        qcoeffs = jnp.concatenate([coeffs[m:], jnp.ones(1)], axis=0)
-    else:
-        pcoeffs = coeffs[: m + 1]
-        qcoeffs = jnp.concatenate([coeffs[m + 1 :], jnp.ones(1)], axis=0)
+    pcoeffs = jnp.concatenate([coeffs[:m], jnp.ones(1) * zero_val], axis=0)
+    qcoeffs = jnp.concatenate([coeffs[m:], jnp.ones(1)], axis=0)
     return jnp.polyval(pcoeffs, x) / jnp.polyval(qcoeffs, x)
 
 
