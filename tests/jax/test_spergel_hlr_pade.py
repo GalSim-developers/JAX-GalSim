@@ -20,10 +20,14 @@ def test_spergel_hlr_pade_correct(nu):
 def test_spergel_hlr_pade_time(nu):
     print("\n", end="", flush=True)
 
+    # warmup for jit
+    calculateFluxRadius(0.5, nu)
     with time_code_block("root finding") as tr_rf:
         for _ in range(100):
             calculateFluxRadius(0.5, nu)
 
+    # warmup for jit
+    _spergel_hlr_pade(nu)
     with time_code_block("pade") as tr_pade:
         for _ in range(100):
             _spergel_hlr_pade(nu)
