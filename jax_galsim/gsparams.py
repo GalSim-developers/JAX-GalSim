@@ -46,6 +46,23 @@ class GSParams:
             gsparams.shoot_accuracy,
         )
 
+    def to_galsim(self):
+        return _galsim.GSParams(
+            minimum_fft_size=self.minimum_fft_size,
+            maximum_fft_size=self.maximum_fft_size,
+            folding_threshold=self.folding_threshold,
+            stepk_minimum_hlr=self.stepk_minimum_hlr,
+            maxk_threshold=self.maxk_threshold,
+            kvalue_accuracy=self.kvalue_accuracy,
+            xvalue_accuracy=self.xvalue_accuracy,
+            table_spacing=self.table_spacing,
+            realspace_relerr=self.realspace_relerr,
+            realspace_abserr=self.realspace_abserr,
+            integration_relerr=self.integration_relerr,
+            integration_abserr=self.integration_abserr,
+            shoot_accuracy=self.shoot_accuracy,
+        )
+
     @staticmethod
     @implements(_galsim.GSParams.check)
     def check(gsparams, default=None, **kwargs):
