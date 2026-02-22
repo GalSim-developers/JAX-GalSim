@@ -193,14 +193,18 @@ def calculateFluxRadius(alpha, nu, zmin=0.0, zmax=40.0):
     )
 
 
+# rational function approximation for spergel HLR -> scale radius
+# med abs error: 1.0971223929345797e-12
+# max abs error: 6.051817105778845e-08
 # RATIONAL_POLY_VALS is the array of rational function
 # polynomial coefficients that define the approximation
 # fmt: off
 RATIONAL_POLY_VALS = np.array(
-    [+9.4840189867417648e+03, +5.4128876103471739e+04, +7.4821090782301457e+04, +3.1319167130463913e+04,
-     +4.2987710448448051e+03, +1.8163743901729441e+02, +2.5234831371573136e+00, +1.0612952217202557e-07,
-     -3.4496620069114627e+01, +1.5421191977553108e+03, +2.6186232912487110e+04, +7.1414193965240294e+04,
-     +5.7511323721245608e+04, +1.5929827905891047e+04, +1.6210078022586222e+03, +6.4876085223011998e+01],
+    [+1.9759469124408490e+04, +5.0711956245802976e+04, -3.0449791419192003e+04, -1.4117283167512303e+04,
+     +6.8059252203919750e+04, +3.4622357459975698e+04, +4.6734418411048373e+03, +1.8889376861140292e+02,
+     +2.5236212634931188e+00, -1.0073593043390322e+02, +3.8254304100058880e+03, +4.1107191856638208e+04,
+     +2.1030308615008391e+04, -4.4014537849077409e+04, +3.3258091678020763e+04, +5.8994327909625252e+04,
+     +1.7534519391360263e+04, +1.7474584540951789e+03, +6.7765143127010404e+01],
     dtype=np.float64,
 )
 # fmt: on
@@ -209,8 +213,9 @@ NU_MIN = -0.85
 NU_MAX = 4.0
 FR_MIN = 0.1121176556198992
 FR_MAX = 3.4944869314199307
-RATIONAL_POLY_M = 7
-RATIONAL_POLY_N = 8
+RATIONAL_POLY_M = 9
+RATIONAL_POLY_N = 10
+ZERO_VAL = 0.0
 
 
 def _scale_nu(nu):
@@ -221,15 +226,16 @@ def _unscale_fr(sfr):
     return sfr * (FR_MAX - FR_MIN) + FR_MIN
 
 
-@partial(jax.jit, static_argnames=("m", "n"))
-@partial(jnp.vectorize, excluded=(1, 2, 3))
-def _pade_func(x, coeffs, m, n):
-    p = jnp.polyval(coeffs[: m + 1], x)
-    q = jnp.polyval(
-        jnp.concatenate([coeffs[m + 1 :], jnp.ones(1)], axis=0),
-        x,
-    )
-    return p / q
+@partial(jax.jit, static_argnames=("m", "n", "zero_val"))
+@partial(jnp.vectorize, excluded=(1, 2, 3, 4))
+def _pade_func(x, coeffs, m, n, zero_val):
+    if zero_val is not None:
+        pcoeffs = jnp.concatenate([coeffs[:m], jnp.ones(1) * zero_val], axis=0)
+        qcoeffs = jnp.concatenate([coeffs[m:], jnp.ones(1)], axis=0)
+    else:
+        pcoeffs = coeffs[: m + 1]
+        qcoeffs = jnp.concatenate([coeffs[m + 1 :], jnp.ones(1)], axis=0)
+    return jnp.polyval(pcoeffs, x) / jnp.polyval(qcoeffs, x)
 
 
 @jax.jit
@@ -237,7 +243,13 @@ def _pade_func(x, coeffs, m, n):
 def _spergel_hlr_pade(nu):
     """A Pseudo-Pade approximation for the HLR of the Spergel profile as a function of nu."""
     return _unscale_fr(
-        _pade_func(_scale_nu(nu), RATIONAL_POLY_VALS, RATIONAL_POLY_M, RATIONAL_POLY_N)
+        _pade_func(
+            _scale_nu(nu),
+            RATIONAL_POLY_VALS,
+            RATIONAL_POLY_M,
+            RATIONAL_POLY_N,
+            ZERO_VAL,
+        )
     )
 
 
