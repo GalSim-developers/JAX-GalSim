@@ -1,7 +1,6 @@
 import galsim as _galsim
 import jax
 import jax.numpy as jnp
-import numpy as np
 from jax.tree_util import Partial as partial
 from jax.tree_util import register_pytree_node_class
 
@@ -193,58 +192,57 @@ def calculateFluxRadius(alpha, nu, zmin=0.0, zmax=40.0):
     )
 
 
-# rational function approximation for spergel HLR -> scale radius
-# med abs error: 1.0971223929345797e-12
+# rational function approximation for spergel HLR
+# med abs error: 1.0966783037247296e-12
 # max abs error: 6.051817105778845e-08
-# RATIONAL_POLY_VALS is the array of rational function
-# polynomial coefficients that define the approximation
-# fmt: off
-RATIONAL_POLY_VALS = np.array(
-    [+1.9759469124408490e+04, +5.0711956245802976e+04, -3.0449791419192003e+04, -1.4117283167512303e+04,
-     +6.8059252203919750e+04, +3.4622357459975698e+04, +4.6734418411048373e+03, +1.8889376861140292e+02,
-     +2.5236212634931188e+00, -1.0073593043390322e+02, +3.8254304100058880e+03, +4.1107191856638208e+04,
-     +2.1030308615008391e+04, -4.4014537849077409e+04, +3.3258091678020763e+04, +5.8994327909625252e+04,
-     +1.7534519391360263e+04, +1.7474584540951789e+03, +6.7765143127010404e+01],
-    dtype=np.float64,
-)
-# fmt: on
-
-NU_MIN = -0.85
-NU_MAX = 4.0
-FR_MIN = 0.1121176556198992
-FR_MAX = 3.4944869314199307
-RATIONAL_POLY_M = 9
-RATIONAL_POLY_N = 10
-ZERO_VAL = 0.0
-
-
-def _scale_nu(nu):
-    return (nu - NU_MIN) / (NU_MAX - NU_MIN)
-
-
-def _unscale_fr(sfr):
-    return sfr * (FR_MAX - FR_MIN) + FR_MIN
-
-
-def _pade_func(x, coeffs, m, n, zero_val):
-    pcoeffs = jnp.concatenate([coeffs[:m], jnp.ones(1) * zero_val], axis=0)
-    qcoeffs = jnp.concatenate([coeffs[m:], jnp.ones(1)], axis=0)
-    return jnp.polyval(pcoeffs, x) / jnp.polyval(qcoeffs, x)
-
-
-@jax.jit
-@jnp.vectorize
 def _spergel_hlr_pade(nu):
     """A Pseudo-Pade approximation for the HLR of the Spergel profile as a function of nu."""
-    return _unscale_fr(
-        _pade_func(
-            _scale_nu(nu),
-            RATIONAL_POLY_VALS,
-            RATIONAL_POLY_M,
-            RATIONAL_POLY_N,
-            ZERO_VAL,
+    x = (nu - -0.85) / (4.0 - -0.85)
+    # fmt: off
+    pm = x * (
+        2.5236212634931188 + x * (
+            188.89376861140292 + x * (
+                4673.441841104837 + x * (
+                    34622.3574599757 + x * (
+                        68059.25220391975 + x * (
+                            -14117.283167512303 + x * (
+                                -30449.791419192003 + x * (
+                                    50711.956245802976 + x * (
+                                        19759.46912440849
+                                    )
+                                )
+                            )
+                        )
+                    )
+                )
+            )
         )
     )
+
+    qm = 1.0 + x * (
+        67.7651431270104 + x * (
+            1747.458454095179 + x * (
+                17534.519391360263 + x * (
+                    58994.32790962525 + x * (
+                        33258.09167802076 + x * (
+                            -44014.53784907741 + x * (
+                                21030.30861500839 + x * (
+                                    41107.19185663821 + x * (
+                                        3825.430410005888 + x * (
+                                            -100.73593043390322
+                                        )
+                                    )
+                                )
+                            )
+                        )
+                    )
+                )
+            )
+        )
+    )
+
+    # fmt: on
+    return pm / qm * (3.4944869314199307 - 0.1121176556198992) + 0.1121176556198992
 
 
 @implements(
