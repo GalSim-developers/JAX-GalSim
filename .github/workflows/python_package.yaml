@@ -82,7 +82,7 @@ jobs:
             --test-in-float32
 
       - name: Upload test durations
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: test-durations-${{ matrix.group }}
           path: .test_durations.${{ matrix.group }}
@@ -94,7 +94,7 @@ jobs:
 
     steps:
       - name: Download test duration artifacts
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8
         with:
           pattern: test-durations-*
 
