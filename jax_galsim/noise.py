@@ -374,8 +374,9 @@ class CCDNoise(BaseNoise):
     def _getVariance(self):
         return jax.lax.cond(
             self.gain > 0.0,
-            lambda gain, sky_level, read_noise: sky_level / gain
-            + (read_noise / gain) ** 2,
+            lambda gain, sky_level, read_noise: (
+                sky_level / gain + (read_noise / gain) ** 2
+            ),
             lambda gain, sky_level, read_noise: read_noise**2,
             self.gain,
             self.sky_level,
