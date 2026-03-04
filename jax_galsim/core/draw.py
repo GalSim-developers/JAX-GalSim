@@ -327,13 +327,10 @@ def _sample_zero(n_photons_data):
             1.0,
             rng,
         ),
-        lambda flux,
-        eta_factor,
-        max_sb,
-        poisson_flux,
-        max_extra_noise,
-        rng: _calculate_n_photons_flux_nonzero(
-            flux, eta_factor, max_sb, poisson_flux, max_extra_noise, rng
+        lambda flux, eta_factor, max_sb, poisson_flux, max_extra_noise, rng: (
+            _calculate_n_photons_flux_nonzero(
+                flux, eta_factor, max_sb, poisson_flux, max_extra_noise, rng
+            )
         ),
         n_photons_data.flux,
         n_photons_data.flux_per_photon,

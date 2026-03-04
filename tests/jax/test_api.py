@@ -1080,3 +1080,29 @@ def test_api_sensor():
     assert {
         "Sensor",
     } <= tested
+
+
+def test_api_gsparams():
+    kwargs = dict(
+        minimum_fft_size=127,
+        maximum_fft_size=8191,
+        folding_threshold=4.0e-3,
+        stepk_minimum_hlr=4.0,
+        maxk_threshold=2.0e-3,
+        kvalue_accuracy=6.0e-5,
+        xvalue_accuracy=7.0e-5,
+        table_spacing=9,
+        realspace_relerr=5.0e-4,
+        realspace_abserr=2.0e-6,
+        integration_relerr=3.0e-6,
+        integration_abserr=7.0e-8,
+        shoot_accuracy=3.0e-5,
+    )
+    jgsp = jax_galsim.GSParams(**kwargs)
+    gsp = jgsp.to_galsim()
+    jjgsp = jax_galsim.GSParams.from_galsim(gsp)
+
+    for k, v in kwargs.items():
+        assert getattr(jgsp, k) == v
+        assert getattr(gsp, k) == v
+        assert getattr(jjgsp, k) == v
