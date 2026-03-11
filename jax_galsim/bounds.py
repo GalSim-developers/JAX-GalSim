@@ -121,8 +121,8 @@ class Bounds(_galsim.Bounds):
                 return (
                     self.isDefined()
                     & (self.xmin <= p.x)
-                    & (p.y <= self.ymax)
-                    & (self.xmin <= p.x)
+                    & (p.x <= self.xmax)
+                    & (self.ymin <= p.y)
                     & (p.y <= self.ymax)
                 )
             else:
@@ -132,8 +132,8 @@ class Bounds(_galsim.Bounds):
             return (
                 self.isDefined()
                 & (self.xmin <= x)
-                & (y <= self.ymax)
-                & (self.xmin <= x)
+                & (x <= self.xmax)
+                & (self.ymin <= y)
                 & (y <= self.ymax)
             )
         elif len(args) == 0:
