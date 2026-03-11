@@ -92,8 +92,8 @@ class Exponential(GSObject):
         )
 
     def __str__(self):
-        s = "galsim.Exponential(scale_radius=%s" % ensure_hashable(self.scale_radius)
-        s += ", flux=%s" % ensure_hashable(self.flux)
+        s = "galsim.Exponential(scale_radius=%s" % (ensure_hashable(self.scale_radius),)
+        s += ", flux=%s" % (ensure_hashable(self.flux),)
         s += ")"
         return s
 
