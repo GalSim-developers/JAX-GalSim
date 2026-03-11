@@ -45,7 +45,7 @@ def _generate_stamps(rng_key, psf, n_obj):
     return jax.vmap(_generate_stamp, in_axes=(0, None))(use_keys, psf)
 
 
-def test_render_scene_smoke():
+def test_render_scene_draw_many_ffts_full_img():
     psf = jgs.Gaussian(fwhm=0.9)
     img = _generate_stamps(jrng.key(42), psf, 5)
 
