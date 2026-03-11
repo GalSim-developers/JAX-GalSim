@@ -110,18 +110,20 @@ class Bounds(_galsim.Bounds):
                 b = args[0]
                 return (
                     self.isDefined()
-                    and b.isDefined()
-                    and self.xmin <= b.xmin
-                    and self.xmax >= b.xmax
-                    and self.ymin <= b.ymin
-                    and self.ymax >= b.ymax
+                    & b.isDefined()
+                    & (self.xmin <= b.xmin)
+                    & (self.xmax >= b.xmax)
+                    & (self.ymin <= b.ymin)
+                    & (self.ymax >= b.ymax)
                 )
             elif isinstance(args[0], Position):
                 p = args[0]
                 return (
                     self.isDefined()
-                    and self.xmin <= p.x <= self.xmax
-                    and self.ymin <= p.y <= self.ymax
+                    & (self.xmin <= p.x)
+                    & (p.y <= self.ymax)
+                    & (self.xmin <= p.x)
+                    & (p.y <= self.ymax)
                 )
             else:
                 raise TypeError("Invalid argument %s" % args[0])
@@ -129,8 +131,10 @@ class Bounds(_galsim.Bounds):
             x, y = args
             return (
                 self.isDefined()
-                and self.xmin <= float(x) <= self.xmax
-                and self.ymin <= float(y) <= self.ymax
+                & (self.xmin <= x)
+                & (y <= self.ymax)
+                & (self.xmin <= x)
+                & (y <= self.ymax)
             )
         elif len(args) == 0:
             raise TypeError("include takes at least 1 argument (0 given)")
