@@ -242,10 +242,19 @@ def test_bounds_includes_vmapping():
     res = jax.vmap(lambda x: b0.includes(x))(bnd_array)
     res_jit = jax.jit(jax.vmap(lambda x: b0.includes(x)))(bnd_array)
     np.testing.assert_array_equal(res, res_jit)
+    np.testing.assert_array_equal(res, np.array([True, False]))
 
-    # position array
+    # position objects
     pos_list = [galsim.PositionD(4, 10), galsim.PositionD(-4, -20)]
     pos_array = jax.tree.map(lambda *vals: jnp.array(vals), *pos_list)
     res = jax.vmap(lambda x: b0.includes(x))(pos_array)
     res_jit = jax.jit(jax.vmap(lambda x: b0.includes(x)))(pos_array)
     np.testing.assert_array_equal(res, res_jit)
+    np.testing.assert_array_equal(res, np.array([True, False]))
+
+    # position arrays - shape is (n_points, 2)
+    pos_array = jnp.array([[4.0, -4.0, 7.0], [10.0, -20.0, 8.0]]).T
+    res = jax.vmap(lambda x: b0.includes(*x))(pos_array)
+    res_jit = jax.jit(jax.vmap(lambda x: b0.includes(*x)))(pos_array)
+    np.testing.assert_array_equal(res, res_jit)
+    np.testing.assert_array_equal(res, np.array([True, False, True]))
