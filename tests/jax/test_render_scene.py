@@ -112,6 +112,8 @@ def _draw_stamp_jgs(
 
     # you have to render just with on offset in order to keep the bounds
     # static during rendering
+    # the exact pixel computation here is MAGIC right now
+    # we'll need a way to make this easier
     dx = image_pos.x - jnp.ceil(image_pos.x)
     dy = image_pos.y - jnp.ceil(image_pos.y)
     dx = dx + 0.5 * ((slen + 1) % 2)
