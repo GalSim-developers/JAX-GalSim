@@ -162,10 +162,11 @@ class Bounds(_galsim.Bounds):
             xmax = jnp.minimum(self.xmax, other.xmax)
             ymin = jnp.maximum(self.ymin, other.ymin)
             ymax = jnp.minimum(self.ymax, other.ymax)
-            if xmin > xmax or ymin > ymax:
-                return self.__class__()
-            else:
-                return self.__class__(xmin, xmax, ymin, ymax)
+            return jax.lax.cond(
+               (xmin > xmax) | (ymin > ymax),
+               lambda : self.__class__(),
+               lambda : self.__class__(xmin, xmax, ymin, ymax),
+            )
 
     def __add__(self, other):
         if isinstance(other, self.__class__):
@@ -233,10 +234,7 @@ class Bounds(_galsim.Bounds):
         """This function flattens the Bounds into a list of children
         nodes that will be traced by JAX and auxiliary static data."""
         # Define the children nodes of the PyTree that need tracing
-        if self.isDefined():
-            children = (self.xmin, self.xmax, self.ymin, self.ymax)
-        else:
-            children = tuple()
+        children = (self.xmin, self.xmax, self.ymin, self.ymax)
         # Define auxiliary static data that doesn’t need to be traced
         aux_data = None
         return (children, aux_data)

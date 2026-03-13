@@ -232,7 +232,7 @@ class Transformation(GSObject):
                 ensure_hashable(self._offset.y),
             )
         if self._flux_ratio != 1.0:
-            s += " * %s" % ensure_hashable(self._flux_ratio)
+            s += " * %s" % (ensure_hashable(self._flux_ratio),)
         return s
 
     @property
@@ -410,6 +410,16 @@ class Transformation(GSObject):
         obj._propagate_gsparams = aux_data["propagate_gsparams"]
         obj._original, obj._params = children
         return obj
+
+    def to_galsim(self):
+        return _galsim.Transformation(
+            self.original.to_galsim(),
+            jac=self.jac,
+            offset=self.offset.to_galsim(),
+            flux_ratio=self.flux_ratio,
+            gsparams=self.gsparams.to_galsim(),
+            propagate_gsparams=self.propagate_gsparams,
+        )
 
 
 def _Transform(

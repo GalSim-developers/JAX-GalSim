@@ -1061,8 +1061,8 @@ class Image(object):
     def tree_flatten(self):
         """Flatten the image into a list of values."""
         # Define the children nodes of the PyTree that need tracing
-        children = (self.array, self.wcs)
-        aux_data = {"dtype": self.dtype, "bounds": self.bounds, "isconst": self.isconst}
+        children = (self.array, self.wcs, self.bounds)
+        aux_data = {"dtype": self.dtype, "isconst": self.isconst}
         # other routines may add these attributes to images on the fly
         # we have to include them here so that JAX knows how to handle them in jitting etc.
         if hasattr(self, "added_flux"):
@@ -1080,15 +1080,15 @@ class Image(object):
         obj = object.__new__(cls)
         obj._array = children[0]
         obj.wcs = children[1]
-        obj._bounds = aux_data["bounds"]
+        obj._bounds = children[2]
         obj._dtype = aux_data["dtype"]
         obj._is_const = aux_data["isconst"]
-        if len(children) > 2:
-            obj.added_flux = children[2]
+        if len(children) > 3:
+            obj.added_flux = children[3]
         if "header" in aux_data:
             obj.header = aux_data["header"]
-        if len(children) > 3:
-            obj.photons = children[3]
+        if len(children) > 4:
+            obj.photons = children[4]
         return obj
 
     @classmethod

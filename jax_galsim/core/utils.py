@@ -115,24 +115,28 @@ def cast_to_int(x):
         return int(x)
     except Exception:
         try:
-            if not jnp.any(jnp.isnan(x)):
-                return jnp.asarray(x, dtype=int)
-            else:
-                # this will return the same value for anything int-like that
-                # cannot be cast to int
-                # however, it will raise an error if something is not int-like
-                if type(x) is object:
-                    return x
-                else:
-                    return 1 * x
+            return jnp.asarray(x, dtype=int)
         except Exception:
-            # this will return the same value for anything int-like that
-            # cannot be cast to int
-            # however, it will raise an error if something is not int-like
-            if type(x) is object:
-                return x
-            else:
-                return 1 * x
+            return x
+        # try:
+        #     if not jnp.any(jnp.isnan(x)):
+        #         return jnp.asarray(x, dtype=int)
+        #     else:
+        #         # this will return the same value for anything int-like that
+        #         # cannot be cast to int
+        #         # however, it will raise an error if something is not int-like
+        #         if type(x) is object:
+        #             return x
+        #         else:
+        #             return 1 * x
+        # except Exception:
+        #     # this will return the same value for anything int-like that
+        #     # cannot be cast to int
+        #     # however, it will raise an error if something is not int-like
+        #     if type(x) is object:
+        #         return x
+        #     else:
+        #         return 1 * x
 
 
 def is_equal_with_arrays(x, y):

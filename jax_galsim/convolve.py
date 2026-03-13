@@ -337,6 +337,13 @@ class Convolution(GSObject):
         """Recreates an instance of the class from flatten representation"""
         return cls(children[0]["obj_list"], **aux_data)
 
+    def to_galsim(self):
+        return _galsim.Convolution(
+            [arg.to_galsim() for arg in self.obj_list],
+            gsparams=self._gsparams.to_galsim(),
+            propagate_gsparams=self._propagate_gsparams,
+        )
+
 
 @implements(
     _galsim.convolve.Deconvolve,

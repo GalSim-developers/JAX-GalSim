@@ -919,7 +919,7 @@ class PixelScale(LocalWCS):
         )
 
     def __repr__(self):
-        return "galsim.PixelScale(%r)" % ensure_hashable(self.scale)
+        return "galsim.PixelScale(%r)" % (ensure_hashable(self.scale),)
 
     def __hash__(self):
         return hash(repr(self))
