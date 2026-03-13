@@ -163,9 +163,9 @@ class Bounds(_galsim.Bounds):
             ymin = jnp.maximum(self.ymin, other.ymin)
             ymax = jnp.minimum(self.ymax, other.ymax)
             return jax.lax.cond(
-               (xmin > xmax) | (ymin > ymax),
-               lambda : self.__class__(),
-               lambda : self.__class__(xmin, xmax, ymin, ymax),
+                (xmin > xmax) | (ymin > ymax),
+                lambda: self.__class__(),
+                lambda: self.__class__(xmin, xmax, ymin, ymax),
             )
 
     def __add__(self, other):

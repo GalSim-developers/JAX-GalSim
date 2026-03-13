@@ -411,16 +411,6 @@ class Transformation(GSObject):
         obj._original, obj._params = children
         return obj
 
-    def to_galsim(self):
-        return _galsim.Transformation(
-            self.original.to_galsim(),
-            jac=self.jac,
-            offset=self.offset.to_galsim(),
-            flux_ratio=self.flux_ratio,
-            gsparams=self.gsparams.to_galsim(),
-            propagate_gsparams=self.propagate_gsparams,
-        )
-
 
 def _Transform(
     obj,
