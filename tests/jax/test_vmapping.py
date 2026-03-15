@@ -1,6 +1,5 @@
 import jax
 import jax.numpy as jnp
-import numpy as np
 
 import jax_galsim as galsim
 
@@ -142,25 +141,6 @@ def test_affine_transform_vmapping():
     assert test_eq(obj_duplicated, obj)
 
 
-def test_bounds_vmapping():
-    obj = galsim.BoundsD(0.0, 1.0, 0.0, 1.0)
-    obj_d = jax.vmap(galsim.BoundsD)(0.0 * e, 1.0 * e, 0.0 * e, 1.0 * e)
-
-    objI = galsim.BoundsI(0.0, 1.0, 0.0, 1.0)
-    objI_d = jax.vmap(galsim.BoundsI)(0.0 * e, 1.0 * e, 0.0 * e, 1.0 * e)
-
-    def test_eq(self, other):
-        return (
-            (self.xmin == jnp.array([other.xmin, other.xmin])).all()
-            and (self.xmax == jnp.array([other.xmax, other.xmax])).all()
-            and (self.ymin == jnp.array([other.ymin, other.ymin])).all()
-            and (self.ymax == jnp.array([other.ymax, other.ymax])).all()
-        )
-
-    assert test_eq(obj_d, obj)
-    assert test_eq(objI_d, objI)
-
-
 def test_drawing_vmapping_and_jitting_gaussian_psf():
     gsparams = galsim.GSParams(minimum_fft_size=512, maximum_fft_size=512)
 
@@ -227,34 +207,3 @@ def test_drawing_vmapping_and_jitting_moffat_psf():
     assert arr.shape[0] == 2
     assert arr.shape[1] == arr.shape[2] == 128
     assert arr[0].sum() < arr[1].sum()
-
-
-def test_bounds_includes_vmapping():
-    # See https://github.com/GalSim-developers/JAX-GalSim/issues/190#issuecomment-4031602051
-    # for the source of the test code
-    b0 = galsim.BoundsI(1, 128, 1, 128)
-    b1 = galsim.BoundsI(32, 98, 32, 98)
-    b2 = galsim.BoundsI(-1, 10, 5, 200)
-
-    # bounds array
-    bnd_list = [b1, b2]
-    bnd_array = jax.tree.map(lambda *vals: jnp.array(vals), *bnd_list)
-    res = jax.vmap(lambda x: b0.includes(x))(bnd_array)
-    res_jit = jax.jit(jax.vmap(lambda x: b0.includes(x)))(bnd_array)
-    np.testing.assert_array_equal(res, res_jit)
-    np.testing.assert_array_equal(res, np.array([True, False]))
-
-    # position objects
-    pos_list = [galsim.PositionD(4, 10), galsim.PositionD(-4, -20)]
-    pos_array = jax.tree.map(lambda *vals: jnp.array(vals), *pos_list)
-    res = jax.vmap(lambda x: b0.includes(x))(pos_array)
-    res_jit = jax.jit(jax.vmap(lambda x: b0.includes(x)))(pos_array)
-    np.testing.assert_array_equal(res, res_jit)
-    np.testing.assert_array_equal(res, np.array([True, False]))
-
-    # position arrays - shape is (n_points, 2)
-    pos_array = jnp.array([[4.0, -4.0, 7.0], [10.0, -20.0, 8.0]]).T
-    res = jax.vmap(lambda x: b0.includes(*x))(pos_array)
-    res_jit = jax.jit(jax.vmap(lambda x: b0.includes(*x)))(pos_array)
-    np.testing.assert_array_equal(res, res_jit)
-    np.testing.assert_array_equal(res, np.array([True, False, True]))

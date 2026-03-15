@@ -60,8 +60,8 @@ def test_render_scene_draw_many_ffts_full_img():
         plt.imshow(img.array.sum(axis=0))
         pdb.set_trace()
 
-    assert img.array.shape == (5, 200, 200)
-    assert img.array.sum() > 5.0
+    assert img.array.shape == (50, 200, 200)
+    assert img.array.sum() > 50.0
 
 
 def _get_bd_jgs(
@@ -121,12 +121,6 @@ def _draw_stamp_jgs(
     stamp = convolved_object.drawImage(
         nx=slen, ny=slen, offset=(dx, dy), wcs=local_wcs, dtype=jnp.float64
     )
-    # then we apply a shift to get the correct final bounds
-    shift = jgs.PositionI(
-        jnp.int32(jnp.floor(image_pos.x + 0.5 - stamp.bounds.true_center.x)),
-        jnp.int32(jnp.floor(image_pos.y + 0.5 - stamp.bounds.true_center.y)),
-    )
-    stamp.shift(shift)
 
     return stamp
 
@@ -134,21 +128,25 @@ def _draw_stamp_jgs(
 @partial(jax.jit, static_argnames=("slen",))
 def _add_to_image(carry, x, slen):
     image = carry[0]
-    stamp = x
+    stamp, image_pos = x
 
-    b = stamp.bounds & image.bounds
-    if b.isDefined():
-        i1 = b.ymin - image.ymin
-        j1 = b.xmin - image.xmin
-        start_inds = (i1, j1)
-        subim = jax.lax.dynamic_slice(image.array, start_inds, (slen, slen))
-        subim = subim + stamp.array
+    # then we apply a shift to get the correct final bounds
+    shift = jgs.PositionI(
+        jnp.int32(jnp.floor(image_pos.x + 0.5 - stamp.bounds.true_center.x)),
+        jnp.int32(jnp.floor(image_pos.y + 0.5 - stamp.bounds.true_center.y)),
+    )
 
-        image._array = jax.lax.dynamic_update_slice(
-            image.array,
-            subim,
-            start_inds,
-        )
+    i1 = stamp.bounds.ymin + shift.y - image.ymin
+    j1 = stamp.bounds.xmin + shift.x - image.xmin
+    start_inds = (i1, j1)
+    subim = jax.lax.dynamic_slice(image.array, start_inds, (slen, slen))
+    subim = subim + stamp.array
+
+    image._array = jax.lax.dynamic_update_slice(
+        image.array,
+        subim,
+        start_inds,
+    )
 
     return (image,), None
 
@@ -254,7 +252,10 @@ def test_render_scene_stamps():
     )
 
     final_pad_image = jax.lax.scan(
-        partial(_add_to_image, slen=slen), (pad_image,), xs=stamps, length=ng
+        partial(_add_to_image, slen=slen),
+        (pad_image,),
+        xs=(stamps, image_positions),
+        length=ng,
     )[0][0]
     np.testing.assert_allclose(final_pad_image.array.sum(), stamps.array.sum())
 

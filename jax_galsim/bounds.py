@@ -1,11 +1,8 @@
 import galsim as _galsim
-import jax
-import jax.numpy as jnp
+import numpy as np
 from jax.tree_util import register_pytree_node_class
 
 from jax_galsim.core.utils import (
-    cast_to_float,
-    cast_to_int,
     ensure_hashable,
     implements,
 )
@@ -84,13 +81,31 @@ class Bounds(_galsim.Bounds):
             if kwargs:
                 raise TypeError("Got unexpected keyword arguments %s" % kwargs.keys())
 
-        # for simple inputs, we can check if the bounds are valid
-        if (
-            isinstance(self.xmin, (float, int))
-            and isinstance(self.xmax, (float, int))
-            and isinstance(self.ymin, (float, int))
-            and isinstance(self.ymax, (float, int))
-            and ((self.xmin > self.xmax) or (self.ymin > self.ymax))
+        if not (
+            isinstance(
+                self.xmin,
+                (float, int, np.ndarray, np.int32, np.int64, np.float32, np.float64),
+            )
+            and isinstance(
+                self.xmax,
+                (float, int, np.ndarray, np.int32, np.int64, np.float32, np.float64),
+            )
+            and isinstance(
+                self.ymin,
+                (float, int, np.ndarray, np.int32, np.int64, np.float32, np.float64),
+            )
+            and isinstance(
+                self.ymax,
+                (float, int, np.ndarray, np.int32, np.int64, np.float32, np.float64),
+            )
+        ):
+            raise ValueError(
+                "BoundsI/D classes must use python ints/floats or numpy values in JAX-GalSim!"
+            )
+
+        if not (
+            float(self.xmin) <= float(self.xmax)
+            and float(self.ymin) <= float(self.ymax)
         ):
             self._isdefined = False
 
@@ -110,20 +125,20 @@ class Bounds(_galsim.Bounds):
                 b = args[0]
                 return (
                     self.isDefined()
-                    & b.isDefined()
-                    & (self.xmin <= b.xmin)
-                    & (self.xmax >= b.xmax)
-                    & (self.ymin <= b.ymin)
-                    & (self.ymax >= b.ymax)
+                    and b.isDefined()
+                    and (self.xmin <= b.xmin)
+                    and (self.xmax >= b.xmax)
+                    and (self.ymin <= b.ymin)
+                    and (self.ymax >= b.ymax)
                 )
             elif isinstance(args[0], Position):
                 p = args[0]
                 return (
                     self.isDefined()
-                    & (self.xmin <= p.x)
-                    & (p.x <= self.xmax)
-                    & (self.ymin <= p.y)
-                    & (p.y <= self.ymax)
+                    and (self.xmin <= p.x)
+                    and (p.x <= self.xmax)
+                    and (self.ymin <= p.y)
+                    and (p.y <= self.ymax)
                 )
             else:
                 raise TypeError("Invalid argument %s" % args[0])
@@ -131,10 +146,10 @@ class Bounds(_galsim.Bounds):
             x, y = args
             return (
                 self.isDefined()
-                & (self.xmin <= x)
-                & (x <= self.xmax)
-                & (self.ymin <= y)
-                & (y <= self.ymax)
+                and (self.xmin <= x)
+                and (x <= self.xmax)
+                and (self.ymin <= y)
+                and (y <= self.ymax)
             )
         elif len(args) == 0:
             raise TypeError("include takes at least 1 argument (0 given)")
@@ -148,8 +163,8 @@ class Bounds(_galsim.Bounds):
         dx = (self.xmax - self.xmin) * 0.5 * (factor_x - 1.0)
         dy = (self.ymax - self.ymin) * 0.5 * (factor_y - 1.0)
         if isinstance(self, BoundsI):
-            dx = jnp.ceil(dx)
-            dy = jnp.ceil(dy)
+            dx = np.ceil(dx)
+            dy = np.ceil(dy)
         return self.withBorder(dx, dy)
 
     def __and__(self, other):
@@ -158,34 +173,33 @@ class Bounds(_galsim.Bounds):
         if not self.isDefined() or not other.isDefined():
             return self.__class__()
         else:
-            xmin = jnp.maximum(self.xmin, other.xmin)
-            xmax = jnp.minimum(self.xmax, other.xmax)
-            ymin = jnp.maximum(self.ymin, other.ymin)
-            ymax = jnp.minimum(self.ymax, other.ymax)
-            return jax.lax.cond(
-                (xmin > xmax) | (ymin > ymax),
-                lambda: self.__class__(),
-                lambda: self.__class__(xmin, xmax, ymin, ymax),
-            )
+            xmin = np.maximum(self.xmin, other.xmin)
+            xmax = np.minimum(self.xmax, other.xmax)
+            ymin = np.maximum(self.ymin, other.ymin)
+            ymax = np.minimum(self.ymax, other.ymax)
+            if (xmin > xmax) or (ymin > ymax):
+                return self.__class__()
+            else:
+                return self.__class__(xmin, xmax, ymin, ymax)
 
     def __add__(self, other):
         if isinstance(other, self.__class__):
             if not other.isDefined():
                 return self
             elif self.isDefined():
-                xmin = jnp.minimum(self.xmin, other.xmin)
-                xmax = jnp.maximum(self.xmax, other.xmax)
-                ymin = jnp.minimum(self.ymin, other.ymin)
-                ymax = jnp.maximum(self.ymax, other.ymax)
+                xmin = np.minimum(self.xmin, other.xmin)
+                xmax = np.maximum(self.xmax, other.xmax)
+                ymin = np.minimum(self.ymin, other.ymin)
+                ymax = np.maximum(self.ymax, other.ymax)
                 return self.__class__(xmin, xmax, ymin, ymax)
             else:
                 return other
         elif isinstance(other, self._pos_class):
             if self.isDefined():
-                xmin = jnp.minimum(self.xmin, other.x)
-                xmax = jnp.maximum(self.xmax, other.x)
-                ymin = jnp.minimum(self.ymin, other.y)
-                ymax = jnp.maximum(self.ymax, other.y)
+                xmin = np.minimum(self.xmin, other.x)
+                xmax = np.maximum(self.xmax, other.x)
+                ymin = np.minimum(self.ymin, other.y)
+                ymax = np.maximum(self.ymax, other.y)
                 return self.__class__(xmin, xmax, ymin, ymax)
             else:
                 return self.__class__(other)
@@ -234,15 +248,18 @@ class Bounds(_galsim.Bounds):
         """This function flattens the Bounds into a list of children
         nodes that will be traced by JAX and auxiliary static data."""
         # Define the children nodes of the PyTree that need tracing
-        children = (self.xmin, self.xmax, self.ymin, self.ymax)
+        children = ()
         # Define auxiliary static data that doesn’t need to be traced
-        aux_data = None
+        if self.isDefined():
+            aux_data = (self.xmin, self.xmax, self.ymin, self.ymax)
+        else:
+            aux_data = ()
         return (children, aux_data)
 
     @classmethod
     def tree_unflatten(cls, aux_data, children):
         """Recreates an instance of the class from flatten representation"""
-        return cls(*children)
+        return cls(*aux_data)
 
     @classmethod
     def from_galsim(cls, galsim_bounds):
@@ -293,15 +310,15 @@ class BoundsD(Bounds):
 
     def __init__(self, *args, **kwargs):
         self._parse_args(*args, **kwargs)
-        self.xmin = cast_to_float(self.xmin)
-        self.xmax = cast_to_float(self.xmax)
-        self.ymin = cast_to_float(self.ymin)
-        self.ymax = cast_to_float(self.ymax)
+        self.xmin = float(self.xmin)
+        self.xmax = float(self.xmax)
+        self.ymin = float(self.ymin)
+        self.ymax = float(self.ymax)
 
     def _check_scalar(self, x, name):
         try:
             if (
-                isinstance(x, jax.Array)
+                isinstance(x, np.ndarray)
                 and x.shape == ()
                 and x.dtype.name in ["float32", "float64", "float"]
             ):
@@ -342,15 +359,15 @@ class BoundsI(Bounds):
         ):
             raise TypeError("BoundsI must be initialized with integer values")
 
-        self.xmin = cast_to_int(self.xmin)
-        self.xmax = cast_to_int(self.xmax)
-        self.ymin = cast_to_int(self.ymin)
-        self.ymax = cast_to_int(self.ymax)
+        self.xmin = int(self.xmin)
+        self.xmax = int(self.xmax)
+        self.ymin = int(self.ymin)
+        self.ymax = int(self.ymax)
 
     def _check_scalar(self, x, name):
         try:
             if (
-                isinstance(x, jax.Array)
+                isinstance(x, np.ndarray)
                 and x.shape == ()
                 and x.dtype.name in ["int32", "int64", "int"]
             ):
