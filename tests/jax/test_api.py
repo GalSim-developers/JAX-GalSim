@@ -498,6 +498,8 @@ def test_api_shear(obj):
             jnp.array(0.2), jnp.array(4.0), jnp.array(-0.5), jnp.array(4.7)
         ),
         jax_galsim.BoundsI(jnp.array(-10), jnp.array(5), jnp.array(0), jnp.array(7)),
+        jax_galsim.BoundsD(0.2, 4.0, -0.5, 4.7),
+        jax_galsim.BoundsI(-10, 5, 0, 7),
     ],
 )
 def test_api_bounds(obj):
@@ -505,42 +507,10 @@ def test_api_bounds(obj):
     _run_object_checks(obj, obj.__class__, "pickle-eval-repr")
     _run_object_checks(obj, obj.__class__, "to-from-galsim")
 
+    assert isinstance(obj.xmin, (float, int))
+
     # JAX tracing should be an identity
     assert obj.__class__.tree_unflatten(*((obj.tree_flatten())[::-1])) == obj
-
-    if isinstance(obj, jax_galsim.BoundsD):
-
-        def _reg_sfun(g1):
-            return (
-                (
-                    obj.__class__(g1, g1 + 0.5, 2 * g1, 2 * g1 + 0.5).expand(0.5)
-                    + obj.__class__(-g1, -g1 + 0.5, -2 * g1, -2 * g1 + 0.5)
-                )
-                .expand(4)
-                .area()
-            )
-
-        _sfun = jax.jit(_reg_sfun)
-
-        _sgradfun = jax.jit(jax.grad(_sfun))
-        _sfun_vmap = jax.jit(jax.vmap(_sfun))
-        _sgradfun_vmap = jax.jit(jax.vmap(_sgradfun))
-
-        # we can jit the object
-        np.testing.assert_allclose(_sfun(0.3), _reg_sfun(0.3))
-
-        # check derivs
-        eps = 1e-6
-        grad = _sgradfun(0.3)
-        finite_diff = (_reg_sfun(0.3 + eps) - _reg_sfun(0.3 - eps)) / (2 * eps)
-        np.testing.assert_allclose(grad, finite_diff)
-
-        # check vmap
-        x = jnp.linspace(-0.9, 0.9, 10)
-        np.testing.assert_allclose(_sfun_vmap(x), [_reg_sfun(_x) for _x in x])
-
-        # check vmap grad
-        np.testing.assert_allclose(_sgradfun_vmap(x), [_sgradfun(_x) for _x in x])
 
 
 @pytest.mark.parametrize(
