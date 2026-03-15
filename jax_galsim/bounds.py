@@ -82,28 +82,6 @@ class Bounds(_galsim.Bounds):
                 raise TypeError("Got unexpected keyword arguments %s" % kwargs.keys())
 
         if not (
-            isinstance(
-                self.xmin,
-                (float, int, np.ndarray, np.int32, np.int64, np.float32, np.float64),
-            )
-            and isinstance(
-                self.xmax,
-                (float, int, np.ndarray, np.int32, np.int64, np.float32, np.float64),
-            )
-            and isinstance(
-                self.ymin,
-                (float, int, np.ndarray, np.int32, np.int64, np.float32, np.float64),
-            )
-            and isinstance(
-                self.ymax,
-                (float, int, np.ndarray, np.int32, np.int64, np.float32, np.float64),
-            )
-        ):
-            raise ValueError(
-                "BoundsI/D classes must use python ints/floats or numpy values in JAX-GalSim!"
-            )
-
-        if not (
             float(self.xmin) <= float(self.xmax)
             and float(self.ymin) <= float(self.ymax)
         ):
@@ -315,6 +293,28 @@ class BoundsD(Bounds):
         self.ymin = float(self.ymin)
         self.ymax = float(self.ymax)
 
+        if not (
+            isinstance(
+                self.xmin,
+                (float, int, np.ndarray, np.int32, np.int64, np.float32, np.float64),
+            )
+            and isinstance(
+                self.xmax,
+                (float, int, np.ndarray, np.int32, np.int64, np.float32, np.float64),
+            )
+            and isinstance(
+                self.ymin,
+                (float, int, np.ndarray, np.int32, np.int64, np.float32, np.float64),
+            )
+            and isinstance(
+                self.ymax,
+                (float, int, np.ndarray, np.int32, np.int64, np.float32, np.float64),
+            )
+        ):
+            raise ValueError(
+                "BoundsI/D classes must use python ints/floats or numpy values in JAX-GalSim!"
+            )
+
     def _check_scalar(self, x, name):
         try:
             if (
@@ -363,6 +363,28 @@ class BoundsI(Bounds):
         self.xmax = int(self.xmax)
         self.ymin = int(self.ymin)
         self.ymax = int(self.ymax)
+
+        if not (
+            isinstance(
+                self.xmin,
+                (float, int, np.ndarray, np.int32, np.int64, np.float32, np.float64),
+            )
+            and isinstance(
+                self.xmax,
+                (float, int, np.ndarray, np.int32, np.int64, np.float32, np.float64),
+            )
+            and isinstance(
+                self.ymin,
+                (float, int, np.ndarray, np.int32, np.int64, np.float32, np.float64),
+            )
+            and isinstance(
+                self.ymax,
+                (float, int, np.ndarray, np.int32, np.int64, np.float32, np.float64),
+            )
+        ):
+            raise ValueError(
+                "BoundsI/D classes must use python ints/floats or numpy values in JAX-GalSim!"
+            )
 
     def _check_scalar(self, x, name):
         try:
