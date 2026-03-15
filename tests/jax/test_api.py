@@ -494,6 +494,10 @@ def test_api_shear(obj):
     [
         jax_galsim.BoundsD(),
         jax_galsim.BoundsI(),
+        jax_galsim.BoundsD(
+            jnp.array(0.2), jnp.array(4.0), jnp.array(-0.5), jnp.array(4.7)
+        ),
+        jax_galsim.BoundsI(jnp.array(-10), jnp.array(5), jnp.array(0), jnp.array(7)),
         jax_galsim.BoundsD(0.2, 4.0, -0.5, 4.7),
         jax_galsim.BoundsI(-10, 5, 0, 7),
     ],
@@ -502,6 +506,8 @@ def test_api_bounds(obj):
     _run_object_checks(obj, obj.__class__, "docs-methods")
     _run_object_checks(obj, obj.__class__, "pickle-eval-repr")
     _run_object_checks(obj, obj.__class__, "to-from-galsim")
+
+    assert isinstance(obj.xmin, (float, int))
 
     # JAX tracing should be an identity
     assert obj.__class__.tree_unflatten(*((obj.tree_flatten())[::-1])) == obj

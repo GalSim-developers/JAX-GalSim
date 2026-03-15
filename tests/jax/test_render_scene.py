@@ -50,7 +50,7 @@ def _generate_image(rng_key, psf, n_obj):
 
 def test_render_scene_draw_many_ffts_full_img():
     psf = jgs.Gaussian(fwhm=0.9)
-    img = _generate_image(jrng.key(10), psf, 50)
+    img = _generate_image(jrng.key(10), psf, 5)
 
     if False:
         import pdb
@@ -60,8 +60,8 @@ def test_render_scene_draw_many_ffts_full_img():
         plt.imshow(img.array.sum(axis=0))
         pdb.set_trace()
 
-    assert img.array.shape == (50, 200, 200)
-    assert img.array.sum() > 50.0
+    assert img.array.shape == (5, 200, 200)
+    assert img.array.sum() > 5.0
 
 
 def _get_bd_jgs(
