@@ -104,19 +104,17 @@ class Bounds(_galsim.Bounds):
                 return (
                     self.isDefined()
                     and b.isDefined()
-                    and (self.xmin <= b.xmin)
-                    and (self.xmax >= b.xmax)
-                    and (self.ymin <= b.ymin)
-                    and (self.ymax >= b.ymax)
+                    and self.xmin <= b.xmin
+                    and self.xmax >= b.xmax
+                    and self.ymin <= b.ymin
+                    and self.ymax >= b.ymax
                 )
             elif isinstance(args[0], Position):
                 p = args[0]
                 return (
                     self.isDefined()
-                    and (self.xmin <= p.x)
-                    and (p.x <= self.xmax)
-                    and (self.ymin <= p.y)
-                    and (p.y <= self.ymax)
+                    and self.xmin <= p.x <= self.xmax
+                    and self.ymin <= p.y <= self.ymax
                 )
             else:
                 raise TypeError("Invalid argument %s" % args[0])
@@ -124,10 +122,8 @@ class Bounds(_galsim.Bounds):
             x, y = args
             return (
                 self.isDefined()
-                and (self.xmin <= x)
-                and (x <= self.xmax)
-                and (self.ymin <= y)
-                and (y <= self.ymax)
+                and self.xmin <= float(x) <= self.xmax
+                and self.ymin <= float(y) <= self.ymax
             )
         elif len(args) == 0:
             raise TypeError("include takes at least 1 argument (0 given)")
@@ -344,18 +340,12 @@ class BoundsI(Bounds):
 
     def __init__(self, *args, **kwargs):
         self._parse_args(*args, **kwargs)
-        # for simple inputs, we can check if the bounds are valid ints
+
         if (
-            isinstance(self.xmin, (float, int))
-            and isinstance(self.xmax, (float, int))
-            and isinstance(self.ymin, (float, int))
-            and isinstance(self.ymax, (float, int))
-            and (
-                self.xmin != int(self.xmin)
-                or self.xmax != int(self.xmax)
-                or self.ymin != int(self.ymin)
-                or self.ymax != int(self.ymax)
-            )
+            self.xmin != int(self.xmin)
+            or self.xmax != int(self.xmax)
+            or self.ymin != int(self.ymin)
+            or self.ymax != int(self.ymax)
         ):
             raise TypeError("BoundsI must be initialized with integer values")
 
