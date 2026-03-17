@@ -5,6 +5,7 @@ import jax
 import jax.numpy as jnp
 import jax.random as jrng
 import numpy as np
+import pytest
 
 import jax_galsim as jgs
 
@@ -112,14 +113,21 @@ def _draw_stamp_jgs(
 
     # you have to render just with on offset in order to keep the bounds
     # static during rendering
-    # the exact pixel computation here is MAGIC right now
-    # we'll need a way to make this easier
-    dx = image_pos.x - jnp.ceil(image_pos.x)
-    dy = image_pos.y - jnp.ceil(image_pos.y)
-    dx = dx + 0.5 * ((slen + 1) % 2)
-    dy = dy + 0.5 * ((slen + 1) % 2)
+    # here dx,dy is the offset to the nearest pixel
+    # we then render with use_true_center = False to ensure the offset is
+    # applied relative to a pixel center for all image dimensions, including
+    # even ones.
+    # this means the object is offset by (dx,dy) from stamp.bounds.center
+    dx = image_pos.x - jnp.floor(image_pos.x + 0.5)
+    dy = image_pos.y - jnp.floor(image_pos.y + 0.5)
+
     stamp = convolved_object.drawImage(
-        nx=slen, ny=slen, offset=(dx, dy), wcs=local_wcs, dtype=jnp.float64
+        nx=slen,
+        ny=slen,
+        offset=(dx, dy),
+        wcs=local_wcs,
+        dtype=jnp.float64,
+        use_true_center=False,
     )
 
     return stamp
@@ -130,15 +138,36 @@ def _add_to_image(carry, x, slen):
     image = carry[0]
     stamp, image_pos = x
 
-    # then we apply a shift to get the correct final bounds
+    # then we apply a shift to the stamp get the correct final location
+    # above we rendered at the location xs, ys = (dx,dy) + stamp.bounds.center
+    # in the image.bounds coordinates, the location (xs,ys) should be
+    #
+    #  (xs - stamp.bounds.xmin) + shift.x = image_pos.x - image.bounds.xmin
+    #
+    # the logic here is that the offset of the object in array indices in the final
+    # image should be equal to the shift in array indices of the stamo plus the offset
+    # in array indicies of the stamp.
+    # we then get for x
+    #  shift.x = image_pos.x - image.bounds.xmin - xs + stamp.bounds.xmin
+    #          = image_pos.x - dx - stamp.bounds.center.x + stamp.bounds.xmin - image.bounds.xmin
+    #          = image_pos.x - (image_pos.x - jnp.floor(image_pos.x + 0.5)) - stamp.bounds.center.x + stamp.bounds.xmin - image.bounds.xmin
+    #          = jnp.floor(image_pos.x + 0.5) - stamp.bounds.center.x + stamp.bounds.xmin - image.bounds.xmin
     shift = jgs.PositionI(
-        jnp.int32(jnp.floor(image_pos.x + 0.5 - stamp.bounds.true_center.x)),
-        jnp.int32(jnp.floor(image_pos.y + 0.5 - stamp.bounds.true_center.y)),
+        jnp.int32(
+            jnp.floor(image_pos.x + 0.5)
+            - stamp.bounds.center.x
+            + stamp.bounds.xmin
+            - image.bounds.xmin
+        ),
+        jnp.int32(
+            jnp.floor(image_pos.y + 0.5)
+            - stamp.bounds.center.y
+            + stamp.bounds.ymin
+            - image.bounds.ymin
+        ),
     )
 
-    i1 = stamp.bounds.ymin + shift.y - image.ymin
-    j1 = stamp.bounds.xmin + shift.x - image.xmin
-    start_inds = (i1, j1)
+    start_inds = (shift.y, shift.x)
     subim = jax.lax.dynamic_slice(image.array, start_inds, (slen, slen))
     subim = subim + stamp.array
 
@@ -215,13 +244,13 @@ def _render_scene_stamps_galsim(
     return image
 
 
-def test_render_scene_stamps():
+@pytest.mark.parametrize("slen", [51, 52])
+def test_render_scene_stamps(slen):
     image = jgs.Image(ncol=200, nrow=200, scale=0.2, dtype=jnp.float64)
     wcs = image.wcs
 
     rng = np.random.default_rng(seed=10)
     ng = 5
-    slen = 52
     fft_size = 2048
 
     galaxy_params = {
@@ -285,6 +314,35 @@ def test_render_scene_stamps():
         ng,
     )
 
+    gs_image_mo = _galsim.Image(ncol=200, nrow=200, scale=0.2, dtype=np.float64)
+    wcs = gs_image.wcs
+
+    gs_image_positions = list(
+        map(lambda tup: _galsim.PositionD(x=tup[0], y=tup[1]), zip(x, y))
+    )
+    gs_local_wcss = list(map(lambda x: wcs.local(image_pos=x), gs_image_positions))
+
+    _render_scene_stamps_galsim(
+        galaxy_params,
+        gs_image_positions,
+        gs_local_wcss,
+        fft_size,
+        slen + 1,
+        gs_image_mo,
+        ng,
+    )
+
+    abs_eps = 4.0 * np.max(np.abs(gs_image_mo.array - gs_image.array))
+    rel_eps = 0.0
+
+    if False:
+        import pdb
+
+        import matplotlib.pyplot as plt
+
+        plt.imshow(gs_image_mo.array - gs_image.array)
+        pdb.set_trace()
+
     if False:
         import pdb
 
@@ -302,15 +360,15 @@ def test_render_scene_stamps():
         pdb.set_trace()
 
     np.testing.assert_allclose(
-        gs_image.array.sum(),
         final_pad_image.array[slen:-slen, slen:-slen].sum(),
-        atol=1e-4,
-        rtol=1e-5,
+        gs_image.array.sum(),
+        atol=abs_eps,
+        rtol=rel_eps,
     )
 
     np.testing.assert_allclose(
-        gs_image.array,
         final_pad_image.array[slen:-slen, slen:-slen],
-        atol=1e-6,
-        rtol=1e-6,
+        gs_image.array,
+        atol=abs_eps,
+        rtol=rel_eps,
     )
