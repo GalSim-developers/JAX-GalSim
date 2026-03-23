@@ -1363,12 +1363,12 @@ def Image_floordiv(self, other):
         a = other.array
     except AttributeError:
         a = other
-    return Image(self._array // a, bounds=self.bounds, wcs=self.wcs)
+    return Image(self.array // a, bounds=self.bounds, wcs=self.wcs)
 
 
 def Image_rfloordiv(self, other):
     check_image_consistency(self, other, integer=True)
-    return Image(other // self._array, bounds=self.bounds, wcs=self.wcs)
+    return Image(other // self.array, bounds=self.bounds, wcs=self.wcs)
 
 
 def Image_ifloordiv(self, other):
