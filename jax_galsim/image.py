@@ -1420,9 +1420,6 @@ def Image_pow(self, other):
 
 
 def Image_ipow(self, other):
-    raise RuntimeError(
-        "In-place operations (e.g., `+=`) are not allowed on JAX-GalSim images."
-    )
     if not isinstance(other, int) and not isinstance(other, float):
         raise TypeError("Can only raise an image to a float or int power!")
     self._array = self.array.at[...].power(other)
