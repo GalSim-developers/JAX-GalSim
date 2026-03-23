@@ -28,7 +28,7 @@ def addNoiseSNR(self, noise, snr, preserve_flux=False):
     else:
         sn_meas = jnp.sqrt(sumsq / noise_var)
         flux = snr / sn_meas
-        self *= flux
+        self._array = self._array.at[...].multiply(flux)
         self.addNoise(noise)
         return noise_var
 

@@ -713,7 +713,7 @@ class Image(object):
             jnp.fft.rfft2(jnp.fft.fftshift(ximage.array)), axes=0
         )
 
-        out *= dx * dx
+        out._array = out._array.at[...].multiply(dx * dx)
         out.setOrigin(0, -No2)
         return out
 
@@ -769,7 +769,7 @@ class Image(object):
         )
         # Now cut off the bit we don't need.
         out = out_extra.subImage(BoundsI(-No2, No2 - 1, -No2, No2 - 1))
-        out *= (dk * No2 / jnp.pi) ** 2
+        out._array = out._array.at[:].multiply((dk * No2 / jnp.pi) ** 2)
         out.setCenter(0, 0)
         return out
 
@@ -1261,21 +1261,18 @@ def Image_add(self, other):
 
 
 def Image_iadd(self, other):
-    raise RuntimeError(
-        "In-place operations (e.g., `+=`) are not allowed on JAX-GalSim images."
-    )
-    # check_image_consistency(self, other)
-    # try:
-    #     a = other.array
-    #     dt = a.dtype
-    # except AttributeError:
-    #     a = other
-    #     dt = type(a)
-    # if dt == self.array.dtype:
-    #     self._array = self.array + a
-    # else:
-    #     self._array = (self.array + a).astype(self.array.dtype)
-    # return self
+    check_image_consistency(self, other)
+    try:
+        a = other.array
+        dt = a.dtype
+    except AttributeError:
+        a = other
+        dt = type(a)
+    if dt == self.array.dtype:
+        self._array = self.array.at[...].add(a)
+    else:
+        self._array = (self.array + a).astype(self.array.dtype)
+    return self
 
 
 def Image_sub(self, other):
@@ -1292,21 +1289,18 @@ def Image_rsub(self, other):
 
 
 def Image_isub(self, other):
-    raise RuntimeError(
-        "In-place operations (e.g., `+=`) are not allowed on JAX-GalSim images."
-    )
-    # check_image_consistency(self, other)
-    # try:
-    #     a = other.array
-    #     dt = a.dtype
-    # except AttributeError:
-    #     a = other
-    #     dt = type(a)
-    # if dt == self.array.dtype:
-    #     self._array = self.array - a
-    # else:
-    #     self._array = (self.array - a).astype(self.array.dtype)
-    # return self
+    check_image_consistency(self, other)
+    try:
+        a = other.array
+        dt = a.dtype
+    except AttributeError:
+        a = other
+        dt = type(a)
+    if dt == self.array.dtype:
+        self._array = self.array.at[...].subtract(a)
+    else:
+        self._array = (self.array - a).astype(self.array.dtype)
+    return self
 
 
 def Image_mul(self, other):
@@ -1319,21 +1313,18 @@ def Image_mul(self, other):
 
 
 def Image_imul(self, other):
-    raise RuntimeError(
-        "In-place operations (e.g., `+=`) are not allowed on JAX-GalSim images."
-    )
-    # check_image_consistency(self, other)
-    # try:
-    #     a = other.array
-    #     dt = a.dtype
-    # except AttributeError:
-    #     a = other
-    #     dt = type(a)
-    # if dt == self.array.dtype:
-    #     self._array = self.array * a
-    # else:
-    #     self._array = (self.array * a).astype(self.array.dtype)
-    # return self
+    check_image_consistency(self, other)
+    try:
+        a = other.array
+        dt = a.dtype
+    except AttributeError:
+        a = other
+        dt = type(a)
+    if dt == self.array.dtype:
+        self._array = self.array.at[...].multiply(a)
+    else:
+        self._array = (self.array * a).astype(self.array.dtype)
+    return self
 
 
 def Image_div(self, other):
@@ -1350,23 +1341,20 @@ def Image_rdiv(self, other):
 
 
 def Image_idiv(self, other):
-    raise RuntimeError(
-        "In-place operations (e.g., `+=`) are not allowed on JAX-GalSim images."
-    )
-    # check_image_consistency(self, other)
-    # try:
-    #     a = other.array
-    #     dt = a.dtype
-    # except AttributeError:
-    #     a = other
-    #     dt = type(a)
-    # if dt == self.array.dtype and not self.isinteger:
-    #     # if dtype is an integer type, then numpy doesn't allow true division /= to assign
-    #     # back to an integer array.  So for integers (or mixed types), don't use /=.
-    #     self._array = self.array / a
-    # else:
-    #     self._array = (self.array / a).astype(self.array.dtype)
-    # return self
+    check_image_consistency(self, other)
+    try:
+        a = other.array
+        dt = a.dtype
+    except AttributeError:
+        a = other
+        dt = type(a)
+    if dt == self.array.dtype and not self.isinteger:
+        # if dtype is an integer type, then numpy doesn't allow true division /= to assign
+        # back to an integer array.  So for integers (or mixed types), don't use /=.
+        self._array = self.array.at[...].divide(a)
+    else:
+        self._array = (self.array / a).astype(self.array.dtype)
+    return self
 
 
 def Image_floordiv(self, other):
@@ -1375,30 +1363,27 @@ def Image_floordiv(self, other):
         a = other.array
     except AttributeError:
         a = other
-    return Image(self.array // a, bounds=self.bounds, wcs=self.wcs)
+    return Image(self._array // a, bounds=self.bounds, wcs=self.wcs)
 
 
 def Image_rfloordiv(self, other):
     check_image_consistency(self, other, integer=True)
-    return Image(other // self.array, bounds=self.bounds, wcs=self.wcs)
+    return Image(other // self._array, bounds=self.bounds, wcs=self.wcs)
 
 
 def Image_ifloordiv(self, other):
-    raise RuntimeError(
-        "In-place operations (e.g., `+=`) are not allowed on JAX-GalSim images."
-    )
-    # check_image_consistency(self, other, integer=True)
-    # try:
-    #     a = other.array
-    #     dt = a.dtype
-    # except AttributeError:
-    #     a = other
-    #     dt = type(a)
-    # if dt == self.array.dtype:
-    #     self._array = self.array // a
-    # else:
-    #     self._array = (self.array // a).astype(self.array.dtype)
-    # return self
+    check_image_consistency(self, other, integer=True)
+    try:
+        a = other.array
+        dt = a.dtype
+    except AttributeError:
+        a = other
+        dt = type(a)
+    if dt == self.array.dtype:
+        self._array = self.array // a
+    else:
+        self._array = (self.array // a).astype(self.array.dtype)
+    return self
 
 
 def Image_mod(self, other):
@@ -1416,21 +1401,18 @@ def Image_rmod(self, other):
 
 
 def Image_imod(self, other):
-    raise RuntimeError(
-        "In-place operations (e.g., `+=`) are not allowed on JAX-GalSim images."
-    )
-    # check_image_consistency(self, other, integer=True)
-    # try:
-    #     a = other.array
-    #     dt = a.dtype
-    # except AttributeError:
-    #     a = other
-    #     dt = type(a)
-    # if dt == self.array.dtype:
-    #     self._array = self.array % a
-    # else:
-    #     self._array = (self.array % a).astype(self.array.dtype)
-    # return self
+    check_image_consistency(self, other, integer=True)
+    try:
+        a = other.array
+        dt = a.dtype
+    except AttributeError:
+        a = other
+        dt = type(a)
+    if dt == self.array.dtype:
+        self._array = self.array % a
+    else:
+        self._array = (self.array % a).astype(self.array.dtype)
+    return self
 
 
 def Image_pow(self, other):
@@ -1441,10 +1423,10 @@ def Image_ipow(self, other):
     raise RuntimeError(
         "In-place operations (e.g., `+=`) are not allowed on JAX-GalSim images."
     )
-    # if not isinstance(other, int) and not isinstance(other, float):
-    #     raise TypeError("Can only raise an image to a float or int power!")
-    # self._array = self.array**other
-    # return self
+    if not isinstance(other, int) and not isinstance(other, float):
+        raise TypeError("Can only raise an image to a float or int power!")
+    self._array = self.array.at[...].power(other)
+    return self
 
 
 def Image_neg(self):
@@ -1464,16 +1446,13 @@ def Image_and(self, other):
 
 
 def Image_iand(self, other):
-    raise RuntimeError(
-        "In-place operations (e.g., `+=`) are not allowed on JAX-GalSim images."
-    )
-    # check_image_consistency(self, other, integer=True)
-    # try:
-    #     a = other.array
-    # except AttributeError:
-    #     a = other
-    # self._array = self.array & a
-    # return self
+    check_image_consistency(self, other, integer=True)
+    try:
+        a = other.array
+    except AttributeError:
+        a = other
+    self._array = self.array & a
+    return self
 
 
 def Image_xor(self, other):
@@ -1486,16 +1465,13 @@ def Image_xor(self, other):
 
 
 def Image_ixor(self, other):
-    raise RuntimeError(
-        "In-place operations (e.g., `+=`) are not allowed on JAX-GalSim images."
-    )
-    # check_image_consistency(self, other, integer=True)
-    # try:
-    #     a = other.array
-    # except AttributeError:
-    #     a = other
-    # self._array = self.array ^ a
-    # return self
+    check_image_consistency(self, other, integer=True)
+    try:
+        a = other.array
+    except AttributeError:
+        a = other
+    self._array = self.array ^ a
+    return self
 
 
 def Image_or(self, other):
@@ -1508,16 +1484,13 @@ def Image_or(self, other):
 
 
 def Image_ior(self, other):
-    raise RuntimeError(
-        "In-place operations (e.g., `+=`) are not allowed on JAX-GalSim images."
-    )
-    # check_image_consistency(self, other, integer=True)
-    # try:
-    #     a = other.array
-    # except AttributeError:
-    #     a = other
-    # self._array = self.array | a
-    # return self
+    check_image_consistency(self, other, integer=True)
+    try:
+        a = other.array
+    except AttributeError:
+        a = other
+    self._array = self.array | a
+    return self
 
 
 # inject the arithmetic operators as methods of the Image class:
