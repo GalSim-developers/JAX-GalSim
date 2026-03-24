@@ -4,6 +4,7 @@ import numpy as np
 from jax.tree_util import register_pytree_node_class
 
 from jax_galsim.bounds import Bounds, BoundsD, BoundsI
+from jax_galsim.core.index import ImageIndexer
 from jax_galsim.core.utils import ensure_hashable, implements
 from jax_galsim.errors import GalSimImmutableError
 from jax_galsim.position import PositionI
@@ -556,29 +557,11 @@ class Image(object):
             raise TypeError("image[..] requires either 1 or 2 args")
 
     def __setitem__(self, *args):
-        """Set either a subimage or a single pixel to new values.
-
-        For example,::
-
-            >>> im[galsim.BoundsI(3,7,3,7)] = im2
-            >>> im[galsim.PositionI(5,5)] = 17.
-            >>> im[5,5] = 17.
-        """
-        if len(args) == 2:
-            if isinstance(args[0], BoundsI):
-                self.setSubImage(*args)
-            elif isinstance(args[0], PositionI):
-                self.setValue(*args)
-            elif isinstance(args[0], tuple):
-                self.setValue(*args)
-            else:
-                raise TypeError(
-                    "image[index] only accepts BoundsI or PositionI for the index"
-                )
-        elif len(args) == 3:
-            return self.setValue(*args)
-        else:
-            raise TypeError("image[..] requires either 1 or 2 args")
+        raise RuntimeError(
+            "JAX-GalSim images do not support inplace operations via "
+            "operators like `img +=` or via `img[index] = ...`. "
+            "Use the `.at` syntax instead."
+        )
 
     @implements(_galsim.Image.wrap)
     def wrap(self, bounds, hermitian=False):
@@ -1133,6 +1116,13 @@ class Image(object):
         gs_image = self.to_galsim()
         return gs_image.FindAdaptiveMom(*args_, **kwargs_)
 
+    @property
+    def at(self):
+        """
+        TODO: write docs
+        """
+        return ImageIndexer(self)
+
 
 @implements(
     _galsim._Image,
@@ -1261,18 +1251,11 @@ def Image_add(self, other):
 
 
 def Image_iadd(self, other):
-    check_image_consistency(self, other)
-    try:
-        a = other.array
-        dt = a.dtype
-    except AttributeError:
-        a = other
-        dt = type(a)
-    if dt == self.array.dtype:
-        self._array = self.array.at[...].add(a)
-    else:
-        self._array = (self.array + a).astype(self.array.dtype)
-    return self
+    raise RuntimeError(
+        "JAX-GalSim images do not support inplace operations via "
+        "operators like `img +=` or via `img[index] = ...`. "
+        "Use the `.at` syntax instead."
+    )
 
 
 def Image_sub(self, other):
@@ -1289,18 +1272,11 @@ def Image_rsub(self, other):
 
 
 def Image_isub(self, other):
-    check_image_consistency(self, other)
-    try:
-        a = other.array
-        dt = a.dtype
-    except AttributeError:
-        a = other
-        dt = type(a)
-    if dt == self.array.dtype:
-        self._array = self.array.at[...].subtract(a)
-    else:
-        self._array = (self.array - a).astype(self.array.dtype)
-    return self
+    raise RuntimeError(
+        "JAX-GalSim images do not support inplace operations via "
+        "operators like `img +=` or via `img[index] = ...`. "
+        "Use the `.at` syntax instead."
+    )
 
 
 def Image_mul(self, other):
@@ -1313,18 +1289,11 @@ def Image_mul(self, other):
 
 
 def Image_imul(self, other):
-    check_image_consistency(self, other)
-    try:
-        a = other.array
-        dt = a.dtype
-    except AttributeError:
-        a = other
-        dt = type(a)
-    if dt == self.array.dtype:
-        self._array = self.array.at[...].multiply(a)
-    else:
-        self._array = (self.array * a).astype(self.array.dtype)
-    return self
+    raise RuntimeError(
+        "JAX-GalSim images do not support inplace operations via "
+        "operators like `img +=` or via `img[index] = ...`. "
+        "Use the `.at` syntax instead."
+    )
 
 
 def Image_div(self, other):
@@ -1341,20 +1310,11 @@ def Image_rdiv(self, other):
 
 
 def Image_idiv(self, other):
-    check_image_consistency(self, other)
-    try:
-        a = other.array
-        dt = a.dtype
-    except AttributeError:
-        a = other
-        dt = type(a)
-    if dt == self.array.dtype and not self.isinteger:
-        # if dtype is an integer type, then numpy doesn't allow true division /= to assign
-        # back to an integer array.  So for integers (or mixed types), don't use /=.
-        self._array = self.array.at[...].divide(a)
-    else:
-        self._array = (self.array / a).astype(self.array.dtype)
-    return self
+    raise RuntimeError(
+        "JAX-GalSim images do not support inplace operations via "
+        "operators like `img +=` or via `img[index] = ...`. "
+        "Use the `.at` syntax instead."
+    )
 
 
 def Image_floordiv(self, other):
@@ -1372,18 +1332,11 @@ def Image_rfloordiv(self, other):
 
 
 def Image_ifloordiv(self, other):
-    check_image_consistency(self, other, integer=True)
-    try:
-        a = other.array
-        dt = a.dtype
-    except AttributeError:
-        a = other
-        dt = type(a)
-    if dt == self.array.dtype:
-        self._array = self.array // a
-    else:
-        self._array = (self.array // a).astype(self.array.dtype)
-    return self
+    raise RuntimeError(
+        "JAX-GalSim images do not support inplace operations via "
+        "operators like `img +=` or via `img[index] = ...`. "
+        "Use the `.at` syntax instead."
+    )
 
 
 def Image_mod(self, other):
@@ -1401,18 +1354,11 @@ def Image_rmod(self, other):
 
 
 def Image_imod(self, other):
-    check_image_consistency(self, other, integer=True)
-    try:
-        a = other.array
-        dt = a.dtype
-    except AttributeError:
-        a = other
-        dt = type(a)
-    if dt == self.array.dtype:
-        self._array = self.array % a
-    else:
-        self._array = (self.array % a).astype(self.array.dtype)
-    return self
+    raise RuntimeError(
+        "JAX-GalSim images do not support inplace operations via "
+        "operators like `img +=` or via `img[index] = ...`. "
+        "Use the `.at` syntax instead."
+    )
 
 
 def Image_pow(self, other):
@@ -1420,10 +1366,11 @@ def Image_pow(self, other):
 
 
 def Image_ipow(self, other):
-    if not isinstance(other, int) and not isinstance(other, float):
-        raise TypeError("Can only raise an image to a float or int power!")
-    self._array = self.array.at[...].power(other)
-    return self
+    raise RuntimeError(
+        "JAX-GalSim images do not support inplace operations via "
+        "operators like `img +=` or via `img[index] = ...`. "
+        "Use the `.at` syntax instead."
+    )
 
 
 def Image_neg(self):
@@ -1443,13 +1390,11 @@ def Image_and(self, other):
 
 
 def Image_iand(self, other):
-    check_image_consistency(self, other, integer=True)
-    try:
-        a = other.array
-    except AttributeError:
-        a = other
-    self._array = self.array & a
-    return self
+    raise RuntimeError(
+        "JAX-GalSim images do not support inplace operations via "
+        "operators like `img +=` or via `img[index] = ...`. "
+        "Use the `.at` syntax instead."
+    )
 
 
 def Image_xor(self, other):
@@ -1462,13 +1407,11 @@ def Image_xor(self, other):
 
 
 def Image_ixor(self, other):
-    check_image_consistency(self, other, integer=True)
-    try:
-        a = other.array
-    except AttributeError:
-        a = other
-    self._array = self.array ^ a
-    return self
+    raise RuntimeError(
+        "JAX-GalSim images do not support inplace operations via "
+        "operators like `img +=` or via `img[index] = ...`. "
+        "Use the `.at` syntax instead."
+    )
 
 
 def Image_or(self, other):
@@ -1481,13 +1424,11 @@ def Image_or(self, other):
 
 
 def Image_ior(self, other):
-    check_image_consistency(self, other, integer=True)
-    try:
-        a = other.array
-    except AttributeError:
-        a = other
-    self._array = self.array | a
-    return self
+    raise RuntimeError(
+        "JAX-GalSim images do not support inplace operations via "
+        "operators like `img +=` or via `img[index] = ...`. "
+        "Use the `.at` syntax instead."
+    )
 
 
 # inject the arithmetic operators as methods of the Image class:
