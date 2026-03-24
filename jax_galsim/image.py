@@ -1107,7 +1107,7 @@ class Image(object):
             else None
         )
         im = cls(
-            array=galsim_image.array,
+            array=jnp.asarray(galsim_image.array),
             wcs=wcs,
             bounds=Bounds.from_galsim(galsim_image.bounds),
         )
