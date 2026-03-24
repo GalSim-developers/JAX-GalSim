@@ -557,6 +557,8 @@ class Image(object):
             raise TypeError("image[..] requires either 1 or 2 args")
 
     def __setitem__(self, *args):
+        if self.isconst:
+            raise _galsim.GalSimImmutableError("Cannot modify an immutable Image", self)
         raise RuntimeError(
             "JAX-GalSim images do not support inplace operations via "
             "`img[index] = ...`. "

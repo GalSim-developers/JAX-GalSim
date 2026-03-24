@@ -117,9 +117,12 @@ class ImageIndex:
             )
             self.image._array = jax.lax.dynamic_update_slice(
                 self.image.array,
-                value.array
-                if hasattr(value, "array")
-                else jnp.broadcast_to(value, self.index.numpyShape()),
+                jnp.astype(
+                    value.array
+                    if hasattr(value, "array")
+                    else jnp.broadcast_to(value, self.index.numpyShape()),
+                    self.image.array.dtype,
+                ),
                 start_inds,
             )
         else:
@@ -228,11 +231,14 @@ class ImageIndex:
 
             self.image._array = jax.lax.dynamic_update_slice(
                 self.image.array,
-                func(
-                    subim,
-                    value.array
-                    if hasattr(value, "array")
-                    else jnp.broadcast_to(value, self.index.numpyShape()),
+                jnp.astype(
+                    func(
+                        subim,
+                        value.array
+                        if hasattr(value, "array")
+                        else jnp.broadcast_to(value, self.index.numpyShape()),
+                    ),
+                    self.image.array.dtype,
                 ),
                 start_inds,
             )
