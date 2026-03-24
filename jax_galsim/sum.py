@@ -164,8 +164,8 @@ class Sum(GSObject):
         image = self.obj_list[0]._drawReal(image, jac, offset, flux_scaling)
         if len(self.obj_list) > 1:
             for obj in self.obj_list[1:]:
-                image._array = image._array.at[...].add(
-                    obj._drawReal(image, jac, offset, flux_scaling)._array
+                image = image.at[...].add(
+                    obj._drawReal(image, jac, offset, flux_scaling)
                 )
         return image
 
@@ -173,9 +173,7 @@ class Sum(GSObject):
         image = self.obj_list[0]._drawKImage(image, jac)
         if len(self.obj_list) > 1:
             for obj in self.obj_list[1:]:
-                image._array = image._array.at[...].add(
-                    obj._drawKImage(image, jac)._array
-                )
+                image = image.at[...].add(obj._drawKImage(image, jac))
         return image
 
     @property

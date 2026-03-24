@@ -282,7 +282,7 @@ def _compute_fft_with_numpy_jax_galsim(im):
     else:
         # Then we pad out with zeros
         ximage = Image(full_bounds, dtype=im.dtype, init_value=0)
-        ximage[im.bounds] = im[im.bounds]
+        ximage = ximage.at[im.bounds].set(im[im.bounds])
 
     dx = im.scale
     # dk = 2pi / (N dk)

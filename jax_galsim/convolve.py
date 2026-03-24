@@ -316,9 +316,7 @@ class Convolution(GSObject):
         image = self.obj_list[0]._drawKImage(image, jac)
         if len(self.obj_list) > 1:
             for obj in self.obj_list[1:]:
-                image._array = image._array.at[...].multiply(
-                    obj._drawKImage(image, jac)._array
-                )
+                image = image.at[...].multiply(obj._drawKImage(image, jac))
         return image
 
     def tree_flatten(self):

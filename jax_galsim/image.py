@@ -683,7 +683,7 @@ class Image(object):
         else:
             # Then we pad out with zeros
             ximage = Image(full_bounds, dtype=self.dtype, init_value=0)
-            ximage[self.bounds] = self[self.bounds]
+            ximage = ximage.at[self.bounds].set(self[self.bounds])
 
         dx = self.scale
         # dk = 2pi / (N dk)
@@ -696,7 +696,7 @@ class Image(object):
             jnp.fft.rfft2(jnp.fft.fftshift(ximage.array)), axes=0
         )
 
-        out._array = out._array.at[...].multiply(dx * dx)
+        out = out.at[...].multiply(dx * dx)
         out.setOrigin(0, -No2)
         return out
 
@@ -737,7 +737,7 @@ class Image(object):
             posx_bounds = BoundsI(
                 0, self.bounds.xmax, self.bounds.ymin, self.bounds.ymax
             )
-            kimage[posx_bounds] = self[posx_bounds]
+            kimage = kimage.at[posx_bounds].set(self[posx_bounds])
             kimage = kimage.wrap(target_bounds, hermitian="x")
 
         dk = self.scale
@@ -752,7 +752,7 @@ class Image(object):
         )
         # Now cut off the bit we don't need.
         out = out_extra.subImage(BoundsI(-No2, No2 - 1, -No2, No2 - 1))
-        out._array = out._array.at[:].multiply((dk * No2 / jnp.pi) ** 2)
+        out = out.at[...].multiply((dk * No2 / jnp.pi) ** 2)
         out.setCenter(0, 0)
         return out
 
