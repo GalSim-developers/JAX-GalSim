@@ -347,6 +347,7 @@ def _run_object_checks(obj, cls, kind):
                     "tree_unflatten",
                     "from_galsim",
                     "to_galsim",
+                    "at",
                 ]:
                     # this deprecated method doesn't have consistent doc strings in galsim
                     if (
