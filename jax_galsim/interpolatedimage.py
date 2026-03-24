@@ -665,7 +665,7 @@ class _InterpolatedImageImpl(GSObject):
         xim.wcs = PixelScale(1.0)
 
         # Now place the given image in the center of the padding image:
-        xim[self._image.bounds] = self._image
+        xim = xim.at[self._image.bounds].set(self._image)
 
         return xim
 
