@@ -290,7 +290,7 @@ def _compute_fft_with_numpy_jax_galsim(im):
 
     out = Image(BoundsI(0, No2, -No2, No2 - 1), dtype=np.complex128, scale=dk)
     out._array = np.fft.fftshift(np.fft.rfft2(np.fft.fftshift(ximage.array)), axes=0)
-    out._array *= dx * dx
+    out *= dx * dx
     out.setOrigin(0, -No2)
     return out
 

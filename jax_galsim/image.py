@@ -559,7 +559,7 @@ class Image(object):
     def __setitem__(self, *args):
         raise RuntimeError(
             "JAX-GalSim images do not support inplace operations via "
-            "operators like `img +=` or via `img[index] = ...`. "
+            "`img[index] = ...`. "
             "Use the `.at` syntax instead."
         )
 
@@ -696,7 +696,7 @@ class Image(object):
             jnp.fft.rfft2(jnp.fft.fftshift(ximage.array)), axes=0
         )
 
-        out = out.at[...].multiply(dx * dx)
+        out *= dx * dx
         out.setOrigin(0, -No2)
         return out
 
@@ -752,7 +752,7 @@ class Image(object):
         )
         # Now cut off the bit we don't need.
         out = out_extra.subImage(BoundsI(-No2, No2 - 1, -No2, No2 - 1))
-        out = out.at[...].multiply((dk * No2 / jnp.pi) ** 2)
+        out *= (dk * No2 / jnp.pi) ** 2
         out.setCenter(0, 0)
         return out
 

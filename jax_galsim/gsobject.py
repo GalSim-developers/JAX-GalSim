@@ -1407,7 +1407,7 @@ def _draw_phot_while_loop_shoot(
 
         im1 = ImageD(bounds=image.bounds)
         added_flux += sensor.accumulate(photons, im1, orig_center)
-        image = image.at[...].add(im1)
+        image += im1
 
     return _DrawPhotReturnTuple(
         photons, rng, added_flux, image, photon_ops, sensor, resume
