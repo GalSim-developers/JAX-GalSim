@@ -1,4 +1,5 @@
 import galsim as _galsim
+import jax
 import jax.numpy as jnp
 import numpy as np
 from jax.tree_util import register_pytree_node_class
@@ -491,12 +492,14 @@ class Image(object):
             raise _galsim.GalSimBoundsError(
                 "Attempt to access subImage not (fully) in image", bounds, self.bounds
             )
-        i1 = bounds.ymin - self.ymin
-        i2 = bounds.ymax - self.ymin + 1
-        j1 = bounds.xmin - self.xmin
-        j2 = bounds.xmax - self.xmin + 1
 
-        subarray = self.array[i1:i2, j1:j2]
+        start_inds = (
+            bounds.ymin - self.ymin,
+            bounds.xmin - self.xmin,
+        )
+        shape = bounds.numpyShape()
+        subarray = jax.lax.dynamic_slice(self.array, start_inds, shape)
+
         # NB. The wcs is still accurate, since the sub-image uses the same (x,y) values
         # as the original image did for those pixels.  It's only once you recenter or
         # reorigin that you need to update the wcs.  So that's taken care of in im.shift.
@@ -524,11 +527,15 @@ class Image(object):
                 self_image=self,
                 rhs=rhs,
             )
-        i1 = bounds.ymin - self.ymin
-        i2 = bounds.ymax - self.ymin + 1
-        j1 = bounds.xmin - self.xmin
-        j2 = bounds.xmax - self.xmin + 1
-        self._array = self._array.at[i1:i2, j1:j2].set(rhs.array)
+        start_inds = (
+            bounds.ymin - self.ymin,
+            bounds.xmin - self.xmin,
+        )
+        self._array = jax.lax.dynamic_update_slice(
+            self.array,
+            jnp.astype(rhs.array, self.dtype),
+            start_inds,
+        )
 
     def __getitem__(self, *args):
         """Return either a subimage or a single pixel value.
@@ -1269,9 +1276,9 @@ def Image_iadd(self, other):
         a = other
         dt = type(a)
     if dt == self.array.dtype:
-        self._array = self.array + a
+        self._array = self.array.at[...].add(a)
     else:
-        self._array = (self.array + a).astype(self.array.dtype)
+        self._array = self.array.at[...].set((self.array + a).astype(self.array.dtype))
     return self
 
 
@@ -1297,9 +1304,9 @@ def Image_isub(self, other):
         a = other
         dt = type(a)
     if dt == self.array.dtype:
-        self._array = self.array - a
+        self._array = self.array.at[...].subtract(a)
     else:
-        self._array = (self.array - a).astype(self.array.dtype)
+        self._array = self.array.at[...].set((self.array - a).astype(self.array.dtype))
     return self
 
 
@@ -1321,9 +1328,9 @@ def Image_imul(self, other):
         a = other
         dt = type(a)
     if dt == self.array.dtype:
-        self._array = self.array * a
+        self._array = self.array.at[...].multiply(a)
     else:
-        self._array = (self.array * a).astype(self.array.dtype)
+        self._array = self.array.at[...].set((self.array * a).astype(self.array.dtype))
     return self
 
 
@@ -1351,9 +1358,9 @@ def Image_idiv(self, other):
     if dt == self.array.dtype and not self.isinteger:
         # if dtype is an integer type, then numpy doesn't allow true division /= to assign
         # back to an integer array.  So for integers (or mixed types), don't use /=.
-        self._array = self.array / a
+        self._array = self.array.at[...].divide(a)
     else:
-        self._array = (self.array / a).astype(self.array.dtype)
+        self._array = self.array.at[...].set((self.array / a).astype(self.array.dtype))
     return self
 
 
@@ -1380,9 +1387,9 @@ def Image_ifloordiv(self, other):
         a = other
         dt = type(a)
     if dt == self.array.dtype:
-        self._array = self.array // a
+        self._array = self._array.at[...].set(self.array // a)
     else:
-        self._array = (self.array // a).astype(self.array.dtype)
+        self._array = self.array.at[...].set((self.array // a).astype(self.array.dtype))
     return self
 
 
@@ -1409,9 +1416,9 @@ def Image_imod(self, other):
         a = other
         dt = type(a)
     if dt == self.array.dtype:
-        self._array = self.array % a
+        self._array = self.array.at[...].set(self.array % a)
     else:
-        self._array = (self.array % a).astype(self.array.dtype)
+        self._array = self.array.at[...].set((self.array % a).astype(self.array.dtype))
     return self
 
 
@@ -1422,7 +1429,7 @@ def Image_pow(self, other):
 def Image_ipow(self, other):
     if not isinstance(other, int) and not isinstance(other, float):
         raise TypeError("Can only raise an image to a float or int power!")
-    self._array = self.array**other
+    self._array = self.array.at[...].power(other)
     return self
 
 
@@ -1448,7 +1455,7 @@ def Image_iand(self, other):
         a = other.array
     except AttributeError:
         a = other
-    self._array = self.array & a
+    self._array = self.array.at[...].set(self.array & a)
     return self
 
 
@@ -1467,7 +1474,7 @@ def Image_ixor(self, other):
         a = other.array
     except AttributeError:
         a = other
-    self._array = self.array ^ a
+    self._array = self.array.at[...].set(self.array ^ a)
     return self
 
 
@@ -1486,7 +1493,7 @@ def Image_ior(self, other):
         a = other.array
     except AttributeError:
         a = other
-    self._array = self.array | a
+    self._array = self.array.at[...].set(self.array | a)
     return self
 
 
