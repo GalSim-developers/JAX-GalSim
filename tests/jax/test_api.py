@@ -1152,3 +1152,17 @@ def test_api_image_at_with_bounds():
 
     img = img.at[bnds].add(0.10)
     assert img.at[jax_galsim.PositionI(3, 7)].get() == arr[0, 0]
+
+
+def test_api_image_raise_on_setitem():
+    rng = np.random.default_rng(seed=10)
+    arr = rng.normal(size=(13, 19))
+    img = jax_galsim.ImageD(jnp.asarray(arr), bounds=jax_galsim.BoundsI(3, 21, 7, 19))
+
+    with pytest.raises(RuntimeError) as e:
+        img[4, 11] = 10
+    assert "JAX-GalSim images do not support inplace operations" in str(e.value)
+
+    with pytest.raises(RuntimeError) as e:
+        img[4, 11] += 10
+    assert "JAX-GalSim images do not support inplace operations" in str(e.value)
