@@ -1263,7 +1263,9 @@ def Image_iadd(self, other):
     if dt == self.array.dtype:
         self._array = self.array.at[...].add(a)
     else:
-        self._array = (self.array + a).astype(self.array.dtype)
+        self._array = self.array.at[...].set(
+            (self.array + a).astype(self.array.dtype)
+        )
     return self
 
 
@@ -1291,7 +1293,9 @@ def Image_isub(self, other):
     if dt == self.array.dtype:
         self._array = self.array.at[...].subtract(a)
     else:
-        self._array = (self.array - a).astype(self.array.dtype)
+        self._array = self.array.at[...].set(
+            (self.array - a).astype(self.array.dtype)
+        )
     return self
 
 
@@ -1315,7 +1319,9 @@ def Image_imul(self, other):
     if dt == self.array.dtype:
         self._array = self.array.at[...].multiply(a)
     else:
-        self._array = (self.array * a).astype(self.array.dtype)
+        self._array = self.array.at[...].set(
+            (self.array * a).astype(self.array.dtype)
+        )
     return self
 
 
@@ -1345,7 +1351,9 @@ def Image_idiv(self, other):
         # back to an integer array.  So for integers (or mixed types), don't use /=.
         self._array = self.array.at[...].divide(a)
     else:
-        self._array = (self.array / a).astype(self.array.dtype)
+        self._array = self.array.at[...].set(
+            (self.array / a).astype(self.array.dtype)
+        )
     return self
 
 
@@ -1372,9 +1380,11 @@ def Image_ifloordiv(self, other):
         a = other
         dt = type(a)
     if dt == self.array.dtype:
-        self._array = self.array // a
+        self._array = self._array.at[...].set(self.array // a)
     else:
-        self._array = (self.array // a).astype(self.array.dtype)
+        self._array = self.array.at[...].set(
+            (self.array // a).astype(self.array.dtype)
+        )
     return self
 
 
@@ -1401,9 +1411,11 @@ def Image_imod(self, other):
         a = other
         dt = type(a)
     if dt == self.array.dtype:
-        self._array = self.array % a
+        self._array = self.array.at[...].set(self.array % a)
     else:
-        self._array = (self.array % a).astype(self.array.dtype)
+        self._array = self.array.at[...].set(
+            (self.array % a).astype(self.array.dtype)
+        )
     return self
 
 
@@ -1440,7 +1452,7 @@ def Image_iand(self, other):
         a = other.array
     except AttributeError:
         a = other
-    self._array = self.array & a
+    self._array = self.array.at[...].set(self.array & a)
     return self
 
 
@@ -1459,7 +1471,7 @@ def Image_ixor(self, other):
         a = other.array
     except AttributeError:
         a = other
-    self._array = self.array ^ a
+    self._array = self.array.at[...].set(self.array ^ a)
     return self
 
 
@@ -1478,7 +1490,7 @@ def Image_ior(self, other):
         a = other.array
     except AttributeError:
         a = other
-    self._array = self.array | a
+    self._array = self.array.at[...].set(self.array | a)
     return self
 
 
