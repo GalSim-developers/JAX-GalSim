@@ -171,7 +171,7 @@ class GaussianNoise(BaseNoise):
         )
 
     def __str__(self):
-        return "galsim.GaussianNoise(sigma=%s)" % (ensure_hashable(self.sigma))
+        return "galsim.GaussianNoise(sigma=%s)" % (ensure_hashable(self.sigma),)
 
     def tree_flatten(self):
         """This function flattens the GaussianNoise into a list of children
