@@ -89,7 +89,7 @@ class AngleUnit(object):
         elif self == arcsec:
             return "galsim.arcsec"
         else:
-            return "galsim.AngleUnit(%r)" % ensure_hashable(self.value)
+            return "galsim.AngleUnit(%r)" % (ensure_hashable(self.value),)
 
     def __eq__(self, other):
         return isinstance(other, AngleUnit) and jnp.array_equal(self.value, other.value)
@@ -222,7 +222,7 @@ class Angle(object):
         return str(ensure_hashable(self._rad)) + " radians"
 
     def __repr__(self):
-        return "galsim.Angle(%r, galsim.radians)" % ensure_hashable(self.rad)
+        return "galsim.Angle(%r, galsim.radians)" % (ensure_hashable(self.rad),)
 
     def __eq__(self, other):
         return isinstance(other, Angle) and jnp.array_equal(self.rad, other.rad)

@@ -107,8 +107,8 @@ class Gaussian(GSObject):
         )
 
     def __str__(self):
-        s = "galsim.Gaussian(sigma=%s" % ensure_hashable(self.sigma)
-        s += ", flux=%s" % ensure_hashable(self.flux)
+        s = "galsim.Gaussian(sigma=%s" % (ensure_hashable(self.sigma),)
+        s += ", flux=%s" % (ensure_hashable(self.flux),)
         s += ")"
         return s
 

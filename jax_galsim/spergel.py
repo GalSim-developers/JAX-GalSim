@@ -387,7 +387,7 @@ class Spergel(GSObject):
             ensure_hashable(self.half_light_radius),
         )
         if self.flux != 1.0:
-            s += ", flux=%s" % ensure_hashable(self.flux)
+            s += ", flux=%s" % (ensure_hashable(self.flux),)
         s += ")"
         return s
 

@@ -232,7 +232,7 @@ class Transformation(GSObject):
                 ensure_hashable(self._offset.y),
             )
         if self._flux_ratio != 1.0:
-            s += " * %s" % ensure_hashable(self._flux_ratio)
+            s += " * %s" % (ensure_hashable(self._flux_ratio),)
         return s
 
     @property
