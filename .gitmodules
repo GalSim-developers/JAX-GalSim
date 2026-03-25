@@ -1,6 +1,6 @@
 [submodule "tests/GalSim"]
 	path = tests/GalSim
-	url = https://github.com/GalSim-developers/GalSim
+	url = https://github.com/GalSim-developers/GalSim-for-JAX-GalSim-Testing
 	branch = fix_tests
 [submodule "tests/Coord"]
 	path = tests/Coord
