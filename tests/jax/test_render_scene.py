@@ -212,9 +212,7 @@ def _render_scene_stamps_galsim(
     image = _galsim.Image(ncol=ilen, nrow=ilen, scale=0.2, dtype=np.float64)
     wcs = image.wcs
 
-    image_pos = list(
-        map(lambda tup: _galsim.PositionD(x=tup[0], y=tup[1]), zip(x, y))
-    )
+    image_pos = list(map(lambda tup: _galsim.PositionD(x=tup[0], y=tup[1]), zip(x, y)))
     local_wcs = list(map(lambda x: wcs.local(image_pos=x), image_pos))
 
     gsparams = _galsim.GSParams(minimum_fft_size=fft_size, maximum_fft_size=fft_size)
