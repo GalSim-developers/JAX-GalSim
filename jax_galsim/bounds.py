@@ -29,6 +29,24 @@ The JAX implementation
 
   - will not always test whether the bounds are valid
   - will not always test whether BoundsI is initialized with integers
+
+Further, the JAX implementation adds a new method, ``isStatic`` to the
+``BoundsI`` class. If JAX-GalSim detects that the ``BoundsI`` instance
+has been instantiated with static, known values, ``isStatic()`` will
+return ``True``. You can indicate to JAX-GalSim that a ``BoundsI``
+instance should be static via initializing it with the ``static``
+keyword set to the ``True``. If the object detects that it is being
+initialized with non-static data, an error will be raised.
+
+``BoundsI`` objects in JAX-Galsim support an additional initialization
+call ``BoundsI(xmin=..., deltax=..., ymin=..., deltay=...)``. In this case,
+the values for ``deltax/y`` indicate the width of the bounds and must be
+static constants.
+
+When calling ``jax.vamp`` over ``BoundsI`` objects, only ``x/ymin``
+are vectorized over. This restriction allows for code that renders
+objects in fixed sized stamps with variable locations, a common
+operation.
 """
 
 
@@ -394,6 +412,9 @@ class Bounds:
             return gs_class()
 
     def isStatic(self):
+        """Returns ``True`` if the ``BoundsI`` instance
+        has static, known dimensions and location. Always returns
+        ``False`` for ``BoundsD``."""
         return self._isstatic
 
 
