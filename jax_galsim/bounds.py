@@ -354,8 +354,10 @@ class Bounds:
         """Create a jax_galsim `BoundsD/I` from a `galsim.BoundsD/I` object."""
         if isinstance(galsim_bounds, _galsim.BoundsD):
             _cls = BoundsD
+            kwargs = {}
         elif isinstance(galsim_bounds, _galsim.BoundsI):
             _cls = BoundsI
+            kwargs = {"static": True}
         else:
             raise TypeError(
                 "galsim_bounds must be either a %s or a %s"
@@ -367,6 +369,7 @@ class Bounds:
                 galsim_bounds.xmax,
                 galsim_bounds.ymin,
                 galsim_bounds.ymax,
+                **kwargs,
             )
         else:
             return _cls()
@@ -390,6 +393,9 @@ class Bounds:
         else:
             return gs_class()
 
+    def isStatic(self):
+        return self._isstatic
+
 
 @implements(_galsim.BoundsD, lax_description=BOUNDS_LAX_DESCR)
 @register_pytree_node_class
@@ -397,6 +403,7 @@ class BoundsD(Bounds):
     _pos_class = PositionD
 
     def __init__(self, *args, **kwargs):
+        self._isstatic = False
         self._parse_args(*args, **kwargs)
         self.xmin = cast_to_float(self.xmin)
         self.deltax = cast_to_float(self.deltax)
@@ -464,6 +471,17 @@ class BoundsD(Bounds):
         else:
             return "galsim.%s()" % (self.__class__.__name__)
 
+    def __hash__(self):
+        return hash(
+            (
+                self.__class__.__name__,
+                ensure_hashable(self.xmin),
+                ensure_hashable(self.deltax),
+                ensure_hashable(self.ymin),
+                ensure_hashable(self.deltay),
+            )
+        )
+
 
 @implements(_galsim.BoundsI, lax_description=BOUNDS_LAX_DESCR)
 @register_pytree_node_class
@@ -471,6 +489,11 @@ class BoundsI(Bounds):
     _pos_class = PositionI
 
     def __init__(self, *args, **kwargs):
+        # initial setting to let stuff pass through freely
+        self._isstatic = True
+
+        force_static = kwargs.pop("static", False)
+
         self._parse_args(*args, **kwargs)
 
         if has_tracers(self.deltax) or has_tracers(self.deltay):
@@ -495,8 +518,21 @@ class BoundsI(Bounds):
         if isinstance(self._ymin, CONST_TYPES) and self._ymin != int(self._ymin):
             raise TypeError("BoundsI must be initialized with integer values")
 
-        self._xmin = cast_to_float(jnp.trunc(self._xmin))
-        self._ymin = cast_to_float(jnp.trunc(self._ymin))
+        if not has_tracers(self._xmin) and not has_tracers(self._ymin):
+            self._isstatic = True
+            self._xmin = int(np.trunc(self._xmin))
+            self._ymin = int(np.trunc(self._ymin))
+        else:
+            self._isstatic = False
+            self._xmin = cast_to_float(jnp.trunc(self._xmin))
+            self._ymin = cast_to_float(jnp.trunc(self._ymin))
+
+        if force_static and not self._isstatic:
+            raise RuntimeError(
+                "BoundsI initialized with non-static "
+                f"data (xmin,ymin = {self._xmin},{self._yminb}) "
+                "when static data was explicitly requested."
+            )
 
     def _check_scalar(self, x, name):
         try:
@@ -521,11 +557,17 @@ class BoundsI(Bounds):
 
     @property
     def xmin(self):
-        return jnp.astype(self._xmin, jnp.int_)
+        if self._isstatic:
+            return self._xmin
+        else:
+            return jnp.astype(self._xmin, jnp.int_)
 
     @xmin.setter
     def xmin(self, value):
-        self._xmin = jnp.astype(value, jnp.float_)
+        if self._isstatic:
+            self._xmin = value
+        else:
+            self._xmin = jnp.astype(value, jnp.float_)
 
     @property
     def xmax(self):
@@ -537,11 +579,17 @@ class BoundsI(Bounds):
 
     @property
     def ymin(self):
-        return jnp.astype(self._ymin, jnp.int_)
+        if self._isstatic:
+            return self._ymin
+        else:
+            return jnp.astype(self._ymin, jnp.int_)
 
     @ymin.setter
     def ymin(self, value):
-        self._ymin = jnp.astype(value, jnp.float_)
+        if self._isstatic:
+            self._ymin = value
+        else:
+            self._ymin = jnp.astype(value, jnp.float_)
 
     @property
     def ymax(self):
@@ -574,18 +622,35 @@ class BoundsI(Bounds):
         """This function flattens the Bounds into a list of children
         nodes that will be traced by JAX and auxiliary static data."""
         # Define the children nodes of the PyTree that need tracing
-        children = (self._xmin, self._ymin)
+        if self._isstatic:
+            # Define the children nodes of the PyTree that need tracing
+            children = tuple()
 
-        # Define auxiliary static data that doesn’t need to be traced
-        aux_data = {"deltax": self.deltax, "deltay": self.deltay}
+            # Define auxiliary static data that doesn’t need to be traced
+            aux_data = {
+                "xmin": self._xmin,
+                "ymin": self._ymin,
+                "deltax": self.deltax,
+                "deltay": self.deltay,
+            }
+        else:
+            children = (self._xmin, self._ymin)
+            # Define auxiliary static data that doesn’t need to be traced
+            aux_data = {"deltax": self.deltax, "deltay": self.deltay}
         return (children, aux_data)
 
     @classmethod
     def tree_unflatten(cls, aux_data, children):
         """Recreates an instance of the class from flatten representation"""
         ret = cls.__new__(cls)
-        ret._xmin = children[0]
-        ret._ymin = children[1]
+        if "xmin" in aux_data and "ymin" in aux_data:
+            ret._isstatic = True
+            ret._xmin = aux_data["xmin"]
+            ret._ymin = aux_data["ymin"]
+        else:
+            ret._isstatic = False
+            ret._xmin = children[0]
+            ret._ymin = children[1]
         ret.deltax = aux_data["deltax"]
         ret.deltay = aux_data["deltay"]
         if ret.deltax < 1 and ret.deltay < 1:
@@ -624,3 +689,19 @@ class BoundsI(Bounds):
             return (self.xmin, self.deltax, self.ymin, self.deltay)
         else:
             return ()
+
+    def __eq__(self, other):
+        return self is other or (
+            isinstance(other, BoundsI) and self._getinitargs() == other._getinitargs()
+        )
+
+    def __hash__(self):
+        return hash(
+            (
+                self.__class__.__name__,
+                ensure_hashable(self.xmin),
+                ensure_hashable(self.deltax),
+                ensure_hashable(self.ymin),
+                ensure_hashable(self.deltay),
+            )
+        )

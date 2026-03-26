@@ -184,7 +184,12 @@ class Image(object):
             ncol = int(ncol)
             nrow = int(nrow)
             self._array = self._make_empty(shape=(nrow, ncol), dtype=self._dtype)
-            self._bounds = BoundsI(xmin=xmin, deltax=ncol, ymin=ymin, deltay=nrow)
+            if not has_tracers(xmin) and not has_tracers(ymin):
+                self._bounds = BoundsI(
+                    xmin=xmin, deltax=ncol, ymin=ymin, deltay=nrow, static=True
+                )
+            else:
+                self._bounds = BoundsI(xmin=xmin, deltax=ncol, ymin=ymin, deltay=nrow)
             if init_value:
                 self._array = self._array + init_value
         elif bounds is not None:
@@ -197,7 +202,12 @@ class Image(object):
         elif array is not None:
             self._array = array.view(dtype=self._dtype)
             nrow, ncol = array.shape
-            self._bounds = BoundsI(xmin=xmin, deltax=ncol, ymin=ymin, deltay=nrow)
+            if not has_tracers(xmin) and not has_tracers(ymin):
+                self._bounds = BoundsI(
+                    xmin=xmin, deltax=ncol, ymin=ymin, deltay=nrow, static=True
+                )
+            else:
+                self._bounds = BoundsI(xmin=xmin, deltax=ncol, ymin=ymin, deltay=nrow)
             if init_value is not None:
                 raise _galsim.GalSimIncompatibleValuesError(
                     "Cannot specify init_value with array",
@@ -621,7 +631,7 @@ class Image(object):
         # Get this at the start to check for invalid bounds and raise the exception before
         # possibly writing data past the edge of the image.
         if not hermitian:
-            return self._wrap(bounds, False, False)
+            return self._wrap(bounds, False, False, None)
         elif hermitian == "x":
             if not has_tracers(self.bounds.xmin) and self.bounds.xmin != 0:
                 raise _galsim.GalSimIncompatibleValuesError(
@@ -797,7 +807,7 @@ class Image(object):
                 ymax=self.bounds.ymax,
             )
             kimage[posx_bounds] = self[posx_bounds]
-            kimage = kimage.wrap(target_bounds, hermitian="x")
+            kimage = kimage._wrap(target_bounds, True, False, 2 * No2)
 
         dk = self.scale
         # dx = 2pi / (N dk)
@@ -1081,7 +1091,7 @@ class Image(object):
 
     @implements(_galsim.Image.transpose)
     def transpose(self):
-        bT = BoundsI(
+        bT = self.bounds.__class__(
             xmin=self.ymin,
             deltax=self.bounds.deltay,
             ymin=self.xmin,
@@ -1099,7 +1109,7 @@ class Image(object):
 
     @implements(_galsim.Image.rot_cw)
     def rot_cw(self):
-        bT = BoundsI(
+        bT = self.bounds.__class__(
             xmin=self.ymin,
             deltax=self.bounds.deltay,
             ymin=self.xmin,
@@ -1109,7 +1119,7 @@ class Image(object):
 
     @implements(_galsim.Image.rot_ccw)
     def rot_ccw(self):
-        bT = BoundsI(
+        bT = self.bounds.__class__(
             xmin=self.ymin,
             deltax=self.bounds.deltay,
             ymin=self.xmin,
@@ -1124,8 +1134,16 @@ class Image(object):
     def tree_flatten(self):
         """Flatten the image into a list of values."""
         # Define the children nodes of the PyTree that need tracing
-        children = (self.array, self.wcs, self.bounds)
-        aux_data = {"dtype": self.dtype, "isconst": self.isconst}
+        if self.bounds.isStatic():
+            children = (self.array, self.wcs)
+            aux_data = {
+                "dtype": self.dtype,
+                "bounds": self.bounds,
+                "isconst": self.isconst,
+            }
+        else:
+            children = (self.array, self.wcs, self.bounds)
+            aux_data = {"dtype": self.dtype, "isconst": self.isconst}
         # other routines may add these attributes to images on the fly
         # we have to include them here so that JAX knows how to handle them in jitting etc.
         if hasattr(self, "added_flux"):
@@ -1143,15 +1161,26 @@ class Image(object):
         obj = object.__new__(cls)
         obj._array = children[0]
         obj.wcs = children[1]
-        obj._bounds = children[2]
-        obj._dtype = aux_data["dtype"]
-        obj._is_const = aux_data["isconst"]
-        if len(children) > 3:
-            obj.added_flux = children[3]
-        if "header" in aux_data:
-            obj.header = aux_data["header"]
-        if len(children) > 4:
-            obj.photons = children[4]
+        if "bounds" in aux_data:
+            obj._bounds = aux_data["bounds"]
+            obj._dtype = aux_data["dtype"]
+            obj._is_const = aux_data["isconst"]
+            if len(children) > 2:
+                obj.added_flux = children[2]
+            if "header" in aux_data:
+                obj.header = aux_data["header"]
+            if len(children) > 3:
+                obj.photons = children[3]
+        else:
+            obj._bounds = children[2]
+            obj._dtype = aux_data["dtype"]
+            obj._is_const = aux_data["isconst"]
+            if len(children) > 3:
+                obj.added_flux = children[3]
+            if "header" in aux_data:
+                obj.header = aux_data["header"]
+            if len(children) > 4:
+                obj.photons = children[4]
         return obj
 
     @classmethod
