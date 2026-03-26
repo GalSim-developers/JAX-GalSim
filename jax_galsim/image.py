@@ -635,7 +635,7 @@ class Image(object):
                     hermitian=hermitian,
                     bounds=bounds,
                 )
-            return self._wrap(bounds, True, False)
+            return self._wrap(bounds, True, False, 2 * bounds.xmax)
         elif hermitian == "y":
             if not has_tracers(self.bounds.ymin) and self.bounds.ymin != 0:
                 raise _galsim.GalSimIncompatibleValuesError(
@@ -649,14 +649,14 @@ class Image(object):
                     hermitian=hermitian,
                     bounds=bounds,
                 )
-            return self._wrap(bounds, False, True)
+            return self._wrap(bounds, False, True, 2 * bounds.ymax)
         else:
             raise _galsim.GalSimValueError(
                 "Invalid value for hermitian", hermitian, (False, "x", "y")
             )
 
     @implements(_galsim.Image._wrap)
-    def _wrap(self, bounds, hermx, hermy):
+    def _wrap(self, bounds, hermx, hermy, hermitian_wrap_size):
         if not hermx and not hermy:
             from jax_galsim.core.wrap_image import wrap_nonhermitian
 
@@ -677,7 +677,7 @@ class Image(object):
                 self.ymin,
                 -bounds.xmax + 1,
                 bounds.ymin,
-                2 * bounds.xmax,
+                hermitian_wrap_size,
                 bounds.deltay,
             )
         elif not hermx and hermy:
@@ -690,7 +690,7 @@ class Image(object):
                 bounds.xmin,
                 -bounds.ymax + 1,
                 bounds.deltax,
-                2 * bounds.ymax,
+                hermitian_wrap_size,
             )
 
         return self.subImage(bounds)
@@ -715,14 +715,16 @@ class Image(object):
                 "JAX-GalSim does not support forward FFTs of complex dtypes."
             )
 
+        # TODO: figure out how to do FFT at fixed size and then reconstruct
+        # the result
         No2 = max(
             max(
                 -self.bounds.xmin,
-                self.bounds.xmax + 1,
+                self.bounds.xmax - 1,
             ),
             max(
                 -self.bounds.ymin,
-                self.bounds.ymax + 1,
+                self.bounds.ymax - 1,
             ),
         )
 

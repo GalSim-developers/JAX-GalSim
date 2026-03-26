@@ -910,7 +910,7 @@ The JAX-GalSim version of `drawImage`
             ymin=-wrap_size // 2,
             deltay=2 * (wrap_size // 2),
         )
-        kimage_wrap = kimage._wrap(bwrap, True, False)
+        kimage_wrap = kimage._wrap(bwrap, True, False, wrap_size)
 
         # Perform the fourier transform.
         breal = BoundsI(
