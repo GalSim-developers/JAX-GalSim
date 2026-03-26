@@ -485,7 +485,7 @@ class BoundsI(Bounds):
         if (self.deltax != int(self.deltax)) or (self.deltay != int(self.deltay)):
             raise TypeError("BoundsI must be initialized with integer values")
 
-        if self.deltax <= 0 and self.deltay <= 0:
+        if self.deltax < 1 and self.deltay < 1:
             self._isdefined = False
 
         # for simple inputs, we can check if the bounds are valid ints
@@ -567,12 +567,17 @@ class BoundsI(Bounds):
     @classmethod
     def tree_unflatten(cls, aux_data, children):
         """Recreates an instance of the class from flatten representation"""
-        return cls(
-            xmin=children[0],
-            ymin=children[1],
-            deltax=aux_data["deltax"],
-            deltay=aux_data["deltay"],
-        )
+        ret = cls.__new__(cls)
+        ret.xmin = children[0]
+        ret.ymin = children[1]
+        ret.deltax = aux_data["deltax"]
+        ret.deltay = aux_data["deltay"]
+        if ret.deltax < 1 and ret.deltay < 1:
+            ret._isdefined = False
+        else:
+            ret._isdefined = True
+
+        return ret
 
     def __repr__(self):
         if self.isDefined():

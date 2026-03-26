@@ -665,9 +665,8 @@ class Image(object):
                 # zero indexed location of subimage
                 bounds.xmin - self.xmin,
                 bounds.ymin - self.ymin,
-                # we include pixels on the edges so +1 here
-                bounds.xmax - bounds.xmin + 1,
-                bounds.ymax - bounds.ymin + 1,
+                bounds.deltax,
+                bounds.deltay,
             )
         elif hermx and not hermy:
             from jax_galsim.core.wrap_image import wrap_hermitian_x
@@ -679,7 +678,7 @@ class Image(object):
                 -bounds.xmax + 1,
                 bounds.ymin,
                 2 * bounds.xmax,
-                bounds.ymax - bounds.ymin + 1,
+                bounds.deltay,
             )
         elif not hermx and hermy:
             from jax_galsim.core.wrap_image import wrap_hermitian_y
@@ -690,7 +689,7 @@ class Image(object):
                 -self.ymax,
                 bounds.xmin,
                 -bounds.ymax + 1,
-                bounds.xmax - bounds.xmin + 1,
+                bounds.deltax,
                 2 * bounds.ymax,
             )
 
