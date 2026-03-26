@@ -232,9 +232,9 @@ class Moffat(GSObject):
             ensure_hashable(self.scale_radius),
         )
         if self.trunc != 0.0:
-            s += ", trunc=%s" % ensure_hashable(self.trunc)
+            s += ", trunc=%s" % (ensure_hashable(self.trunc),)
         if self.flux != 1.0:
-            s += ", flux=%s" % ensure_hashable(self.flux)
+            s += ", flux=%s" % (ensure_hashable(self.flux),)
         s += ")"
         return s
 
