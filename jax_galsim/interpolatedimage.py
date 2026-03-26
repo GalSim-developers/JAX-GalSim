@@ -714,7 +714,7 @@ class _InterpolatedImageImpl(GSObject):
             else:
                 # If not a bool, then value is max_stepk
                 R = (jnp.ceil(jnp.pi / calculate_stepk)).astype(int)
-                b = BoundsI(-R, R, -R, R)
+                b = BoundsI(xmin=-R, deltax=2 * R + 1, ymin=-R, deltay=2 * R + 1)
                 b = self.image.bounds & b
                 im = self.image[b]
             thresh = (1.0 - self.gsparams.folding_threshold) * self._image_flux

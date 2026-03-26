@@ -497,7 +497,9 @@ def test_api_shear(obj):
         jax_galsim.BoundsD(
             jnp.array(0.2), jnp.array(4.0), jnp.array(-0.5), jnp.array(4.7)
         ),
-        jax_galsim.BoundsI(jnp.array(-10), jnp.array(5), jnp.array(0), jnp.array(7)),
+        jax_galsim.BoundsI(xmin=jnp.array(-10), deltax=5, ymin=jnp.array(0), deltay=7),
+        jax_galsim.BoundsI(xmin=np.array(-10), deltax=5, ymin=0, deltay=7),
+        jax_galsim.BoundsI(-10, -6, 0, 6),
     ],
 )
 def test_api_bounds(obj):

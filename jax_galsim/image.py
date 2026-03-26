@@ -184,7 +184,7 @@ class Image(object):
             ncol = int(ncol)
             nrow = int(nrow)
             self._array = self._make_empty(shape=(nrow, ncol), dtype=self._dtype)
-            self._bounds = BoundsI(xmin, xmin + ncol - 1, ymin, ymin + nrow - 1)
+            self._bounds = BoundsI(xmin=xmin, deltax=ncol, ymin=ymin, deltay=nrow)
             if init_value:
                 self._array = self._array + init_value
         elif bounds is not None:
@@ -197,7 +197,7 @@ class Image(object):
         elif array is not None:
             self._array = array.view(dtype=self._dtype)
             nrow, ncol = array.shape
-            self._bounds = BoundsI(xmin, xmin + ncol - 1, ymin, ymin + nrow - 1)
+            self._bounds = BoundsI(xmin=xmin, deltax=ncol, ymin=ymin, deltay=nrow)
             if init_value is not None:
                 raise _galsim.GalSimIncompatibleValuesError(
                     "Cannot specify init_value with array",
@@ -700,7 +700,7 @@ class Image(object):
             ),
         )
 
-        full_bounds = BoundsI(-No2, No2 - 1, -No2, No2 - 1)
+        full_bounds = BoundsI(xmin=-No2, deltax=2 * No2, ymin=-No2, deltay=2 * No2)
         if self.bounds == full_bounds:
             # Then the image is already in the shape we need.
             ximage = self
@@ -713,7 +713,11 @@ class Image(object):
         # dk = 2pi / (N dk)
         dk = jnp.pi / (No2 * dx)
 
-        out = Image(BoundsI(0, No2, -No2, No2 - 1), dtype=np.complex128, scale=dk)
+        out = Image(
+            BoundsI(xmin=0, deltax=No2 + 1, ymin=-No2, deltay=2 * No2),
+            dtype=np.complex128,
+            scale=dk,
+        )
         # we shift the image before and after the FFT to match the layout of the modes
         # used by GalSim
         out._array = jnp.fft.fftshift(
@@ -750,16 +754,19 @@ class Image(object):
             self.bounds.ymax,
         )
 
-        target_bounds = BoundsI(0, No2, -No2, No2 - 1)
+        target_bounds = BoundsI(xmin=0, deltax=No2 + 1, ymin=-No2, deltay=2 * No2)
         if self.bounds == target_bounds:
             # Then the image is already in the shape we need.
             kimage = self
         else:
             # Then we can pad out with zeros and wrap to get this in the form we need.
-            full_bounds = BoundsI(0, No2, -No2, No2)
+            full_bounds = BoundsI(xmin=0, deltax=No2 + 1, ymin=-No2, deltay=2 * No2 + 1)
             kimage = Image(full_bounds, dtype=self.dtype, init_value=0)
             posx_bounds = BoundsI(
-                0, self.bounds.xmax, self.bounds.ymin, self.bounds.ymax
+                xmin=0,
+                xmax=self.bounds.xmax,
+                ymin=self.bounds.ymin,
+                ymax=self.bounds.ymax,
             )
             kimage[posx_bounds] = self[posx_bounds]
             kimage = kimage.wrap(target_bounds, hermitian="x")
@@ -769,13 +776,19 @@ class Image(object):
         dx = jnp.pi / (No2 * dk)
 
         # For the inverse, we need a bit of extra space for the fft.
-        out_extra = Image(BoundsI(-No2, No2 + 1, -No2, No2 - 1), dtype=float, scale=dx)
+        out_extra = Image(
+            BoundsI(xmin=-No2, deltax=2 * No2 + 2, ymin=-No2, deltay=2 * No2),
+            dtype=float,
+            scale=dx,
+        )
         # we shift the image before and after the FFT to match the layout used by galsim
         out_extra._array = jnp.fft.fftshift(
             jnp.fft.irfft2(jnp.fft.fftshift(kimage.array, axes=0))
         )
         # Now cut off the bit we don't need.
-        out = out_extra.subImage(BoundsI(-No2, No2 - 1, -No2, No2 - 1))
+        out = out_extra.subImage(
+            BoundsI(xmin=-No2, deltax=2 * No2, ymin=-No2, deltay=2 * No2)
+        )
         out *= (dk * No2 / jnp.pi) ** 2
         out.setCenter(0, 0)
         return out
@@ -1040,7 +1053,12 @@ class Image(object):
 
     @implements(_galsim.Image.transpose)
     def transpose(self):
-        bT = BoundsI(self.ymin, self.ymax, self.xmin, self.xmax)
+        bT = BoundsI(
+            xmin=self.ymin,
+            deltax=self.bounds.deltay,
+            ymin=self.xmin,
+            deltay=self.bounds.deltax,
+        )
         return _Image(self.array.T, bT, None)
 
     @implements(_galsim.Image.flip_lr)
@@ -1053,12 +1071,22 @@ class Image(object):
 
     @implements(_galsim.Image.rot_cw)
     def rot_cw(self):
-        bT = BoundsI(self.ymin, self.ymax, self.xmin, self.xmax)
+        bT = BoundsI(
+            xmin=self.ymin,
+            deltax=self.bounds.deltay,
+            ymin=self.xmin,
+            deltay=self.bounds.deltax,
+        )
         return _Image(self.array.T.at[::-1, :].get(), bT, None)
 
     @implements(_galsim.Image.rot_ccw)
     def rot_ccw(self):
-        bT = BoundsI(self.ymin, self.ymax, self.xmin, self.xmax)
+        bT = BoundsI(
+            xmin=self.ymin,
+            deltax=self.bounds.deltay,
+            ymin=self.xmin,
+            deltay=self.bounds.deltax,
+        )
         return _Image(self.array.T.at[:, ::-1].get(), bT, None)
 
     @implements(_galsim.Image.rot_180)
@@ -1068,8 +1096,8 @@ class Image(object):
     def tree_flatten(self):
         """Flatten the image into a list of values."""
         # Define the children nodes of the PyTree that need tracing
-        children = (self.array, self.wcs)
-        aux_data = {"dtype": self.dtype, "bounds": self.bounds, "isconst": self.isconst}
+        children = (self.array, self.wcs, self.bounds)
+        aux_data = {"dtype": self.dtype, "isconst": self.isconst}
         # other routines may add these attributes to images on the fly
         # we have to include them here so that JAX knows how to handle them in jitting etc.
         if hasattr(self, "added_flux"):
@@ -1087,15 +1115,15 @@ class Image(object):
         obj = object.__new__(cls)
         obj._array = children[0]
         obj.wcs = children[1]
-        obj._bounds = aux_data["bounds"]
+        obj._bounds = children[2]
         obj._dtype = aux_data["dtype"]
         obj._is_const = aux_data["isconst"]
-        if len(children) > 2:
-            obj.added_flux = children[2]
+        if len(children) > 3:
+            obj.added_flux = children[3]
         if "header" in aux_data:
             obj.header = aux_data["header"]
-        if len(children) > 3:
-            obj.photons = children[3]
+        if len(children) > 4:
+            obj.photons = children[4]
         return obj
 
     @classmethod

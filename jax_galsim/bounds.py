@@ -1,16 +1,29 @@
 import galsim as _galsim
 import jax
 import jax.numpy as jnp
+import numpy as np
 from jax.tree_util import register_pytree_node_class
 
 from jax_galsim.core.utils import (
     cast_to_float,
     cast_to_int,
     ensure_hashable,
+    has_tracers,
     implements,
 )
 from jax_galsim.position import Position, PositionD, PositionI
 
+CONST_TYPES = (float, int, np.ndarray, np.int32, np.int64, np.float32, np.float64)
+CONST_TYPES_WITH_JAX = CONST_TYPES + (
+    jax.Array,
+    jnp.array,
+    jnp.int32,
+    jnp.int64,
+    jnp.float32,
+    jnp.float64,
+)
+
+# TODO: write extra docs for JAX changes
 BOUNDS_LAX_DESCR = """\
 The JAX implementation
 
@@ -21,7 +34,12 @@ The JAX implementation
 
 @implements(_galsim.Bounds, lax_description=BOUNDS_LAX_DESCR)
 @register_pytree_node_class
-class Bounds(_galsim.Bounds):
+class Bounds:
+    def __init__(self):
+        raise NotImplementedError(
+            "Cannot instantiate the base class. Use either BoundsD or BoundsI."
+        )
+
     def _parse_args(self, *args, **kwargs):
         if len(kwargs) == 0:
             if len(args) == 4:
@@ -29,14 +47,23 @@ class Bounds(_galsim.Bounds):
                 self.xmin, self.xmax, self.ymin, self.ymax = args
             elif len(args) == 0:
                 self._isdefined = False
-                self.xmin = self.xmax = self.ymin = self.ymax = 0
+                self.xmin = 0
+                self.ymin = 0
+                self.deltax = 0
+                self.deltay = 0
             elif len(args) == 1:
                 if isinstance(args[0], Bounds):
-                    self._isdefined = True
+                    if isinstance(self, BoundsI) and isinstance(args[0], BoundsD):
+                        offset = 1
+                    elif isinstance(self, BoundsD) and isinstance(args[0], BoundsI):
+                        offset = -1
+                    else:
+                        offset = 0
+                    self._isdefined = args[0]._isdefined
                     self.xmin = args[0].xmin
-                    self.xmax = args[0].xmax
+                    self.deltax = args[0].deltax + offset
                     self.ymin = args[0].ymin
-                    self.ymax = args[0].ymax
+                    self.deltay = args[0].deltay + offset
                 elif isinstance(args[0], Position):
                     self._isdefined = True
                     self.xmin = self.xmax = args[0].x
@@ -73,26 +100,72 @@ class Bounds(_galsim.Bounds):
             try:
                 self._isdefined = True
                 self.xmin = kwargs.pop("xmin")
-                self.xmax = kwargs.pop("xmax")
                 self.ymin = kwargs.pop("ymin")
-                self.ymax = kwargs.pop("ymax")
             except KeyError:
                 raise TypeError(
-                    "Keyword arguments, xmin, xmax, ymin, ymax are required for %s"
+                    "Keyword arguments, xmin, ymin are required for %s"
                     % (self.__class__.__name__)
                 )
+
+            if "xmax" in kwargs and "ymax" in kwargs:
+                self.xmax = kwargs.pop("xmax")
+                self.ymax = kwargs.pop("ymax")
+            elif "deltax" in kwargs and "deltay" in kwargs:
+                self.deltax = kwargs.pop("deltax")
+                self.deltay = kwargs.pop("deltay")
+            else:
+                raise TypeError(
+                    "Keyword arguments, either (xmax, ymax) "
+                    "or (deltax, deltay) are required for %s"
+                    % (self.__class__.__name__)
+                )
+
             if kwargs:
                 raise TypeError("Got unexpected keyword arguments %s" % kwargs.keys())
 
         # for simple inputs, we can check if the bounds are valid
+        if isinstance(self, BoundsD):
+            max_delta = 0
+        else:
+            max_delta = 1
         if (
-            isinstance(self.xmin, (float, int))
-            and isinstance(self.xmax, (float, int))
-            and isinstance(self.ymin, (float, int))
-            and isinstance(self.ymax, (float, int))
-            and ((self.xmin > self.xmax) or (self.ymin > self.ymax))
+            isinstance(self.deltax, CONST_TYPES)
+            and isinstance(self.deltay, CONST_TYPES)
+            and (self.deltax < max_delta or self.deltay < max_delta)
         ):
             self._isdefined = False
+
+    @implements(_galsim.Bounds.area)
+    def area(self):
+        return self._area()
+
+    @implements(_galsim.Bounds.withBorder)
+    def withBorder(self, dx, dy=None):
+        self._check_scalar(dx, "dx")
+        if dy is None:
+            dy = dx
+        else:
+            self._check_scalar(dy, "dy")
+        return self.__class__(
+            xmin=self.xmin - dx,
+            deltax=self.deltax + 2 * dx,
+            ymin=self.ymin - dy,
+            deltay=self.deltay + 2 * dy,
+        )
+
+    @property
+    @implements(_galsim.Bounds.origin)
+    def origin(self):
+        return self._pos_class(self.xmin, self.ymin)
+
+    @property
+    @implements(_galsim.Bounds.center)
+    def center(self):
+        if not self.isDefined():
+            raise _galsim.GalSimUndefinedBoundsError(
+                "center is invalid for an undefined Bounds"
+            )
+        return self._center
 
     @property
     @implements(_galsim.Bounds.true_center)
@@ -110,18 +183,20 @@ class Bounds(_galsim.Bounds):
                 b = args[0]
                 return (
                     self.isDefined()
-                    and b.isDefined()
-                    and self.xmin <= b.xmin
-                    and self.xmax >= b.xmax
-                    and self.ymin <= b.ymin
-                    and self.ymax >= b.ymax
+                    & b.isDefined()
+                    & (self.xmin <= b.xmin)
+                    & (self.xmax >= b.xmax)
+                    & (self.ymin <= b.ymin)
+                    & (self.ymax >= b.ymax)
                 )
             elif isinstance(args[0], Position):
                 p = args[0]
                 return (
                     self.isDefined()
-                    and self.xmin <= p.x <= self.xmax
-                    and self.ymin <= p.y <= self.ymax
+                    & (self.xmin <= p.x)
+                    & (self.ymin <= p.y)
+                    & (p.x <= self.xmax)
+                    & (p.y <= self.ymax)
                 )
             else:
                 raise TypeError("Invalid argument %s" % args[0])
@@ -129,8 +204,10 @@ class Bounds(_galsim.Bounds):
             x, y = args
             return (
                 self.isDefined()
-                and self.xmin <= float(x) <= self.xmax
-                and self.ymin <= float(y) <= self.ymax
+                & (self.xmin <= float(x))
+                & (self.ymin <= float(y))
+                & (float(x) <= self.xmax)
+                & (float(y) <= self.ymax)
             )
         elif len(args) == 0:
             raise TypeError("include takes at least 1 argument (0 given)")
@@ -147,6 +224,37 @@ class Bounds(_galsim.Bounds):
             dx = jnp.ceil(dx)
             dy = jnp.ceil(dy)
         return self.withBorder(dx, dy)
+
+    @implements(_galsim.Bounds.isDefined)
+    def isDefined(self):
+        return self._isdefined
+
+    @implements(_galsim.Bounds.getXMin)
+    def getXMin(self):
+        return self.xmin
+
+    @implements(_galsim.Bounds.getXMax)
+    def getXMax(self):
+        return self.xmax
+
+    @implements(_galsim.Bounds.getYMin)
+    def getYMin(self):
+        return self.ymin
+
+    @implements(_galsim.Bounds.getYMax)
+    def getYMax(self):
+        return self.ymax
+
+    @implements(_galsim.Bounds.shift)
+    def shift(self, delta):
+        if not isinstance(delta, self._pos_class):
+            raise TypeError("delta must be a %s instance" % self._pos_class)
+        return self.__class__(
+            xmin=self.xmin + delta.x,
+            deltax=self.deltax,
+            ymin=self.ymin + delta.y,
+            deltay=self.deltay,
+        )
 
     def __and__(self, other):
         if not isinstance(other, self.__class__):
@@ -190,38 +298,29 @@ class Bounds(_galsim.Bounds):
                 % (self.__class__.__name__, self._pos_class.__name__)
             )
 
-    def __repr__(self):
+    def _getinitargs(self):
         if self.isDefined():
-            return "galsim.%s(xmin=%r, xmax=%r, ymin=%r, ymax=%r)" % (
-                self.__class__.__name__,
-                ensure_hashable(self.xmin),
-                ensure_hashable(self.xmax),
-                ensure_hashable(self.ymin),
-                ensure_hashable(self.ymax),
-            )
+            return (self.xmin, self.xmax, self.ymin, self.ymax)
         else:
-            return "galsim.%s()" % (self.__class__.__name__)
+            return ()
 
-    def __str__(self):
-        if self.isDefined():
-            return "galsim.%s(%s,%s,%s,%s)" % (
-                self.__class__.__name__,
-                ensure_hashable(self.xmin),
-                ensure_hashable(self.xmax),
-                ensure_hashable(self.ymin),
-                ensure_hashable(self.ymax),
-            )
-        else:
-            return "galsim.%s()" % (self.__class__.__name__)
+    def __eq__(self, other):
+        return self is other or (
+            isinstance(other, self.__class__)
+            and self._getinitargs() == other._getinitargs()
+        )
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
 
     def __hash__(self):
         return hash(
             (
                 self.__class__.__name__,
                 ensure_hashable(self.xmin),
-                ensure_hashable(self.xmax),
+                ensure_hashable(self.deltax),
                 ensure_hashable(self.ymin),
-                ensure_hashable(self.ymax),
+                ensure_hashable(self.deltay),
             )
         )
 
@@ -230,7 +329,7 @@ class Bounds(_galsim.Bounds):
         nodes that will be traced by JAX and auxiliary static data."""
         # Define the children nodes of the PyTree that need tracing
         if self.isDefined():
-            children = (self.xmin, self.xmax, self.ymin, self.ymax)
+            children = (self.xmin, self.deltax, self.ymin, self.deltay)
         else:
             children = tuple()
         # Define auxiliary static data that doesn’t need to be traced
@@ -240,7 +339,12 @@ class Bounds(_galsim.Bounds):
     @classmethod
     def tree_unflatten(cls, aux_data, children):
         """Recreates an instance of the class from flatten representation"""
-        return cls(*children)
+        return cls(
+            xmin=children[0],
+            deltax=children[1],
+            ymin=children[2],
+            deltay=children[3],
+        )
 
     @classmethod
     def from_galsim(cls, galsim_bounds):
@@ -292,9 +396,9 @@ class BoundsD(Bounds):
     def __init__(self, *args, **kwargs):
         self._parse_args(*args, **kwargs)
         self.xmin = cast_to_float(self.xmin)
-        self.xmax = cast_to_float(self.xmax)
+        self.deltax = cast_to_float(self.deltax)
         self.ymin = cast_to_float(self.ymin)
-        self.ymax = cast_to_float(self.ymax)
+        self.deltay = cast_to_float(self.deltay)
 
     def _check_scalar(self, x, name):
         try:
@@ -310,12 +414,52 @@ class BoundsD(Bounds):
             pass
         raise TypeError("%s must be a float value" % name)
 
+    @property
+    def xmax(self):
+        return self.xmin + self.deltax
+
+    @xmax.setter
+    def xmax(self, value):
+        self.deltax = value - self.xmin
+
+    @property
+    def ymax(self):
+        return self.ymin + self.deltay
+
+    @ymax.setter
+    def ymax(self, value):
+        self.deltay = value - self.ymin
+
     def _area(self):
-        return (self.xmax - self.xmin) * (self.ymax - self.ymin)
+        return self.deltax * self.deltay
 
     @property
     def _center(self):
         return PositionD((self.xmax + self.xmin) / 2.0, (self.ymax + self.ymin) / 2.0)
+
+    def __repr__(self):
+        if self.isDefined():
+            return "galsim.%s(%r, %r, %r, %r)" % (
+                self.__class__.__name__,
+                ensure_hashable(self.xmin),
+                ensure_hashable(self.xmax),
+                ensure_hashable(self.ymin),
+                ensure_hashable(self.ymax),
+            )
+        else:
+            return "galsim.%s()" % (self.__class__.__name__)
+
+    def __str__(self):
+        if self.isDefined():
+            return "galsim.%s(%s,%s,%s,%s)" % (
+                self.__class__.__name__,
+                ensure_hashable(self.xmin),
+                ensure_hashable(self.xmax),
+                ensure_hashable(self.ymin),
+                ensure_hashable(self.ymax),
+            )
+        else:
+            return "galsim.%s()" % (self.__class__.__name__)
 
 
 @implements(_galsim.BoundsI, lax_description=BOUNDS_LAX_DESCR)
@@ -325,25 +469,31 @@ class BoundsI(Bounds):
 
     def __init__(self, *args, **kwargs):
         self._parse_args(*args, **kwargs)
-        # for simple inputs, we can check if the bounds are valid ints
-        if (
-            isinstance(self.xmin, (float, int))
-            and isinstance(self.xmax, (float, int))
-            and isinstance(self.ymin, (float, int))
-            and isinstance(self.ymax, (float, int))
-            and (
-                self.xmin != int(self.xmin)
-                or self.xmax != int(self.xmax)
-                or self.ymin != int(self.ymin)
-                or self.ymax != int(self.ymax)
+
+        if has_tracers(self.deltax) or has_tracers(self.deltay):
+            raise RuntimeError(
+                "Jax-GalSim BoundsI instances must have a fixed width! "
+                f"Got deltax,deltay = {self.deltax!r},{self.deltay!r}."
             )
-        ):
+
+        self.deltax = int(cast_to_int(self.deltax))
+        self.deltay = int(cast_to_int(self.deltay))
+
+        if (self.deltax != int(self.deltax)) or (self.deltay != int(self.deltay)):
+            raise TypeError("BoundsI must be initialized with integer values")
+
+        if self.deltax <= 0 and self.deltay <= 0:
+            self._isdefined = False
+
+        # for simple inputs, we can check if the bounds are valid ints
+        if isinstance(self.xmin, CONST_TYPES) and self.xmin != int(self.xmin):
+            raise TypeError("BoundsI must be initialized with integer values")
+
+        if isinstance(self.ymin, CONST_TYPES) and self.ymin != int(self.ymin):
             raise TypeError("BoundsI must be initialized with integer values")
 
         self.xmin = cast_to_int(self.xmin)
-        self.xmax = cast_to_int(self.xmax)
         self.ymin = cast_to_int(self.ymin)
-        self.ymax = cast_to_int(self.ymax)
 
     def _check_scalar(self, x, name):
         try:
@@ -362,16 +512,32 @@ class BoundsI(Bounds):
     def numpyShape(self):
         "A simple utility function to get the numpy shape that corresponds to this `Bounds` object."
         if self.isDefined():
-            return self.ymax - self.ymin + 1, self.xmax - self.xmin + 1
+            return self.deltay, self.deltax
         else:
             return 0, 0
+
+    @property
+    def xmax(self):
+        return self.xmin + self.deltax - 1
+
+    @xmax.setter
+    def xmax(self, value):
+        self.deltax = value - self.xmin + 1
+
+    @property
+    def ymax(self):
+        return self.ymin + self.deltay - 1
+
+    @ymax.setter
+    def ymax(self, value):
+        self.deltay = value - self.ymin + 1
 
     def _area(self):
         # Remember the + 1 this time to include the pixels on both edges of the bounds.
         if not self.isDefined():
             return 0
         else:
-            return (self.xmax - self.xmin + 1) * (self.ymax - self.ymin + 1)
+            return self.deltax * self.deltay
 
     @property
     def _center(self):
@@ -381,6 +547,56 @@ class BoundsI(Bounds):
         #      (-10,-1,-10,-1) -> (-5,-5)
         # Just up and to the right of the true center in both cases.
         return PositionI(
-            self.xmin + (self.xmax - self.xmin + 1) // 2,
-            self.ymin + (self.ymax - self.ymin + 1) // 2,
+            self.xmin + self.deltax // 2,
+            self.ymin + self.deltay // 2,
         )
+
+    def tree_flatten(self):
+        """This function flattens the Bounds into a list of children
+        nodes that will be traced by JAX and auxiliary static data."""
+        # Define the children nodes of the PyTree that need tracing
+        children = (self.xmin, self.ymin)
+
+        # Define auxiliary static data that doesn’t need to be traced
+        aux_data = {"deltax": self.deltax, "deltay": self.deltay}
+        return (children, aux_data)
+
+    @classmethod
+    def tree_unflatten(cls, aux_data, children):
+        """Recreates an instance of the class from flatten representation"""
+        return cls(
+            xmin=children[0],
+            ymin=children[1],
+            deltax=aux_data["deltax"],
+            deltay=aux_data["deltay"],
+        )
+
+    def __repr__(self):
+        if self.isDefined():
+            return "galsim.%s(xmin=%r, deltax=%r, ymin=%r, deltay=%r)" % (
+                self.__class__.__name__,
+                ensure_hashable(self.xmin),
+                ensure_hashable(self.deltax),
+                ensure_hashable(self.ymin),
+                ensure_hashable(self.deltay),
+            )
+        else:
+            return "galsim.%s()" % (self.__class__.__name__)
+
+    def __str__(self):
+        if self.isDefined():
+            return "galsim.%s(xmin=%s, deltax=%s, ymin=%s, deltay=%s)" % (
+                self.__class__.__name__,
+                ensure_hashable(self.xmin),
+                ensure_hashable(self.deltax),
+                ensure_hashable(self.ymin),
+                ensure_hashable(self.deltay),
+            )
+        else:
+            return "galsim.%s()" % (self.__class__.__name__)
+
+    def _getinitargs(self):
+        if self.isDefined():
+            return (self.xmin, self.deltax, self.ymin, self.deltay)
+        else:
+            return ()
