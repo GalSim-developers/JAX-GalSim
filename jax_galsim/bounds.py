@@ -339,12 +339,15 @@ class Bounds:
     @classmethod
     def tree_unflatten(cls, aux_data, children):
         """Recreates an instance of the class from flatten representation"""
-        return cls(
-            xmin=children[0],
-            deltax=children[1],
-            ymin=children[2],
-            deltay=children[3],
-        )
+        if children:
+            return cls(
+                xmin=children[0],
+                deltax=children[1],
+                ymin=children[2],
+                deltay=children[3],
+            )
+        else:
+            return cls()
 
     @classmethod
     def from_galsim(cls, galsim_bounds):

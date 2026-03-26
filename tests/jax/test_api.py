@@ -355,6 +355,13 @@ def _run_object_checks(obj, cls, kind):
                     ):
                         continue
 
+                    # jax-galsim Bounds classes do not store xmax, ymax
+                    if issubclass(cls, jax_galsim.Bounds) and method in [
+                        "xmax",
+                        "ymax",
+                    ]:
+                        continue
+
                     assert method in dir(gscls), (
                         cls.__name__ + "." + method + " not in galsim." + gscls.__name__
                     )
