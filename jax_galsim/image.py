@@ -720,11 +720,11 @@ class Image(object):
         No2 = max(
             max(
                 -self.bounds.xmin,
-                self.bounds.xmax - 1,
+                self.bounds.xmax + 1,
             ),
             max(
                 -self.bounds.ymin,
-                self.bounds.ymax - 1,
+                self.bounds.ymax + 1,
             ),
         )
 
