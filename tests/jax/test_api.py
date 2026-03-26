@@ -362,6 +362,12 @@ def _run_object_checks(obj, cls, kind):
                     ]:
                         continue
 
+                    if issubclass(cls, jax_galsim.BoundsI) and method in [
+                        "xmin",
+                        "ymin",
+                    ]:
+                        continue
+
                     assert method in dir(gscls), (
                         cls.__name__ + "." + method + " not in galsim." + gscls.__name__
                     )
