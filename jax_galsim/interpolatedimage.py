@@ -880,13 +880,13 @@ class _InterpolatedImageImpl(GSObject):
         ).astype(int)
         yinds, xinds = jnp.unravel_index(inds, img.array.shape)
 
-        xedges = jnp.arange(img.bounds.xmin, img.bounds.xmax + 2) - 0.5
-        yedges = jnp.arange(img.bounds.ymin, img.bounds.ymax + 2) - 0.5
+        xedges = jnp.arange(0, img.bounds.deltax + 1) - 0.5
+        yedges = jnp.arange(0, img.bounds.deltay + 1) - 0.5
 
         # now we draw the position within the pixel
         ud = UniformDeviate(rng)
-        photons.x = ud.generate(photons.x) + xedges[xinds]
-        photons.y = ud.generate(photons.y) + yedges[yinds]
+        photons.x = ud.generate(photons.x) + xedges[xinds] + img.bounds.xmin
+        photons.y = ud.generate(photons.y) + yedges[yinds] + img.bounds.ymin
         # this magic set of factors comes from the galsim C++ code in
         # a few spots it is
         #
