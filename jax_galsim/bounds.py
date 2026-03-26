@@ -489,14 +489,14 @@ class BoundsI(Bounds):
             self._isdefined = False
 
         # for simple inputs, we can check if the bounds are valid ints
-        if isinstance(self.xmin, CONST_TYPES) and self.xmin != int(self.xmin):
+        if isinstance(self._xmin, CONST_TYPES) and self._xmin != int(self._xmin):
             raise TypeError("BoundsI must be initialized with integer values")
 
-        if isinstance(self.ymin, CONST_TYPES) and self.ymin != int(self.ymin):
+        if isinstance(self._ymin, CONST_TYPES) and self._ymin != int(self._ymin):
             raise TypeError("BoundsI must be initialized with integer values")
 
-        self.xmin = cast_to_int(self.xmin)
-        self.ymin = cast_to_int(self.ymin)
+        self._xmin = cast_to_float(jnp.trunc(self._xmin))
+        self._ymin = cast_to_float(jnp.trunc(self._ymin))
 
     def _check_scalar(self, x, name):
         try:
@@ -520,12 +520,28 @@ class BoundsI(Bounds):
             return 0, 0
 
     @property
+    def xmin(self):
+        return jnp.astype(self._xmin, jnp.int_)
+
+    @xmin.setter
+    def xmin(self, value):
+        self._xmin = jnp.astype(value, jnp.float_)
+
+    @property
     def xmax(self):
         return self.xmin + self.deltax - 1
 
     @xmax.setter
     def xmax(self, value):
         self.deltax = value - self.xmin + 1
+
+    @property
+    def ymin(self):
+        return jnp.astype(self._ymin, jnp.int_)
+
+    @ymin.setter
+    def ymin(self, value):
+        self._ymin = jnp.astype(value, jnp.float_)
 
     @property
     def ymax(self):
@@ -558,7 +574,7 @@ class BoundsI(Bounds):
         """This function flattens the Bounds into a list of children
         nodes that will be traced by JAX and auxiliary static data."""
         # Define the children nodes of the PyTree that need tracing
-        children = (self.xmin, self.ymin)
+        children = (self._xmin, self._ymin)
 
         # Define auxiliary static data that doesn’t need to be traced
         aux_data = {"deltax": self.deltax, "deltay": self.deltay}
@@ -568,8 +584,8 @@ class BoundsI(Bounds):
     def tree_unflatten(cls, aux_data, children):
         """Recreates an instance of the class from flatten representation"""
         ret = cls.__new__(cls)
-        ret.xmin = children[0]
-        ret.ymin = children[1]
+        ret._xmin = children[0]
+        ret._ymin = children[1]
         ret.deltax = aux_data["deltax"]
         ret.deltay = aux_data["deltay"]
         if ret.deltax < 1 and ret.deltay < 1:

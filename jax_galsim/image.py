@@ -623,13 +623,13 @@ class Image(object):
         if not hermitian:
             return self._wrap(bounds, False, False)
         elif hermitian == "x":
-            if self.bounds.xmin != 0:
+            if not has_tracers(self.bounds.xmin) and self.bounds.xmin != 0:
                 raise _galsim.GalSimIncompatibleValuesError(
                     "hermitian == 'x' requires self.bounds.xmin == 0",
                     hermitian=hermitian,
                     bounds=self.bounds,
                 )
-            if bounds.xmin != 0:
+            if not has_tracers(bounds.xmin) and bounds.xmin != 0:
                 raise _galsim.GalSimIncompatibleValuesError(
                     "hermitian == 'x' requires bounds.xmin == 0",
                     hermitian=hermitian,
@@ -637,13 +637,13 @@ class Image(object):
                 )
             return self._wrap(bounds, True, False)
         elif hermitian == "y":
-            if self.bounds.ymin != 0:
+            if not has_tracers(self.bounds.ymin) and self.bounds.ymin != 0:
                 raise _galsim.GalSimIncompatibleValuesError(
                     "hermitian == 'y' requires self.bounds.ymin == 0",
                     hermitian=hermitian,
                     bounds=self.bounds,
                 )
-            if bounds.ymin != 0:
+            if not has_tracers(bounds.ymin) and bounds.ymin != 0:
                 raise _galsim.GalSimIncompatibleValuesError(
                     "hermitian == 'y' requires bounds.ymin == 0",
                     hermitian=hermitian,
