@@ -8,21 +8,10 @@ def test_draw_bounds_center():
 
     @jax.jit
     def _draw(center):
-        return (
-            jax_galsim
-            .Gaussian(
-                fwhm=1.5,
-                gsparams=jax_galsim.GSParams(
-                    minimum_fft_size=1024,
-                    maximum_fft_size=1024
-                )
-            ).drawImage(
-                nx=52,
-                ny=52,
-                center=center,
-                scale=0.2
-            )
-        )
+        return jax_galsim.Gaussian(
+            fwhm=1.5,
+            gsparams=jax_galsim.GSParams(minimum_fft_size=1024, maximum_fft_size=1024),
+        ).drawImage(nx=52, ny=52, center=center, scale=0.2)
 
     img = _draw(jax_galsim.PositionD(5.7, -2.1))
     print(img)
@@ -32,21 +21,10 @@ def test_draw_bounds_center_jit():
 
     @jax.jit
     def _draw(center):
-        return (
-            jax_galsim
-            .Gaussian(
-                fwhm=1.5,
-                gsparams=jax_galsim.GSParams(
-                    minimum_fft_size=1024,
-                    maximum_fft_size=1024
-                )
-            ).drawImage(
-                nx=52,
-                ny=52,
-                center=center,
-                scale=0.2
-            )
-        )
+        return jax_galsim.Gaussian(
+            fwhm=1.5,
+            gsparams=jax_galsim.GSParams(minimum_fft_size=1024, maximum_fft_size=1024),
+        ).drawImage(nx=52, ny=52, center=center, scale=0.2)
 
     img = _draw(jax_galsim.PositionD(5.7, -2.1))
     print(img)
@@ -56,21 +34,10 @@ def test_draw_bounds_center_jit_vmap():
 
     @jax.jit
     def _draw(center):
-        return (
-            jax_galsim
-            .Gaussian(
-                fwhm=1.5,
-                gsparams=jax_galsim.GSParams(
-                    minimum_fft_size=1024,
-                    maximum_fft_size=1024
-                )
-            ).drawImage(
-                nx=52,
-                ny=52,
-                center=center,
-                scale=0.2
-            )
-        )
+        return jax_galsim.Gaussian(
+            fwhm=1.5,
+            gsparams=jax_galsim.GSParams(minimum_fft_size=1024, maximum_fft_size=1024),
+        ).drawImage(nx=52, ny=52, center=center, scale=0.2)
 
     ng = 7
     rng = np.random.default_rng(seed=10)
