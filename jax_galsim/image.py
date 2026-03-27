@@ -1472,7 +1472,7 @@ def Image_ifloordiv(self, other):
         a = other
         dt = type(a)
     if dt == self.array.dtype:
-        self._array = self._array.at[...].set(self.array // a)
+        self._array = self.array.at[...].set(self.array // a)
     else:
         self._array = self.array.at[...].set((self.array // a).astype(self.array.dtype))
     return self
