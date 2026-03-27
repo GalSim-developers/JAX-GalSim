@@ -46,7 +46,9 @@ static constants.
 When calling ``jax.vmap`` over ``BoundsI`` objects, only ``x/ymin``
 are vectorized over. This restriction allows for code that renders
 objects in fixed sized stamps with variable locations, a common
-operation. ``BoundsI`` objects which are static (i.e., ``isStatic()`` returns ``True``) are treated as constants with respect to ``vmap``, ``jit``, and other JAX transforms.
+operation. ``BoundsI`` objects which are static (i.e., ``isStatic()``
+returns ``True``) are treated as constants with respect to ``vmap``,
+``jit``, and other JAX transforms.
 """
 
 
