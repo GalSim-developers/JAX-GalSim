@@ -43,7 +43,7 @@ call ``BoundsI(xmin=..., deltax=..., ymin=..., deltay=...)``. In this case,
 the values for ``deltax/y`` indicate the width of the bounds and must be
 static constants.
 
-When calling ``jax.vamp`` over ``BoundsI`` objects, only ``x/ymin``
+When calling ``jax.vmap`` over ``BoundsI`` objects, only ``x/ymin``
 are vectorized over. This restriction allows for code that renders
 objects in fixed sized stamps with variable locations, a common
 operation.
