@@ -62,7 +62,7 @@ class Box(GSObject):
             ensure_hashable(self.height),
         )
         if self.flux != 1.0:
-            s += ", flux=%s" % ensure_hashable(self.flux)
+            s += ", flux=%s" % (ensure_hashable(self.flux),)
         s += ")"
         return s
 
@@ -146,9 +146,9 @@ class Pixel(Box):
         )
 
     def __str__(self):
-        s = "galsim.Pixel(scale=%s" % ensure_hashable(self.scale)
+        s = "galsim.Pixel(scale=%s" % (ensure_hashable(self.scale),)
         if self.flux != 1.0:
-            s += ", flux=%s" % ensure_hashable(self.flux)
+            s += ", flux=%s" % (ensure_hashable(self.flux),)
         s += ")"
         return s
 
