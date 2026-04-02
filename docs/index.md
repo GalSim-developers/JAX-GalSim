@@ -52,8 +52,8 @@ psf = jax_galsim.Gaussian(flux=1.0, sigma=1.0)
 final = jax_galsim.Convolve([gal, psf])
 image = final.drawImage(scale=0.2)
 
-# Add noise
-image = image.addNoise(jax_galsim.GaussianNoise(sigma=30.0))
+# Add noise (changes underlying image array)
+image.addNoise(jax_galsim.GaussianNoise(sigma=30.0))
 ```
 
 JAX-GalSim objects are JAX pytrees, so you can JIT-compile and differentiate the entire pipeline:
