@@ -75,8 +75,8 @@ dflux, dsigma = grad_fn(1e5, 2.0)
 ```
 
 Note that the size of the image in real space (`slen`) and fourier space 
-(`minimum_fft_size = maximum_fft_size`) need to be specified in advance for jitting. See the rest
-of the documentation for more details and examples.
+(`minimum_fft_size = maximum_fft_size`) need to be specified in advance for jitting. 
+Please see the rest of the documentation for more details and examples.
 
 ---
 
