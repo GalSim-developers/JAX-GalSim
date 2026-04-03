@@ -61,10 +61,10 @@ JAX-GalSim objects are JAX pytrees, so you can JIT-compile and differentiate the
 ```python
 @jax.jit
 def simulate(flux, sigma, *, slen=21, fft_size=128):
-    gsparams = GSParams(minimum_fft_size=fft_size, maximum_fft_size=fft_size)
-
     gal = jax_galsim.Gaussian(flux=flux, sigma=sigma)
     psf = jax_galsim.Gaussian(flux=1.0, sigma=1.0)
+    gsparams = GSParams(minimum_fft_size=fft_size, maximum_fft_size=fft_size)
+    
     gal_convolved = jax_galsim.Convolve([gal, psf]).withGSParams(gsparams)
     image = gal_convolved.drawImage(nx=slen, ny=slen, scale=0.2)
     return image.array.sum()
