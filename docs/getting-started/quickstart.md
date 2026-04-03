@@ -54,6 +54,8 @@ def simulate(flux, sigma, *, slen, fft_size):
 image = simulate(1e5, 2.0, slen=21, fft_size=128)
 ```
 
+**Remember**, any arguments that affect control flow (like image size) must be marked as `static_argnames` for JIT to work.
+
 Here is another option for jitting using the `partial` utility from `functools`:
 
 ```python
@@ -70,6 +72,9 @@ def simulate(flux, sigma, *, slen, fft_size):
 simulated_jitted = jit(partial(simulate, slen=21, fft_size=128))
 image = simulated_jitted(1e5, 2.0)
 ```
+
+In this case `partial` is used to fix the values of `slen` and `fft_size`, allowing `simulate` to 
+be jitted without needing to specify those arguments each time.
 
 ## Automatic Differentiation
 
