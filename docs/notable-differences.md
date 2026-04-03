@@ -9,26 +9,40 @@ that you should understand before porting code or writing new simulations.
 
 ## Immutability
 
-JAX arrays are **immutable**. Any GalSim operation that modifies data in-place
-returns a new object in JAX-GalSim instead.
+JAX arrays are **immutable**. Any GalSim operation that originally modified data in-place, now 
+instead creates a new array that overwrites the original one. Let's look at `__iadd__` as an example.
 
 ```python
 # GalSim — mutates the image in-place
-image.addNoise(noise)
-image.array[10, 10] = 0.0
+# i.e. no new numpy array is created
+image += 1.0
+# under the hood, some version of: `self.array[:,:] += a` does not create a new numpy array.
 
-# JAX-GalSim — returns a new image each time
-image = image.addNoise(noise)
-
-# Direct array element mutation is not supported.
-# Use jax.numpy operations to produce a new array:
-new_array = image.array.at[10, 10].set(0.0)
+# JAX-GalSim — creates a new array and overwrites original one
+image += 1.0 
+# under the hood: `image._array = image._array + 1.0`. The RHS is a new JAX array.
 ```
 
-This is the most common change when porting GalSim code. Every call that
-modifies an image, adds noise, or updates a value must capture the return value.
-If you forget the assignment, the original object is unchanged and no error is
-raised --- a subtle source of bugs.
+This could become a subtle source of bugs if you are used to numpy in place mutability. Here
+is another example with `__iadd__` that illustrates this: 
+
+```python
+# galsim
+image = galsim.ImageD(11, 11)
+arr1 = image.array
+
+image += 1.0
+arr1.sum(), image.array.sum() # -> 121.0, 121.0
+
+# jax-galsim
+image = jax_galsim.ImageD(11, 11)
+arr1 = image.array
+
+image += 1.0
+arr1.sum(), image.array.sum() # -> 0.0, 121.0, original image array was unmodified!
+```
+
+For more details on JAX immutability please see the [Sharp Bits page](https://docs.jax.dev/en/latest/notebooks/Common_Gotchas_in_JAX.html#in-place-updates) of the JAX documentation.
 
 ---
 
@@ -64,7 +78,7 @@ user-facing interface looks the same:
 
 ```python
 noise = jax_galsim.GaussianNoise(sigma=30.0)
-image = image.addNoise(noise)  # state is managed internally
+image.addNoise(noise)  # state is managed internally
 ```
 
 **Different sequences**: Even with the same seed value, the actual random number
@@ -88,7 +102,7 @@ A PyTree splits each object into two parts:
 | **Children** (traced) | Values JAX differentiates through | `flux`, `sigma`, `half_light_radius` | Re-evaluation, not recompilation |
 | **Auxiliary data** (static) | Structure and configuration | `GSParams`, enum flags | Full recompilation under `jit` |
 
-In practice, profile parameters live in a `_params` dict (children) and
+For `GSObject`, profile parameters live in a `_params` dict (children) and 
 numerical configuration lives in `_gsparams` (auxiliary):
 
 ```python
@@ -104,12 +118,13 @@ calls when possible.
 ```python
 import jax
 
-gsparams = jax_galsim.GSParams(maximum_fft_size=8192)
+gsparams = jax_galsim.GSParams(minimum_fft_size=8192, maximum_fft_size=8192)
+slen = 21 # image size should also be constant for jit to work (see below for more details).
 
 @jax.jit
 def simulate(flux, sigma):
     gal = jax_galsim.Gaussian(flux=flux, sigma=sigma, gsparams=gsparams)
-    return gal.drawImage(scale=0.2).array.sum()
+    return gal.drawImage(nx=slen, ny=slen, scale=0.2).array.sum()
 
 # Changing gsparams here would cause recompilation on next call
 ```
@@ -146,16 +161,30 @@ avoid problematic control flow in its own implementations.
 
 Under `jit`, the **shape** of every array must be determinable at compile time.
 Operations whose output size depends on input values (e.g., adaptive image
-sizing based on a traced parameter) may not work. When using `jax.vmap`, you
+sizing based on a traced parameter) may not work. When using `jax.jit` or `jax.vmap`, you
 must specify fixed image dimensions:
 
 ```python
+@jax.jit
 @jax.vmap
 def batch(sigma):
-    gal = jax_galsim.Gaussian(flux=1e5, sigma=sigma)
+    gsparams = GSParams(minimum_fft_size=256, maximum_fft_size=256)
+    gal = jax_galsim.Gaussian(flux=1e5, sigma=sigma).withGSParams(gsparams)
     # Must specify nx, ny so all images have the same shape
     return gal.drawImage(scale=0.2, nx=64, ny=64).array
 ```
+
+Importantly, the default (and most commonly used) drawing procedure in GalSim (and JAX-GalSim) 
+transforms image to k-space via an FFT. The size of the "images" in Fourier space usually depends
+on traced galaxy profile paramers e.g. size, which makes this incompatible with `jit`. Thus, in JAX-GalSim
+we allow for this k-space image size to be fixed explicitly via `GSParams` as done above:
+
+```python
+    gsparams = GSParams(minimum_fft_size=256, maximum_fft_size=256)
+```
+
+where both `minimum_fft_size` and `maximum_fft_size` need to be set to the same value.
+
 
 ### The `__init__` gotcha
 
