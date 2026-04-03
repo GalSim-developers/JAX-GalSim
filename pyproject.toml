@@ -10,6 +10,7 @@ name = "JAX-GalSim"
 authors = [
     {name = "GalSim Developers"},
 ]
+requires-python = ">= 3.11"
 description = "The modular galaxy image simulation toolkit, but in JAX"
 dynamic = ["version"]
 license = {file = "LICENSE"}
