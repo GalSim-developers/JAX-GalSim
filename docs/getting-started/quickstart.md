@@ -27,7 +27,7 @@ final = jax_galsim.Convolve([gal, psf])
 image = final.drawImage(scale=pixel_scale)
 
 # Add Gaussian noise
-image = image.addNoise(jax_galsim.GaussianNoise(sigma=noise_sigma))
+image.addNoise(jax_galsim.GaussianNoise(sigma=noise_sigma))
 
 # Write to FITS
 image.write("output/demo1.fits")
@@ -42,15 +42,33 @@ Wrap your simulation in `jax.jit` to compile it into an optimized XLA computatio
 ```python
 import jax
 
-@jax.jit
-def simulate(flux, sigma):
+@jax.jit(static_argnames=['slen', 'fft_size'])
+def simulate(flux, sigma, *, slen, fft_size):
+    gsparams = GSParams(minimum_fft_size=fft_size, maximum_fft_size=fft_size)
     gal = jax_galsim.Gaussian(flux=flux, sigma=sigma)
     psf = jax_galsim.Gaussian(flux=1.0, sigma=1.0)
     final = jax_galsim.Convolve([gal, psf])
-    return final.drawImage(scale=0.2)
+    return final.drawImage(nx=slen, ny=slen, scale=0.2)
 
-# First call compiles; subsequent calls are fast
-image = simulate(1e5, 2.0)
+# First call compiles; subsequent calls are fast (as long as slen, fft_size stay the same)
+image = simulate(1e5, 2.0, slen=21, fft_size=128)
+```
+
+Here is another option for jitting using the `partial` utility from `functools`:
+
+```python
+from jax import jit
+from functools import partial
+
+def simulate(flux, sigma, *, slen, fft_size):
+    gsparams = GSParams(minimum_fft_size=fft_size, maximum_fft_size=fft_size)
+    gal = jax_galsim.Gaussian(flux=flux, sigma=sigma)
+    psf = jax_galsim.Gaussian(flux=1.0, sigma=1.0)
+    final = jax_galsim.Convolve([gal, psf])
+    return final.drawImage(nx=slen, ny=slen, scale=0.2)
+
+simulated_jitted = jit(partial(simulate, slen=21, fft_size=128))
+image = simulated_jitted(1e5, 2.0)
 ```
 
 ## Automatic Differentiation
@@ -81,11 +99,13 @@ import jax.numpy as jnp
 
 sigmas = jnp.linspace(1.0, 4.0, 10)
 
+@jax.jit
 @jax.vmap
 def batch_simulate(sigma):
+    gsparams = GSParams(minimum_fft_size=128, maximum_fft_size=128)
     gal = jax_galsim.Gaussian(flux=1e5, sigma=sigma)
     psf = jax_galsim.Gaussian(flux=1.0, sigma=1.0)
-    final = jax_galsim.Convolve([gal, psf])
+    final = jax_galsim.Convolve([gal, psf]).withGSParams(gsparams)
     return final.drawImage(scale=0.2, nx=64, ny=64).array
 
 # Simulate all 10 galaxies in parallel
