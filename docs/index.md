@@ -52,7 +52,7 @@ psf = jax_galsim.Gaussian(flux=1.0, sigma=1.0)
 final = jax_galsim.Convolve([gal, psf])
 image = final.drawImage(scale=0.2)
 
-# Add noise (changes underlying image array)
+# Add noise (overwrites underlying image array with new array)
 image.addNoise(jax_galsim.GaussianNoise(sigma=30.0))
 ```
 
@@ -60,15 +60,23 @@ JAX-GalSim objects are JAX pytrees, so you can JIT-compile and differentiate the
 
 ```python
 @jax.jit
-def simulate(flux, sigma):
+def simulate(flux, sigma, *, slen=21, fft_size=128):
+    gsparams = GSParams(minimum_fft_size=fft_size, maximum_fft_size=fft_size)
+
     gal = jax_galsim.Gaussian(flux=flux, sigma=sigma)
     psf = jax_galsim.Gaussian(flux=1.0, sigma=1.0)
-    return jax_galsim.Convolve([gal, psf]).drawImage(scale=0.2).array.sum()
+    gal_convolved = jax_galsim.Convolve([gal, psf]).withGSParams(gsparams)
+    image = gal_convolved.drawImage(nx=slen, ny=slen, scale=0.2)
+    return image.array.sum()
 
 # Compute gradients with respect to galaxy parameters
 grad_fn = jax.grad(simulate, argnums=(0, 1))
 dflux, dsigma = grad_fn(1e5, 2.0)
 ```
+
+Note that the size of the image in real space (`slen`) and fourier space 
+(`minimum_fft_size = maximum_fft_size`) need to be specified in advance for jitting. See the rest
+of the documentation for more details and examples.
 
 ---
 
