@@ -347,6 +347,7 @@ def _run_object_checks(obj, cls, kind):
                     "tree_unflatten",
                     "from_galsim",
                     "to_galsim",
+                    "at",
                 ]:
                     # this deprecated method doesn't have consistent doc strings in galsim
                     if (
@@ -1106,3 +1107,63 @@ def test_api_gsparams():
         assert getattr(jgsp, k) == v
         assert getattr(gsp, k) == v
         assert getattr(jjgsp, k) == v
+
+
+def test_api_image_at_with_position():
+    rng = np.random.default_rng(seed=10)
+    arr = rng.normal(size=(13, 19))
+    img = jax_galsim.ImageD(jnp.asarray(arr), bounds=jax_galsim.BoundsI(3, 21, 7, 19))
+    assert img.at[jax_galsim.PositionI(3, 7)].get() == arr[0, 0]
+    assert img.at[jax_galsim.PositionI(8, 7)].get() == arr[0, 5]
+    assert img.at[jax_galsim.PositionI(3, 12)].get() == arr[5, 0]
+    assert img.at[jax_galsim.PositionI(4, 9)].get() == arr[2, 1]
+    assert img.at[(4, 9)].get() == arr[2, 1]
+    assert img.at[4, 9].get() == arr[2, 1]
+
+    img = img.at[4, 9].set(0.1)
+    assert img.at[jax_galsim.PositionI(3, 7)].get() == arr[0, 0]
+    assert img.at[jax_galsim.PositionI(8, 7)].get() == arr[0, 5]
+    assert img.at[jax_galsim.PositionI(3, 12)].get() == arr[5, 0]
+    assert img.at[jax_galsim.PositionI(4, 9)].get() == 0.1
+
+    img = img.at[4, 9].add(0.23)
+    assert img.at[jax_galsim.PositionI(3, 7)].get() == arr[0, 0]
+    assert img.at[jax_galsim.PositionI(8, 7)].get() == arr[0, 5]
+    assert img.at[jax_galsim.PositionI(3, 12)].get() == arr[5, 0]
+    assert img.at[jax_galsim.PositionI(4, 9)].get() == 0.33
+
+
+def test_api_image_at_with_bounds():
+    rng = np.random.default_rng(seed=10)
+    arr = rng.normal(size=(13, 19))
+    img = jax_galsim.ImageD(jnp.asarray(arr), bounds=jax_galsim.BoundsI(3, 21, 7, 19))
+    bnds = jax_galsim.BoundsI(4, 6, 11, 15)
+
+    assert img.at[...].get().array.shape == (13, 19)
+    np.testing.assert_array_equal(img.at[...].get().array, arr)
+
+    assert img.at[:, :].get().array.shape == (13, 19)
+    np.testing.assert_array_equal(img.at[:, :].get().array, arr)
+
+    assert img.at[bnds].get().array.shape == (5, 3)
+    np.testing.assert_array_equal(img.at[bnds].get().array, arr[4:9, 1:4])
+
+    img = img.at[bnds].set(0.0)
+    assert img.at[jax_galsim.PositionI(3, 7)].get() == arr[0, 0]
+
+    img = img.at[bnds].add(0.10)
+    assert img.at[jax_galsim.PositionI(3, 7)].get() == arr[0, 0]
+
+
+def test_api_image_raise_on_setitem():
+    rng = np.random.default_rng(seed=10)
+    arr = rng.normal(size=(13, 19))
+    img = jax_galsim.ImageD(jnp.asarray(arr), bounds=jax_galsim.BoundsI(3, 21, 7, 19))
+
+    with pytest.raises(RuntimeError) as e:
+        img[4, 11] = 10
+    assert "JAX-GalSim images do not support inplace operations" in str(e.value)
+
+    with pytest.raises(RuntimeError) as e:
+        img[4, 11] += 10
+    assert "JAX-GalSim images do not support inplace operations" in str(e.value)

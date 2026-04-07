@@ -4,6 +4,7 @@ import numpy as np
 from jax.tree_util import register_pytree_node_class
 
 from jax_galsim.bounds import Bounds, BoundsD, BoundsI
+from jax_galsim.core.index import ImageIndexer
 from jax_galsim.core.utils import ensure_hashable, implements
 from jax_galsim.errors import GalSimImmutableError
 from jax_galsim.position import PositionI
@@ -556,29 +557,13 @@ class Image(object):
             raise TypeError("image[..] requires either 1 or 2 args")
 
     def __setitem__(self, *args):
-        """Set either a subimage or a single pixel to new values.
-
-        For example,::
-
-            >>> im[galsim.BoundsI(3,7,3,7)] = im2
-            >>> im[galsim.PositionI(5,5)] = 17.
-            >>> im[5,5] = 17.
-        """
-        if len(args) == 2:
-            if isinstance(args[0], BoundsI):
-                self.setSubImage(*args)
-            elif isinstance(args[0], PositionI):
-                self.setValue(*args)
-            elif isinstance(args[0], tuple):
-                self.setValue(*args)
-            else:
-                raise TypeError(
-                    "image[index] only accepts BoundsI or PositionI for the index"
-                )
-        elif len(args) == 3:
-            return self.setValue(*args)
-        else:
-            raise TypeError("image[..] requires either 1 or 2 args")
+        if self.isconst:
+            raise _galsim.GalSimImmutableError("Cannot modify an immutable Image", self)
+        raise RuntimeError(
+            "JAX-GalSim images do not support inplace operations via "
+            "`img[index] = ...`. "
+            "Use the `.at` syntax instead."
+        )
 
     @implements(_galsim.Image.wrap)
     def wrap(self, bounds, hermitian=False):
@@ -700,7 +685,7 @@ class Image(object):
         else:
             # Then we pad out with zeros
             ximage = Image(full_bounds, dtype=self.dtype, init_value=0)
-            ximage[self.bounds] = self[self.bounds]
+            ximage = ximage.at[self.bounds].set(self[self.bounds])
 
         dx = self.scale
         # dk = 2pi / (N dk)
@@ -754,7 +739,7 @@ class Image(object):
             posx_bounds = BoundsI(
                 0, self.bounds.xmax, self.bounds.ymin, self.bounds.ymax
             )
-            kimage[posx_bounds] = self[posx_bounds]
+            kimage = kimage.at[posx_bounds].set(self[posx_bounds])
             kimage = kimage.wrap(target_bounds, hermitian="x")
 
         dk = self.scale
@@ -1100,7 +1085,7 @@ class Image(object):
             else None
         )
         im = cls(
-            array=galsim_image.array,
+            array=jnp.asarray(galsim_image.array),
             wcs=wcs,
             bounds=Bounds.from_galsim(galsim_image.bounds),
         )
@@ -1132,6 +1117,13 @@ class Image(object):
         }
         gs_image = self.to_galsim()
         return gs_image.FindAdaptiveMom(*args_, **kwargs_)
+
+    @property
+    def at(self):
+        """
+        TODO: write docs
+        """
+        return ImageIndexer(self)
 
 
 @implements(
@@ -1269,9 +1261,11 @@ def Image_iadd(self, other):
         a = other
         dt = type(a)
     if dt == self.array.dtype:
-        self._array = self.array + a
+        self._array = self.array.at[...].add(a)
     else:
-        self._array = (self.array + a).astype(self.array.dtype)
+        self._array = self.array.at[...].set(
+            (self.array + a).astype(self.array.dtype)
+        )
     return self
 
 
@@ -1297,9 +1291,11 @@ def Image_isub(self, other):
         a = other
         dt = type(a)
     if dt == self.array.dtype:
-        self._array = self.array - a
+        self._array = self.array.at[...].subtract(a)
     else:
-        self._array = (self.array - a).astype(self.array.dtype)
+        self._array = self.array.at[...].set(
+            (self.array - a).astype(self.array.dtype)
+        )
     return self
 
 
@@ -1321,9 +1317,11 @@ def Image_imul(self, other):
         a = other
         dt = type(a)
     if dt == self.array.dtype:
-        self._array = self.array * a
+        self._array = self.array.at[...].multiply(a)
     else:
-        self._array = (self.array * a).astype(self.array.dtype)
+        self._array = self.array.at[...].set(
+            (self.array * a).astype(self.array.dtype)
+        )
     return self
 
 
@@ -1351,9 +1349,11 @@ def Image_idiv(self, other):
     if dt == self.array.dtype and not self.isinteger:
         # if dtype is an integer type, then numpy doesn't allow true division /= to assign
         # back to an integer array.  So for integers (or mixed types), don't use /=.
-        self._array = self.array / a
+        self._array = self.array.at[...].divide(a)
     else:
-        self._array = (self.array / a).astype(self.array.dtype)
+        self._array = self.array.at[...].set(
+            (self.array / a).astype(self.array.dtype)
+        )
     return self
 
 
@@ -1380,9 +1380,11 @@ def Image_ifloordiv(self, other):
         a = other
         dt = type(a)
     if dt == self.array.dtype:
-        self._array = self.array // a
+        self._array = self._array.at[...].set(self.array // a)
     else:
-        self._array = (self.array // a).astype(self.array.dtype)
+        self._array = self.array.at[...].set(
+            (self.array // a).astype(self.array.dtype)
+        )
     return self
 
 
@@ -1409,9 +1411,11 @@ def Image_imod(self, other):
         a = other
         dt = type(a)
     if dt == self.array.dtype:
-        self._array = self.array % a
+        self._array = self.array.at[...].set(self.array % a)
     else:
-        self._array = (self.array % a).astype(self.array.dtype)
+        self._array = self.array.at[...].set(
+            (self.array % a).astype(self.array.dtype)
+        )
     return self
 
 
@@ -1422,7 +1426,7 @@ def Image_pow(self, other):
 def Image_ipow(self, other):
     if not isinstance(other, int) and not isinstance(other, float):
         raise TypeError("Can only raise an image to a float or int power!")
-    self._array = self.array**other
+    self._array = self.array.at[...].power(other)
     return self
 
 
@@ -1448,7 +1452,7 @@ def Image_iand(self, other):
         a = other.array
     except AttributeError:
         a = other
-    self._array = self.array & a
+    self._array = self.array.at[...].set(self.array & a)
     return self
 
 
@@ -1467,7 +1471,7 @@ def Image_ixor(self, other):
         a = other.array
     except AttributeError:
         a = other
-    self._array = self.array ^ a
+    self._array = self.array.at[...].set(self.array ^ a)
     return self
 
 
@@ -1486,7 +1490,7 @@ def Image_ior(self, other):
         a = other.array
     except AttributeError:
         a = other
-    self._array = self.array | a
+    self._array = self.array.at[...].set(self.array | a)
     return self
 
 

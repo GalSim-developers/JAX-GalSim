@@ -39,11 +39,11 @@ def test_image_wrapping_expand_contract():
             )
             # val = 2*(i-j)**2 + 3j*(i+j)
 
-            im[i, j] = val
+            im = im.at[i, j].set(val)
             if j >= 0:
-                im2[i, j] = val
+                im2 = im2.at[i, j].set(val)
             if i >= 0:
-                im3[i, j] = val
+                im3 = im3.at[i, j].set(val)
 
     # print("im = ",im.array)
 
@@ -112,11 +112,11 @@ def test_image_wrapping_autodiff(func, K, L):
             )
             # val = 2*(i-j)**2 + 3j*(i+j)
 
-            im[i, j] = val
+            im = im.at[i, j].set(val)
             if j >= 0:
-                im2[i, j] = val
+                im2 = im2.at[i, j].set(val)
             if i >= 0:
-                im3[i, j] = val
+                im3 = im3.at[i, j].set(val)
 
             ii = (i - b.xmin) % (b.xmax - b.xmin + 1) + b.xmin
             jj = (j - b.ymin) % (b.ymax - b.ymin + 1) + b.ymin

@@ -94,12 +94,12 @@ def test_interpolatedimage_utils_draw_with_interpolant_kval(interp):
     for y in range(kimherm.bounds.ymin, kimherm.bounds.ymax + 1):
         for x in range(kimherm.bounds.xmin, kimherm.bounds.xmax + 1):
             if x >= 0:
-                kimherm[x, y] = kim[x, y]
+                kimherm = kimherm.at[x, y].set(kim[x, y])
             else:
                 if y == minherm:
-                    kimherm[x, y] = kim[-x, y].conj()
+                    kimherm = kimherm.at[x, y].set(kim[-x, y].conj())
                 else:
-                    kimherm[x, y] = kim[-x, -y].conj()
+                    kimherm = kimherm.at[x, y].set(kim[-x, -y].conj())
     for x in range(nherm):
         for y in range(nherm):
             np.testing.assert_allclose(
@@ -282,7 +282,7 @@ def _compute_fft_with_numpy_jax_galsim(im):
     else:
         # Then we pad out with zeros
         ximage = Image(full_bounds, dtype=im.dtype, init_value=0)
-        ximage[im.bounds] = im[im.bounds]
+        ximage = ximage.at[im.bounds].set(im[im.bounds])
 
     dx = im.scale
     # dk = 2pi / (N dk)
