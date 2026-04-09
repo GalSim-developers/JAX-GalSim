@@ -34,8 +34,6 @@ plugins:
             filters:
               - "!^_[^_]"
               - "!^__(dict|weakref|doc|firstlineno|module|static_attributes|annotations|dataclass_fields|match_args|file|name|package|cached)__$"
-            extensions:
-              - griffe_sphinx 
 
 markdown_extensions:
   - pymdownx.arithmatex:
