@@ -45,10 +45,8 @@ class _DeviateState:
 
     **This class is not intended to be used directly.**
 
-    Parameters
-    ----------
-    key : key data with dtype `jax.dtypes.prng_key`
-        The JAX PRNG key made via `jrandom.key`
+    Parameters:
+        key: The JAX PRNG key made via `jrandom.key` (dtype `jax.dtypes.prng_key`).
     """
 
     def __init__(self, key):

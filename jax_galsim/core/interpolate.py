@@ -17,22 +17,16 @@ def akima_interp_coeffs(x, y, use_jax=True):
     Akima (1970), "A new method of interpolation and smooth curve fitting based on local procedures",
     Journal of the ACM. 17: 589-602 for a description of the technique.
 
-    Parameters
-    ----------
-    x : array-like
-        The x-coordinates of the data points. These must be sorted into increasing order
-        and cannot contain any duplicates.
-    y : array-like
-        The y-coordinates of the data points.
-    use_jax : bool, optional
-        Whether to use JAX for computation. Default is True. If False, the
-        coefficients are computed using NumPy on the host device. This can be
-        useful when embded inside JAX code w/ JIT applied to pre-compute the
-        coefficients.
+    Parameters:
+        x: The x-coordinates of the data points. These must be sorted into increasing order
+            and cannot contain any duplicates.
+        y: The y-coordinates of the data points.
+        use_jax: Whether to use JAX for computation. Default is True. If False, the
+            coefficients are computed using NumPy on the host device. This can be
+            useful when embedded inside JAX code w/ JIT applied to pre-compute the
+            coefficients.
 
-    Returns
-    -------
-    tuple
+    Returns:
         A tuple of arrays (a, b, c, d) where each array has shape (N-1,) and
         contains the coefficients for the cubic polynomial that interpolates
         the data points between x[i] and x[i+1].
@@ -116,25 +110,17 @@ def akima_interp(x, xp, yp, coeffs, fixed_spacing=False):
     """Conmpute the values of an Akima cubic spline at a set of points given the
     interpolation coefficients.
 
-    Parameters
-    ----------
-    x : array-like
-        The x-coordinates of the points where the interpolation is computed.
-    xp : array-like
-        The x-coordinates of the data points. These must be sorted into increasing order
-        and cannot contain any duplicates.
-    yp : array-like
-        The y-coordinates of the data points. Not used currently.
-    coeffs : tuple
-        The interpolation coefficients returned by `akima_interp_coeffs`.
-    fixed_spacing : bool, optional
-        Whether the data points are evenly spaced. Default is False. If True, the
-        code uses a faster technique to compute the index of the data points x into
-        the array xp such that xp[i] <= x < xp[i+1].
+    Parameters:
+        x: The x-coordinates of the points where the interpolation is computed.
+        xp: The x-coordinates of the data points. These must be sorted into increasing order
+            and cannot contain any duplicates.
+        yp: The y-coordinates of the data points. Not used currently.
+        coeffs: The interpolation coefficients returned by `akima_interp_coeffs`.
+        fixed_spacing: Whether the data points are evenly spaced. Default is False. If True, the
+            code uses a faster technique to compute the index of the data points x into
+            the array xp such that xp[i] <= x < xp[i+1].
 
-    Returns
-    -------
-    array-like
+    Returns:
         The values of the Akima cubic spline at the points x.
     """
     xp = jnp.asarray(xp)
