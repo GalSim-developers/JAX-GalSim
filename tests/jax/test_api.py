@@ -9,6 +9,7 @@ import numpy as np
 import pytest
 
 import jax_galsim
+from jax_galsim.core.utils import _rst_to_markdown
 
 
 def test_api_same():
@@ -334,7 +335,7 @@ def _run_object_checks(obj, cls, kind):
         gscls = getattr(_galsim, cls.__name__)
         assert all(
             line.strip() in cls.__doc__
-            for line in gscls.__doc__.splitlines()
+            for line in _rst_to_markdown(gscls.__doc__).splitlines()
             if line.strip()
         )
 
@@ -364,14 +365,16 @@ def _run_object_checks(obj, cls, kind):
                         assert getattr(cls, method).__doc__ is not None, (
                             cls.__name__ + "." + method + " does not have a doc string"
                         )
-                        for line in getattr(gscls, method).__doc__.splitlines():
+                        gsdoc = _rst_to_markdown(getattr(gscls, method).__doc__)
+                        for line in gsdoc.splitlines():
                             # we skip the lazy_property decorator doc string since this is not always
                             # used in jax_galsim
                             if (
                                 line.strip()
                                 and line not in _galsim.utilities.lazy_property.__doc__
                             ):
-                                assert line.strip() in getattr(cls, method).__doc__, (
+                                jgsdoc = _rst_to_markdown(getattr(cls, method).__doc__)
+                                assert line.strip() in jgsdoc, (
                                     cls.__name__
                                     + "."
                                     + method
