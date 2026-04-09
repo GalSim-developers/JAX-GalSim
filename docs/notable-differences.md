@@ -23,8 +23,7 @@ image += 1.0
 # under the hood: `image._array = image._array + 1.0`. The RHS is a new JAX array.
 ```
 
-This could become a subtle source of bugs if you are used to numpy in place mutability. Here
-is another example with `__iadd__` that illustrates this: 
+This could become a subtle source of bugs if you are used to numpy in place mutability. Here is another example with `__iadd__` that illustrates this: 
 
 ```python
 # galsim
