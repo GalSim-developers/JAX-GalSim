@@ -1,62 +1,42 @@
 [build-system]
-requires = [
-    "setuptools>=45",
-    "setuptools-scm>=8",
-]
+requires      = ["setuptools>=45", "setuptools-scm>=8"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "JAX-GalSim"
-authors = [
-    {name = "GalSim Developers"},
-]
+name            = "JAX-GalSim"
+authors         = [{ name = "GalSim Developers" }]
 requires-python = ">= 3.11"
-description = "The modular galaxy image simulation toolkit, but in JAX"
-dynamic = ["version"]
-license = {file = "LICENSE"}
-readme = "README.md"
-dependencies = [
-    "numpy >=1.18.0",
-    "galsim >=2.7.0",
-    "jax >=0.6.0",
-    "astropy >=2.0",
-    "quadax",
-]
+description     = "The modular galaxy image simulation toolkit, but in JAX"
+dynamic         = ["version"]
+license         = { file = "LICENSE" }
+readme          = "README.md"
+dependencies    = ["numpy >=1.18.0", "galsim >=2.7.0", "jax >=0.6.0", "astropy >=2.0", "quadax"]
 
 [project.optional-dependencies]
-dev = ["pytest", "pytest-codspeed"]
-docs = [
-    "mkdocs-material>=9.0",
-    "mkdocstrings[python]>=0.24",
-]
+dev  = ["pytest", "pytest-codspeed"]
+docs = ["mkdocs>=1.0.0", "mkdocs-material>=9.0", "mkdocstrings-python", "griffe_sphinx", "griffe"]
 
 [project.urls]
-home = "https://github.com/GalSim-developers/JAX-GalSim"
+home          = "https://github.com/GalSim-developers/JAX-GalSim"
 documentation = "https://galsim-developers.github.io/JAX-GalSim/"
 
 [tool.setuptools.packages.find]
 include = ["jax_galsim*"]
 
 [tool.setuptools_scm]
-write_to = "jax_galsim/_version.py"
+write_to         = "jax_galsim/_version.py"
 fallback_version = "0.0.1.dev0"
 
 [tool.ruff.lint]
-select = ["E", "F", "I", "W"]
-ignore = ["C901", "E203", "E501"]
+select  = ["E", "F", "I", "W"]
+ignore  = ["C901", "E203", "E501"]
 preview = true
 
 [tool.ruff.lint.per-file-ignores]
 "__init__.py" = ["F401", "I001"]
 
 [tool.pytest.ini_options]
-minversion = "6.0"
-addopts = "-ra -q"
-testpaths = [
-    "tests/GalSim/tests/",
-    "tests/jax",
-    "tests/Coord/tests/",
-]
-filterwarnings = [
-    "ignore::DeprecationWarning",
-]
+minversion     = "6.0"
+addopts        = "-ra -q"
+testpaths      = ["tests/GalSim/tests/", "tests/jax", "tests/Coord/tests/"]
+filterwarnings = ["ignore::DeprecationWarning"]
