@@ -242,16 +242,19 @@ def _spergel_hlr_pade(x):
 
 @implements(
     _galsim.Spergel,
-    lax_description=r"""The fully normalized Spergel profile (used in both standard GalSim and JAX-GalSim) is
-        .. math::
+    lax_description=r"""
+    The fully normalized Spergel profile (used in both standard GalSim and JAX-GalSim) is
 
-            I(r) = flux \times \left(2\pi 2^\nu \Gamma(1+\nu) r_0^2\right)^{-1}
-              \times \left(\frac{r}{r_0}\right)^\nu K_\nu\left(\frac{r}{r_0}\right)
+    .. math::
+
+        I(r) = \text{flux} \times \left(2\pi 2^\nu \Gamma(1+\nu) r_0^2\right)^{-1}
+          \times \left(\frac{r}{r_0}\right)^\nu K_\nu\left(\frac{r}{r_0}\right)
 
     with the following Fourier expression
-        .. math::
 
-            \hat{I}(k) = flux / (1 + (k r_0)^2)^{1+\nu}
+    .. math::
+
+        \hat{I}(k) = \text{flux} / (1 + (k r_0)^2)^{1+\nu}
 
     where :math:`r_0` is the ``scale_radius``, and :math:`\nu` mandatory to be in [-0.85,4.0]
 
