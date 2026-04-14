@@ -1,3 +1,4 @@
+import inspect
 import re
 import textwrap
 from functools import partial
@@ -288,7 +289,14 @@ def _rst_to_markdown(text):
     """Convert common RST elements to their Markdown/MathJax equivalents."""
 
     def _replace_math_block(m):
+        # dedent is required to remove the leading indentation, which markdown interprets as a code block instead of math.
         content = textwrap.dedent(m.group(1)).strip()
+        # RST align-style math uses '&' for column alignment and '\\' for
+        # line breaks, which are only valid inside an align environment.
+        # A plain \[...\] block (equation) does not support them, so we
+        # wrap in \begin{align}...\end{align} when alignment chars are present.
+        if "&" in content:
+            return f"\n\n\\[\n\\begin{{align}}\n{content}\n\\end{{align}}\n\\]\n\n"
         return f"\n\n\\[\n{content}\n\\]\n\n"
 
     text = _rst_math_block.sub(_replace_math_block, text)
@@ -349,6 +357,13 @@ def _parse_galsimdoc(docstr):
     """
     if docstr is None or not docstr.strip():
         return ParsedDoc(docstr)
+
+    # Normalize indentation: class docstrings have no indent on the first line
+    # but 4-space indent on all subsequent lines. cleandoc strips the common
+    # indent from line 2 onward so _rst_to_markdown sees a uniformly left-aligned
+    # string and doesn't leave prose lines at 4-space indent (which Markdown
+    # would otherwise interpret as code blocks after the \[...\] output).
+    docstr = inspect.cleandoc(docstr)
 
     # Remove any :doc: directives in the docstring to avoid sphinx errors
     docstr = _docreference.sub(lambda match: f"{match.groups()[0]}", docstr)
