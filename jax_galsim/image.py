@@ -520,12 +520,20 @@ class Image(object):
                 "Attempt to access subImage not (fully) in image", bounds, self.bounds
             )
 
-        start_inds = (
-            bounds.ymin - self.ymin,
-            bounds.xmin - self.xmin,
-        )
-        shape = bounds.numpyShape()
-        subarray = jax.lax.dynamic_slice(self.array, start_inds, shape)
+        if self.bounds.isStatic() and bounds.isStatic():
+            i1 = bounds.ymin - self.ymin
+            i2 = bounds.ymax - self.ymin + 1
+            j1 = bounds.xmin - self.xmin
+            j2 = bounds.xmax - self.xmin + 1
+
+            subarray = self.array[i1:i2, j1:j2]
+        else:
+            start_inds = (
+                bounds.ymin - self.ymin,
+                bounds.xmin - self.xmin,
+            )
+            shape = bounds.numpyShape()
+            subarray = jax.lax.dynamic_slice(self.array, start_inds, shape)
 
         # NB. The wcs is still accurate, since the sub-image uses the same (x,y) values
         # as the original image did for those pixels.  It's only once you recenter or
@@ -564,15 +572,25 @@ class Image(object):
                 self_image=self,
                 rhs=rhs,
             )
-        start_inds = (
-            bounds.ymin - self.ymin,
-            bounds.xmin - self.xmin,
-        )
-        self._array = jax.lax.dynamic_update_slice(
-            self.array,
-            jnp.astype(rhs.array, self.dtype),
-            start_inds,
-        )
+
+        if self.bounds.isStatic() and bounds.isStatic():
+            i1 = bounds.ymin - self.ymin
+            i2 = bounds.ymax - self.ymin + 1
+            j1 = bounds.xmin - self.xmin
+            j2 = bounds.xmax - self.xmin + 1
+            self._array = self._array.at[i1:i2, j1:j2].set(
+                jnp.astype(rhs.array, self.dtype)
+            )
+        else:
+            start_inds = (
+                bounds.ymin - self.ymin,
+                bounds.xmin - self.xmin,
+            )
+            self._array = jax.lax.dynamic_update_slice(
+                self.array,
+                jnp.astype(rhs.array, self.dtype),
+                start_inds,
+            )
 
     def __getitem__(self, *args):
         """Return either a subimage or a single pixel value.

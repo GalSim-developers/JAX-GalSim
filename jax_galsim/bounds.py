@@ -645,21 +645,26 @@ class BoundsI(Bounds):
         """This function flattens the Bounds into a list of children
         nodes that will be traced by JAX and auxiliary static data."""
         # Define the children nodes of the PyTree that need tracing
-        if self._isstatic:
-            # Define the children nodes of the PyTree that need tracing
-            children = tuple()
+        if self.isDefined():
+            if self._isstatic:
+                # Define the children nodes of the PyTree that need tracing
+                children = tuple()
 
-            # Define auxiliary static data that doesn’t need to be traced
-            aux_data = {
-                "xmin": self._xmin,
-                "ymin": self._ymin,
-                "deltax": self.deltax,
-                "deltay": self.deltay,
-            }
+                # Define auxiliary static data that doesn’t need to be traced
+                aux_data = {
+                    "xmin": self._xmin,
+                    "ymin": self._ymin,
+                    "deltax": self.deltax,
+                    "deltay": self.deltay,
+                }
+            else:
+                children = (self._xmin, self._ymin)
+                # Define auxiliary static data that doesn’t need to be traced
+                aux_data = {"deltax": self.deltax, "deltay": self.deltay}
         else:
-            children = (self._xmin, self._ymin)
-            # Define auxiliary static data that doesn’t need to be traced
-            aux_data = {"deltax": self.deltax, "deltay": self.deltay}
+            children = tuple()
+            aux_data = None
+
         return (children, aux_data)
 
     @classmethod
