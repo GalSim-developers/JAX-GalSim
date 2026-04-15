@@ -670,21 +670,24 @@ class BoundsI(Bounds):
     @classmethod
     def tree_unflatten(cls, aux_data, children):
         """Recreates an instance of the class from flatten representation"""
-        ret = cls.__new__(cls)
-        if "xmin" in aux_data and "ymin" in aux_data:
-            ret._isstatic = True
-            ret._xmin = aux_data["xmin"]
-            ret._ymin = aux_data["ymin"]
+        if aux_data is not None:
+            ret = cls.__new__(cls)
+            if "xmin" in aux_data and "ymin" in aux_data:
+                ret._isstatic = True
+                ret._xmin = aux_data["xmin"]
+                ret._ymin = aux_data["ymin"]
+            else:
+                ret._isstatic = False
+                ret._xmin = children[0]
+                ret._ymin = children[1]
+            ret.deltax = aux_data["deltax"]
+            ret.deltay = aux_data["deltay"]
+            if ret.deltax < 1 and ret.deltay < 1:
+                ret._isdefined = False
+            else:
+                ret._isdefined = True
         else:
-            ret._isstatic = False
-            ret._xmin = children[0]
-            ret._ymin = children[1]
-        ret.deltax = aux_data["deltax"]
-        ret.deltay = aux_data["deltay"]
-        if ret.deltax < 1 and ret.deltay < 1:
-            ret._isdefined = False
-        else:
-            ret._isdefined = True
+            ret = cls()
 
         return ret
 
