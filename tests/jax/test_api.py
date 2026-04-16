@@ -381,12 +381,14 @@ def _run_object_checks(obj, cls, kind):
                         )
                         gsdoc = _rst_to_markdown(getattr(gscls, method).__doc__)
                         for line in gsdoc.splitlines():
-                            # we skip the lazy_property decorator doc string since this is not always
-                            # used in jax_galsim
+                            # we skip the lazy_property decorator doc string since this is not always used in jax_galsim
                             if (
                                 line.strip()
                                 and line not in _galsim.utilities.lazy_property.__doc__
                             ):
+                                # _rst_to_markdown required here because isCelestial in
+                                # AffineTransform does not go through implements rather it is
+                                # directly inherited from GalSim so it's still in rst format.
                                 jgsdoc = _rst_to_markdown(getattr(cls, method).__doc__)
                                 assert line.strip() in jgsdoc, (
                                     cls.__name__
