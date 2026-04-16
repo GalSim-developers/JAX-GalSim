@@ -355,6 +355,20 @@ def _run_object_checks(obj, cls, kind):
                     ):
                         continue
 
+                    # jax-galsim Bounds classes do not store xmax, ymax
+                    if issubclass(cls, jax_galsim.Bounds) and method in [
+                        "xmax",
+                        "ymax",
+                        "isStatic",
+                    ]:
+                        continue
+
+                    if issubclass(cls, jax_galsim.BoundsI) and method in [
+                        "xmin",
+                        "ymin",
+                    ]:
+                        continue
+
                     assert method in dir(gscls), (
                         cls.__name__ + "." + method + " not in galsim." + gscls.__name__
                     )
@@ -497,7 +511,9 @@ def test_api_shear(obj):
         jax_galsim.BoundsD(
             jnp.array(0.2), jnp.array(4.0), jnp.array(-0.5), jnp.array(4.7)
         ),
-        jax_galsim.BoundsI(jnp.array(-10), jnp.array(5), jnp.array(0), jnp.array(7)),
+        jax_galsim.BoundsI(xmin=jnp.array(-10), deltax=5, ymin=jnp.array(0), deltay=7),
+        jax_galsim.BoundsI(xmin=np.array(-10), deltax=5, ymin=0, deltay=7),
+        jax_galsim.BoundsI(-10, -6, 0, 6),
     ],
 )
 def test_api_bounds(obj):
