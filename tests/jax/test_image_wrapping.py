@@ -130,13 +130,13 @@ def test_image_wrapping_autodiff(func, K, L):
 
     # make sure these run without error
     if func == "wrap":
-        b3 = galsim.BoundsI(0, K, -L + 1, L)
+        b3 = galsim.BoundsI(xmin=0, deltax=K + 1, ymin=-L + 1, deltay=2 * L)
         im.wrap(b3)
     elif func == "vjp-jit" or func == "jvp-jit":
 
         @jax.jit
         def _wrapit(im):
-            b3 = galsim.BoundsI(0, K, -L + 1, L)
+            b3 = galsim.BoundsI(xmin=0, deltax=K + 1, ymin=-L + 1, deltay=2 * L)
             return im.wrap(b3)
 
         if func == "vjp-jit":
@@ -148,7 +148,7 @@ def test_image_wrapping_autodiff(func, K, L):
     elif func == "vjp" or func == "jvp":
 
         def _wrapit(im):
-            b3 = galsim.BoundsI(0, K, -L + 1, L)
+            b3 = galsim.BoundsI(xmin=0, deltax=K + 1, ymin=-L + 1, deltay=2 * L)
             return im.wrap(b3)
 
         if func == "vjp":

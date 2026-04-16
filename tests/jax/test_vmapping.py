@@ -142,11 +142,15 @@ def test_affine_transform_vmapping():
 
 
 def test_bounds_vmapping():
+    from functools import partial
+
     obj = galsim.BoundsD(0.0, 1.0, 0.0, 1.0)
     obj_d = jax.vmap(galsim.BoundsD)(0.0 * e, 1.0 * e, 0.0 * e, 1.0 * e)
 
     objI = galsim.BoundsI(0.0, 1.0, 0.0, 1.0)
-    objI_d = jax.vmap(galsim.BoundsI)(0.0 * e, 1.0 * e, 0.0 * e, 1.0 * e)
+    objI_d = jax.vmap(partial(galsim.BoundsI, deltax=2.0, deltay=2.0))(
+        xmin=0.0 * e, ymin=0.0 * e
+    )
 
     def test_eq(self, other):
         return (

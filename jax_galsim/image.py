@@ -1,10 +1,11 @@
 import galsim as _galsim
+import jax
 import jax.numpy as jnp
 import numpy as np
 from jax.tree_util import register_pytree_node_class
 
 from jax_galsim.bounds import Bounds, BoundsD, BoundsI
-from jax_galsim.core.utils import ensure_hashable, implements
+from jax_galsim.core.utils import ensure_hashable, has_tracers, implements
 from jax_galsim.errors import GalSimImmutableError
 from jax_galsim.position import PositionI
 from jax_galsim.utilities import parse_pos_args
@@ -183,7 +184,12 @@ class Image(object):
             ncol = int(ncol)
             nrow = int(nrow)
             self._array = self._make_empty(shape=(nrow, ncol), dtype=self._dtype)
-            self._bounds = BoundsI(xmin, xmin + ncol - 1, ymin, ymin + nrow - 1)
+            if not has_tracers(xmin) and not has_tracers(ymin):
+                self._bounds = BoundsI(
+                    xmin=xmin, deltax=ncol, ymin=ymin, deltay=nrow, static=True
+                )
+            else:
+                self._bounds = BoundsI(xmin=xmin, deltax=ncol, ymin=ymin, deltay=nrow)
             if init_value:
                 self._array = self._array + init_value
         elif bounds is not None:
@@ -196,7 +202,12 @@ class Image(object):
         elif array is not None:
             self._array = array.view(dtype=self._dtype)
             nrow, ncol = array.shape
-            self._bounds = BoundsI(xmin, xmin + ncol - 1, ymin, ymin + nrow - 1)
+            if not has_tracers(xmin) and not has_tracers(ymin):
+                self._bounds = BoundsI(
+                    xmin=xmin, deltax=ncol, ymin=ymin, deltay=nrow, static=True
+                )
+            else:
+                self._bounds = BoundsI(xmin=xmin, deltax=ncol, ymin=ymin, deltay=nrow)
             if init_value is not None:
                 raise _galsim.GalSimIncompatibleValuesError(
                     "Cannot specify init_value with array",
@@ -260,7 +271,14 @@ class Image(object):
             b = kwargs.pop("bounds")
             if not isinstance(b, BoundsI):
                 raise TypeError("bounds must be a galsim.BoundsI instance")
-            if check_bounds and b.isDefined():
+            if (
+                check_bounds
+                and b.isDefined()
+                and not has_tracers(b.xmin)
+                and not has_tracers(b.ymin)
+                and not has_tracers(b.xmax)
+                and not has_tracers(b.ymax)
+            ):
                 # We need to disable this when jitting
                 if b.xmax - b.xmin + 1 != array.shape[1]:
                     raise _galsim.GalSimIncompatibleValuesError(
@@ -487,16 +505,36 @@ class Image(object):
             raise _galsim.GalSimUndefinedBoundsError(
                 "Attempt to access subImage of undefined image"
             )
-        if not self.bounds.includes(bounds):
+        if (
+            not has_tracers(self.bounds.xmin)
+            and not has_tracers(self.bounds.xmax)
+            and not has_tracers(self.bounds.ymin)
+            and not has_tracers(self.bounds.ymax)
+            and not has_tracers(bounds.xmin)
+            and not has_tracers(bounds.xmax)
+            and not has_tracers(bounds.ymin)
+            and not has_tracers(bounds.ymax)
+            and not self.bounds.includes(bounds)
+        ):
             raise _galsim.GalSimBoundsError(
                 "Attempt to access subImage not (fully) in image", bounds, self.bounds
             )
-        i1 = bounds.ymin - self.ymin
-        i2 = bounds.ymax - self.ymin + 1
-        j1 = bounds.xmin - self.xmin
-        j2 = bounds.xmax - self.xmin + 1
 
-        subarray = self.array[i1:i2, j1:j2]
+        if self.bounds.isStatic() and bounds.isStatic():
+            i1 = bounds.ymin - self.ymin
+            i2 = bounds.ymax - self.ymin + 1
+            j1 = bounds.xmin - self.xmin
+            j2 = bounds.xmax - self.xmin + 1
+
+            subarray = self.array[i1:i2, j1:j2]
+        else:
+            start_inds = (
+                bounds.ymin - self.ymin,
+                bounds.xmin - self.xmin,
+            )
+            shape = bounds.numpyShape()
+            subarray = jax.lax.dynamic_slice(self.array, start_inds, shape)
+
         # NB. The wcs is still accurate, since the sub-image uses the same (x,y) values
         # as the original image did for those pixels.  It's only once you recenter or
         # reorigin that you need to update the wcs.  So that's taken care of in im.shift.
@@ -512,7 +550,17 @@ class Image(object):
             raise _galsim.GalSimUndefinedBoundsError(
                 "Attempt to access values of an undefined image"
             )
-        if not self.bounds.includes(bounds):
+        if (
+            not has_tracers(self.bounds.xmin)
+            and not has_tracers(self.bounds.xmax)
+            and not has_tracers(self.bounds.ymin)
+            and not has_tracers(self.bounds.ymax)
+            and not has_tracers(bounds.xmin)
+            and not has_tracers(bounds.xmax)
+            and not has_tracers(bounds.ymin)
+            and not has_tracers(bounds.ymax)
+            and not self.bounds.includes(bounds)
+        ):
             raise _galsim.GalSimBoundsError(
                 "Attempt to access subImage not (fully) in image", bounds, self.bounds
             )
@@ -524,11 +572,25 @@ class Image(object):
                 self_image=self,
                 rhs=rhs,
             )
-        i1 = bounds.ymin - self.ymin
-        i2 = bounds.ymax - self.ymin + 1
-        j1 = bounds.xmin - self.xmin
-        j2 = bounds.xmax - self.xmin + 1
-        self._array = self._array.at[i1:i2, j1:j2].set(rhs.array)
+
+        if self.bounds.isStatic() and bounds.isStatic():
+            i1 = bounds.ymin - self.ymin
+            i2 = bounds.ymax - self.ymin + 1
+            j1 = bounds.xmin - self.xmin
+            j2 = bounds.xmax - self.xmin + 1
+            self._array = self._array.at[i1:i2, j1:j2].set(
+                jnp.astype(rhs.array, self.dtype)
+            )
+        else:
+            start_inds = (
+                bounds.ymin - self.ymin,
+                bounds.xmin - self.xmin,
+            )
+            self._array = jax.lax.dynamic_update_slice(
+                self.array,
+                jnp.astype(rhs.array, self.dtype),
+                start_inds,
+            )
 
     def __getitem__(self, *args):
         """Return either a subimage or a single pixel value.
@@ -587,42 +649,42 @@ class Image(object):
         # Get this at the start to check for invalid bounds and raise the exception before
         # possibly writing data past the edge of the image.
         if not hermitian:
-            return self._wrap(bounds, False, False)
+            return self._wrap(bounds, False, False, None)
         elif hermitian == "x":
-            if self.bounds.xmin != 0:
+            if not has_tracers(self.bounds.xmin) and self.bounds.xmin != 0:
                 raise _galsim.GalSimIncompatibleValuesError(
                     "hermitian == 'x' requires self.bounds.xmin == 0",
                     hermitian=hermitian,
                     bounds=self.bounds,
                 )
-            if bounds.xmin != 0:
+            if not has_tracers(bounds.xmin) and bounds.xmin != 0:
                 raise _galsim.GalSimIncompatibleValuesError(
                     "hermitian == 'x' requires bounds.xmin == 0",
                     hermitian=hermitian,
                     bounds=bounds,
                 )
-            return self._wrap(bounds, True, False)
+            return self._wrap(bounds, True, False, 2 * bounds.xmax)
         elif hermitian == "y":
-            if self.bounds.ymin != 0:
+            if not has_tracers(self.bounds.ymin) and self.bounds.ymin != 0:
                 raise _galsim.GalSimIncompatibleValuesError(
                     "hermitian == 'y' requires self.bounds.ymin == 0",
                     hermitian=hermitian,
                     bounds=self.bounds,
                 )
-            if bounds.ymin != 0:
+            if not has_tracers(bounds.ymin) and bounds.ymin != 0:
                 raise _galsim.GalSimIncompatibleValuesError(
                     "hermitian == 'y' requires bounds.ymin == 0",
                     hermitian=hermitian,
                     bounds=bounds,
                 )
-            return self._wrap(bounds, False, True)
+            return self._wrap(bounds, False, True, 2 * bounds.ymax)
         else:
             raise _galsim.GalSimValueError(
                 "Invalid value for hermitian", hermitian, (False, "x", "y")
             )
 
     @implements(_galsim.Image._wrap)
-    def _wrap(self, bounds, hermx, hermy):
+    def _wrap(self, bounds, hermx, hermy, hermitian_wrap_size):
         if not hermx and not hermy:
             from jax_galsim.core.wrap_image import wrap_nonhermitian
 
@@ -631,9 +693,8 @@ class Image(object):
                 # zero indexed location of subimage
                 bounds.xmin - self.xmin,
                 bounds.ymin - self.ymin,
-                # we include pixels on the edges so +1 here
-                bounds.xmax - bounds.xmin + 1,
-                bounds.ymax - bounds.ymin + 1,
+                bounds.deltax,
+                bounds.deltay,
             )
         elif hermx and not hermy:
             from jax_galsim.core.wrap_image import wrap_hermitian_x
@@ -644,8 +705,8 @@ class Image(object):
                 self.ymin,
                 -bounds.xmax + 1,
                 bounds.ymin,
-                2 * bounds.xmax,
-                bounds.ymax - bounds.ymin + 1,
+                hermitian_wrap_size,
+                bounds.deltay,
             )
         elif not hermx and hermy:
             from jax_galsim.core.wrap_image import wrap_hermitian_y
@@ -656,8 +717,8 @@ class Image(object):
                 -self.ymax,
                 bounds.xmin,
                 -bounds.ymax + 1,
-                bounds.xmax - bounds.xmin + 1,
-                2 * bounds.ymax,
+                bounds.deltax,
+                hermitian_wrap_size,
             )
 
         return self.subImage(bounds)
@@ -682,6 +743,8 @@ class Image(object):
                 "JAX-GalSim does not support forward FFTs of complex dtypes."
             )
 
+        # TODO: figure out how to do FFT at fixed size and then reconstruct
+        # the result
         No2 = max(
             max(
                 -self.bounds.xmin,
@@ -693,7 +756,7 @@ class Image(object):
             ),
         )
 
-        full_bounds = BoundsI(-No2, No2 - 1, -No2, No2 - 1)
+        full_bounds = BoundsI(xmin=-No2, deltax=2 * No2, ymin=-No2, deltay=2 * No2)
         if self.bounds == full_bounds:
             # Then the image is already in the shape we need.
             ximage = self
@@ -706,7 +769,11 @@ class Image(object):
         # dk = 2pi / (N dk)
         dk = jnp.pi / (No2 * dx)
 
-        out = Image(BoundsI(0, No2, -No2, No2 - 1), dtype=np.complex128, scale=dk)
+        out = Image(
+            BoundsI(xmin=0, deltax=No2 + 1, ymin=-No2, deltay=2 * No2),
+            dtype=np.complex128,
+            scale=dk,
+        )
         # we shift the image before and after the FFT to match the layout of the modes
         # used by GalSim
         out._array = jnp.fft.fftshift(
@@ -743,32 +810,41 @@ class Image(object):
             self.bounds.ymax,
         )
 
-        target_bounds = BoundsI(0, No2, -No2, No2 - 1)
+        target_bounds = BoundsI(xmin=0, deltax=No2 + 1, ymin=-No2, deltay=2 * No2)
         if self.bounds == target_bounds:
             # Then the image is already in the shape we need.
             kimage = self
         else:
             # Then we can pad out with zeros and wrap to get this in the form we need.
-            full_bounds = BoundsI(0, No2, -No2, No2)
+            full_bounds = BoundsI(xmin=0, deltax=No2 + 1, ymin=-No2, deltay=2 * No2 + 1)
             kimage = Image(full_bounds, dtype=self.dtype, init_value=0)
             posx_bounds = BoundsI(
-                0, self.bounds.xmax, self.bounds.ymin, self.bounds.ymax
+                xmin=0,
+                xmax=self.bounds.xmax,
+                ymin=self.bounds.ymin,
+                ymax=self.bounds.ymax,
             )
             kimage[posx_bounds] = self[posx_bounds]
-            kimage = kimage.wrap(target_bounds, hermitian="x")
+            kimage = kimage._wrap(target_bounds, True, False, 2 * No2)
 
         dk = self.scale
         # dx = 2pi / (N dk)
         dx = jnp.pi / (No2 * dk)
 
         # For the inverse, we need a bit of extra space for the fft.
-        out_extra = Image(BoundsI(-No2, No2 + 1, -No2, No2 - 1), dtype=float, scale=dx)
+        out_extra = Image(
+            BoundsI(xmin=-No2, deltax=2 * No2 + 2, ymin=-No2, deltay=2 * No2),
+            dtype=float,
+            scale=dx,
+        )
         # we shift the image before and after the FFT to match the layout used by galsim
         out_extra._array = jnp.fft.fftshift(
             jnp.fft.irfft2(jnp.fft.fftshift(kimage.array, axes=0))
         )
         # Now cut off the bit we don't need.
-        out = out_extra.subImage(BoundsI(-No2, No2 - 1, -No2, No2 - 1))
+        out = out_extra.subImage(
+            BoundsI(xmin=-No2, deltax=2 * No2, ymin=-No2, deltay=2 * No2)
+        )
         out *= (dk * No2 / jnp.pi) ** 2
         out.setCenter(0, 0)
         return out
@@ -1033,7 +1109,12 @@ class Image(object):
 
     @implements(_galsim.Image.transpose)
     def transpose(self):
-        bT = BoundsI(self.ymin, self.ymax, self.xmin, self.xmax)
+        bT = self.bounds.__class__(
+            xmin=self.ymin,
+            deltax=self.bounds.deltay,
+            ymin=self.xmin,
+            deltay=self.bounds.deltax,
+        )
         return _Image(self.array.T, bT, None)
 
     @implements(_galsim.Image.flip_lr)
@@ -1046,12 +1127,22 @@ class Image(object):
 
     @implements(_galsim.Image.rot_cw)
     def rot_cw(self):
-        bT = BoundsI(self.ymin, self.ymax, self.xmin, self.xmax)
+        bT = self.bounds.__class__(
+            xmin=self.ymin,
+            deltax=self.bounds.deltay,
+            ymin=self.xmin,
+            deltay=self.bounds.deltax,
+        )
         return _Image(self.array.T.at[::-1, :].get(), bT, None)
 
     @implements(_galsim.Image.rot_ccw)
     def rot_ccw(self):
-        bT = BoundsI(self.ymin, self.ymax, self.xmin, self.xmax)
+        bT = self.bounds.__class__(
+            xmin=self.ymin,
+            deltax=self.bounds.deltay,
+            ymin=self.xmin,
+            deltay=self.bounds.deltax,
+        )
         return _Image(self.array.T.at[:, ::-1].get(), bT, None)
 
     @implements(_galsim.Image.rot_180)
@@ -1061,8 +1152,16 @@ class Image(object):
     def tree_flatten(self):
         """Flatten the image into a list of values."""
         # Define the children nodes of the PyTree that need tracing
-        children = (self.array, self.wcs)
-        aux_data = {"dtype": self.dtype, "bounds": self.bounds, "isconst": self.isconst}
+        if self.bounds.isStatic():
+            children = (self.array, self.wcs)
+            aux_data = {
+                "dtype": self.dtype,
+                "bounds": self.bounds,
+                "isconst": self.isconst,
+            }
+        else:
+            children = (self.array, self.wcs, self.bounds)
+            aux_data = {"dtype": self.dtype, "isconst": self.isconst}
         # other routines may add these attributes to images on the fly
         # we have to include them here so that JAX knows how to handle them in jitting etc.
         if hasattr(self, "added_flux"):
@@ -1080,15 +1179,26 @@ class Image(object):
         obj = object.__new__(cls)
         obj._array = children[0]
         obj.wcs = children[1]
-        obj._bounds = aux_data["bounds"]
-        obj._dtype = aux_data["dtype"]
-        obj._is_const = aux_data["isconst"]
-        if len(children) > 2:
-            obj.added_flux = children[2]
-        if "header" in aux_data:
-            obj.header = aux_data["header"]
-        if len(children) > 3:
-            obj.photons = children[3]
+        if "bounds" in aux_data:
+            obj._bounds = aux_data["bounds"]
+            obj._dtype = aux_data["dtype"]
+            obj._is_const = aux_data["isconst"]
+            if len(children) > 2:
+                obj.added_flux = children[2]
+            if "header" in aux_data:
+                obj.header = aux_data["header"]
+            if len(children) > 3:
+                obj.photons = children[3]
+        else:
+            obj._bounds = children[2]
+            obj._dtype = aux_data["dtype"]
+            obj._is_const = aux_data["isconst"]
+            if len(children) > 3:
+                obj.added_flux = children[3]
+            if "header" in aux_data:
+                obj.header = aux_data["header"]
+            if len(children) > 4:
+                obj.photons = children[4]
         return obj
 
     @classmethod
@@ -1100,7 +1210,7 @@ class Image(object):
             else None
         )
         im = cls(
-            array=galsim_image.array,
+            array=jnp.asarray(galsim_image.array),
             wcs=wcs,
             bounds=Bounds.from_galsim(galsim_image.bounds),
         )
@@ -1269,9 +1379,9 @@ def Image_iadd(self, other):
         a = other
         dt = type(a)
     if dt == self.array.dtype:
-        self._array = self.array + a
+        self._array = self.array.at[...].add(a)
     else:
-        self._array = (self.array + a).astype(self.array.dtype)
+        self._array = self.array.at[...].set((self.array + a).astype(self.array.dtype))
     return self
 
 
@@ -1297,9 +1407,9 @@ def Image_isub(self, other):
         a = other
         dt = type(a)
     if dt == self.array.dtype:
-        self._array = self.array - a
+        self._array = self.array.at[...].subtract(a)
     else:
-        self._array = (self.array - a).astype(self.array.dtype)
+        self._array = self.array.at[...].set((self.array - a).astype(self.array.dtype))
     return self
 
 
@@ -1321,9 +1431,9 @@ def Image_imul(self, other):
         a = other
         dt = type(a)
     if dt == self.array.dtype:
-        self._array = self.array * a
+        self._array = self.array.at[...].multiply(a)
     else:
-        self._array = (self.array * a).astype(self.array.dtype)
+        self._array = self.array.at[...].set((self.array * a).astype(self.array.dtype))
     return self
 
 
@@ -1351,9 +1461,9 @@ def Image_idiv(self, other):
     if dt == self.array.dtype and not self.isinteger:
         # if dtype is an integer type, then numpy doesn't allow true division /= to assign
         # back to an integer array.  So for integers (or mixed types), don't use /=.
-        self._array = self.array / a
+        self._array = self.array.at[...].divide(a)
     else:
-        self._array = (self.array / a).astype(self.array.dtype)
+        self._array = self.array.at[...].set((self.array / a).astype(self.array.dtype))
     return self
 
 
@@ -1380,9 +1490,9 @@ def Image_ifloordiv(self, other):
         a = other
         dt = type(a)
     if dt == self.array.dtype:
-        self._array = self.array // a
+        self._array = self.array.at[...].set(self.array // a)
     else:
-        self._array = (self.array // a).astype(self.array.dtype)
+        self._array = self.array.at[...].set((self.array // a).astype(self.array.dtype))
     return self
 
 
@@ -1409,9 +1519,9 @@ def Image_imod(self, other):
         a = other
         dt = type(a)
     if dt == self.array.dtype:
-        self._array = self.array % a
+        self._array = self.array.at[...].set(self.array % a)
     else:
-        self._array = (self.array % a).astype(self.array.dtype)
+        self._array = self.array.at[...].set((self.array % a).astype(self.array.dtype))
     return self
 
 
@@ -1422,7 +1532,7 @@ def Image_pow(self, other):
 def Image_ipow(self, other):
     if not isinstance(other, int) and not isinstance(other, float):
         raise TypeError("Can only raise an image to a float or int power!")
-    self._array = self.array**other
+    self._array = self.array.at[...].power(other)
     return self
 
 
@@ -1448,7 +1558,7 @@ def Image_iand(self, other):
         a = other.array
     except AttributeError:
         a = other
-    self._array = self.array & a
+    self._array = self.array.at[...].set(self.array & a)
     return self
 
 
@@ -1467,7 +1577,7 @@ def Image_ixor(self, other):
         a = other.array
     except AttributeError:
         a = other
-    self._array = self.array ^ a
+    self._array = self.array.at[...].set(self.array ^ a)
     return self
 
 
@@ -1486,7 +1596,7 @@ def Image_ior(self, other):
         a = other.array
     except AttributeError:
         a = other
-    self._array = self.array | a
+    self._array = self.array.at[...].set(self.array | a)
     return self
 
 

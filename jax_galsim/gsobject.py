@@ -380,7 +380,7 @@ class GSObject:
                 N = self.getGoodImageSize(1.0)
                 if odd:
                     N += 1
-                bounds = BoundsI(1, N, 1, N)
+                bounds = BoundsI(xmin=1, deltax=N, ymin=1, deltay=N)
                 image.resize(bounds)
             # Else use the given image as is
 
@@ -486,7 +486,7 @@ class GSObject:
         if image is not None and image.bounds.isDefined():
             return image.bounds
         elif nx is not None and ny is not None:
-            b = BoundsI(1, nx, 1, ny)
+            b = BoundsI(xmin=1, deltax=nx, ymin=1, deltay=ny)
             if center is not None:
                 # this code has to match the code in _setup_image
                 # for the same branch of the if statement block
@@ -853,7 +853,14 @@ The JAX-GalSim version of `drawImage`
             image_N = jnp.max(
                 jnp.array(
                     [
-                        jnp.max(jnp.abs(jnp.array(image.bounds._getinitargs()))) * 2,
+                        jnp.max(
+                            jnp.abs(
+                                jnp.array(
+                                    [image.xmin, image.xmax, image.ymin, image.ymax]
+                                )
+                            )
+                        )
+                        * 2,
                         jnp.max(jnp.array(image.bounds.numpyShape())),
                     ]
                 )
@@ -880,7 +887,9 @@ The JAX-GalSim version of `drawImage`
                     "drawFFT requires an FFT that is too large.", Nk
                 )
 
-        bounds = BoundsI(0, Nk // 2, -Nk // 2, Nk // 2)
+        bounds = BoundsI(
+            xmin=0, deltax=Nk // 2 + 1, ymin=-Nk // 2, deltay=2 * (Nk // 2) + 1
+        )
         if image.dtype in (np.complex128, np.float64, np.int32, np.uint32):
             kimage = ImageCD(bounds=bounds, scale=dk)
         else:
@@ -895,12 +904,20 @@ The JAX-GalSim version of `drawImage`
         # Wrap the full image to the size we want for the FT.
         # Even if N == Nk, this is useful to make this portion properly Hermitian in the
         # N/2 column and N/2 row.
-        bwrap = BoundsI(0, wrap_size // 2, -wrap_size // 2, wrap_size // 2 - 1)
-        kimage_wrap = kimage._wrap(bwrap, True, False)
+        bwrap = BoundsI(
+            xmin=0,
+            deltax=wrap_size // 2 + 1,
+            ymin=-wrap_size // 2,
+            deltay=2 * (wrap_size // 2),
+        )
+        kimage_wrap = kimage._wrap(bwrap, True, False, wrap_size)
 
         # Perform the fourier transform.
         breal = BoundsI(
-            -wrap_size // 2, wrap_size // 2 - 1, -wrap_size // 2, wrap_size // 2 - 1
+            xmin=-wrap_size // 2,
+            deltax=2 * (wrap_size // 2),
+            ymin=-wrap_size // 2,
+            deltay=2 * (wrap_size // 2),
         )
         kimg_shift = jnp.fft.ifftshift(kimage_wrap.array, axes=(-2,))
         real_image_arr = jnp.fft.fftshift(

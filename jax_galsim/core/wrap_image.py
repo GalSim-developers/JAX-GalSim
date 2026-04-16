@@ -55,7 +55,7 @@ def _block_reduce_loop(sim, nx, ny, nxwrap, nywrap):
     return fim
 
 
-@partial(jax.jit, static_argnames=("xmin", "ymin", "nxwrap", "nywrap"))
+@partial(jax.jit, static_argnames=("nxwrap", "nywrap"))
 def wrap_nonhermitian(im, xmin, ymin, nxwrap, nywrap):
     # these bits compute how many total blocks we need to cover the image
     nx = im.shape[1] // nxwrap
@@ -81,7 +81,11 @@ def wrap_nonhermitian(im, xmin, ymin, nxwrap, nywrap):
     else:
         fim = _block_reduce_loop(sim, nx, ny, nxwrap, nywrap)
 
-    im = im.at[ymin : ymin + nywrap, xmin : xmin + nxwrap].set(fim)
+    im = jax.lax.dynamic_update_slice(
+        im,
+        fim,
+        (ymin, xmin),
+    )
     return im
 
 
@@ -98,10 +102,6 @@ def contract_hermitian_x(im):
 @partial(
     jax.jit,
     static_argnames=[
-        "im_xmin",
-        "im_ymin",
-        "wrap_xmin",
-        "wrap_ymin",
         "wrap_nx",
         "wrap_ny",
     ],
@@ -127,10 +127,6 @@ def contract_hermitian_y(im):
 @partial(
     jax.jit,
     static_argnames=[
-        "im_xmin",
-        "im_ymin",
-        "wrap_xmin",
-        "wrap_ymin",
         "wrap_nx",
         "wrap_ny",
     ],
