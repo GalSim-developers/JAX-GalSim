@@ -256,8 +256,8 @@ class PhotonArray:
         ret._is_corr = children[1]["is_corr"]
         return ret
 
+    @implements(_galsim.PhotonArray.size)
     def size(self):
-        """Return the size of the photon array.  Equivalent to ``len(self)``."""
         return self._Ntot
 
     def __len__(self):
