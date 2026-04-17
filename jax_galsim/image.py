@@ -233,7 +233,7 @@ class Image(object):
                 # e.g. im = ImageF(...)
                 #      im2 = ImageD(im)
                 self._dtype = dtype
-            self._array = self._array.at[...].set(image.array.astype(self._dtype))
+            self._array = image.array.astype(self._dtype)
         else:
             self._array = jnp.zeros(shape=(1, 1), dtype=self._dtype)
             self._bounds = BoundsI()
@@ -832,9 +832,9 @@ class Image(object):
             kimage = Image(full_bounds, dtype=self.dtype, init_value=0)
             posx_bounds = BoundsI(
                 xmin=0,
-                xmax=self.bounds.xmax,
+                deltax=self.bounds.deltax,
                 ymin=self.bounds.ymin,
-                ymax=self.bounds.ymax,
+                deltay=self.bounds.deltay,
             )
             kimage[posx_bounds] = self[posx_bounds]
             kimage = kimage._wrap(target_bounds, True, False, 2 * No2)
@@ -843,19 +843,21 @@ class Image(object):
         # dx = 2pi / (N dk)
         dx = jnp.pi / (No2 * dk)
 
-        # For the inverse, we need a bit of extra space for the fft.
-        out_extra = Image(
-            BoundsI(xmin=-No2, deltax=2 * No2 + 2, ymin=-No2, deltay=2 * No2),
+        # In GalSim, they use inplace FFTW transforms which require the
+        # array that holds the input/output to have extra padding on the
+        # x dimension.
+        # jax-galsim does not need the padding since it does not use an
+        # inplace FFT. Thus we do not use the
+        # padding.
+
+        out = Image(
+            BoundsI(xmin=-No2, deltax=2 * No2, ymin=-No2, deltay=2 * No2),
             dtype=float,
             scale=dx,
         )
         # we shift the image before and after the FFT to match the layout used by galsim
-        out_extra._array = out_extra._array.at[...].set(
+        out._array = out._array.at[...].set(
             jnp.fft.fftshift(jnp.fft.irfft2(jnp.fft.fftshift(kimage.array, axes=0)))
-        )
-        # Now cut off the bit we don't need.
-        out = out_extra.subImage(
-            BoundsI(xmin=-No2, deltax=2 * No2, ymin=-No2, deltay=2 * No2)
         )
         out *= (dk * No2 / jnp.pi) ** 2
         out.setCenter(0, 0)
