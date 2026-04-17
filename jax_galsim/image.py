@@ -851,15 +851,15 @@ class Image(object):
         # padding.
 
         out = Image(
-            BoundsI(xmin=-No2, deltax=2 * No2, ymin=-No2, deltay=2 * No2),
+            bounds=BoundsI(xmin=-No2, deltax=2 * No2, ymin=-No2, deltay=2 * No2),
             dtype=float,
             scale=dx,
+            # we shift the image before and after the FFT to match the layout used by galsim
+            array=jnp.fft.fftshift(
+                jnp.fft.irfft2(jnp.fft.fftshift(kimage.array, axes=0))
+            )
+            * (dk * No2 / jnp.pi) ** 2,
         )
-        # we shift the image before and after the FFT to match the layout used by galsim
-        out._array = out._array.at[...].set(
-            jnp.fft.fftshift(jnp.fft.irfft2(jnp.fft.fftshift(kimage.array, axes=0)))
-        )
-        out *= (dk * No2 / jnp.pi) ** 2
         out.setCenter(0, 0)
         return out
 
