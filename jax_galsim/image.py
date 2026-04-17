@@ -191,16 +191,16 @@ class Image(object):
             else:
                 self._bounds = BoundsI(xmin=xmin, deltax=ncol, ymin=ymin, deltay=nrow)
             if init_value:
-                self._array = self._array + init_value
+                self._array = self._array.at[...].add(init_value)
         elif bounds is not None:
             if not isinstance(bounds, BoundsI):
                 raise TypeError("bounds must be a galsim.BoundsI instance")
             self._array = self._make_empty(bounds.numpyShape(), dtype=self._dtype)
             self._bounds = bounds
             if init_value:
-                self._array = self._array + init_value
+                self._array = self._array.at[...].add(init_value)
         elif array is not None:
-            self._array = array.view(dtype=self._dtype)
+            self._array = self._array.at[...].set(array.view(dtype=self._dtype))
             nrow, ncol = array.shape
             if not has_tracers(xmin) and not has_tracers(ymin):
                 self._bounds = BoundsI(
@@ -233,7 +233,7 @@ class Image(object):
                 # e.g. im = ImageF(...)
                 #      im2 = ImageD(im)
                 self._dtype = dtype
-            self._array = image.array.astype(self._dtype)
+            self._array = self._array.at[...].set(image.array.astype(self._dtype))
         else:
             self._array = jnp.zeros(shape=(1, 1), dtype=self._dtype)
             self._bounds = BoundsI()
@@ -356,6 +356,12 @@ class Image(object):
     @implements(_galsim.Image.array)
     def array(self):
         return self._array
+
+    @array.setter
+    def array(self, other):
+        self._array = self._array.at[...].set(
+            _safe_cast(other, self.isinteger, self.array.dtype)
+        )
 
     @property
     @implements(_galsim.Image.nrow)
@@ -688,37 +694,43 @@ class Image(object):
         if not hermx and not hermy:
             from jax_galsim.core.wrap_image import wrap_nonhermitian
 
-            self._array = wrap_nonhermitian(
-                self._array,
-                # zero indexed location of subimage
-                bounds.xmin - self.xmin,
-                bounds.ymin - self.ymin,
-                bounds.deltax,
-                bounds.deltay,
+            self._array = self._array.at[...].set(
+                wrap_nonhermitian(
+                    self._array,
+                    # zero indexed location of subimage
+                    bounds.xmin - self.xmin,
+                    bounds.ymin - self.ymin,
+                    bounds.deltax,
+                    bounds.deltay,
+                )
             )
         elif hermx and not hermy:
             from jax_galsim.core.wrap_image import wrap_hermitian_x
 
-            self._array = wrap_hermitian_x(
-                self._array,
-                -self.xmax,
-                self.ymin,
-                -bounds.xmax + 1,
-                bounds.ymin,
-                hermitian_wrap_size,
-                bounds.deltay,
+            self._array = self._array.at[...].set(
+                wrap_hermitian_x(
+                    self._array,
+                    -self.xmax,
+                    self.ymin,
+                    -bounds.xmax + 1,
+                    bounds.ymin,
+                    hermitian_wrap_size,
+                    bounds.deltay,
+                )
             )
         elif not hermx and hermy:
             from jax_galsim.core.wrap_image import wrap_hermitian_y
 
-            self._array = wrap_hermitian_y(
-                self._array,
-                self.xmin,
-                -self.ymax,
-                bounds.xmin,
-                -bounds.ymax + 1,
-                bounds.deltax,
-                hermitian_wrap_size,
+            self._array = self._array.at[...].set(
+                wrap_hermitian_y(
+                    self._array,
+                    self.xmin,
+                    -self.ymax,
+                    bounds.xmin,
+                    -bounds.ymax + 1,
+                    bounds.deltax,
+                    hermitian_wrap_size,
+                )
             )
 
         return self.subImage(bounds)
@@ -776,8 +788,8 @@ class Image(object):
         )
         # we shift the image before and after the FFT to match the layout of the modes
         # used by GalSim
-        out._array = jnp.fft.fftshift(
-            jnp.fft.rfft2(jnp.fft.fftshift(ximage.array)), axes=0
+        out._array = out._array.at[...].set(
+            jnp.fft.fftshift(jnp.fft.rfft2(jnp.fft.fftshift(ximage.array)), axes=0)
         )
 
         out *= dx * dx
@@ -838,8 +850,8 @@ class Image(object):
             scale=dx,
         )
         # we shift the image before and after the FFT to match the layout used by galsim
-        out_extra._array = jnp.fft.fftshift(
-            jnp.fft.irfft2(jnp.fft.fftshift(kimage.array, axes=0))
+        out_extra._array = out_extra._array.at[...].set(
+            jnp.fft.fftshift(jnp.fft.irfft2(jnp.fft.fftshift(kimage.array, axes=0)))
         )
         # Now cut off the bit we don't need.
         out = out_extra.subImage(
@@ -879,7 +891,13 @@ class Image(object):
                 self_image=self,
                 rhs=rhs,
             )
-        self._array = rhs._array
+        self._copyFrom(rhs)
+
+    def _copyFrom(self, rhs):
+        """Same as copyFrom, but no sanity checks."""
+        self._array = self._array.at[...].set(
+            _safe_cast(rhs._array, self.isinteger, self.array.dtype)
+        )
 
     @implements(
         _galsim.Image.view,
@@ -1055,7 +1073,7 @@ class Image(object):
 
     @implements(_galsim.Image._fill)
     def _fill(self, value):
-        self._array = jnp.zeros_like(self._array) + value
+        self._array = self._array.at[...].set(value)
 
     @implements(_galsim.Image.setZero)
     def setZero(self):
@@ -1075,9 +1093,15 @@ class Image(object):
 
     @implements(_galsim.Image._invertSelf)
     def _invertSelf(self):
-        array = 1.0 / self._array
-        array = array.at[jnp.isinf(array)].set(0.0)
-        self._array = array.astype(self._array.dtype)
+        msk = self._array == 0
+        safe_array = jnp.where(
+            msk,
+            1.0,
+            self._array,
+        )
+        self._array = self._array.at[...].set(
+            (jnp.where(msk, 0.0, 1.0 / safe_array)).astype(self._array.dtype)
+        )
 
     @implements(_galsim.Image.replaceNegative)
     def replaceNegative(self, replace_value=0):
@@ -1348,6 +1372,18 @@ def ImageCD(*args, **kwargs):
 #
 
 
+def _safe_cast(array, target_isinteger, target_dtype):
+    # code snippet pulled from upstream GalSim and turned into a general purpose
+    # function
+    #
+    # Assign the given array to self.array, safely casting it to the required type.
+    # Most important is to make sure integer types round first before casting, since
+    # numpy's astype doesn't do any rounding.
+    if target_isinteger:
+        array = jnp.around(array)
+    return array.astype(target_dtype)
+
+
 # Define a utility function to be used by the arithmetic functions below
 def check_image_consistency(im1, im2, integer=False):
     if integer and not im1.isinteger:
@@ -1381,7 +1417,9 @@ def Image_iadd(self, other):
     if dt == self.array.dtype:
         self._array = self.array.at[...].add(a)
     else:
-        self._array = self.array.at[...].set((self.array + a).astype(self.array.dtype))
+        self._array = self.array.at[...].set(
+            _safe_cast(self.array + a, self.isinteger, self.array.dtype)
+        )
     return self
 
 
@@ -1409,7 +1447,9 @@ def Image_isub(self, other):
     if dt == self.array.dtype:
         self._array = self.array.at[...].subtract(a)
     else:
-        self._array = self.array.at[...].set((self.array - a).astype(self.array.dtype))
+        self._array = self.array.at[...].set(
+            _safe_cast(self.array - a, self.isinteger, self.array.dtype)
+        )
     return self
 
 
@@ -1433,7 +1473,9 @@ def Image_imul(self, other):
     if dt == self.array.dtype:
         self._array = self.array.at[...].multiply(a)
     else:
-        self._array = self.array.at[...].set((self.array * a).astype(self.array.dtype))
+        self._array = self.array.at[...].set(
+            _safe_cast(self.array * a, self.isinteger, self.array.dtype)
+        )
     return self
 
 
@@ -1463,7 +1505,9 @@ def Image_idiv(self, other):
         # back to an integer array.  So for integers (or mixed types), don't use /=.
         self._array = self.array.at[...].divide(a)
     else:
-        self._array = self.array.at[...].set((self.array / a).astype(self.array.dtype))
+        self._array = self.array.at[...].set(
+            _safe_cast(self.array / a, self.isinteger, self.array.dtype)
+        )
     return self
 
 
@@ -1492,7 +1536,9 @@ def Image_ifloordiv(self, other):
     if dt == self.array.dtype:
         self._array = self.array.at[...].set(self.array // a)
     else:
-        self._array = self.array.at[...].set((self.array // a).astype(self.array.dtype))
+        self._array = self.array.at[...].set(
+            _safe_cast(self.array // a, self.isinteger, self.array.dtype)
+        )
     return self
 
 
@@ -1521,7 +1567,9 @@ def Image_imod(self, other):
     if dt == self.array.dtype:
         self._array = self.array.at[...].set(self.array % a)
     else:
-        self._array = self.array.at[...].set((self.array % a).astype(self.array.dtype))
+        self._array = self.array.at[...].set(
+            _safe_cast(self.array % a, self.isinteger, self.array.dtype)
+        )
     return self
 
 
@@ -1532,7 +1580,13 @@ def Image_pow(self, other):
 def Image_ipow(self, other):
     if not isinstance(other, int) and not isinstance(other, float):
         raise TypeError("Can only raise an image to a float or int power!")
-    self._array = self.array.at[...].power(other)
+
+    if not self.isinteger or isinstance(other, int):
+        self._array = self.array.at[...].power(other)
+    else:
+        self._array = self.array.at[...].set(
+            _safe_cast(self.array**other, self.isinteger, self.array.dtype)
+        )
     return self
 
 

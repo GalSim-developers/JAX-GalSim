@@ -809,7 +809,7 @@ The JAX-GalSim version of `drawImage`
         im1 = self._drawReal(image)
         temp = im1.subImage(image.bounds)
         if add_to_image:
-            image._array = image._array + temp._array
+            image._array = image._array.at[...].add(temp._array)
         else:
             image._array = temp._array
 
@@ -929,7 +929,7 @@ The JAX-GalSim version of `drawImage`
         # Add (a portion of) this to the original image.
         temp = real_image.subImage(image.bounds)
         if add_to_image:
-            image._array = image._array + temp._array
+            image._array = image._array.at[...].add(temp._array)
         else:
             image._array = temp._array
 
@@ -1043,7 +1043,7 @@ The JAX-GalSim version of `drawImage`
         if not add_to_image:
             image._array = im2._array
         else:
-            image._array = im2._array + image._array
+            image._array = image._array.at[...].add(im2._array)
 
         image_in._array = image._array
         image_in._bounds = image._bounds

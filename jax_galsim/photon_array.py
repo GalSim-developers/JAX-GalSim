@@ -863,7 +863,7 @@ class PhotonArray:
             image.bounds.ymin,
             image._array,
         )
-        image._array = _arr
+        image._array = image.array.at[...].set(_arr)
 
         return _flux_sum
 
