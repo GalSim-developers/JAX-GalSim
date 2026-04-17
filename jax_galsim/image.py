@@ -200,7 +200,7 @@ class Image(object):
             if init_value:
                 self._array = self._array.at[...].add(init_value)
         elif array is not None:
-            self._array = self._array.at[...].set(array.view(dtype=self._dtype))
+            self._array = array.view(dtype=self._dtype)
             nrow, ncol = array.shape
             if not has_tracers(xmin) and not has_tracers(ymin):
                 self._bounds = BoundsI(
