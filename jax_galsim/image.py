@@ -832,9 +832,9 @@ class Image(object):
             kimage = Image(full_bounds, dtype=self.dtype, init_value=0)
             posx_bounds = BoundsI(
                 xmin=0,
-                deltax=self.bounds.deltax,
+                xmax=self.bounds.xmax,
                 ymin=self.bounds.ymin,
-                deltay=self.bounds.deltay,
+                ymax=self.bounds.ymax,
             )
             kimage[posx_bounds] = self[posx_bounds]
             kimage = kimage._wrap(target_bounds, True, False, 2 * No2)
