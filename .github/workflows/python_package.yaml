@@ -75,10 +75,17 @@ jobs:
             --retries 1
 
       - name: Test with pytest in float32
-        if: ${{ matrix.group == '1' }}
         run: |
           pytest \
             -vv \
+            --durations=100 \
+            --randomly-seed=42 \
+            --splits ${NUM_SPLITS} --group ${{ matrix.group }} \
+            --store-durations \
+            --durations-path=.test_durations.${{ matrix.group }} \
+            --splitting-algorithm least_duration \
+            --clean-durations \
+            --retries 1 \
             --test-in-float32
 
       - name: Upload test durations
