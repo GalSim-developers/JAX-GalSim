@@ -144,7 +144,7 @@ def unweighted_shape(arg):
 @functools.partial(jax.jit, static_argnames=("dtype",))
 def horner(x, coef, dtype=None):
     x = jnp.array(x)
-    coef = jnp.atleast_1d(coef)
+    coef = jnp.atleast_1d(jnp.asarray(coef))
     if dtype is None:
         res_dtype = jnp.result_type(x, coef)
     else:
@@ -172,7 +172,7 @@ def horner(x, coef, dtype=None):
 def horner2d(x, y, coefs, dtype=None, triangle=False):
     x = jnp.array(x)
     y = jnp.array(y)
-    coefs = jnp.atleast_1d(coefs)
+    coefs = jnp.atleast_1d(jnp.asarray(coefs))
     if dtype is None:
         res_dtype = jnp.result_type(x, coefs)
     else:

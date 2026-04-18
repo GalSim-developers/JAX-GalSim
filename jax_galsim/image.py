@@ -315,7 +315,7 @@ class Image(object):
     def __repr__(self):
         s = "galsim.Image(bounds=%r" % self.bounds
         if self.bounds.isDefined():
-            s += ", array=\n%r" % np.array(self.array)
+            s += ", array=\n%r" % (ensure_hashable(np.array(self.array)),)
         s += ", wcs=%r" % self.wcs
         if self.isconst:
             s += ", make_const=True"
@@ -943,7 +943,8 @@ class Image(object):
         if dtype != self.array.dtype:
             array = self.array.astype(dtype)
         elif contiguous:
-            array = np.ascontiguousarray(self.array)
+            # this is a noop since all jax arrays are contiguous
+            pass
         else:
             array = self.array
 
