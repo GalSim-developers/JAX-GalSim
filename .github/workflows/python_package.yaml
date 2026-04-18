@@ -61,6 +61,17 @@ jobs:
             cat .test_durations*
           fi
 
+      - name: Test with pytest in float32
+        run: |
+          pytest \
+            -vv \
+            --durations=100 \
+            --randomly-seed=42 \
+            --splits ${NUM_SPLITS} --group ${{ matrix.group }} \
+            --splitting-algorithm least_duration \
+            --retries 1 \
+            --test-in-float32
+
       - name: Test with pytest
         run: |
           pytest \
@@ -73,20 +84,6 @@ jobs:
             --splitting-algorithm least_duration \
             --clean-durations \
             --retries 1
-
-      - name: Test with pytest in float32
-        run: |
-          pytest \
-            -vv \
-            --durations=100 \
-            --randomly-seed=42 \
-            --splits ${NUM_SPLITS} --group ${{ matrix.group }} \
-            --store-durations \
-            --durations-path=.test_durations.${{ matrix.group }} \
-            --splitting-algorithm least_duration \
-            --clean-durations \
-            --retries 1 \
-            --test-in-float32
 
       - name: Upload test durations
         uses: actions/upload-artifact@v7
