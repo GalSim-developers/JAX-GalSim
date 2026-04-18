@@ -5,7 +5,12 @@ import numpy as np
 from jax.tree_util import register_pytree_node_class
 
 from jax_galsim.bounds import Bounds, BoundsD, BoundsI
-from jax_galsim.core.utils import ensure_hashable, has_tracers, implements
+from jax_galsim.core.utils import (
+    cast_numpy_array_to_native_byte_order,
+    ensure_hashable,
+    has_tracers,
+    implements,
+)
 from jax_galsim.errors import GalSimImmutableError
 from jax_galsim.position import PositionI
 from jax_galsim.utilities import parse_pos_args
@@ -75,7 +80,7 @@ class Image(object):
             ymin = kwargs.pop("ymin", 1)
         elif len(args) == 1:
             if isinstance(args[0], np.ndarray):
-                array = jnp.array(args[0])
+                array = jnp.array(cast_numpy_array_to_native_byte_order(args[0]))
                 array, xmin, ymin = self._get_xmin_ymin(
                     array, kwargs, check_bounds=_check_bounds
                 )
@@ -1237,7 +1242,9 @@ class Image(object):
             else None
         )
         im = cls(
-            array=jnp.asarray(galsim_image.array),
+            array=jnp.asarray(
+                cast_numpy_array_to_native_byte_order(galsim_image.array)
+            ),
             wcs=wcs,
             bounds=Bounds.from_galsim(galsim_image.bounds),
         )
