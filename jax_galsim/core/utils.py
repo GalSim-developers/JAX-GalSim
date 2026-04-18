@@ -17,7 +17,7 @@ def cast_numpy_array_to_native_byte_order(arr):
     if arr.dtype.isnative:
         return arr
 
-    return arr.astype(arr.dtype.newbyteorder('='))
+    return arr.astype(arr.dtype.newbyteorder("="))
 
 
 def has_tracers(x):
