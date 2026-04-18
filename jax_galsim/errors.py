@@ -5,6 +5,7 @@ from galsim.errors import (  # noqa: F401
     GalSimDeprecationWarning,
     GalSimError,
     GalSimFFTSizeError,
+    GalSimFFTSizeWarning,
     GalSimHSMError,
     GalSimImmutableError,
     GalSimIncompatibleValuesError,

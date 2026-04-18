@@ -9,6 +9,17 @@ import numpy as np
 from jax.tree_util import tree_flatten
 
 
+def cast_numpy_array_to_native_byte_order(arr):
+    """Cast an array to native byte order."""
+    if not isinstance(arr, np.ndarray):
+        return arr
+
+    if arr.dtype.isnative:
+        return arr
+
+    return arr.astype(arr.dtype.newbyteorder("="))
+
+
 def has_tracers(x):
     """Return True if the input item is a JAX tracer or object, False otherwise."""
     for item in tree_flatten(x)[0]:
@@ -296,7 +307,7 @@ class ParsedDoc(NamedTuple):
     sections: dict[str, str] = {}
 
 
-def _break_off_body_section_by_newline(body):
+def _break_off_body_section_by_newline(body, double_check_first_indent=False):
     first_lines = []
     body_lines = []
     found_first_break = False
@@ -314,7 +325,14 @@ def _break_off_body_section_by_newline(body):
         else:
             first_lines.append(line)
 
+    if double_check_first_indent and len(first_lines) > 1:
+        len_first_indent = len(first_lines[1]) - len(first_lines[1].lstrip())
+        if len_first_indent > 0:
+            first_indent = first_lines[1][:len_first_indent]
+            first_lines[0] = first_indent + first_lines[0].lstrip()
+
     firstline = "\n".join(first_lines)
+    firstline = textwrap.dedent(firstline)
     body = "\n".join(body_lines)
     body = textwrap.dedent(body.lstrip("\n"))
 
@@ -337,7 +355,9 @@ def _parse_galsimdoc(docstr):
 
     signature, body = "", docstr
 
-    firstline, body = _break_off_body_section_by_newline(body)
+    firstline, body = _break_off_body_section_by_newline(
+        body, double_check_first_indent=True
+    )
 
     summary = firstline
     if not summary:

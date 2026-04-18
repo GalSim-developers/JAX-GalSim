@@ -486,10 +486,12 @@ class Deconvolution(GSObject):
 
     def _drawKImage(self, image, jac=None):
         image = self.orig_obj._drawKImage(image, jac)
-        image._array = jnp.where(
-            jnp.abs(image.array) > self._min_acc_kvalue,
-            1.0 / image.array,
-            self._inv_min_acc_kvalue,
+        image._array = image._array.at[...].set(
+            jnp.where(
+                jnp.abs(image.array) > self._min_acc_kvalue,
+                1.0 / image.array,
+                self._inv_min_acc_kvalue,
+            )
         )
         kx, ky = image.get_pixel_centers()
         _jac = jnp.eye(2) if jac is None else jac
@@ -500,10 +502,12 @@ class Deconvolution(GSObject):
         )
         ksq = (kx**2 + ky**2) * image.scale**2
         # Set to zero outside of nominal maxk so as not to amplify high frequencies.
-        image._array = jnp.where(
-            ksq > self.maxk**2,
-            0.0,
-            image.array,
+        image._array = image._array.at[...].set(
+            jnp.where(
+                ksq > self.maxk**2,
+                0.0,
+                image.array,
+            )
         )
         return image
 
