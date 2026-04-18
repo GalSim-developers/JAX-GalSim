@@ -9,6 +9,17 @@ import numpy as np
 from jax.tree_util import tree_flatten
 
 
+def cast_numpy_array_to_native_byte_order(arr):
+    """Cast an array to native byte order."""
+    if not isinstance(arr, np.ndarray):
+        return arr
+
+    if arr.dtype.isnative:
+        return arr
+
+    return arr.byteswap().view(arr.dtype.newbyteorder("="))
+
+
 def has_tracers(x):
     """Return True if the input item is a JAX tracer or object, False otherwise."""
     for item in tree_flatten(x)[0]:

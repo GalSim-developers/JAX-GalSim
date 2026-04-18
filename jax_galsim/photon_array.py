@@ -6,7 +6,11 @@ import jax.numpy as jnp
 import jax.random as jrng
 from jax.tree_util import register_pytree_node_class
 
-from jax_galsim.core.utils import cast_to_python_int, implements
+from jax_galsim.core.utils import (
+    cast_numpy_array_to_native_byte_order,
+    cast_to_python_int,
+    implements,
+)
 from jax_galsim.errors import (
     GalSimIncompatibleValuesError,
     GalSimRangeError,
@@ -952,21 +956,35 @@ class PhotonArray:
 
         photons = cls(
             N,
-            x=jnp.array(data["x"]),
-            y=jnp.array(data["y"]),
-            flux=jnp.array(data["flux"]),
+            x=jnp.array(cast_numpy_array_to_native_byte_order(data["x"])),
+            y=jnp.array(cast_numpy_array_to_native_byte_order(data["y"])),
+            flux=jnp.array(cast_numpy_array_to_native_byte_order(data["flux"])),
         )
-        photons._nokeep = jnp.array(data["_nokeep"])
+        photons._nokeep = jnp.array(
+            cast_numpy_array_to_native_byte_order(data["_nokeep"])
+        )
         if "dxdz" in names:
-            photons.dxdz = jnp.array(data["dxdz"])
-            photons.dydz = jnp.array(data["dydz"])
+            photons.dxdz = jnp.array(
+                cast_numpy_array_to_native_byte_order(data["dxdz"])
+            )
+            photons.dydz = jnp.array(
+                cast_numpy_array_to_native_byte_order(data["dydz"])
+            )
         if "wavelength" in names:
-            photons.wavelength = jnp.array(data["wavelength"])
+            photons.wavelength = jnp.array(
+                cast_numpy_array_to_native_byte_order(data["wavelength"])
+            )
         if "pupil_u" in names:
-            photons.pupil_u = jnp.array(data["pupil_u"])
-            photons.pupil_v = jnp.array(data["pupil_v"])
+            photons.pupil_u = jnp.array(
+                cast_numpy_array_to_native_byte_order(data["pupil_u"])
+            )
+            photons.pupil_v = jnp.array(
+                cast_numpy_array_to_native_byte_order(data["pupil_v"])
+            )
         if "time" in names:
-            photons.time = jnp.array(data["time"])
+            photons.time = jnp.array(
+                cast_numpy_array_to_native_byte_order(data["time"])
+            )
         return photons
 
 
