@@ -516,7 +516,7 @@ class EuclideanWCS(BaseWCS):
         dvdy = 0.5 * (v[2:ny, 1 : nx - 1] - v[0 : ny - 2, 1 : nx - 1])
 
         area = jnp.abs(dudx * dvdy - dvdx * dudy)
-        image._array = (area * sky_level).astype(image.dtype)
+        image._array = image._array.at[...].set((area * sky_level).astype(image.dtype))
 
     # Each class should define the __eq__ function.  Then __ne__ is obvious.
     def __ne__(self, other):
@@ -750,7 +750,9 @@ class CelestialWCS(BaseWCS):
 
         area = jnp.abs(dudx * dvdy - dvdx * dudy)
         factor = radians / arcsec
-        image._array = area * sky_level * factor**2
+        image._array = image._array.at[...].set(
+            (area * sky_level * factor**2).astype(image.dtype)
+        )
 
     # Simple.  Just call _radec.
     def _posToWorld(self, image_pos, color, project_center=None, projection="gnomonic"):

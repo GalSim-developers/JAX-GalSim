@@ -142,8 +142,8 @@ class GaussianNoise(BaseNoise):
         return self._sigma
 
     def _applyTo(self, image):
-        image._array = (image._array + self._rng.generate(image._array)).astype(
-            image.dtype
+        image._array = image._array.at[...].add(
+            self._rng.generate(image._array).astype(image.dtype)
         )
 
     def _getVariance(self):
@@ -231,14 +231,15 @@ class PoissonNoise(BaseNoise):
             frac_sky,
         )
         # Noise array is now the correct value for each pixel.
-        image._array = noise_array.astype(image.dtype)
-        image._array = jax.lax.cond(
-            int_sky != 0.0,
-            lambda na, ints: (na - ints).astype(float),
-            lambda na, ints: na.astype(float),
-            image._array,
-            int_sky,
-        ).astype(image.dtype)
+        image._array = image._array.at[...].set(
+            jax.lax.cond(
+                int_sky != 0.0,
+                lambda na, ints: (na - ints).astype(float),
+                lambda na, ints: na.astype(float),
+                noise_array.astype(image.dtype),
+                int_sky,
+            ).astype(image.dtype)
+        )
 
     def _getVariance(self):
         return self.sky_level
@@ -362,14 +363,15 @@ class CCDNoise(BaseNoise):
             frac_sky,
         )
         # Noise array is now the correct value for each pixel.
-        image._array = noise_array.astype(image.dtype)
-        image._array = jax.lax.cond(
-            int_sky != 0.0,
-            lambda na, ints: (na - ints).astype(float),
-            lambda na, ints: na.astype(float),
-            image._array,
-            int_sky,
-        ).astype(image.dtype)
+        image._array = image._array.at[...].set(
+            jax.lax.cond(
+                int_sky != 0.0,
+                lambda na, ints: (na - ints).astype(float),
+                lambda na, ints: na.astype(float),
+                noise_array.astype(image.dtype),
+                int_sky,
+            ).astype(image.dtype)
+        )
 
     def _getVariance(self):
         return jax.lax.cond(
@@ -454,8 +456,8 @@ class DeviateNoise(BaseNoise):
         super().__init__(dev)
 
     def _applyTo(self, image):
-        image._array = (image._array + self._rng.generate(image._array)).astype(
-            image.dtype
+        image._array = image._array.at[...].add(
+            (self._rng.generate(image._array)).astype(image.dtype)
         )
 
     def _getVariance(self):
@@ -533,7 +535,7 @@ class VariableGaussianNoise(BaseNoise):
     def _applyTo(self, image):
         # jax galsim never fills an image so this is safe
         noise_array = self._rng.generate_from_variance(self.var_image.array)
-        image._array = image._array + noise_array.astype(image.dtype)
+        image._array = image._array.at[...].add(noise_array.astype(image.dtype))
 
     @implements(
         _galsim.noise.VariableGaussianNoise.copy,
