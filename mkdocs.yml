@@ -1,6 +1,6 @@
 site_name: JAX-GalSim
 site_description: JAX port of GalSim for GPU-accelerated, differentiable galaxy image simulations
-site_url: https://galsim-developers.github.io/JAX-GalSim
+site_url: https://galsim-developers.github.io/JAX-GalSim/
 repo_url: https://github.com/GalSim-developers/JAX-GalSim
 repo_name: GalSim-developers/JAX-GalSim
 theme:
@@ -40,7 +40,6 @@ markdown_extensions:
       generic: true
   - admonition
   - pymdownx.details
-  - rst_in_md
   - pymdownx.superfences
 
 extra_javascript:

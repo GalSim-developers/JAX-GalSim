@@ -290,6 +290,31 @@ def bisect_for_root(func, low, high, niter=75):
 # fmt: on
 
 _docreference = re.compile(r":doc:`(.*?)\s*<.*?>`")
+_rst_math_block = re.compile(r"\.\.\s+math::\n\n?((?:[ \t]+[^\n]*\n?)+)", re.MULTILINE)
+_rst_inline_math = re.compile(r":math:`([^`]*)`")
+_rst_crossref = re.compile(r":\w+:`([^`]*)`")
+_rst_double_backtick = re.compile(r"``([^`]+)``")
+
+
+def _rst_to_markdown(text):
+    """Convert common RST elements to their Markdown/MathJax equivalents."""
+
+    def _replace_math_block(m):
+        # dedent is required to remove the leading indentation, which markdown interprets as a code block instead of math.
+        content = textwrap.dedent(m.group(1)).strip()
+        # RST align-style math uses '&' for column alignment and '\\' for
+        # line breaks, which are only valid inside an align environment.
+        # A plain \[...\] block (equation) does not support them, so we
+        # wrap in \begin{align}...\end{align} when alignment chars are present.
+        if "&" in content:
+            return f"\n\n\\[\n\\begin{{align}}\n{content}\n\\end{{align}}\n\\]\n\n"
+        return f"\n\n\\[\n{content}\n\\]\n\n"
+
+    text = _rst_math_block.sub(_replace_math_block, text)
+    text = _rst_inline_math.sub(r"\\(\1\\)", text)
+    text = _rst_crossref.sub(r"`\1`", text)
+    text = _rst_double_backtick.sub(r"`\1`", text)
+    return text
 
 
 class ParsedDoc(NamedTuple):
@@ -360,6 +385,9 @@ def _parse_galsimdoc(docstr):
 
     # Remove any :doc: directives in the docstring to avoid sphinx errors
     docstr = _docreference.sub(lambda match: f"{match.groups()[0]}", docstr)
+
+    # Convert RST elements (math, cross-references, double backticks) to Markdown
+    docstr = _rst_to_markdown(docstr)
 
     signature, body = "", docstr
 
@@ -444,11 +472,13 @@ def implements(
                 parsed = _parse_galsimdoc(docstr)
 
                 docstr = parsed.summary.strip() + "\n" if parsed.summary else ""
-                docstr += f"\nLAX-backend implementation of `{name}`.\n\n"
+                docstr += f"\nLAX-backend implementation of `{name}`.\n"
                 if lax_description:
-                    docstr += "```rst\n"
-                    docstr += lax_description.strip() + "\n"
-                    docstr += "```\n"
+                    docstr += (
+                        "\n"
+                        + _rst_to_markdown(textwrap.dedent(lax_description).strip())
+                        + "\n"
+                    )
 
                 if parsed.front_matter:
                     fm = parsed.front_matter.strip()
@@ -460,13 +490,9 @@ def implements(
                     params_block = parts[1].strip() if len(parts) > 1 else ""
 
                     if description:
-                        _desc = ""
-                        _desc += "```rst\n"
-                        _desc += description + "\n"
-                        _desc += "```\n"
-                        indented = textwrap.indent(_desc, "    ")
+                        indented = textwrap.indent(description, "    ")
                         docstr += (
-                            '\n??? note "Original GalSim docstring"\n\n'
+                            '\n??? note "Original GalSim docstring"\n'
                             + indented
                             + "\n\n"
                         )
