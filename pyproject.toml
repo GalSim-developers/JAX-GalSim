@@ -14,11 +14,11 @@ dependencies    = ["numpy >=1.18.0", "galsim >=2.7.0", "jax >=0.6.0", "astropy >
 
 [project.optional-dependencies]
 dev  = ["pytest", "pytest-codspeed"]
-docs = ["mkdocs>=1.0.0", "mkdocs-material>=9.0", "mkdocstrings-python", "griffe"]
+docs = ["mkdocs>=1.0.0", "mkdocs-material>=9.0", "mkdocstrings-python", "griffe", "rst-in-md"]
 
 [project.urls]
 home          = "https://github.com/GalSim-developers/JAX-GalSim"
-documentation = "https://galsim-developers.github.io/JAX-GalSim/"
+documentation = "https://galsim-developers.github.io/JAX-GalSim"
 
 [tool.setuptools.packages.find]
 include = ["jax_galsim*"]
