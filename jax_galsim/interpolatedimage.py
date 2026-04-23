@@ -686,7 +686,7 @@ class _InterpolatedImageImpl(GSObject):
             _, minor = compute_major_minor_from_jacobian(self._jac_arr.reshape((2, 2)))
             return self._jax_aux_data["_force_maxk"] * minor
         else:
-            # the factor of 1.1 here is a fudge to make jax_galsim a bit more
+            # the factor of 1.03 here is a fudge to make jax_galsim a bit more
             # conservative when computing maxk
             return self._getMaxK(self._jax_aux_data["calculate_maxk"]) * 1.03
 
