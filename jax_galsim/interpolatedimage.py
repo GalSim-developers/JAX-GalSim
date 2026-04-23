@@ -688,7 +688,7 @@ class _InterpolatedImageImpl(GSObject):
         else:
             # the factor of 1.1 here is a fudge to make jax_galsim a bit more
             # conservative when computing maxk
-            return self._getMaxK(self._jax_aux_data["calculate_maxk"]) * 1.1
+            return self._getMaxK(self._jax_aux_data["calculate_maxk"]) * 1.03
 
     @property
     def _stepk(self):
