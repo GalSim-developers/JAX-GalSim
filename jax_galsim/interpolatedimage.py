@@ -229,7 +229,7 @@ class InterpolatedImage(Transformation, metaclass=DirMeta):
         if self._jax_aux_data["_force_stepk"] > 0:
             return self._jax_aux_data["_force_stepk"]
         else:
-            return super()._stepk
+            return self._original.stepk
 
     @property
     @implements(_galsim.interpolatedimage.InterpolatedImage.x_interpolant)
@@ -728,7 +728,7 @@ class _InterpolatedImageImpl(GSObject):
         # Add xInterp range in quadrature just like convolution:
         R2 = self._x_interpolant.xrange
         R = jnp.hypot(R, R2)
-        stepk = jnp.pi / R
+        stepk = jnp.pi / (R * self._wcs._minScale())
         return stepk
 
     def _getMaxK(self, calculate_maxk):
@@ -1175,7 +1175,7 @@ def _flux_frac(a, x, y, cenx, ceny):
     dy = jnp.reshape(dy, (a.shape[0], a.shape[1], 1))
     d = jnp.arange(a.shape[0])
     d = jnp.reshape(d, (1, 1, -1))
-    msk = (jnp.abs(dx) <= d) & (jnp.abs(dx) <= d)
+    msk = (jnp.abs(dx) <= d) & (jnp.abs(dy) <= d)
     res = jnp.sum(
         jnp.where(
             msk,
@@ -1184,7 +1184,6 @@ def _flux_frac(a, x, y, cenx, ceny):
         ),
         axis=(0, 1),
     )
-    res = jnp.where(res > 0, res, -jnp.inf)
     return res
 
 
@@ -1193,28 +1192,20 @@ def _calculate_size_containing_flux(image, thresh):
     cenx, ceny = image.center.x, image.center.y
     x, y = image.get_pixel_centers()
     fluxes = _flux_frac(image.array, x, y, cenx, ceny)
-    msk = fluxes >= -jnp.inf
-    fluxes = jnp.where(msk, fluxes, jnp.max(fluxes))
+    # msk = fluxes >= -jnp.inf
+    # fluxes = jnp.where(msk, fluxes, jnp.max(fluxes))
     d = jnp.arange(image.array.shape[0]) + 1.0
-    # below we use a linear interpolation table to find the maximum size
-    # in pixels that contains a given flux (called thresh here)
-    # expfac controls how much we oversample the interpolation table
-    # in order to return a more accurate result
-    # we have it hard coded at 4 to compromise between speed and accuracy
-    expfac = 4.0
-    dint = jnp.arange(image.array.shape[0] * expfac) / expfac + 1.0
-    fluxes = jnp.interp(dint, d, fluxes)
-    msk = fluxes <= thresh
+    p = jnp.sign(thresh)
+    msk = (p * fluxes) >= (p * thresh)
     return (
-        jnp.argmax(
+        jnp.argmin(
             jnp.where(
                 msk,
-                dint,
-                -jnp.inf,
+                d,
+                jnp.inf,
             )
         )
-        / expfac
-        + 1.0
+        + 0.5
     )
 
 

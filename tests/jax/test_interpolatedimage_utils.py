@@ -430,3 +430,154 @@ def test_interpolatedimage_flux_frac():
         rtol=0,
         atol=1e-6,
     )
+
+
+@pytest.mark.parametrize("x_interp", ["lanczos15", "quintic"])
+@pytest.mark.parametrize("normalization", ["sb", "flux"])
+@pytest.mark.parametrize("use_true_center", [True, False])
+@pytest.mark.parametrize(
+    "wcs",
+    [
+        _galsim.PixelScale(0.2),
+        _galsim.JacobianWCS(0.21, 0.03, -0.04, 0.23),
+        _galsim.AffineTransform(-0.03, 0.21, 0.18, 0.01, _galsim.PositionD(0.3, -0.4)),
+    ],
+)
+@pytest.mark.parametrize(
+    "offset_x",
+    [
+        -4.35,
+        -0.45,
+        0.0,
+        0.67,
+        3.78,
+    ],
+)
+@pytest.mark.parametrize(
+    "offset_y",
+    [
+        -2.12,
+        -0.33,
+        0.0,
+        0.12,
+        1.45,
+    ],
+)
+@pytest.mark.parametrize(
+    "ref_array",
+    [
+        _galsim.Gaussian(fwhm=0.9).drawImage(nx=33, ny=33, scale=0.2).array,
+        _galsim.Gaussian(fwhm=0.9).drawImage(nx=32, ny=32, scale=0.2).array,
+    ],
+)
+def test_interpolatedimage_utils_comp_stepk_to_galsim(
+    ref_array,
+    offset_x,
+    offset_y,
+    wcs,
+    use_true_center,
+    normalization,
+    x_interp,
+):
+    seed = max(
+        abs(
+            int(
+                hashlib.sha1(
+                    f"{ref_array}{offset_x}{offset_y}{wcs}{use_true_center}{normalization}{x_interp}".encode(
+                        "utf-8"
+                    )
+                ).hexdigest(),
+                16,
+            )
+        )
+        % (10**7),
+        1,
+    )
+
+    rng = np.random.RandomState(seed=seed)
+    if rng.uniform() < 0.75:
+        pytest.skip(
+            "Skipping `test_interpolatedimage_utils_comp_stepk_to_galsim` case at random to save time."
+        )
+
+    nse = rng.uniform(size=ref_array.shape) * ref_array.max() * 0.05
+
+    gimage_in = _galsim.Image(ref_array + nse, scale=0.2)
+    jgimage_in = jax_galsim.Image(ref_array + nse, scale=0.2)
+
+    np.testing.assert_allclose(gimage_in.center.x, jgimage_in.center.x)
+    np.testing.assert_allclose(gimage_in.center.y, jgimage_in.center.y)
+
+    gii = _galsim.InterpolatedImage(
+        gimage_in,
+        wcs=wcs,
+        offset=_galsim.PositionD(offset_x, offset_y),
+        use_true_center=use_true_center,
+        normalization=normalization,
+        x_interpolant=x_interp,
+        flux=20,
+    )
+    jgii = jax_galsim.InterpolatedImage(
+        jgimage_in,
+        wcs=jax_galsim.BaseWCS.from_galsim(wcs),
+        offset=jax_galsim.PositionD(offset_x, offset_y),
+        use_true_center=use_true_center,
+        normalization=normalization,
+        x_interpolant=x_interp,
+        flux=20,
+    )
+
+    gthresh = (1.0 - gii.gsparams.folding_threshold) * gii._image_flux
+    gR = _galsim._galsim.CalculateSizeContainingFlux(gii._image._image, gthresh)
+
+    from jax_galsim.interpolatedimage import _calculate_size_containing_flux
+
+    jgthresh = (
+        1.0 - jgii._original.gsparams.folding_threshold
+    ) * jgii._original._image_flux
+    jgR = _calculate_size_containing_flux(jgii._original.image, jgthresh)
+
+    lgR = _galsim_stepk_loop(gii._image, gthresh)
+    ljgR = _galsim_stepk_loop(jgii._original.image, jgthresh)
+
+    np.testing.assert_allclose(jgii._original.image.center.x, gii._image.center.x)
+    np.testing.assert_allclose(jgii._original.image.center.y, gii._image.center.y)
+    np.testing.assert_allclose(jgii._original.image(0, 0), gii._image(0, 0))
+    np.testing.assert_allclose(jgii._original.image.array.sum(), gii._image.array.sum())
+    np.testing.assert_allclose(gthresh, jgthresh, rtol=0, atol=1e-6)
+    np.testing.assert_allclose(gR, jgR, rtol=0, atol=1e-6)
+    np.testing.assert_allclose(gR, ljgR, rtol=0, atol=1e-6)
+    np.testing.assert_allclose(lgR, jgR, rtol=0, atol=1e-6)
+
+    np.testing.assert_allclose(gii.stepk, jgii.stepk, rtol=0, atol=1e-6)
+
+
+# this is a copy of the galsim C++ algorithm in a pure python
+# loop to help with debugging and testing
+def _galsim_stepk_loop(im, target_flux):
+    if target_flux > 0:
+        p = 1.0
+    else:
+        p = -1.0
+
+    b = im.bounds
+    dmax = int(min((b.getXMax() - b.getXMin()) / 2, (b.getYMax() - b.getYMin()) / 2))
+
+    flux = im(0, 0)
+    d = 1
+    while d <= dmax:
+        # Add the left, right, top and bottom sides of box
+        for x in range(-d, d):
+            # Note: All 4 corners are added exactly once by including x=-d but omitting
+            #  x=d from the loop.
+            flux += im(x, -d)  # bottom
+            flux += im(d, x)  # right
+            flux += im(-x, d)  # top
+            flux += im(-d, -x)  # left
+
+        if p * flux >= p * target_flux:
+            break
+
+        d += 1
+
+    return d + 0.5
