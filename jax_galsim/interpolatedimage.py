@@ -1193,8 +1193,6 @@ def _calculate_size_containing_flux(image, thresh):
     cenx, ceny = image.center.x, image.center.y
     x, y = image.get_pixel_centers()
     fluxes = _flux_frac(image.array, x, y, cenx, ceny)
-    # msk = fluxes >= -jnp.inf
-    # fluxes = jnp.where(msk, fluxes, jnp.max(fluxes))
     d = jnp.arange(image.array.shape[0]) + 1.0
     p = jnp.sign(thresh)
     msk = (p * fluxes) >= (p * thresh)
