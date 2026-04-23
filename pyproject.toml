@@ -25,6 +25,11 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = ["pytest", "pytest-codspeed"]
+docs = [
+    "sphinx>=7.0",
+    "furo>=2024.1.29",
+    "sphinx-design>=0.5",
+]
 
 [project.urls]
 home = "https://github.com/GalSim-developers/JAX-GalSim"
