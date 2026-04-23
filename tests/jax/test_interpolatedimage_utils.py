@@ -18,6 +18,8 @@ from jax_galsim.interpolatedimage import (
     _draw_with_interpolant_xval,
 )
 
+FRAC_TEST_TO_KEEP = 0.5
+
 
 @pytest.mark.parametrize(
     "interp",
@@ -207,7 +209,7 @@ def test_interpolatedimage_utils_comp_to_galsim(
     )
 
     rng = np.random.RandomState(seed=seed)
-    if rng.uniform() < 0.75:
+    if rng.uniform() < FRAC_TEST_TO_KEEP:
         pytest.skip(
             "Skipping `test_interpolatedimage_utils_comp_to_galsim` case at random to save time."
         )
@@ -392,11 +394,17 @@ def test_interpolatedimage_interpolant_sample(interp):
 @pytest.mark.parametrize(
     "ref_array",
     [
-        _galsim.Gaussian(fwhm=0.9).drawImage(nx=33, ny=33, scale=0.2).array,
-        _galsim.Gaussian(fwhm=0.9).drawImage(nx=32, ny=32, scale=0.2).array,
+        _galsim.Gaussian(fwhm=0.9)
+        .shear(g1=0.3, g2=-0.2)
+        .drawImage(nx=33, ny=33, scale=0.2)
+        .array,
+        _galsim.Gaussian(fwhm=0.9)
+        .shear(g1=-0.03, g2=0.1)
+        .drawImage(nx=32, ny=32, scale=0.2)
+        .array,
     ],
 )
-def test_interpolatedimage_utils_comp_stepk_to_galsim(
+def test_interpolatedimage_utils_comp_stepk_maxk_to_galsim(
     ref_array,
     offset_x,
     offset_y,
@@ -421,9 +429,9 @@ def test_interpolatedimage_utils_comp_stepk_to_galsim(
     )
 
     rng = np.random.RandomState(seed=seed)
-    if rng.uniform() < 0.75:
+    if rng.uniform() < FRAC_TEST_TO_KEEP:
         pytest.skip(
-            "Skipping `test_interpolatedimage_utils_comp_stepk_to_galsim` case at random to save time."
+            "Skipping `test_interpolatedimage_utils_comp_stepk_maxk_to_galsim` case at random to save time."
         )
 
     nse = rng.uniform(size=ref_array.shape) * ref_array.max() * 0.05
@@ -476,6 +484,8 @@ def test_interpolatedimage_utils_comp_stepk_to_galsim(
     np.testing.assert_allclose(lgR, jgR, rtol=0, atol=1e-6)
 
     np.testing.assert_allclose(gii.stepk, jgii.stepk, rtol=0, atol=1e-6)
+    # FIXME: make maxk match
+    np.testing.assert_allclose(gii.maxk, jgii.maxk, rtol=0.5, atol=0)
 
 
 # this is a copy of the galsim C++ algorithm in a pure python

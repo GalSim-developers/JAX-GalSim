@@ -229,7 +229,10 @@ class InterpolatedImage(Transformation, metaclass=DirMeta):
         if self._jax_aux_data["_force_stepk"] > 0:
             return self._jax_aux_data["_force_stepk"]
         else:
-            return self._original.stepk
+            # galsim uses a different way to handle the WCS effects on stepk
+            # for interpolated images. IDK why. - MRB
+            # super()._stepk
+            return self._original.stepk / self._original._wcs._minScale()
 
     @property
     @implements(_galsim.interpolatedimage.InterpolatedImage.x_interpolant)
@@ -403,7 +406,6 @@ class _InterpolatedImageImpl(GSObject):
         # this class does a ton of munging of the inputs that I don't want to reconstruct when
         # flattening and unflattening the class.
         # thus I am going to make some refs here so we have it when we need it
-        self._workspace = {}
         self._jax_children = (
             image,
             dict(
@@ -530,13 +532,10 @@ class _InterpolatedImageImpl(GSObject):
         return ret
 
     def __getstate__(self):
-        d = self.__dict__.copy()
-        d.pop("_workspace")
-        return d
+        return self.__dict__.copy()
 
     def __setstate__(self, d):
         self.__dict__ = d
-        self._workspace = {}
 
     @property
     def x_interpolant(self):
@@ -687,13 +686,15 @@ class _InterpolatedImageImpl(GSObject):
             _, minor = compute_major_minor_from_jacobian(self._jac_arr.reshape((2, 2)))
             return self._jax_aux_data["_force_maxk"] * minor
         else:
-            return self._getMaxK(self._jax_aux_data["calculate_maxk"])
+            # the factor of 1.1 here is a fudge to make jax_galsim a bit more
+            # conservative when computing maxk
+            return self._getMaxK(self._jax_aux_data["calculate_maxk"]) * 1.1
 
     @property
     def _stepk(self):
         if self._jax_aux_data["_force_stepk"]:
-            _, minor = compute_major_minor_from_jacobian(self._jac_arr.reshape((2, 2)))
-            return self._jax_aux_data["_force_stepk"] * minor
+            major, _ = compute_major_minor_from_jacobian(self._jac_arr.reshape((2, 2)))
+            return self._jax_aux_data["_force_stepk"] * major
         else:
             return self._getStepK(self._jax_aux_data["calculate_stepk"])
 
@@ -728,7 +729,7 @@ class _InterpolatedImageImpl(GSObject):
         # Add xInterp range in quadrature just like convolution:
         R2 = self._x_interpolant.xrange
         R = jnp.hypot(R, R2)
-        stepk = jnp.pi / (R * self._wcs._minScale())
+        stepk = jnp.pi / R
         return stepk
 
     def _getMaxK(self, calculate_maxk):
