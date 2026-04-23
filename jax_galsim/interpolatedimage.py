@@ -1174,7 +1174,7 @@ def _flux_frac(a, x, y, cenx, ceny):
     dx = jnp.reshape(dx, (a.shape[0], a.shape[1], 1))
     dy = y - ceny
     dy = jnp.reshape(dy, (a.shape[0], a.shape[1], 1))
-    d = jnp.arange(a.shape[0])
+    d = jnp.arange(min(a.shape[0], a.shape[1]))
     d = jnp.reshape(d, (1, 1, -1))
     msk = (jnp.abs(dx) <= d) & (jnp.abs(dy) <= d)
     res = jnp.sum(
@@ -1193,7 +1193,7 @@ def _calculate_size_containing_flux(image, thresh):
     cenx, ceny = image.center.x, image.center.y
     x, y = image.get_pixel_centers()
     fluxes = _flux_frac(image.array, x, y, cenx, ceny)
-    d = jnp.arange(image.array.shape[0]) + 1.0
+    d = jnp.arange(min(image.array.shape[0], image.array.shape[1])) + 1.0
     p = jnp.sign(thresh)
     msk = (p * fluxes) >= (p * thresh)
     return (
