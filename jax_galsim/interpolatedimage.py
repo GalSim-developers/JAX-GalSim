@@ -219,7 +219,7 @@ class InterpolatedImage(Transformation, metaclass=DirMeta):
         if self._jax_aux_data["_force_maxk"] > 0:
             return self._jax_aux_data["_force_maxk"]
         else:
-            # galsim uses a different way to handfle the WCS effects on maxk
+            # galsim uses a different way to handle the WCS effects on maxk
             # for interpolated images. IDK why. - MRB
             return self._original.maxk / self._original._wcs._maxScale()
 
