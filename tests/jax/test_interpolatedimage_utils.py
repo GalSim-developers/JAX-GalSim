@@ -233,7 +233,7 @@ def test_interpolatedimage_utils_comp_to_galsim(
         x_interpolant=x_interp,
     )
 
-    np.testing.assert_allclose(jgii.stepk, gii.stepk, rtol=0.5, atol=0)
+    np.testing.assert_allclose(jgii.stepk, gii.stepk, rtol=0, atol=1e-6)
     np.testing.assert_allclose(jgii.maxk, gii.maxk, rtol=0.5, atol=0)
     kxvals = [
         (0, 0),
