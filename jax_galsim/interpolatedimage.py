@@ -224,7 +224,7 @@ class InterpolatedImage(Transformation, metaclass=DirMeta):
         else:
             # galsim uses a different way to handfle the WCS effects on maxk
             # for interpolated images. IDK why. - MRB
-            return self._original.stepk / self._original._wcs._minScale()
+            return self._original.maxk / self._original._wcs._maxScale()
 
     @property
     def _stepk(self):
