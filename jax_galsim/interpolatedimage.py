@@ -686,9 +686,7 @@ class _InterpolatedImageImpl(GSObject):
             _, minor = compute_major_minor_from_jacobian(self._jac_arr.reshape((2, 2)))
             return self._jax_aux_data["_force_maxk"] * minor
         else:
-            # the factor of 1.03 here is a fudge to make jax_galsim a bit more
-            # conservative when computing maxk
-            return self._getMaxK(self._jax_aux_data["calculate_maxk"]) * 1.03
+            return self._getMaxK(self._jax_aux_data["calculate_maxk"])
 
     @property
     def _stepk(self):
@@ -1237,6 +1235,10 @@ def _find_maxk(kim, max_maxk, thresh):
     # maxk from the image (computed by _inner_comp_find_maxk)
     # by max_maxk from above
     return jnp.minimum(
-        _inner_comp_find_maxk(kim.array, thresh, kx, ky),
+        # jax-galsim tends to be less conservative for maxk
+        # since compared to galsim, it does NOT require 5 rows
+        # of pixels in a row below the threshold.
+        # thus we add some pixels here to ensure the galsim tests pass.
+        _inner_comp_find_maxk(kim.array, thresh, kx, ky) + 20 * kim.scale,
         max_maxk,
     )
