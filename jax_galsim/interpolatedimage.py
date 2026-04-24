@@ -222,7 +222,9 @@ class InterpolatedImage(Transformation, metaclass=DirMeta):
         if self._jax_aux_data["_force_maxk"] > 0:
             return self._jax_aux_data["_force_maxk"]
         else:
-            return super()._maxk
+            # galsim uses a different way to handfle the WCS effects on maxk
+            # for interpolated images. IDK why. - MRB
+            return self._original.stepk / self._original._wcs._minScale()
 
     @property
     def _stepk(self):
@@ -1191,6 +1193,8 @@ def _calculate_size_containing_flux(image, thresh):
     cenx, ceny = image.center.x, image.center.y
     x, y = image.get_pixel_centers()
     fluxes = _flux_frac(image.array, x, y, cenx, ceny)
+    # we add 1 since the flux fraction computation above starts at
+    # one pixel and jnp.arange starts at zero
     d = jnp.arange(min(image.array.shape[0], image.array.shape[1])) + 1.0
     p = jnp.sign(thresh)
     msk = (p * fluxes) >= (p * thresh)
@@ -1238,7 +1242,8 @@ def _find_maxk(kim, max_maxk, thresh):
         # jax-galsim tends to be less conservative for maxk
         # since compared to galsim, it does NOT require 5 rows
         # of pixels in a row below the threshold.
-        # thus we add some pixels here to ensure the galsim tests pass.
+        # thus we add pixels here to ensure the galsim tests pass.
+        # it turns out one worked ok so that is what we did. - MRB
         _inner_comp_find_maxk(kim.array, thresh, kx, ky) + 1 * kim.scale,
         max_maxk,
     )
