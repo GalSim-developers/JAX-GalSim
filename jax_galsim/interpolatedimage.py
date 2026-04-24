@@ -369,6 +369,15 @@ def _zeropad_image(arr, npad):
 
 @register_pytree_node_class
 class _InterpolatedImageImpl(GSObject):
+    """Internal class for handling interpolated images.
+
+    An interpolated image carries an intrinsic WCS with it that can be anything
+    from a pixel-scale to a full Jacobian.
+
+    We use this internal class to separate the underlying image bits from the
+    WCS handling bits. For those, we inherit from the Transform class so that
+    we can reuse its methods.
+    """
     _cache_noise_pad = {}
 
     _has_hard_edges = False
