@@ -518,3 +518,114 @@ def _galsim_stepk_loop(im, target_flux):
         d += 1
 
     return d + 0.5
+
+
+@pytest.mark.parametrize("x_interp", ["lanczos15", "quintic"])
+@pytest.mark.parametrize("normalization", ["sb", "flux"])
+@pytest.mark.parametrize("use_true_center", [True, False])
+@pytest.mark.parametrize(
+    "wcs",
+    [
+        _galsim.PixelScale(0.2),
+        _galsim.JacobianWCS(0.21, 0.03, -0.04, 0.23),
+        _galsim.AffineTransform(-0.03, 0.21, 0.18, 0.01, _galsim.PositionD(0.3, -0.4)),
+    ],
+)
+@pytest.mark.parametrize(
+    "offset_x",
+    [
+        -4.35,
+        -0.45,
+        0.0,
+        0.67,
+        3.78,
+    ],
+)
+@pytest.mark.parametrize(
+    "offset_y",
+    [
+        -2.12,
+        -0.33,
+        0.0,
+        0.12,
+        1.45,
+    ],
+)
+@pytest.mark.parametrize(
+    "ref_array",
+    [
+        _galsim.Gaussian(fwhm=0.9).drawImage(nx=33, ny=33, scale=0.2).array,
+        _galsim.Gaussian(fwhm=0.9).drawImage(nx=32, ny=32, scale=0.2).array,
+    ],
+)
+@pytest.mark.parametrize("method", ["kValue", "xValue"])
+def test_interpolatedimage_utils_force_stepk_maxk(
+    method,
+    ref_array,
+    offset_x,
+    offset_y,
+    wcs,
+    use_true_center,
+    normalization,
+    x_interp,
+):
+    seed = max(
+        abs(
+            int(
+                hashlib.sha1(
+                    f"{method}{ref_array}{offset_x}{offset_y}{wcs}{use_true_center}{normalization}{x_interp}".encode(
+                        "utf-8"
+                    )
+                ).hexdigest(),
+                16,
+            )
+        )
+        % (10**7),
+        1,
+    )
+
+    rng = np.random.RandomState(seed=seed)
+    if rng.uniform() < FRAC_TEST_TO_KEEP:
+        pytest.skip(
+            "Skipping `test_interpolatedimage_utils_force_stepk_maxk` case at random to save time."
+        )
+
+    gimage_in = _galsim.Image(ref_array, scale=0.2)
+    jgimage_in = jax_galsim.Image(ref_array, scale=0.2)
+
+    gii = _galsim.InterpolatedImage(
+        gimage_in,
+        wcs=wcs,
+        offset=_galsim.PositionD(offset_x, offset_y),
+        use_true_center=use_true_center,
+        normalization=normalization,
+        x_interpolant=x_interp,
+    )
+    maxk = gii.maxk * 1.04
+    stepk = gii.stepk / 1.04
+
+    gii = _galsim.InterpolatedImage(
+        gimage_in,
+        wcs=wcs,
+        offset=_galsim.PositionD(offset_x, offset_y),
+        use_true_center=use_true_center,
+        normalization=normalization,
+        x_interpolant=x_interp,
+        _force_maxk=maxk,
+        _force_stepk=stepk,
+    )
+    jgii = jax_galsim.InterpolatedImage(
+        jgimage_in,
+        wcs=jax_galsim.BaseWCS.from_galsim(wcs),
+        offset=jax_galsim.PositionD(offset_x, offset_y),
+        use_true_center=use_true_center,
+        normalization=normalization,
+        x_interpolant=x_interp,
+        _force_maxk=maxk,
+        _force_stepk=stepk,
+    )
+
+    np.testing.assert_allclose(gii.maxk, maxk)
+    np.testing.assert_allclose(gii.stepk, stepk)
+    np.testing.assert_allclose(jgii.maxk, maxk)
+    np.testing.assert_allclose(jgii.stepk, stepk)
