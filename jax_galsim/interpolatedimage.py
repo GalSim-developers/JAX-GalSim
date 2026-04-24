@@ -1239,6 +1239,6 @@ def _find_maxk(kim, max_maxk, thresh):
         # since compared to galsim, it does NOT require 5 rows
         # of pixels in a row below the threshold.
         # thus we add some pixels here to ensure the galsim tests pass.
-        _inner_comp_find_maxk(kim.array, thresh, kx, ky) + 20 * kim.scale,
+        _inner_comp_find_maxk(kim.array, thresh, kx, ky) + 1 * kim.scale,
         max_maxk,
     )

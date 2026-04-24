@@ -139,9 +139,8 @@ def test_interpolatedimage_utils_stepk_maxk():
     gii = _galsim.InterpolatedImage(gimage_in, scale=scale)
     jgii = jax_galsim.InterpolatedImage(jgimage_in, scale=scale)
 
-    rtol = 1e-1
-    np.testing.assert_allclose(gii.maxk, jgii.maxk, rtol=rtol, atol=0)
-    np.testing.assert_allclose(gii.stepk, jgii.stepk, rtol=rtol, atol=0)
+    np.testing.assert_allclose(jgii.stepk, gii.stepk, rtol=0, atol=1e-6)
+    np.testing.assert_allclose(jgii.maxk, gii.maxk, rtol=0, atol=1e-6)
 
 
 @pytest.mark.parametrize("x_interp", ["lanczos15", "quintic"])
@@ -234,8 +233,8 @@ def test_interpolatedimage_utils_comp_to_galsim(
         x_interpolant=x_interp,
     )
 
-    np.testing.assert_allclose(gii.stepk, jgii.stepk, rtol=0.5, atol=0)
-    np.testing.assert_allclose(gii.maxk, jgii.maxk, rtol=0.5, atol=0)
+    np.testing.assert_allclose(jgii.stepk, gii.stepk, rtol=0.5, atol=0)
+    np.testing.assert_allclose(jgii.maxk, gii.maxk, rtol=0.5, atol=0)
     kxvals = [
         (0, 0),
         (-5, -5),
@@ -254,8 +253,8 @@ def test_interpolatedimage_utils_comp_to_galsim(
         if method == "kValue":
             dk = jgii._original._kim.scale * rng.uniform(low=0.5, high=1.5)
             np.testing.assert_allclose(
-                gii.kValue(x * dk, y * dk),
                 jgii.kValue(x * dk, y * dk),
+                gii.kValue(x * dk, y * dk),
                 err_msg=f"kValue mismatch: wcs={wcs}, x={x}, y={y}",
             )
         else:
@@ -263,8 +262,8 @@ def test_interpolatedimage_utils_comp_to_galsim(
                 low=0.5, high=1.5
             )
             np.testing.assert_allclose(
-                gii.xValue(x * dx, y * dx),
                 jgii.xValue(x * dx, y * dx),
+                gii.xValue(x * dx, y * dx),
                 err_msg=f"xValue mismatch: wcs={wcs}, x={x}, y={y}",
             )
 
@@ -312,13 +311,13 @@ def test_interpolatedimage_utils_jax_galsim_fft_vs_galsim_fft(n):
 
     rng = np.random.RandomState(42)
     arr = rng.normal(size=(n, n))
-    gim = jax_galsim.Image(arr, scale=1)
+    gim = _galsim.Image(arr, scale=1)
     gkim = gim.calculate_fft()
     gxkim = gkim.calculate_inverse_fft()
-    np.testing.assert_allclose(gim.array, gxkim[gim.bounds].array)
-    np.testing.assert_allclose(gim.array, im.array)
-    np.testing.assert_allclose(gkim.array, kim.array)
-    np.testing.assert_allclose(gxkim.array, xkim.array)
+    np.testing.assert_allclose(gxkim[gim.bounds].array, gim.array, rtol=0, atol=1e-12)
+    np.testing.assert_allclose(im.array, gim.array, rtol=0, atol=1e-12)
+    np.testing.assert_allclose(kim.array, gkim.array, rtol=0, atol=1e-12)
+    np.testing.assert_allclose(xkim.array, gxkim.array, rtol=0, atol=1e-12)
 
 
 @pytest.mark.parametrize(
@@ -478,14 +477,14 @@ def test_interpolatedimage_utils_comp_stepk_maxk_to_galsim(
     np.testing.assert_allclose(jgii._original.image.center.y, gii._image.center.y)
     np.testing.assert_allclose(jgii._original.image(0, 0), gii._image(0, 0))
     np.testing.assert_allclose(jgii._original.image.array.sum(), gii._image.array.sum())
-    np.testing.assert_allclose(gthresh, jgthresh, rtol=0, atol=1e-6)
-    np.testing.assert_allclose(gR, jgR, rtol=0, atol=1e-6)
-    np.testing.assert_allclose(gR, ljgR, rtol=0, atol=1e-6)
-    np.testing.assert_allclose(lgR, jgR, rtol=0, atol=1e-6)
+    np.testing.assert_allclose(jgthresh, gthresh, rtol=0, atol=1e-6)
+    np.testing.assert_allclose(jgR, gR, rtol=0, atol=1e-6)
+    np.testing.assert_allclose(ljgR, gR, rtol=0, atol=1e-6)
+    np.testing.assert_allclose(gR, lgR, rtol=0, atol=1e-6)
 
-    np.testing.assert_allclose(gii.stepk, jgii.stepk, rtol=0, atol=1e-6)
+    np.testing.assert_allclose(jgii.stepk, gii.stepk, rtol=0, atol=1e-6)
     # FIXME: make maxk match
-    np.testing.assert_allclose(gii.maxk, jgii.maxk, rtol=0.5, atol=0)
+    np.testing.assert_allclose(jgii.maxk, gii.maxk, rtol=0.5, atol=0)
 
 
 # this is a copy of the galsim C++ algorithm in a pure python
