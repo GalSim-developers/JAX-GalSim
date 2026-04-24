@@ -234,6 +234,7 @@ def test_interpolatedimage_utils_comp_to_galsim(
     )
 
     np.testing.assert_allclose(jgii.stepk, gii.stepk, rtol=0, atol=1e-6)
+    #FIXME: match maxk
     np.testing.assert_allclose(jgii.maxk, gii.maxk, rtol=0.5, atol=0)
     assert jgii.maxk >= gii.maxk
     kxvals = [
