@@ -174,8 +174,6 @@ class InterpolatedImage(Transformation, metaclass=DirMeta):
                 depixelize=depixelize,
                 offset=offset,
                 gsparams=GSParams.check(gsparams),
-                _force_stepk=_force_stepk,
-                _force_maxk=_force_maxk,
                 hdu=hdu,
                 _recenter_image=_recenter_image,
             )
@@ -399,8 +397,6 @@ class _InterpolatedImageImpl(GSObject):
         depixelize=False,
         offset=None,
         gsparams=None,
-        _force_stepk=0.0,
-        _force_maxk=0.0,
         hdu=None,
         _recenter_image=True,
     ):
@@ -431,8 +427,6 @@ class _InterpolatedImageImpl(GSObject):
             use_true_center=use_true_center,
             depixelize=depixelize,
             gsparams=gsparams,
-            _force_stepk=_force_stepk,
-            _force_maxk=_force_maxk,
             _recenter_image=_recenter_image,
             hdu=hdu,
         )
@@ -683,29 +677,15 @@ class _InterpolatedImageImpl(GSObject):
 
     @property
     def _maxk(self):
-        if self._jax_aux_data["_force_maxk"]:
-            return self._jax_aux_data["_force_maxk"]
-        else:
-            return self._getMaxK(self._jax_aux_data["calculate_maxk"])
+        return self._getMaxK(self._jax_aux_data["calculate_maxk"])
 
     @property
     def _stepk(self):
-        if self._jax_aux_data["_force_stepk"]:
-            return self._jax_aux_data["_force_stepk"]
-        else:
-            return self._getStepK(self._jax_aux_data["calculate_stepk"])
+        return self._getStepK(self._jax_aux_data["calculate_stepk"])
 
     def _getStepK(self, calculate_stepk):
         # GalSim cannot automatically know what stepK and maxK are appropriate for the
         # input image.  So it is usually worth it to do a manual calculation (below).
-        #
-        # However, there is also a hidden option to force it to use specific values of stepK and
-        # maxK (caveat user!).  The values of _force_stepk and _force_maxk should be provided in
-        # terms of physical scale, e.g., for images that have a scale length of 0.1 arcsec, the
-        # stepK and maxK should be provided in units of 1/arcsec.  Then we convert to the 1/pixel
-        # units required by the C++ layer below.  Also note that profile recentering for even-sized
-        # images (see the ._adjust_offset step below) leads to automatic reduction of stepK slightly
-        # below what is provided here, while maxK is preserved.
         if calculate_stepk:
             if calculate_stepk is True:
                 im = self.image
