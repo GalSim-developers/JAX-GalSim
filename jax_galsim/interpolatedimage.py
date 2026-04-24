@@ -19,7 +19,6 @@ from jax.tree_util import register_pytree_node_class
 from jax_galsim import fits
 from jax_galsim.bounds import BoundsI
 from jax_galsim.core.utils import (
-    compute_major_minor_from_jacobian,
     ensure_hashable,
     implements,
 )
@@ -685,16 +684,14 @@ class _InterpolatedImageImpl(GSObject):
     @property
     def _maxk(self):
         if self._jax_aux_data["_force_maxk"]:
-            _, minor = compute_major_minor_from_jacobian(self._jac_arr.reshape((2, 2)))
-            return self._jax_aux_data["_force_maxk"] * minor
+            return self._jax_aux_data["_force_maxk"]
         else:
             return self._getMaxK(self._jax_aux_data["calculate_maxk"])
 
     @property
     def _stepk(self):
         if self._jax_aux_data["_force_stepk"]:
-            major, _ = compute_major_minor_from_jacobian(self._jac_arr.reshape((2, 2)))
-            return self._jax_aux_data["_force_stepk"] * major
+            return self._jax_aux_data["_force_stepk"]
         else:
             return self._getStepK(self._jax_aux_data["calculate_stepk"])
 
