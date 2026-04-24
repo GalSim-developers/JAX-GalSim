@@ -378,6 +378,7 @@ class _InterpolatedImageImpl(GSObject):
     WCS handling bits. For those, we inherit from the Transform class so that
     we can reuse its methods.
     """
+
     _cache_noise_pad = {}
 
     _has_hard_edges = False
