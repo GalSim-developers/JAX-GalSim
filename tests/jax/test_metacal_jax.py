@@ -163,7 +163,6 @@ def test_metacal_comp_to_galsim(nse):
         gsparams=jax_galsim.GSParams(minimum_fft_size=128),
     )
     iim_kwargs = {
-        "_force_stepk": iim.stepk.item(),
         "_force_maxk": iim.maxk.item(),
     }
     inse = jax_galsim.InterpolatedImage(
@@ -173,14 +172,12 @@ def test_metacal_comp_to_galsim(nse):
         gsparams=jax_galsim.GSParams(minimum_fft_size=128),
     )
     inse_kwargs = {
-        "_force_stepk": inse.stepk.item(),
         "_force_maxk": inse.maxk.item(),
     }
     ipsf = jax_galsim.InterpolatedImage(
         jax_galsim.ImageD(psf), scale=scale, x_interpolant="lanczos15"
     )
     ipsf_kwargs = {
-        "_force_stepk": ipsf.stepk.item(),
         "_force_maxk": ipsf.maxk.item(),
     }
 
@@ -303,7 +300,6 @@ def test_metacal_vmap(ntest):
                 gsparams=jax_galsim.GSParams(minimum_fft_size=128),
             )
             iim_kwargs = {
-                "_force_stepk": iim.stepk.item(),
                 "_force_maxk": iim.maxk.item(),
             }
             inse = jax_galsim.InterpolatedImage(
@@ -313,14 +309,12 @@ def test_metacal_vmap(ntest):
                 gsparams=jax_galsim.GSParams(minimum_fft_size=128),
             )
             inse_kwargs = {
-                "_force_stepk": inse.stepk.item(),
                 "_force_maxk": inse.maxk.item(),
             }
             ipsf = jax_galsim.InterpolatedImage(
                 jax_galsim.ImageD(psf), scale=scale, x_interpolant="lanczos15"
             )
             ipsf_kwargs = {
-                "_force_stepk": ipsf.stepk.item(),
                 "_force_maxk": ipsf.maxk.item(),
             }
 
@@ -423,7 +417,6 @@ def test_metacal_iimage_with_noise(nse, draw_method):
         scale=scale,
         x_interpolant="lanczos15",
         gsparams=_galsim.GSParams(minimum_fft_size=nk),
-        _force_stepk=jgiim.stepk.item(),
         _force_maxk=jgiim.maxk.item(),
     )
 
