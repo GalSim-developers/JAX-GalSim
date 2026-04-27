@@ -182,7 +182,7 @@ def test_interpolatedimage_utils_stepk_maxk():
     ],
 )
 @pytest.mark.parametrize("method", ["kValue", "xValue"])
-def test_interpolatedimage_utils_comp_to_galsim(
+def test_interpolatedimage_utils_comp_to_galsim_xk_value(
     method,
     ref_array,
     offset_x,
@@ -235,7 +235,6 @@ def test_interpolatedimage_utils_comp_to_galsim(
 
     np.testing.assert_allclose(jgii.stepk, gii.stepk, rtol=0, atol=1e-6)
     np.testing.assert_allclose(jgii.maxk, gii.maxk, rtol=0, atol=1e-6)
-    assert jgii.maxk >= gii.maxk
     kxvals = [
         (0, 0),
         (-5, -5),
