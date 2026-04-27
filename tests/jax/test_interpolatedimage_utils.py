@@ -234,8 +234,7 @@ def test_interpolatedimage_utils_comp_to_galsim(
     )
 
     np.testing.assert_allclose(jgii.stepk, gii.stepk, rtol=0, atol=1e-6)
-    # FIXME: match maxk
-    np.testing.assert_allclose(jgii.maxk, gii.maxk, rtol=0.5, atol=0)
+    np.testing.assert_allclose(jgii.maxk, gii.maxk, rtol=0, atol=1e-6)
     assert jgii.maxk >= gii.maxk
     kxvals = [
         (0, 0),
@@ -485,8 +484,7 @@ def test_interpolatedimage_utils_comp_stepk_maxk_to_galsim(
     np.testing.assert_allclose(gR, lgR, rtol=0, atol=1e-6)
 
     np.testing.assert_allclose(jgii.stepk, gii.stepk, rtol=0, atol=1e-6)
-    # FIXME: make maxk match
-    np.testing.assert_allclose(jgii.maxk, gii.maxk, rtol=0.5, atol=0)
+    np.testing.assert_allclose(jgii.maxk, gii.maxk, rtol=0, atol=1e-6)
 
 
 # this is a copy of the galsim C++ algorithm in a pure python
