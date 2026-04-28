@@ -1214,7 +1214,86 @@ def _inner_comp_find_maxk(arr, thresh, kx, ky):
             -jnp.inf,
         )
     )
-    return jnp.maximum(max_kx, max_ky)
+    # galsim adds one pixel at the end so that maxk is
+    # the k value where things do not pass the threshold,
+    # so we do that here too.
+    return jnp.maximum(max_kx, max_ky) + kx[0, 1] - kx[0, 0]
+
+
+# I am keeping this bit of dead code for posterity.
+# It uses a memory-intensive algorithm that matches galsim's
+# approach for maxk. In practice, the direct search
+# above has MUCH better performance. The code below won't even run
+# on my laptop for parts of the galsim test suite due to memory
+# use. - MRB
+# @jax.jit
+# def _inner_comp_find_maxk(a, thresh, kx, ky):
+#     # Galsim searches the boundary pixels of increasing squares
+#     # at a given distance. It finds the location of the start of
+#     # the first five boundaries where none of the pixels are above
+#     # threshold. To do this operation in JAX, we first compute
+#     # a cumulative version which is the number of pixels within a
+#     # distance that are above threshold. Then we search for the
+#     # location of the first string of five adjacent distances where the
+#     # value stays the same.
+#
+#     # step 0) compute # of pixels within a distance above threshold
+#     # This bit of code builds an array of shape (ny, nx, # of distances)
+#     # that holds the number of pixels with |kx| <= distance,
+#     # |ky| <= distance, and value |a|^2 > thresh^2.
+#     # We build the array by broadcasting.
+#     val = (a * a.conjugate()).real
+#     val = jnp.reshape(val, (a.shape[0], a.shape[1], 1))
+#
+#     # we add one pixel scale here so that we have the distances
+#     # starting at one pixel scale. GalSim's version adds a pixel
+#     # scale at the end, so that matches.
+#     scale = kx[0, -1] - kx[0, -2]
+#     dk = jnp.reshape(kx[0, :] + scale, (1, 1, -1))
+#
+#     msk_kx = jnp.reshape(jnp.abs(kx), (a.shape[0], a.shape[1], 1)) <= dk
+#     msk_ky = jnp.reshape(jnp.abs(ky), (a.shape[0], a.shape[1], 1)) <= dk
+#
+#     msk = (val > thresh * thresh) & msk_kx & msk_ky
+#     msk = jnp.sum(msk, axis=(0, 1))
+#
+#     # Our approach to finding the location of the five adjacent
+#     # values that are the same is as follows.
+#     # We put the array through jnp.diff, which
+#     # computes the difference of adjacent elements. Then we convolve
+#     # with a filter of ones of length five to sum groups of five
+#     # elements together. The first location where the result is
+#     # zero is the location we want. The tricky bit however is getting
+#     # the indexing right.
+#
+#     # step 1) compute the diff of adjacent elements
+#     # The function jnp.diff returns an array of size one less than
+#     # the input. So we concatenate a zero at the front. This makes
+#     # sense since if the original array is all constant, then the
+#     # location of the first five zeros is at the start of the array.
+#     delta_msk = jnp.concatenate(
+#         [jnp.array([0], dtype=int), jnp.diff(msk)],
+#         axis=0,
+#         dtype=int,
+#     )
+#
+#     # step 2) convolve with the filter
+#     # In the discrete convolution, you have to deal with edge
+#     # behavior where the filter only partially overlaps the arrays.
+#     # We use the mode `full` which returns an array containing
+#     # every possible combination with missing elements set to zero.
+#     # We cut the first `length of filter - 1` elements so that
+#     # index i of the result is the sum of the filter starting
+#     # at index i of the input.
+#     sums = jnp.convolve(delta_msk, jnp.ones(5, dtype=int), mode="full")[4:]
+#
+#     # step 3) find first location of zero in the convolution
+#     # Finally, we use jnp.argmin to find the location of the first
+#     # zero. Per the doc string, if there is more than one zero, this
+#     # function returns the first location (i.e., smallest index)
+#     # which is what we want.
+#     sind = jnp.argmin(jnp.where(sums == 0, 0, 1))
+#     return dk[0, 0, sind]
 
 
 @jax.jit
@@ -1226,11 +1305,6 @@ def _find_maxk(kim, max_maxk, thresh):
     # maxk from the image (computed by _inner_comp_find_maxk)
     # by max_maxk from above
     return jnp.minimum(
-        # jax-galsim tends to be less conservative for maxk
-        # since compared to galsim, it does NOT require 5 rows
-        # of pixels in a row below the threshold.
-        # thus we add pixels here to ensure the galsim tests pass.
-        # it turns out one worked ok so that is what we did. - MRB
-        _inner_comp_find_maxk(kim.array, thresh, kx, ky) + 1 * kim.scale,
+        _inner_comp_find_maxk(kim.array, thresh, kx, ky),
         max_maxk,
     )

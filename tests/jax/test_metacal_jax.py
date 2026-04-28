@@ -282,14 +282,16 @@ def test_metacal_vmap(ntest):
             msg = "jit"
 
         jgt0 = time.time()
-        vmap_mcal(
-            ims,
-            psfs,
-            nse_ims,
-            scale,
-            target_fwhm,
-            g1,
-            128,
+        jax.block_until_ready(
+            vmap_mcal(
+                ims,
+                psfs,
+                nse_ims,
+                scale,
+                target_fwhm,
+                g1,
+                128,
+            )
         )
         jgt0 = time.time() - jgt0
         print("Jax-Galsim time (%s): " % msg, jgt0 * 1e3, " [ms]")
