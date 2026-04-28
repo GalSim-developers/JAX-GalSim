@@ -1235,9 +1235,7 @@ def _inner_comp_find_maxk_scan(arr, thresh, kx, ky):
         msk_ky = aky <= x
         return carry, jnp.sum(msk_thresh & msk_kx & msk_ky)
 
-    scale = kx[0, -1] - kx[0, -2]
-    dk = kx[0, :] + scale
-    _, msk = jax.lax.scan(_func, None, xs=dk)
+    _, msk = jax.lax.scan(_func, None, xs=kx[0, :])
 
     # We are searching for the location of the first string of
     # five locations in a row in `msk` where the value stays the
@@ -1278,11 +1276,12 @@ def _inner_comp_find_maxk_scan(arr, thresh, kx, ky):
     msk_zero = sums == 0
     sind = jax.lax.cond(
         jnp.any(msk_zero),
-        lambda x: jnp.argmin(jnp.where(x == 0, 0, 1)),
+        lambda x: jnp.argmin(jnp.where(x, 0, 1)),
         lambda x: -1,
-        sums,
+        msk_zero,
     )
-    return dk[sind]
+    # add pixel so we have the bound
+    return kx[0, sind] + kx[0, -1] - kx[0, -2]
 
 
 @jax.jit
