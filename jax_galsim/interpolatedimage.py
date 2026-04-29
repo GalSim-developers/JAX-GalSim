@@ -1274,14 +1274,18 @@ def _inner_comp_find_maxk_scan(arr, thresh, kx, ky):
     # function returns the first location (i.e., smallest index)
     # which is what we want.
     msk_zero = sums == 0
-    sind = jax.lax.cond(
+    sind, dk = jax.lax.cond(
         jnp.any(msk_zero),
-        lambda x: jnp.argmin(jnp.where(x, 0, 1)),
-        lambda x: -1,
+        # if we find a set of zeros, the code computes the next pixel past
+        # the pixels where |kval| > thresh. So we set dk = 0 since we don't
+        # need to shift things.
+        lambda x: (jnp.argmin(jnp.where(x, 0, 1)), 0.0),
+        # if we get to the end of the array, we add one pixel spacing
+        # so we match galsim
+        lambda x: (-1, kx[0, -1] - kx[0, -2]),
         msk_zero,
     )
-    # add pixel so we have the bound
-    return kx[0, sind] + kx[0, -1] - kx[0, -2]
+    return kx[0, sind] + dk
 
 
 @jax.jit
