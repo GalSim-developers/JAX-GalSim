@@ -24,6 +24,7 @@ _MARKER = "*Original docstring below.*"
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _leading_spaces(line: str) -> int:
     return len(line) - len(line.lstrip())
 
@@ -131,6 +132,7 @@ def _remove_params_section(lines: list[str]) -> list[str]:
 # Main event handler
 # ---------------------------------------------------------------------------
 
+
 def _process_galsim_docstring(
     app, what: str, name: str, obj, options, lines: list[str]
 ) -> None:
@@ -166,9 +168,42 @@ def _process_galsim_docstring(
     while original_no_params and not original_no_params[-1].strip():
         original_no_params.pop()
 
+    # --- split jax_lines into summary+LAX-ref and lax_description ---
+    # The @implements decorator always injects "LAX-backend implementation of …"
+    # as the second paragraph.  Any content after that line is lax_description.
+    lax_ref_idx: int | None = None
+    for i, line in enumerate(jax_lines):
+        if "LAX-backend implementation of" in line:
+            lax_ref_idx = i
+            break
+
+    if lax_ref_idx is not None:
+        header_lines = jax_lines[: lax_ref_idx + 1]
+        desc_lines = jax_lines[lax_ref_idx + 1 :]
+        # Strip surrounding blank lines from the description block.
+        while desc_lines and not desc_lines[0].strip():
+            desc_lines.pop(0)
+        while desc_lines and not desc_lines[-1].strip():
+            desc_lines.pop()
+    else:
+        header_lines = jax_lines
+        desc_lines = []
+
     # --- build the replacement lines ---
-    new_lines: list[str] = list(jax_lines)
+    new_lines: list[str] = list(header_lines)
     new_lines.append("")
+
+    # Wrap lax_description in a Sharp Bits admonition when present.
+    if desc_lines:
+        new_lines.append(".. admonition:: \U0001f52a JAX-GalSim Sharp Bits")
+        new_lines.append("   :class: warning")
+        new_lines.append("")
+        for line in desc_lines:
+            if line.strip():
+                new_lines.append("   " + line)
+            else:
+                new_lines.append("")
+        new_lines.append("")
 
     # Inject parameters in Google style so Napoleon renders them properly.
     if params:
@@ -198,6 +233,7 @@ def _process_galsim_docstring(
 # ---------------------------------------------------------------------------
 # Extension setup
 # ---------------------------------------------------------------------------
+
 
 def setup(app):
     app.connect("autodoc-process-docstring", _process_galsim_docstring)
