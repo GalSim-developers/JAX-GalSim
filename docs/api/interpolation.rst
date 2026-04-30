@@ -3,6 +3,14 @@ Interpolation
 
 .. currentmodule:: jax_galsim
 
+Interpolated image
+------------------
+
+.. autoclass:: InterpolatedImage
+   :members:
+   :show-inheritance:
+
+
 Interpolants
 ------------
 
@@ -38,9 +46,3 @@ Interpolants
    :members:
    :show-inheritance:
 
-Interpolated image
-------------------
-
-.. autoclass:: InterpolatedImage
-   :members:
-   :show-inheritance:
