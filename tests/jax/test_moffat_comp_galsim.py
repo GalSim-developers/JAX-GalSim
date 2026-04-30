@@ -46,7 +46,7 @@ def test_moffat_comp_galsim_maxk(psf, thresh):
         f"{psf.beta} \t {int(psf.trunc)} \t {thresh:.1e} \t {fk:.3e} \t {psf.maxk:.3e} \t {gpsf.maxk:.3e}",
         flush=True,
     )
-    np.testing.assert_allclose(gpsf.maxk, psf.maxk, rtol=1e-4, atol=0)
+    np.testing.assert_allclose(gpsf.maxk, psf.maxk, rtol=5e-5, atol=0)
     np.testing.assert_allclose(
         psf.kValue(0.0, 0.0), gpsf.kValue(0.0, 0.0), rtol=1e-5, atol=1e-5
     )
