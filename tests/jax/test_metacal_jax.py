@@ -17,28 +17,22 @@ def _metacal_galsim(
     scale,
     target_fwhm,
     g1,
-    iim_kwargs,
-    ipsf_kwargs,
-    inse_kwargs,
     nk,
 ):
     iim = _galsim.InterpolatedImage(
         _galsim.ImageD(im),
         scale=scale,
         x_interpolant="lanczos15",
-        **iim_kwargs,
     )
     ipsf = _galsim.InterpolatedImage(
         _galsim.ImageD(psf),
         scale=scale,
         x_interpolant="lanczos15",
-        **ipsf_kwargs,
     )
     inse = _galsim.InterpolatedImage(
         _galsim.ImageD(np.rot90(nse_im, 1)),
         scale=scale,
         x_interpolant="lanczos15",
-        **inse_kwargs,
     )
 
     ppsf_iim = _galsim.Convolve(iim, _galsim.Deconvolve(ipsf))
@@ -153,37 +147,6 @@ def test_metacal_comp_to_galsim(nse):
     nse_im = rng.normal(size=im.shape, scale=nse)
     im += rng.normal(size=im.shape, scale=nse)
 
-    # jax galsim and galsim set stepk and maxk differently due to slight
-    # algorithmic differences.  We force them to be the same here for this
-    # test so it passes.
-    iim = jax_galsim.InterpolatedImage(
-        jax_galsim.ImageD(im),
-        scale=scale,
-        x_interpolant="lanczos15",
-        gsparams=jax_galsim.GSParams(minimum_fft_size=128),
-    )
-    iim_kwargs = {
-        "_force_stepk": iim.stepk.item(),
-        "_force_maxk": iim.maxk.item(),
-    }
-    inse = jax_galsim.InterpolatedImage(
-        jax_galsim.ImageD(jnp.rot90(nse_im, 1)),
-        scale=scale,
-        x_interpolant="lanczos15",
-        gsparams=jax_galsim.GSParams(minimum_fft_size=128),
-    )
-    inse_kwargs = {
-        "_force_stepk": inse.stepk.item(),
-        "_force_maxk": inse.maxk.item(),
-    }
-    ipsf = jax_galsim.InterpolatedImage(
-        jax_galsim.ImageD(psf), scale=scale, x_interpolant="lanczos15"
-    )
-    ipsf_kwargs = {
-        "_force_stepk": ipsf.stepk.item(),
-        "_force_maxk": ipsf.maxk.item(),
-    }
-
     gt0 = time.time()
     gres = _metacal_galsim(
         im.copy(),
@@ -192,9 +155,6 @@ def test_metacal_comp_to_galsim(nse):
         scale,
         target_fwhm,
         g1,
-        iim_kwargs,
-        ipsf_kwargs,
-        inse_kwargs,
         128,
     )
     gt0 = time.time() - gt0
@@ -255,7 +215,6 @@ def test_metacal_vmap(ntest):
     ims = []
     nse_ims = []
     psfs = []
-    init_done = False
     for _seed in range(ntest):
         seed = _seed + start_seed
         rng = np.random.RandomState(seed)
@@ -290,40 +249,6 @@ def test_metacal_vmap(ntest):
         psfs.append(psf)
         nse_ims.append(nse_im)
 
-        if not init_done:
-            init_done = True
-
-            # jax galsim and galsim set stepk and maxk differently due to slight
-            # algorithmic differences.  We force them to be the same here for this
-            # test so it passes.
-            iim = jax_galsim.InterpolatedImage(
-                jax_galsim.ImageD(im),
-                scale=scale,
-                x_interpolant="lanczos15",
-                gsparams=jax_galsim.GSParams(minimum_fft_size=128),
-            )
-            iim_kwargs = {
-                "_force_stepk": iim.stepk.item(),
-                "_force_maxk": iim.maxk.item(),
-            }
-            inse = jax_galsim.InterpolatedImage(
-                jax_galsim.ImageD(jnp.rot90(nse_im, 1)),
-                scale=scale,
-                x_interpolant="lanczos15",
-                gsparams=jax_galsim.GSParams(minimum_fft_size=128),
-            )
-            inse_kwargs = {
-                "_force_stepk": inse.stepk.item(),
-                "_force_maxk": inse.maxk.item(),
-            }
-            ipsf = jax_galsim.InterpolatedImage(
-                jax_galsim.ImageD(psf), scale=scale, x_interpolant="lanczos15"
-            )
-            ipsf_kwargs = {
-                "_force_stepk": ipsf.stepk.item(),
-                "_force_maxk": ipsf.maxk.item(),
-            }
-
     ims = np.stack(ims)
     psfs = np.stack(psfs)
     nse_ims = np.stack(nse_ims)
@@ -337,9 +262,6 @@ def test_metacal_vmap(ntest):
             scale,
             target_fwhm,
             g1,
-            iim_kwargs,
-            ipsf_kwargs,
-            inse_kwargs,
             128,
         )
     gt0 = time.time() - gt0
@@ -360,14 +282,16 @@ def test_metacal_vmap(ntest):
             msg = "jit"
 
         jgt0 = time.time()
-        vmap_mcal(
-            ims,
-            psfs,
-            nse_ims,
-            scale,
-            target_fwhm,
-            g1,
-            128,
+        jax.block_until_ready(
+            vmap_mcal(
+                ims,
+                psfs,
+                nse_ims,
+                scale,
+                target_fwhm,
+                g1,
+                128,
+            )
         )
         jgt0 = time.time() - jgt0
         print("Jax-Galsim time (%s): " % msg, jgt0 * 1e3, " [ms]")
@@ -423,8 +347,6 @@ def test_metacal_iimage_with_noise(nse, draw_method):
         scale=scale,
         x_interpolant="lanczos15",
         gsparams=_galsim.GSParams(minimum_fft_size=nk),
-        _force_stepk=jgiim.stepk.item(),
-        _force_maxk=jgiim.maxk.item(),
     )
 
     def _plot_real(gim, jgim):

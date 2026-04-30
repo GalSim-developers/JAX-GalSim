@@ -18,7 +18,6 @@ from jax.tree_util import register_pytree_node_class
 from jax_galsim import fits
 from jax_galsim.bounds import BoundsI
 from jax_galsim.core.utils import (
-    compute_major_minor_from_jacobian,
     ensure_hashable,
     implements,
 )
@@ -173,8 +172,6 @@ class InterpolatedImage(Transformation, metaclass=DirMeta):
                 depixelize=depixelize,
                 offset=offset,
                 gsparams=GSParams.check(gsparams),
-                _force_stepk=_force_stepk,
-                _force_maxk=_force_maxk,
                 hdu=hdu,
                 _recenter_image=_recenter_image,
             )
@@ -220,14 +217,19 @@ class InterpolatedImage(Transformation, metaclass=DirMeta):
         if self._jax_aux_data["_force_maxk"] > 0:
             return self._jax_aux_data["_force_maxk"]
         else:
-            return super()._maxk
+            # galsim uses a different way to handle the WCS effects on maxk
+            # for interpolated images. IDK why. - MRB
+            return self._original.maxk / self._original._wcs._maxScale()
 
     @property
     def _stepk(self):
         if self._jax_aux_data["_force_stepk"] > 0:
             return self._jax_aux_data["_force_stepk"]
         else:
-            return super()._stepk
+            # galsim uses a different way to handle the WCS effects on stepk
+            # for interpolated images. IDK why. - MRB
+            # super()._stepk
+            return self._original.stepk / self._original._wcs._minScale()
 
     @property
     @implements(_galsim.interpolatedimage.InterpolatedImage.x_interpolant)
@@ -365,6 +367,16 @@ def _zeropad_image(arr, npad):
 
 @register_pytree_node_class
 class _InterpolatedImageImpl(GSObject):
+    """Internal class for handling interpolated images.
+
+    An interpolated image carries an intrinsic WCS with it that can be anything
+    from a pixel-scale to a full Jacobian.
+
+    We use this internal class to separate the underlying image bits from the
+    WCS handling bits. For those, we inherit from the Transform class so that
+    we can reuse its methods.
+    """
+
     _cache_noise_pad = {}
 
     _has_hard_edges = False
@@ -393,15 +405,12 @@ class _InterpolatedImageImpl(GSObject):
         depixelize=False,
         offset=None,
         gsparams=None,
-        _force_stepk=0.0,
-        _force_maxk=0.0,
         hdu=None,
         _recenter_image=True,
     ):
         # this class does a ton of munging of the inputs that I don't want to reconstruct when
         # flattening and unflattening the class.
         # thus I am going to make some refs here so we have it when we need it
-        self._workspace = {}
         self._jax_children = (
             image,
             dict(
@@ -426,8 +435,6 @@ class _InterpolatedImageImpl(GSObject):
             use_true_center=use_true_center,
             depixelize=depixelize,
             gsparams=gsparams,
-            _force_stepk=_force_stepk,
-            _force_maxk=_force_maxk,
             _recenter_image=_recenter_image,
             hdu=hdu,
         )
@@ -528,13 +535,10 @@ class _InterpolatedImageImpl(GSObject):
         return ret
 
     def __getstate__(self):
-        d = self.__dict__.copy()
-        d.pop("_workspace")
-        return d
+        return self.__dict__.copy()
 
     def __setstate__(self, d):
         self.__dict__ = d
-        self._workspace = {}
 
     @property
     def x_interpolant(self):
@@ -681,31 +685,15 @@ class _InterpolatedImageImpl(GSObject):
 
     @property
     def _maxk(self):
-        if self._jax_aux_data["_force_maxk"]:
-            _, minor = compute_major_minor_from_jacobian(self._jac_arr.reshape((2, 2)))
-            return self._jax_aux_data["_force_maxk"] * minor
-        else:
-            return self._getMaxK(self._jax_aux_data["calculate_maxk"])
+        return self._getMaxK(self._jax_aux_data["calculate_maxk"])
 
     @property
     def _stepk(self):
-        if self._jax_aux_data["_force_stepk"]:
-            _, minor = compute_major_minor_from_jacobian(self._jac_arr.reshape((2, 2)))
-            return self._jax_aux_data["_force_stepk"] * minor
-        else:
-            return self._getStepK(self._jax_aux_data["calculate_stepk"])
+        return self._getStepK(self._jax_aux_data["calculate_stepk"])
 
     def _getStepK(self, calculate_stepk):
         # GalSim cannot automatically know what stepK and maxK are appropriate for the
         # input image.  So it is usually worth it to do a manual calculation (below).
-        #
-        # However, there is also a hidden option to force it to use specific values of stepK and
-        # maxK (caveat user!).  The values of _force_stepk and _force_maxk should be provided in
-        # terms of physical scale, e.g., for images that have a scale length of 0.1 arcsec, the
-        # stepK and maxK should be provided in units of 1/arcsec.  Then we convert to the 1/pixel
-        # units required by the C++ layer below.  Also note that profile recentering for even-sized
-        # images (see the ._adjust_offset step below) leads to automatic reduction of stepK slightly
-        # below what is provided here, while maxK is preserved.
         if calculate_stepk:
             if calculate_stepk is True:
                 im = self.image
@@ -1171,9 +1159,9 @@ def _flux_frac(a, x, y, cenx, ceny):
     dx = jnp.reshape(dx, (a.shape[0], a.shape[1], 1))
     dy = y - ceny
     dy = jnp.reshape(dy, (a.shape[0], a.shape[1], 1))
-    d = jnp.arange(a.shape[0])
+    d = jnp.arange(min(a.shape[0], a.shape[1]))
     d = jnp.reshape(d, (1, 1, -1))
-    msk = (jnp.abs(dx) <= d) & (jnp.abs(dx) <= d)
+    msk = (jnp.abs(dx) <= d) & (jnp.abs(dy) <= d)
     res = jnp.sum(
         jnp.where(
             msk,
@@ -1182,7 +1170,6 @@ def _flux_frac(a, x, y, cenx, ceny):
         ),
         axis=(0, 1),
     )
-    res = jnp.where(res > 0, res, -jnp.inf)
     return res
 
 
@@ -1191,28 +1178,20 @@ def _calculate_size_containing_flux(image, thresh):
     cenx, ceny = image.center.x, image.center.y
     x, y = image.get_pixel_centers()
     fluxes = _flux_frac(image.array, x, y, cenx, ceny)
-    msk = fluxes >= -jnp.inf
-    fluxes = jnp.where(msk, fluxes, jnp.max(fluxes))
-    d = jnp.arange(image.array.shape[0]) + 1.0
-    # below we use a linear interpolation table to find the maximum size
-    # in pixels that contains a given flux (called thresh here)
-    # expfac controls how much we oversample the interpolation table
-    # in order to return a more accurate result
-    # we have it hard coded at 4 to compromise between speed and accuracy
-    expfac = 4.0
-    dint = jnp.arange(image.array.shape[0] * expfac) / expfac + 1.0
-    fluxes = jnp.interp(dint, d, fluxes)
-    msk = fluxes <= thresh
+    # we add 1 since the flux fraction computation above starts at
+    # one pixel and jnp.arange starts at zero
+    d = jnp.arange(min(image.array.shape[0], image.array.shape[1])) + 1.0
+    p = jnp.sign(thresh)
+    msk = (p * fluxes) >= (p * thresh)
     return (
-        jnp.argmax(
+        jnp.argmin(
             jnp.where(
                 msk,
-                dint,
-                -jnp.inf,
+                d,
+                jnp.inf,
             )
         )
-        / expfac
-        + 1.0
+        + 0.5
     )
 
 
@@ -1233,7 +1212,78 @@ def _inner_comp_find_maxk(arr, thresh, kx, ky):
             -jnp.inf,
         )
     )
-    return jnp.maximum(max_kx, max_ky)
+    # galsim adds one pixel at the end so that maxk is
+    # the k value where things do not pass the threshold,
+    # so we do that here too.
+    return jnp.maximum(max_kx, max_ky) + kx[0, 1] - kx[0, 0]
+
+
+# this version matches galsim's maxk operation exactly, but is
+# more expensive to compute since it has a scan operation.
+# I am leaving it here for posterity. - MRB
+# @jax.jit
+# def _inner_comp_find_maxk_scan(arr, thresh, kx, ky):
+#     val = (arr * arr.conjugate()).real
+#     msk_thresh = val > thresh * thresh
+#     akx = jnp.abs(kx)
+#     aky = jnp.abs(ky)
+#
+#     def _func(carry, x):
+#         msk_kx = akx <= x
+#         msk_ky = aky <= x
+#         return carry, jnp.sum(msk_thresh & msk_kx & msk_ky)
+#
+#     _, msk = jax.lax.scan(_func, None, xs=kx[0, :])
+#
+#     # We are searching for the location of the first string of
+#     # five locations in a row in `msk` where the value stays the
+#     # same.
+#     # We do this by putting the array through jnp.diff, which
+#     # computes the difference of adjacent elements. Then we convolve
+#     # with a filter of ones of length five to sum groups of five
+#     # elements together. The first location where the result is
+#     # zero is the location we want. The tricky bit however is getting
+#     # the indexing right.
+#
+#     # step 1. compute the diff of adjacent elements
+#     # The function jnp.diff returns an array of size one less than
+#     # the input. So we concatenate a zero at the front. This makes
+#     # sense since if the original array is all constant, then the
+#     # location of the first five zeros is at the start of the array.
+#     delta_msk = jnp.concatenate(
+#         [jnp.array([0], dtype=int), jnp.diff(msk)],
+#         axis=0,
+#         dtype=int,
+#     )
+#
+#     # step 2. convolve with the filter
+#     # In the discrete convolution, you have to deal with edge
+#     # behavior where the filter only partially overlaps the arrays.
+#     # We use the mode `full` which returns an array containing
+#     # every possible combination with missing elements set to zero.
+#     # We cut the first `length of filter - 1` elements so that
+#     # index i of the result is the sum of the filter starting
+#     # at index i of the input.
+#     sums = jnp.convolve(delta_msk, jnp.ones(5, dtype=int), mode="full")[4:]
+#
+#     # step 3. find first location of zero in the convolution
+#     # Finally, we use jnp.argmin to find the location of the first
+#     # zero. Per the doc string, if there is more than one zero, this
+#     # function returns the first location (i.e., smallest index)
+#     # which is what we want.
+#     msk_zero = sums == 0
+#     sind, dk = jax.lax.cond(
+#         jnp.any(msk_zero),
+#         # if we find a set of zeros, the code computes the next pixel past
+#         # the pixels where |kval| > thresh. So we set dk = 0 since we don't
+#         # need to shift things.
+#         lambda x: (jnp.argmin(jnp.where(x, 0, 1)), 0.0),
+#         # if we get to the end of the array, we add one pixel spacing
+#         # so we match galsim
+#         lambda x: (-1, kx[0, -1] - kx[0, -2]),
+#         msk_zero,
+#     )
+#     return kx[0, sind] + dk
 
 
 @jax.jit
