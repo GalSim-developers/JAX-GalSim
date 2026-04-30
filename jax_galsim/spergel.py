@@ -240,25 +240,25 @@ def _spergel_hlr_pade(x):
     return pm / qm
 
 
-@implements(
-    _galsim.Spergel,
-    lax_description=r"""The fully normalized Spergel profile (used in both standard GalSim and JAX-GalSim) is
-        .. math::
+LAX_SPERGEL_DESCRIPTION = r"""
+The fully normalized Spergel profile (used in both standard GalSim and JAX-GalSim) is
 
-            I(r) = flux \times \left(2\pi 2^\nu \Gamma(1+\nu) r_0^2\right)^{-1}
-              \times \left(\frac{r}{r_0}\right)^\nu K_\nu\left(\frac{r}{r_0}\right)
+.. math::
+    I(r) = flux \times \left(2\pi 2^\nu \Gamma(1+\nu) r_0^2\right)^{-1} \times \left(\frac{r}{r_0}\right)^\nu K_\nu\left(\frac{r}{r_0}\right)
 
-    with the following Fourier expression
-        .. math::
+with the following Fourier expression
 
-            \hat{I}(k) = flux / (1 + (k r_0)^2)^{1+\nu}
+.. math::
+    \hat{I}(k) = flux / (1 + (k r_0)^2)^{1+\nu}
 
-    where :math:`r_0` is the ``scale_radius``, and :math:`\nu` mandatory to be in [-0.85,4.0]
+where :math:`r_0` is the ``scale_radius``, and :math:`\nu` mandatory to be in [-0.85,4.0]
 
-    The JAX-GalSim implementation does not support autodiff with respect to :math:`\nu` for
-    real-space evaluations.
-    """,
-)
+The JAX-GalSim implementation does not support autodiff with respect to :math:`\nu` for
+real-space evaluations.
+"""
+
+
+@implements(_galsim.Spergel, lax_description=LAX_SPERGEL_DESCRIPTION)
 @register_pytree_node_class
 class Spergel(GSObject):
     _has_hard_edges = False

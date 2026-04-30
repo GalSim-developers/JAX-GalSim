@@ -1,6 +1,5 @@
 import copy
 import math
-import textwrap
 from functools import partial
 
 import galsim as _galsim
@@ -55,18 +54,17 @@ class DirMeta(type):
         return list(keys)
 
 
-@implements(
-    _galsim.InterpolatedImage,
-    lax_description=textwrap.dedent(
-        """The JAX equivalent of galsim.InterpolatedImage does not support
+LAX_INTERPOLATED_IMAGE = """\
+The JAX equivalent of galsim.InterpolatedImage does not support:
 
-            - noise padding
-            - the pad_image options
-            - depixelize
-            - most of the bounds checks, type checks, and dtype casts done by galsim
-        """
-    ),
-)
+- noise padding
+- the pad_image options
+- depixelize
+- most of the bounds checks, type checks, and dtype casts done by galsim
+"""
+
+
+@implements(_galsim.InterpolatedImage, lax_description=LAX_INTERPOLATED_IMAGE)
 @register_pytree_node_class
 class InterpolatedImage(Transformation, metaclass=DirMeta):
     _req_params = {"image": str}
