@@ -38,7 +38,7 @@ with :func:`jax_galsim.core.utils.implements`.  This decorator copies the
 original GalSim docstring and prepends any JAX-specific caveats.  In the API
 docs you will therefore find:
 
-* A **summary** and optional **JAX-specific notes** at the top of each entry.
+* A **summary** and optional **JAX-GalSim Sharp Bits** at the top of each entry.
 * An explicit **Parameters** table derived from the original GalSim
   documentation.
 * A collapsible **Original GalSim Documentation** block containing the full
