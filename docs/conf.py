@@ -35,12 +35,12 @@ version = ".".join(release.split(".")[:2])
 #   2. galsim_docstring     – our handler runs before Napoleon sees the lines
 #   3. sphinx.ext.napoleon  – converts the cleaned-up Parameters: block to RST
 extensions = [
-    "sphinx.ext.autodoc",       # API docs from docstrings (defines the event)
-    "galsim_docstring",         # custom – splits implements() docstrings
-    "sphinx.ext.napoleon",      # Google/NumPy-style docstring parsing
-    "sphinx.ext.viewcode",      # "View source" links
-    "sphinx.ext.intersphinx",   # cross-links to external docs
-    "sphinx_design",            # dropdown / collapsible directives
+    "sphinx.ext.autodoc",  # API docs from docstrings (defines the event)
+    "galsim_docstring",  # custom – splits implements() docstrings
+    "sphinx.ext.napoleon",  # Google/NumPy-style docstring parsing
+    "sphinx.ext.viewcode",  # "View source" links
+    "sphinx.ext.intersphinx",  # cross-links to external docs
+    "sphinx_design",  # dropdown / collapsible directives
 ]
 
 templates_path = ["_templates"]
