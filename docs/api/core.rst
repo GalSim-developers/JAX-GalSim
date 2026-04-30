@@ -1,9 +1,8 @@
 Core Utilities
 ==============
 
-.. automodule:: jax_galsim.core.utils
-   :members:
-   :undoc-members: False
+Math
+---------
 
 .. automodule:: jax_galsim.core.math
    :members:
@@ -17,6 +16,16 @@ Core Utilities
    :members:
    :undoc-members: False
 
+Drawing
+---------
+
 .. automodule:: jax_galsim.core.draw
+   :members:
+   :undoc-members: False
+
+Utilities
+---------
+
+.. automodule:: jax_galsim.core.utils
    :members:
    :undoc-members: False
