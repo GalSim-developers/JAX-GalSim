@@ -574,12 +574,12 @@ class GSObject:
         lax_description="""\
 The JAX-GalSim version of `drawImage`
 
-  - does not do extensive (any?) checking of the input settings.
-  - uses a default of ``n_photons=None`` instead of ``n_photons=0``
-    to indicate that the number of photons should be determined
-    from the flux and gain
-  - requires that the maxN option be a constant since PhotonArrays are allocated
-    with `maxN` photons when this option is used and arrays in JAX must have static sizes.
+- does not do extensive (any?) checking of the input settings.
+- uses a default of ``n_photons=None`` instead of ``n_photons=0``
+to indicate that the number of photons should be determined
+from the flux and gain
+- requires that the maxN option be a constant since PhotonArrays are allocated
+with `maxN` photons when this option is used and arrays in JAX must have static sizes.
 """,
     )
     def drawImage(
