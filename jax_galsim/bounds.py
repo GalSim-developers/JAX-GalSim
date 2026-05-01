@@ -27,8 +27,8 @@ CONST_TYPES_WITH_JAX = CONST_TYPES + (
 BOUNDS_LAX_DESCR = """\
 The JAX implementation
 
-  - will not always test whether the bounds are valid
-  - will not always test whether BoundsI is initialized with integers
+- will not always test whether the bounds are valid
+- will not always test whether BoundsI is initialized with integers
 
 Further, the JAX implementation adds a new method, ``isStatic`` to the
 ``BoundsI`` class. If JAX-GalSim detects that the ``BoundsI`` instance

@@ -41,35 +41,36 @@ def fixed_photon_array_size(size):
     lax_description="""\
 JAX-GalSim PhotonArrays have significant differences from the original GalSim.
 
-    - They always copy input data and operations on them always copy.
-    - They (usually) do not do any type/size checking on input data.
-    - They do not support indexed assignement directly on the attributes.
-    - The additional properties `dxdz`, `dydz`, `wavelength`, `pupil_u`, `pupil_v`,
-      and `time` are set to arrays of NaNs by default. They are thus always allocated.
-      However, the methods like `hasAllocatedAngles` etc. return false if the arrays
-      are all NaNs.
+- They always copy input data and operations on them always copy.
+- They (usually) do not do any type/size checking on input data.
+- They do not support indexed assignement directly on the attributes.
+- The additional properties ``dxdz``, ``dydz``, ``wavelength``, ``pupil_u``, ``pupil_v``,
+  and ``time`` are set to arrays of NaNs by default. They are thus always allocated.
+  However, the methods like `hasAllocatedAngles` etc. return false if the arrays
+  are all NaNs.
 
-Further, a context manager `fixed_photon_array_size` is provided to temporarily
+Further, a context manager ``fixed_photon_array_size`` is provided to temporarily
 set a fixed size for photon arrays.
 
-  - This functionality is useful when apply JIT to operations that vary the
-    number of photons drawn using Poisson statistics.
-  - When using this context manager, the attribute `_nokeep` stores a boolean mask
-    indicating which photons are to be kept.
-  - The attribute `_num_keep` stores the number of photons to be kept. If you set
-    this attribute, the `_nokeep` mask is updated by sorting _nokeep so that things
-    to be kept are at the start, the first `_num_keep` photons are marked to be kept,
-    and finally the array is sorted back to its original order.
-  - You may get an error if you ask for more photons than the fixed size, but not always,
-    especially in JITed code.
-  - Operations on photon arrays with fixed sizes but different `_num_keep` values are not
-    defined and will not raise an error.
-  - The `.flux` property scales `._flux` by the ratio of the fixed size to the number of kept photons
-    and sets non-kept photons to zero flux. Setting `.flux` to `._flux` will break things badly.
-  - Profiles should always draw the full number of photons given by `.size()` or `len()`
-    so that they use fixed array sizes and things are JIT compatible.
+- This functionality is useful when applying JIT to operations that vary the
+  number of photons drawn using Poisson statistics.
+- When using this context manager, the attribute ``_nokeep`` stores a boolean mask
+  indicating which photons are to be kept.
+- The attribute ``_num_keep`` stores the number of photons to be kept. If you set
+  this attribute, the ``_nokeep`` mask is updated by sorting ``_nokeep`` so that things
+  to be kept are at the start, the first ``_num_keep`` photons are marked to be kept,
+  and finally the array is sorted back to its original order.
+- You may get an error if you ask for more photons than the fixed size, but not always,
+  especially in JITed code.
+- Operations on photon arrays with fixed sizes but different `_num_keep` values are not
+  defined and will not raise an error.
+- The ``.flux`` property scales ``._flux`` by the ratio of the fixed size to the number
+  of kept photons and sets non-kept photons to zero flux. Setting ``.flux`` to ``._flux``
+  will break things badly.
+- Profiles should always draw the full number of photons given by ``.size()`` or ``len()``
+  so that they use fixed array sizes and things are JIT compatible.
 
-**The `_nokeep`, `_num_keep`, and associated methods are private and should not be set by hand
+**The ``_nokeep``, ``_num_keep``, and associated methods are private and should not be set by hand
 unless you know what you are doing!**
 """,
 )
@@ -260,8 +261,8 @@ class PhotonArray:
         ret._is_corr = children[1]["is_corr"]
         return ret
 
+    @implements(_galsim.PhotonArray.size)
     def size(self):
-        """Return the size of the photon array.  Equivalent to ``len(self)``."""
         return self._Ntot
 
     def __len__(self):

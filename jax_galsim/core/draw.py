@@ -116,7 +116,7 @@ def calculate_mean_n_photons(
         max_sb:              The maximum surface brightness of the object (e.g., ``obj.max_sb``).
 
     Returns:
-        n_photons:      The number of photons.
+        The number of photons.
     """
     npd = _NPhotonsData(
         n_photons=0.0,
@@ -176,125 +176,120 @@ def calculate_n_photons(
                              is False]
 
     Returns:
-        n_photons:      The number of photons.
-        g:              The flux ratio to use. Combine with a pre-existing gain via ``g /= gain`` and then multiply
-                        the flux per photon by ``g``.
-        rng:            The final random number generator used.
-
+        A tuple of ``(n_photons, g, rng)`` where ``n_photons`` is the number of photons, ``g`` is the flux ratio, and ``rng`` is the final random number generator used.
 
     Notes:
+        It is easiest to look at the original code from ``GSObject._calculate_nphotons``
+        to understand what this function does:
 
-    It is easiest to simply copy the original code from GSObject._calculate_nphotons
-    into the doc string here in order to document what this function does.
+        .. code-block:: python
 
-        # the old doc string:
-        Calculate how many photons to shoot and what flux_ratio (called g) each one should
-        have in order to produce an image with the right S/N and total flux.
+            # Calculate how many photons to shoot and what flux_ratio (called g) each one should
+            # have in order to produce an image with the right S/N and total flux.
+            #
+            # This routine is normally called by drawPhot.
+            #
+            # Returns:
+            #     n_photons, g
 
-        This routine is normally called by `drawPhot`.
+            # For profiles that are positive definite, then N = flux. Easy.
+            #
+            # However, some profiles shoot some of their photons with negative flux. This means that
+            # we need a few more photons to get the right S/N = sqrt(flux). Take eta to be the
+            # fraction of shot photons that have negative flux.
+            #
+            # S^2 = (N+ - N-)^2 = (N+ + N- - 2N-)^2 = (Ntot - 2N-)^2 = Ntot^2(1 - 2 eta)^2
+            # N^2 = Var(S) = (N+ + N-) = Ntot
+            #
+            # So flux = (S/N)^2 = Ntot (1-2eta)^2
+            # Ntot = flux / (1-2eta)^2
+            #
+            # However, if each photon has a flux of 1, then S = (1-2eta) Ntot = flux / (1-2eta).
+            # So in fact, each photon needs to carry a flux of g = 1-2eta to get the right
+            # total flux.
+            #
+            # That's all the easy case. The trickier case is when we are sky-background dominated.
+            # Then we can usually get away with fewer shot photons than the above.  In particular,
+            # if the noise from the photon shooting is much less than the sky noise, then we can
+            # use fewer shot photons and essentially have each photon have a flux > 1. This is ok
+            # as long as the additional noise due to this approximation is "much less than" the
+            # noise we'll be adding to the image for the sky noise.
+            #
+            # Let's still have Ntot photons, but now each with a flux of g. And let's look at the
+            # noise we get in the brightest pixel that has a nominal total flux of Imax.
+            #
+            # The number of photons hitting this pixel will be Imax/flux * Ntot.
+            # The variance of this number is the same thing (Poisson counting).
+            # So the noise in that pixel is:
+            #
+            # N^2 = Imax/flux * Ntot * g^2
+            #
+            # And the signal in that pixel will be:
+            #
+            # S = Imax/flux * (N+ - N-) * g which has to equal Imax, so
+            # g = flux / Ntot(1-2eta)
+            # N^2 = Imax/Ntot * flux / (1-2eta)^2
+            #
+            # As expected, we see that lowering Ntot will increase the noise in that (and every
+            # other) pixel.
+            # The input max_extra_noise parameter is the maximum value of spurious noise we want
+            # to allow.
+            #
+            # So setting N^2 = Imax + nu, we get
+            #
+            # Ntot = flux / (1-2eta)^2 / (1 + nu/Imax)
+            # g = (1 - 2eta) * (1 + nu/Imax)
+            #
+            # Returns the total flux placed inside the image bounds by photon shooting.
 
-        Returns:
-            n_photons, g
+            flux = self.flux
+            if flux == 0.0:
+                return 0, 1.0
 
-        # For profiles that are positive definite, then N = flux. Easy.
-        #
-        # However, some profiles shoot some of their photons with negative flux. This means that
-        # we need a few more photons to get the right S/N = sqrt(flux). Take eta to be the
-        # fraction of shot photons that have negative flux.
-        #
-        # S^2 = (N+ - N-)^2 = (N+ + N- - 2N-)^2 = (Ntot - 2N-)^2 = Ntot^2(1 - 2 eta)^2
-        # N^2 = Var(S) = (N+ + N-) = Ntot
-        #
-        # So flux = (S/N)^2 = Ntot (1-2eta)^2
-        # Ntot = flux / (1-2eta)^2
-        #
-        # However, if each photon has a flux of 1, then S = (1-2eta) Ntot = flux / (1-2eta).
-        # So in fact, each photon needs to carry a flux of g = 1-2eta to get the right
-        # total flux.
-        #
-        # That's all the easy case. The trickier case is when we are sky-background dominated.
-        # Then we can usually get away with fewer shot photons than the above.  In particular,
-        # if the noise from the photon shooting is much less than the sky noise, then we can
-        # use fewer shot photons and essentially have each photon have a flux > 1. This is ok
-        # as long as the additional noise due to this approximation is "much less than" the
-        # noise we'll be adding to the image for the sky noise.
-        #
-        # Let's still have Ntot photons, but now each with a flux of g. And let's look at the
-        # noise we get in the brightest pixel that has a nominal total flux of Imax.
-        #
-        # The number of photons hitting this pixel will be Imax/flux * Ntot.
-        # The variance of this number is the same thing (Poisson counting).
-        # So the noise in that pixel is:
-        #
-        # N^2 = Imax/flux * Ntot * g^2
-        #
-        # And the signal in that pixel will be:
-        #
-        # S = Imax/flux * (N+ - N-) * g which has to equal Imax, so
-        # g = flux / Ntot(1-2eta)
-        # N^2 = Imax/Ntot * flux / (1-2eta)^2
-        #
-        # As expected, we see that lowering Ntot will increase the noise in that (and every
-        # other) pixel.
-        # The input max_extra_noise parameter is the maximum value of spurious noise we want
-        # to allow.
-        #
-        # So setting N^2 = Imax + nu, we get
-        #
-        # Ntot = flux / (1-2eta)^2 / (1 + nu/Imax)
-        # g = (1 - 2eta) * (1 + nu/Imax)
-        #
-        # Returns the total flux placed inside the image bounds by photon shooting.
-        #
+            # The _flux_per_photon property is (1-2eta)
+            # This factor will already be accounted for by the shoot function, so don't include
+            # that as part of our scaling here.  There may be other adjustments though, so g=1 here.
+            eta_factor = self._flux_per_photon
+            mod_flux = flux / (eta_factor * eta_factor)
+            g = 1.0
 
-        flux = self.flux
-        if flux == 0.0:
-            return 0, 1.0
+            # If requested, let the target flux value vary as a Poisson deviate
+            if poisson_flux:
+                # If we have both positive and negative photons, then the mix of these
+                # already gives us some variation in the flux value from the variance
+                # of how many are positive and how many are negative.
+                # The number of negative photons varies as a binomial distribution.
+                # <F-> = eta * Ntot * g
+                # <F+> = (1-eta) * Ntot * g
+                # <F+ - F-> = (1-2eta) * Ntot * g = flux
+                # Var(F-) = eta * (1-eta) * Ntot * g^2
+                # F+ = Ntot * g - F- is not an independent variable, so
+                # Var(F+ - F-) = Var(Ntot*g - 2*F-)
+                #              = 4 * Var(F-)
+                #              = 4 * eta * (1-eta) * Ntot * g^2
+                #              = 4 * eta * (1-eta) * flux
+                # We want the variance to be equal to flux, so we need an extra:
+                # delta Var = (1 - 4*eta + 4*eta^2) * flux
+                #           = (1-2eta)^2 * flux
+                absflux = abs(flux)
+                mean = eta_factor * eta_factor * absflux
+                pd = PoissonDeviate(rng, mean)
+                pd_val = pd() - mean + absflux
+                ratio = pd_val / absflux
+                g *= ratio
+                mod_flux *= ratio
 
-        # The _flux_per_photon property is (1-2eta)
-        # This factor will already be accounted for by the shoot function, so don't include
-        # that as part of our scaling here.  There may be other adjustments though, so g=1 here.
-        eta_factor = self._flux_per_photon
-        mod_flux = flux / (eta_factor * eta_factor)
-        g = 1.
+            if n_photons == 0.0:
+                n_photons = abs(mod_flux)
+                if max_extra_noise > 0.0:
+                    gfactor = 1.0 + max_extra_noise / abs(self.max_sb)
+                    n_photons /= gfactor
+                    g *= gfactor
 
-        # If requested, let the target flux value vary as a Poisson deviate
-        if poisson_flux:
-            # If we have both positive and negative photons, then the mix of these
-            # already gives us some variation in the flux value from the variance
-            # of how many are positive and how many are negative.
-            # The number of negative photons varies as a binomial distribution.
-            # <F-> = eta * Ntot * g
-            # <F+> = (1-eta) * Ntot * g
-            # <F+ - F-> = (1-2eta) * Ntot * g = flux
-            # Var(F-) = eta * (1-eta) * Ntot * g^2
-            # F+ = Ntot * g - F- is not an independent variable, so
-            # Var(F+ - F-) = Var(Ntot*g - 2*F-)
-            #              = 4 * Var(F-)
-            #              = 4 * eta * (1-eta) * Ntot * g^2
-            #              = 4 * eta * (1-eta) * flux
-            # We want the variance to be equal to flux, so we need an extra:
-            # delta Var = (1 - 4*eta + 4*eta^2) * flux
-            #           = (1-2eta)^2 * flux
-            absflux = abs(flux)
-            mean = eta_factor*eta_factor * absflux
-            pd = PoissonDeviate(rng, mean)
-            pd_val = pd() - mean + absflux
-            ratio = pd_val / absflux
-            g *= ratio
-            mod_flux *= ratio
+            # Make n_photons an integer.
+            iN = int(n_photons + 0.5)
 
-        if n_photons == 0.:
-            n_photons = abs(mod_flux)
-            if max_extra_noise > 0.:
-                gfactor = 1. + max_extra_noise / abs(self.max_sb)
-                n_photons /= gfactor
-                g *= gfactor
-
-        # Make n_photons an integer.
-        iN = int(n_photons + 0.5)
-
-        return iN, g
+            return iN, g
     """
 
     n_photons_data = _NPhotonsData(

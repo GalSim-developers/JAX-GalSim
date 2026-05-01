@@ -2,9 +2,12 @@
 
 **JAX port of GalSim, for parallelized, GPU accelerated, and differentiable galaxy image simulations.**
 
-[![Contributor Covenant](https://img.shields.io/badge/Contributor%20Covenant-2.1-4baaaa.svg)](CODE_OF_CONDUCT.md) [![Python package](https://github.com/GalSim-developers/JAX-GalSim/actions/workflows/python_package.yaml/badge.svg)](https://github.com/GalSim-developers/JAX-GalSim/actions/workflows/python_package.yaml) [![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff) [![pre-commit.ci status](https://results.pre-commit.ci/badge/github/GalSim-developers/JAX-GalSim/main.svg)](https://results.pre-commit.ci/latest/github/GalSim-developers/JAX-GalSim/main) [![CodSpeed Badge](https://img.shields.io/endpoint?url=https://codspeed.io/badge.json)](https://codspeed.io/GalSim-developers/JAX-GalSim)
+[![Contributor Covenant](https://img.shields.io/badge/Contributor%20Covenant-2.1-4baaaa.svg)](CODE_OF_CONDUCT.md) [![Python package](https://github.com/GalSim-developers/JAX-GalSim/actions/workflows/python_package.yaml/badge.svg)](https://github.com/GalSim-developers/JAX-GalSim/actions/workflows/python_package.yaml) [![Documentation Status](https://readthedocs.org/projects/jax-galsim/badge/?version=latest)](https://jax-galsim.readthedocs.io/en/latest/) [![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff) [![pre-commit.ci status](https://results.pre-commit.ci/badge/github/GalSim-developers/JAX-GalSim/main.svg)](https://results.pre-commit.ci/latest/github/GalSim-developers/JAX-GalSim/main) [![CodSpeed Badge](https://img.shields.io/endpoint?url=https://codspeed.io/badge.json)](https://codspeed.io/GalSim-developers/JAX-GalSim)
 
 **Disclaimer**: This project is still in an early development phase, **please use the [reference GalSim implementation](https://github.com/GalSim-developers/GalSim) for any scientific applications.**
+
+**You can find the most up-to-date documentation for the project [here](https://jax-galsim.readthedocs.io/en/latest).**
+
 
 ## Objective and Design
 
@@ -44,124 +47,4 @@ about the inner workings of GalSim and how to code in JAX.
 
 ## Current GalSim API Coverage
 
-<!-- start-api-coverage -->
-JAX-GalSim has implemented 22.5% of the GalSim API. See the list below for the supported APIs.
-
-<details>
-
-- galsim.Add
-- galsim.AffineTransform
-- galsim.Angle
-- galsim.AngleUnit
-- galsim.BaseDeviate
-- galsim.BaseNoise
-- galsim.BaseWCS
-- galsim.BinomialDeviate
-- galsim.Bounds
-- galsim.BoundsD
-- galsim.BoundsI
-- galsim.Box
-- galsim.CCDNoise
-- galsim.CelestialCoord
-- galsim.Chi2Deviate
-- galsim.Convolution
-- galsim.Convolve
-- galsim.Cubic
-- galsim.Deconvolution
-- galsim.Deconvolve
-- galsim.Delta
-- galsim.DeltaFunction
-- galsim.DeviateNoise
-- galsim.Exponential
-- galsim.FitsHeader
-- galsim.FitsWCS
-- galsim.GSFitsWCS
-- galsim.GSObject
-- galsim.GSParams
-- galsim.GalSimBoundsError
-- galsim.GalSimConfigError
-- galsim.GalSimConfigValueError
-- galsim.GalSimDeprecationWarning
-- galsim.GalSimError
-- galsim.GalSimFFTSizeError
-- galsim.GalSimHSMError
-- galsim.GalSimImmutableError
-- galsim.GalSimIncompatibleValuesError
-- galsim.GalSimIndexError
-- galsim.GalSimKeyError
-- galsim.GalSimNotImplementedError
-- galsim.GalSimRangeError
-- galsim.GalSimSEDError
-- galsim.GalSimUndefinedBoundsError
-- galsim.GalSimValueError
-- galsim.GalSimWarning
-- galsim.GammaDeviate
-- galsim.Gaussian
-- galsim.GaussianDeviate
-- galsim.GaussianNoise
-- galsim.Image
-- galsim.ImageCD
-- galsim.ImageCF
-- galsim.ImageD
-- galsim.ImageF
-- galsim.ImageI
-- galsim.ImageS
-- galsim.ImageUI
-- galsim.ImageUS
-- galsim.Interpolant
-- galsim.InterpolatedImage
-- galsim.JacobianWCS
-- galsim.Lanczos
-- galsim.Linear
-- galsim.Moffat
-- galsim.Nearest
-- galsim.OffsetShearWCS
-- galsim.OffsetWCS
-- galsim.PhotonArray
-- galsim.Pixel
-- galsim.PixelScale
-- galsim.PoissonDeviate
-- galsim.PoissonNoise
-- galsim.Position
-- galsim.PositionD
-- galsim.PositionI
-- galsim.Quintic
-- galsim.Sensor
-- galsim.Shear
-- galsim.ShearWCS
-- galsim.SincInterpolant
-- galsim.Spergel
-- galsim.Sum
-- galsim.TanWCS
-- galsim.Transform
-- galsim.Transformation
-- galsim.UniformDeviate
-- galsim.VariableGaussianNoise
-- galsim.WeibullDeviate
-- galsim.bessel.j0
-- galsim.bessel.kv
-- galsim.bessel.si
-- galsim.fits.closeHDUList
-- galsim.fits.readCube
-- galsim.fits.readFile
-- galsim.fits.readMulti
-- galsim.fits.write
-- galsim.fits.writeFile
-- galsim.fitswcs.CelestialWCS
-- galsim.integ.int1d
-- galsim.noise.addNoise
-- galsim.noise.addNoiseSNR
-- galsim.random.permute
-- galsim.utilities.g1g2_to_e1e2
-- galsim.utilities.horner
-- galsim.utilities.printoptions
-- galsim.utilities.unweighted_moments
-- galsim.utilities.unweighted_shape
-- galsim.wcs.EuclideanWCS
-- galsim.wcs.LocalWCS
-- galsim.wcs.UniformWCS
-
-</details>
-<!-- end-api-coverage -->
-
-_**Note**: The coverage list is generated automatically by the `scripts/update_api_coverage.py` script. To update it, run `python scripts/update_api_coverage.py` from the root of the repository._
+JAX-GalSim current has implemented **22.5%** of the GalSim API. See the corresponding [documentation page](https://jax-galsim.readthedocs.io/en/latest/api-coverage) for a list of what is currently implemented.

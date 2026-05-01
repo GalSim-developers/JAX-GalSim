@@ -20,11 +20,12 @@ IMAGE_LAX_DOCS = """\
 Contrary to GalSim native Image, this implementation does not support
 sharing of the underlying numpy array between different Images or Views.
 This is due to the fact that in JAX numpy arrays are immutable, so any
-operation applied to this Image will create a new jnp.ndarray.
+operation applied to this Image will create a new ``jnp.ndarray``.
 
 In particular the following methods will create a copy of the Image:
-    - Image.view()
-    - Image.subImage()
+
+- ``Image.view()``
+- ``Image.subImage()``
 """
 
 

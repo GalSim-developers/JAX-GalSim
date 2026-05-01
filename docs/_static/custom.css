@@ -1,0 +1,42 @@
+/*
+ * JAX-GalSim documentation – custom CSS overrides
+ *
+ * These styles are applied on top of the Furo theme.
+ */
+
+/* ── Collapsible "Original GalSim Documentation" dropdowns ──────────────── */
+
+/* Give the dropdown a left border accent to visually separate it from the
+   surrounding JAX-specific content. */
+.sd-dropdown {
+    border-left: 3px solid var(--color-brand-primary, #4a90d9);
+    margin-top: 1em;
+    margin-bottom: 1em;
+}
+
+/* Make the dropdown header slightly muted so the JAX content remains the
+   primary visual focus. */
+.sd-summary-title {
+    font-size: 0.9em;
+    font-style: italic;
+    color: var(--color-foreground-muted, #666);
+}
+
+/* ── Parameter field lists ───────────────────────────────────────────────── */
+
+/* Slightly tighten up the :param: / :type: field list spacing. */
+dl.field-list > dt {
+    font-weight: 600;
+}
+
+dl.field-list > dd {
+    margin-bottom: 0.4em;
+}
+
+/* ── General readability tweaks ─────────────────────────────────────────── */
+
+/* Ensure math blocks inside dropdowns are legible. */
+.sd-card-body .math,
+.sd-dropdown .math {
+    overflow-x: auto;
+}
