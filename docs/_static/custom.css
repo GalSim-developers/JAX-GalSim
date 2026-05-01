@@ -40,3 +40,15 @@ dl.field-list > dd {
 .sd-dropdown .math {
     overflow-x: auto;
 }
+
+/* adjustments suggested by AI to make the sidebar wider */
+
+/* Adjust the sidebar width */
+.wy-nav-side {
+    width: 300px; /* Default is 300px; increase as needed */
+}
+
+/* Shift the main content area to the right to match the new width */
+.wy-nav-content-wrap {
+    margin-left: 300px; /* Must match the width above */
+}
