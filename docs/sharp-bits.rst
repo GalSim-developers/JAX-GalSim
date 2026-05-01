@@ -1,4 +1,4 @@
-🔪 JAX-GalSim Sharp Bits 
+🔪 JAX-GalSim - The Sharp Bits 🔪
 ================================
 
 JAX-GalSim is designed as a drop-in replacement for GalSim — replacing
