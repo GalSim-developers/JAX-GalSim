@@ -126,7 +126,7 @@ Getting Started
 
       Walk through a complete simulation with JIT, grad, and vmap.
 
-   .. grid-item-card:: 🔪 JAX-GalSim Sharp Bits
+   .. grid-item-card:: 🔪 JAX-GalSim - The Sharp Bits 🔪
       :link: sharp-bits
       :link-type: doc
 
