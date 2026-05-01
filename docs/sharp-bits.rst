@@ -251,7 +251,7 @@ should not affect scientific conclusions.
 ⚠️ Additional Sharp Bits
 --------------------------
 
-In the :doc:`api/index` you will find **🔪 JAX-GalSim Sharp Bits** blocks highlighting additional important caveats for specific classes and or methods. These could include things like:
+In the :doc:`api/index` you will find **🔪 JAX-GalSim - The Sharp Bits 🔪** blocks highlighting additional important caveats for specific classes and or methods. These could include things like:
 
 - Many classes do not perform some of Galsim's test for correctness during initialization (e.g., :meth:`~jax_galsim.GSObject.drawImage`).
 - Certain profiles might not be auto-differentiable with respect to some of their parameters (e.g., :class:`~jax_galsim.Spergel`, :class:`~jax_galsim.Moffat`)
