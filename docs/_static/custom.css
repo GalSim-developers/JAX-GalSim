@@ -41,14 +41,8 @@ dl.field-list > dd {
     overflow-x: auto;
 }
 
-/* adjustments suggested by AI to make the sidebar wider */
+/* adjustments to make the sidebar wider */
 
-/* Adjust the sidebar width */
-.wy-nav-side {
-    width: 600px; /* Default is 300px; increase as needed */
-}
-
-/* Shift the main content area to the right to match the new width */
-.wy-nav-content-wrap {
-    margin-left: 600px; /* Must match the width above */
+.sidebar-container {
+    width: 20em; /* Default is 15em; increase as needed */
 }
