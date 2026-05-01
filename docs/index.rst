@@ -141,7 +141,7 @@ Each class and function that mirrors an upstream GalSim object is annotated
 with :func:`jax_galsim.core.utils.implements`.  This decorator copies the
 original GalSim docstring and prepends any JAX-specific caveats.  In the :doc:`api/index` you will therefore find:
 
-* A **summary** and optional **🔪 JAX-GalSim Sharp Bits** block at the top of
+* A **summary** and optional **🔪 JAX-GalSim - The Sharp Bits 🔪** block at the top of
   each entry highlighting important caveats.
 * An explicit **Parameters** table derived from the original GalSim
   documentation.
