@@ -43,6 +43,6 @@ dl.field-list > dd {
 
 /* adjustments to make the sidebar wider */
 
-.sidebar-drawer {
-    min-width: 300px; /* default is 240px */
+.sidebar-drawer .sidebar-container {
+    min-width: 260px; /* default is 240px */
 }
