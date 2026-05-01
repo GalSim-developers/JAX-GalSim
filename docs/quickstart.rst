@@ -127,5 +127,5 @@ Batch-simulate galaxies with different parameters without explicit loops:
 Next Steps
 ----------
 
-- :doc:`notable-differences` — What changes when GalSim runs on JAX
+- :doc:`sharp-bits` — What changes when GalSim runs on JAX
 - :doc:`api/index` — Full API documentation
