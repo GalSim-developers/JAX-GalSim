@@ -111,8 +111,8 @@ def _akima_interp_coeffs_jax(x, y):
     return (a, b, c, d)
 
 
-@functools.partial(jax.jit, static_argnames=("fixed_spacing",))
-def akima_interp(x, xp, yp, coeffs, fixed_spacing=False):
+@functools.partial(jax.jit, static_argnames=("fixed_spacing", "extrap"))
+def akima_interp(x, xp, yp, coeffs, fixed_spacing=False, extrap=0):
     """Conmpute the values of an Akima cubic spline at a set of points given the
     interpolation coefficients.
 
@@ -131,6 +131,10 @@ def akima_interp(x, xp, yp, coeffs, fixed_spacing=False):
         Whether the data points are evenly spaced. Default is False. If True, the
         code uses a faster technique to compute the index of the data points x into
         the array xp such that xp[i] <= x < xp[i+1].
+    extrap : str or float, optional
+        Controls how to extrapolate beyond the range of `xp`. Can be a float constant
+        to use or the string "const" which uses the values `yp[0]` and `yp[-1]`. Default
+        is `0`.
 
     Returns
     -------
@@ -160,6 +164,11 @@ def akima_interp(x, xp, yp, coeffs, fixed_spacing=False):
     dx3 = dx2 * dx
     xval = a[i] + b[i] * dx + c[i] * dx2 + d[i] * dx3
 
-    xval = jnp.where(x < xp[0], 0, xval)
-    xval = jnp.where(x > xp[-1], 0, xval)
+    if isinstance(extrap, str) and extrap == "const":
+        xval = jnp.where(x < xp[0], yp[0], xval)
+        xval = jnp.where(x > xp[-1], yp[-1], xval)
+    else:
+        xval = jnp.where(x < xp[0], extrap, xval)
+        xval = jnp.where(x > xp[-1], extrap, xval)
+
     return xval
