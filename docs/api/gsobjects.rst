@@ -1,4 +1,4 @@
-Galaxy / PSF Profiles (GSObjects)
+Surface Brightness Profiles
 ==================================
 
 .. currentmodule:: jax_galsim
@@ -75,6 +75,15 @@ Compound profiles
    :members:
    :show-inheritance:
 
+
+Interpolated image
+------------------
+
+.. autoclass:: InterpolatedImage
+   :members:
+   :show-inheritance:
+
+
 Transformations
 ---------------
 
@@ -83,9 +92,5 @@ Transformations
    :show-inheritance:
 
 .. autoclass:: Transformation
-   :members:
-   :show-inheritance:
-
-.. autoclass:: Shear
    :members:
    :show-inheritance:

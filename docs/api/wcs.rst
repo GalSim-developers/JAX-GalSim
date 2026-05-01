@@ -1,10 +1,10 @@
-WCS & Coordinates
-==================
+World Coordinate Systems
+==========================
 
 .. currentmodule:: jax_galsim
 
 WCS classes
------------
+--------------
 
 .. autoclass:: BaseWCS
    :members:
@@ -46,24 +46,3 @@ WCS classes
    :members:
    :show-inheritance:
 
-Coordinates
------------
-
-.. autoclass:: CelestialCoord
-   :members:
-   :show-inheritance:
-
-.. autoclass:: Angle
-   :members:
-   :show-inheritance:
-
-.. autoclass:: AngleUnit
-   :members:
-   :show-inheritance:
-
-FITS header
------------
-
-.. autoclass:: FitsHeader
-   :members:
-   :show-inheritance:

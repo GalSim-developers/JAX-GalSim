@@ -1,5 +1,5 @@
-Image
-=====
+Images and Related Concepts
+==============================
 
 .. currentmodule:: jax_galsim
 
@@ -69,5 +69,21 @@ Positions
    :show-inheritance:
 
 .. autoclass:: PositionD
+   :members:
+   :show-inheritance:
+
+
+Coordinates
+-----------
+
+.. autoclass:: CelestialCoord
+   :members:
+   :show-inheritance:
+
+.. autoclass:: Angle
+   :members:
+   :show-inheritance:
+
+.. autoclass:: AngleUnit
    :members:
    :show-inheritance:

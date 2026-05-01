@@ -7,9 +7,12 @@ API Reference
 
    gsobjects
    image
-   noise
+   weak-lensing
    wcs
+   noise
+   photon_shooting
    interpolation
+   fits
    core
 
 .. rubric:: Quick index

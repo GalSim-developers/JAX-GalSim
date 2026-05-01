@@ -3,13 +3,6 @@ Interpolation
 
 .. currentmodule:: jax_galsim
 
-Interpolated image
-------------------
-
-.. autoclass:: InterpolatedImage
-   :members:
-   :show-inheritance:
-
 
 Interpolants
 ------------

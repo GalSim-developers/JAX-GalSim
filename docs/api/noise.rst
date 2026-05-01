@@ -64,14 +64,3 @@ Noise models
 .. autoclass:: CCDNoise
    :members:
    :show-inheritance:
-
-Photon arrays & sensors
-------------------------
-
-.. autoclass:: PhotonArray
-   :members:
-   :show-inheritance:
-
-.. autoclass:: Sensor
-   :members:
-   :show-inheritance:
