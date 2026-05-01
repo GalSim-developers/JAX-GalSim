@@ -9,6 +9,7 @@ JAX-GalSim
    quickstart
    sharp-bits
    api-coverage
+   versioning
    api/index
 
 |ci-badge| |ruff-badge| |precommit-badge|
