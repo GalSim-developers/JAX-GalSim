@@ -43,6 +43,6 @@ dl.field-list > dd {
 
 /* adjustments to make the sidebar wider */
 
-.sidebar-drawer .sidebar-container {
+.sidebar-drawer .sidebar-container .toc-drawer .toc-container {
     min-width: 260px; /* default is 240px */
 }
