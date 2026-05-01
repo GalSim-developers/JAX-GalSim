@@ -12,14 +12,14 @@ from jax_galsim.random import BaseDeviate
 
 
 @implements(
-    _galsim.Add, lax_description="Does not support `ChromaticObject` at this point."
+    _galsim.Add, lax_description="Does not support ``ChromaticObject`` at this point."
 )
 def Add(*args, **kwargs):
     return Sum(*args, **kwargs)
 
 
 @implements(
-    _galsim.Sum, lax_description="Does not support `ChromaticObject` at this point."
+    _galsim.Sum, lax_description="Does not support ``ChromaticObject`` at this point."
 )
 @register_pytree_node_class
 class Sum(GSObject):

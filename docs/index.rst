@@ -101,7 +101,7 @@ the entire pipeline:
 
 
 Getting Started
----------- 
+---------------
 
 .. grid:: 2
    :gutter: 3
