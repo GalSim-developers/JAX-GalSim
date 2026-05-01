@@ -40,9 +40,3 @@ dl.field-list > dd {
 .sd-dropdown .math {
     overflow-x: auto;
 }
-
-/* adjustments to make the sidebar wider */
-
-.sidebar-drawer .sidebar-container .toc-drawer .toc-container {
-    min-width: 260px; /* default is 240px */
-}
