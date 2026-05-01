@@ -43,6 +43,6 @@ dl.field-list > dd {
 
 /* adjustments to make the sidebar wider */
 
-.sidebar-container {
-    width: 20em; /* Default is 15em; increase as needed */
+.sidebar-container .toc-drawer {
+    width: 25em; /* Default is 15em; increase as needed */
 }
