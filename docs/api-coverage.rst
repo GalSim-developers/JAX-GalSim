@@ -129,4 +129,4 @@ Updating Coverage
    python scripts/update_api_coverage.py
 
 Compares GalSim's public API against ``jax_galsim``'s implementations and
-updates the coverage percentage and list in ``README.md``.
+updates the coverage percentage and list above.
