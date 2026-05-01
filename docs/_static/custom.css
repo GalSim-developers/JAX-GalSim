@@ -45,10 +45,10 @@ dl.field-list > dd {
 
 /* Adjust the sidebar width */
 .wy-nav-side {
-    width: 320px; /* Default is 300px; increase as needed */
+    width: 400px; /* Default is 300px; increase as needed */
 }
 
 /* Shift the main content area to the right to match the new width */
 .wy-nav-content-wrap {
-    margin-left: 320px; /* Must match the width above */
+    margin-left: 400px; /* Must match the width above */
 }
