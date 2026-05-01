@@ -1,6 +1,9 @@
 Core Utilities
 ==============
 
+Please note that items from the ``jax_galsim.core`` are internal APIs and should not be relied upon by external code.
+
+
 Math
 ---------
 
