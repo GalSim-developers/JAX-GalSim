@@ -195,7 +195,9 @@ def _process_galsim_docstring(
 
     # Wrap lax_description in a Sharp Bits admonition when present.
     if desc_lines:
-        new_lines.append(".. admonition:: \U0001f52a JAX-GalSim - The Sharp Bits \U0001f52a")
+        new_lines.append(
+            ".. admonition:: \U0001f52a JAX-GalSim - The Sharp Bits \U0001f52a"
+        )
         new_lines.append("   :class: warning")
         new_lines.append("")
         for line in desc_lines:
