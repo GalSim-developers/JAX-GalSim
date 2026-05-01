@@ -1,4 +1,4 @@
-Notable Differences from GalSim
+🔪 JAX-GalSim Sharp Bits 
 ================================
 
 JAX-GalSim is designed as a drop-in replacement for GalSim — replacing
@@ -248,23 +248,12 @@ These differences are typically at the level of floating-point round-off
 (:math:`{\sim}10^{-7}` for float32, :math:`{\sim}10^{-15}` for float64) and
 should not affect scientific conclusions.
 
-The ``@implements`` Decorator
-------------------------------
+⚠️ Additional Sharp Bits
+--------------------------
 
-JAX-GalSim reuses GalSim's docstrings rather than duplicating them. Every
-public class and function uses an ``@implements`` decorator that copies the
-docstring from the corresponding GalSim object and prepends a note about
-JAX-specific differences:
+In the :doc:`api/index` you will find **🔪 JAX-GalSim Sharp Bits** blocks highlighting additional important caveats for specific classes and or methods. These could include things like:
 
-.. code-block:: python
+- Many classes do not perform some of Galsim's test for correctness during initialization (e.g., :meth:`~jax_galsim.GSObject.drawImage`).
+- Certain profiles might not be auto-differentiable with respect to some of their parameters (e.g., :class:`~jax_galsim.Spergel`, :class:`~jax_galsim.Moffat`)
+- Limitations regarding what types of inputes are handled (e.g., :meth:`~jax_galsim.Image.calculate_fft` does not accept complex dtypes.)
 
-   from jax_galsim.core.utils import implements
-   import galsim as _galsim
-
-   @implements(_galsim.Gaussian,
-       lax_description="LAX: Does not support ChromaticObject.")
-   class Gaussian(GSObject):
-       ...
-
-In the :doc:`api/index` you will therefore find GalSim's documentation with an
-added **🔪 JAX-GalSim Sharp Bits** block highlighting any important caveats.

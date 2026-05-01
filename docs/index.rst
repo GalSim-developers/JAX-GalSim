@@ -7,7 +7,7 @@ JAX-GalSim
 
    installation
    quickstart
-   notable-differences
+   sharp-bits
    api-coverage
    api/index
 
@@ -126,8 +126,8 @@ Getting Started
 
       Walk through a complete simulation with JIT, grad, and vmap.
 
-   .. grid-item-card:: ⚠️ Notable Differences
-      :link: notable-differences
+   .. grid-item-card:: 🔪 JAX-GalSim Sharp Bits
+      :link: sharp-bits
       :link-type: doc
 
       What changes when GalSim runs on JAX — immutability, tracing,
