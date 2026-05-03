@@ -1,11 +1,6 @@
-import inspect
-
-import galsim
-
-import jax_galsim
-
-
 def _list_all_apis(module, apis=None, seen_modules=None):
+    import inspect
+
     apis = apis or set()
     seen_modules = seen_modules or set()
     mname = module.__name__
@@ -44,24 +39,24 @@ def _write_to_docs(missing_apis, jax_galsim_apis, cov_frac):
     with open("docs/api-coverage.rst", "r") as f:
         lines = f.readlines()
 
-    start = (
-        lines.index(".. dropdown:: Click to expand the full list of implemented APIs\n")
-        + 1
-    )
-    end = lines.index("Updating Coverage\n")
+    start = lines.index("Supported APIs\n") + 1
 
-    middle_lines = []
+    middle_lines = ["\n"]
     for api in sorted(jax_galsim_apis):
-        middle_lines.append(f"   - ``{api}``\n")
+        middle_lines.append(f"- ``{api}``\n")
     middle_lines.append("\n")
 
     with open("docs/api-coverage.rst", "w") as f:
         f.writelines(lines[: start + 1])
         f.writelines(middle_lines)
-        f.writelines(lines[end:])
+        f.writelines(lines[start + 1 :])
 
 
-if __name__ == "__main__":
+def update_api_coverage():
+    import galsim
+
+    import jax_galsim
+
     galsim_apis = _list_all_apis(galsim)
     assert all(api.startswith("galsim.") for api in galsim_apis)
 

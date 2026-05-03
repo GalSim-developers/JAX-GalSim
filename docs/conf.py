@@ -11,6 +11,13 @@ sys.path.insert(0, os.path.abspath(".."))
 # Make the custom extension importable.
 sys.path.insert(0, os.path.abspath("_ext"))
 
+###########################################
+# custom code to update the API coverage
+from update_api_coverage import update_api_coverage
+
+update_api_coverage()
+###########################################
+
 # ---------------------------------------------------------------------------
 # Project information
 # ---------------------------------------------------------------------------
