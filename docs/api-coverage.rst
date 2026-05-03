@@ -1,8 +1,8 @@
 API Coverage
 ============
 
-JAX-GalSim has implemented **22.5 %** of the GalSim API. The project focuses on
-the most commonly used profiles and operations, with coverage expanding over time.
+The project focuses on the most commonly used profiles and operations,
+with coverage expanding over time.
 
 Supported APIs
 --------------
@@ -44,6 +44,7 @@ Supported APIs
    - ``galsim.GalSimDeprecationWarning``
    - ``galsim.GalSimError``
    - ``galsim.GalSimFFTSizeError``
+   - ``galsim.GalSimFFTSizeWarning``
    - ``galsim.GalSimHSMError``
    - ``galsim.GalSimImmutableError``
    - ``galsim.GalSimIncompatibleValuesError``
@@ -99,7 +100,6 @@ Supported APIs
    - ``galsim.VariableGaussianNoise``
    - ``galsim.WeibullDeviate``
    - ``galsim.bessel.j0``
-   - ``galsim.bessel.kv``
    - ``galsim.bessel.si``
    - ``galsim.fits.closeHDUList``
    - ``galsim.fits.readCube``
@@ -128,5 +128,5 @@ Updating Coverage
 
    python scripts/update_api_coverage.py
 
-Compares GalSim's public API against ``jax_galsim``'s implementations and
+Compares ``GalSim``'s public API against ``jax_galsim``'s implementations and
 updates the coverage percentage and list above.
