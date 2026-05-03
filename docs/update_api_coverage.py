@@ -1,11 +1,6 @@
-import inspect
-
-import galsim
-
-import jax_galsim
-
-
 def _list_all_apis(module, apis=None, seen_modules=None):
+    import inspect
+
     apis = apis or set()
     seen_modules = seen_modules or set()
     mname = module.__name__
@@ -40,36 +35,28 @@ def _list_all_apis(module, apis=None, seen_modules=None):
     return apis
 
 
-def _write_to_readme(missing_apis, jax_galsim_apis, cov_frac):
-    with open("README.md", "r") as f:
+def _write_to_docs(missing_apis, jax_galsim_apis, cov_frac):
+    with open("api-coverage.rst", "r") as f:
         lines = f.readlines()
 
-    start = lines.index("<!-- start-api-coverage -->\n")
-    end = lines.index("<!-- end-api-coverage -->\n")
+    start = lines.index("Supported APIs\n") + 1
 
-    middle_lines = []
-    middle_lines.append(
-        f"JAX-GalSim has implemented {100 * cov_frac:.1f}% of "
-        "the GalSim API. See the list below for the supported APIs.\n"
-    )
-    middle_lines.append("\n")
-
-    middle_lines.append("<details>\n")
-    middle_lines.append("\n")
-
+    middle_lines = ["\n"]
     for api in sorted(jax_galsim_apis):
-        middle_lines.append(f"- {api}\n")
+        middle_lines.append(f"- ``{api}``\n")
     middle_lines.append("\n")
 
-    middle_lines.append("</details>\n")
-
-    with open("README.md", "w") as f:
+    with open("api-coverage.rst", "w") as f:
         f.writelines(lines[: start + 1])
         f.writelines(middle_lines)
-        f.writelines(lines[end:])
+        f.writelines(lines[start + 1 :])
 
 
-if __name__ == "__main__":
+def update_api_coverage():
+    import galsim
+
+    import jax_galsim
+
     galsim_apis = _list_all_apis(galsim)
     assert all(api.startswith("galsim.") for api in galsim_apis)
 
@@ -85,4 +72,4 @@ if __name__ == "__main__":
 
     cov_frac = 1.0 - len(missing_apis) / len(galsim_apis)
 
-    _write_to_readme(missing_apis, jax_galsim_apis, cov_frac)
+    _write_to_docs(missing_apis, jax_galsim_apis, cov_frac)

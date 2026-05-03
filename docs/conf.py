@@ -10,6 +10,15 @@ import sys
 sys.path.insert(0, os.path.abspath(".."))
 # Make the custom extension importable.
 sys.path.insert(0, os.path.abspath("_ext"))
+# Make modules in docs importable.
+sys.path.insert(0, os.path.abspath("."))
+
+###########################################
+# custom code to update the API coverage
+from update_api_coverage import update_api_coverage
+
+update_api_coverage()
+###########################################
 
 # ---------------------------------------------------------------------------
 # Project information
@@ -17,7 +26,7 @@ sys.path.insert(0, os.path.abspath("_ext"))
 
 project = "JAX-GalSim"
 author = "GalSim Developers"
-copyright = "2023, GalSim Developers"
+copyright = "2026, GalSim Developers"
 
 try:
     from jax_galsim._version import version as release
