@@ -36,7 +36,7 @@ def _list_all_apis(module, apis=None, seen_modules=None):
 
 
 def _write_to_docs(missing_apis, jax_galsim_apis, cov_frac):
-    with open("docs/api-coverage.rst", "r") as f:
+    with open("api-coverage.rst", "r") as f:
         lines = f.readlines()
 
     start = lines.index("Supported APIs\n") + 1
