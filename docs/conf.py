@@ -10,6 +10,7 @@ import sys
 sys.path.insert(0, os.path.abspath(".."))
 # Make the custom extension importable.
 sys.path.insert(0, os.path.abspath("_ext"))
+# Make modules in docs importable.
 sys.path.insert(0, os.path.abspath("."))
 
 ###########################################
