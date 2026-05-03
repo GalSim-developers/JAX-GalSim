@@ -46,7 +46,7 @@ def _write_to_docs(missing_apis, jax_galsim_apis, cov_frac):
         middle_lines.append(f"- ``{api}``\n")
     middle_lines.append("\n")
 
-    with open("docs/api-coverage.rst", "w") as f:
+    with open("api-coverage.rst", "w") as f:
         f.writelines(lines[: start + 1])
         f.writelines(middle_lines)
         f.writelines(lines[start + 1 :])
