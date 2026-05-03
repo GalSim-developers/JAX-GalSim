@@ -44,7 +44,10 @@ def _write_to_docs(missing_apis, jax_galsim_apis, cov_frac):
     with open("docs/api-coverage.rst", "r") as f:
         lines = f.readlines()
 
-    start = lines.index(".. dropdown:: Click to expand the full list of implemented APIs\n") + 1
+    start = (
+        lines.index(".. dropdown:: Click to expand the full list of implemented APIs\n")
+        + 1
+    )
     end = lines.index("Updating Coverage\n")
 
     middle_lines = []
