@@ -27,7 +27,6 @@ from jax_galsim.image import Image
 from jax_galsim.interpolant import Quintic
 from jax_galsim.photon_array import PhotonArray
 from jax_galsim.position import PositionD
-from jax_galsim.random import UniformDeviate
 from jax_galsim.transform import Transformation
 from jax_galsim.utilities import convert_interpolant
 from jax_galsim.wcs import BaseWCS, PixelScale
@@ -866,13 +865,12 @@ class _InterpolatedImageImpl(GSObject):
         ).astype(int)
         yinds, xinds = jnp.unravel_index(inds, img.array.shape)
 
-        xedges = jnp.arange(0, img.bounds.deltax + 1) - 0.5
-        yedges = jnp.arange(0, img.bounds.deltay + 1) - 0.5
+        # the photons come from this index location
+        xcens = jnp.arange(0, img.bounds.deltax + 1) + img.bounds.xmin
+        ycens = jnp.arange(0, img.bounds.deltay + 1) + img.bounds.ymin
+        photons.x = xcens[xinds]
+        photons.y = ycens[yinds]
 
-        # now we draw the position within the pixel
-        ud = UniformDeviate(rng)
-        photons.x = ud.generate(photons.x) + xedges[xinds] + img.bounds.xmin
-        photons.y = ud.generate(photons.y) + yedges[yinds] + img.bounds.ymin
         # this magic set of factors comes from the galsim C++ code in
         # a few spots it is
         #
