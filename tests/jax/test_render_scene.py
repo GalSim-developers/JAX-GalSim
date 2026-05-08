@@ -126,17 +126,7 @@ def test_render_scene_draw_many_ffts_full_img_phot():
     assert img.array.sum() > 5.0
 
 
-def _get_bd_jgs(
-    flux_d,
-    flux_b,
-    hlr_b,
-    hlr_d,
-    q_b,
-    q_d,
-    beta,
-    *,
-    psf_hlr=0.7,
-):
+def _get_bd_jgs(flux_d, flux_b, hlr_b, hlr_d, q_b, q_d, beta):
     components = []
 
     # disk
@@ -183,13 +173,11 @@ def _draw_stamp_jgs(
     return stamp
 
 
-@partial(jax.jit, static_argnames=("slen",))
-def _add_to_image(carry, x, slen):
+@partial(jax.jit)
+def _add_to_image(carry, x):
     image = carry[0]
     stamp = x
-
     image[stamp.bounds] += stamp
-
     return (image,), None
 
 
@@ -362,7 +350,7 @@ def test_render_scene_stamps(slen):
     )
 
     # absolute tolerance for testing is set based on small difference already
-    # present in GalSim when drawing stamps that odd or even sized.
+    # present in GalSim when drawing with stamps that odd or even sized.
     abs_eps = np.max(np.abs(gs_image_mo.array - gs_image.array))
     rel_eps = 0.0
 
