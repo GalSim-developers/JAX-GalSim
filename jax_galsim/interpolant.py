@@ -1498,12 +1498,16 @@ class Lanczos(Interpolant):
     # it gets recompiled as needed for combinations of n, conserve_dc, du, and krange
     @functools.partial(jax.jit, static_argnames=("n", "conserve_dc", "du", "krange"))
     def _interp_kval(k, n, conserve_dc, du, krange):
-        _idata = _lanczos_kval_interp_table(
-            n,
-            du,
-            krange,
-            conserve_dc,
-        )
+        with jax.ensure_compile_time_eval():
+            _idata = _lanczos_kval_interp_table(
+                n,
+                # jax-galsim uses a slightly less accurate interpolation
+                # function (akima vs cubic spline) and so needs a smaller spacing
+                # 2.3x appears to be ok
+                du / 2.3,
+                krange,
+                conserve_dc,
+            )
         return akima_interp(jnp.abs(k), *_idata, fixed_spacing=True)
 
     def _kval_noraise(self, k):
