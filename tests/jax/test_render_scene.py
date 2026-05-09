@@ -206,7 +206,7 @@ def _render_scene_stamps_jax_galsim(
     )
 
     final_pad_image = jax.lax.scan(
-        partial(_add_to_image, slen=slen),
+        _add_to_image,
         (pad_image,),
         xs=stamps,
         length=ng,
