@@ -1501,8 +1501,10 @@ class Lanczos(Interpolant):
         with jax.ensure_compile_time_eval():
             _idata = _lanczos_kval_interp_table(
                 n,
-                du / 3.0,  # jax-galsim uses a slightly less accurate interpolation
+                # jax-galsim uses a slightly less accurate interpolation
                 # function (akima vs cubic spline) and so needs a smaller spacing
+                # 2.3x appears to be ok
+                du / 2.3,
                 krange,
                 conserve_dc,
             )
