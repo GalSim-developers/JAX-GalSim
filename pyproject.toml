@@ -14,7 +14,7 @@ dependencies    = ["numpy >=1.18.0", "galsim >=2.7.0", "jax >=0.6.0", "astropy >
 
 [project.optional-dependencies]
 dev  = ["pytest", "pytest-codspeed"]
-docs = ["sphinx>=7.0", "furo>=2024.1.29", "sphinx-design>=0.5"]
+docs = ["sphinx>=7.0", "furo>=2024.1.29", "sphinx-design>=0.5", "sphinx-copybutton"]
 
 [project.urls]
 home = "https://github.com/GalSim-developers/JAX-GalSim"

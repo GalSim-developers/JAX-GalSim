@@ -66,6 +66,10 @@ Quick Install
 
    pip install jax-galsim
 
+.. code-block:: bash
+
+   conda install -c conda-forge jax-galsim
+
 See :doc:`installation` for GPU support and development setup.
 
 Minimal Example
