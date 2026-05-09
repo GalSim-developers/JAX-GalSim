@@ -8,6 +8,10 @@ Quick Install
 
    pip install jax-galsim
 
+.. code-block:: bash
+
+   conda install -c conda-forge jax-galsim
+
 This installs JAX-GalSim and its dependencies (JAX, NumPy, GalSim, Astropy).
 
 GPU Support
