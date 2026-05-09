@@ -50,6 +50,7 @@ extensions = [
     "sphinx.ext.viewcode",  # "View source" links
     "sphinx.ext.intersphinx",  # cross-links to external docs
     "sphinx_design",  # dropdown / collapsible directives
+    "sphinx_copybutton",  # copy button for code blocks
 ]
 
 templates_path = ["_templates"]
