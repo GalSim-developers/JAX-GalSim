@@ -792,7 +792,14 @@ class _InterpolatedImageImpl(GSObject):
         )
 
         # Apply the flux scaling
-        im = (im * flux_scaling).astype(image.dtype)
+        im *= flux_scaling
+
+        # jax-galsim's rounding of float-to-int is platform dependent
+        # so we explicitly round to ints if needed
+        if jnp.issubdtype(im.dtype, jnp.floating) and jnp.issubdtype(
+            image.dtype, jnp.integer
+        ):
+            im = jnp.around(im)
 
         # Return an image
         return Image(array=im, bounds=image.bounds, wcs=image.wcs, _check_bounds=False)
@@ -817,7 +824,7 @@ class _InterpolatedImageImpl(GSObject):
             self._x_interpolant,
             self._k_interpolant,
         )
-        im = (im).astype(image.dtype)
+        im = im.astype(image.dtype)
 
         # Return an image
         return Image(array=im, bounds=image.bounds, wcs=image.wcs, _check_bounds=False)

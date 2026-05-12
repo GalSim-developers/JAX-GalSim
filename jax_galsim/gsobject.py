@@ -808,6 +808,14 @@ The JAX-GalSim version of ``drawImage``
             )
         im1 = self._drawReal(image)
         temp = im1.subImage(image.bounds)
+
+        if jnp.issubdtype(temp.array.dtype, jnp.floating) and jnp.issubdtype(
+            image.array.dtype, jnp.integer
+        ):
+            # jax-galsim's rounding of float-to-int is platform dependent
+            # so we explicitly round to ints if needed
+            temp.array = jnp.around(temp.array)
+
         if add_to_image:
             image._array = image._array.at[...].add(temp._array)
         else:
@@ -926,6 +934,14 @@ The JAX-GalSim version of ``drawImage``
         real_image = Image(
             bounds=breal, array=real_image_arr, dtype=image.dtype, wcs=image.wcs
         )
+
+        if jnp.issubdtype(real_image.array.dtype, jnp.floating) and jnp.issubdtype(
+            image.array.dtype, jnp.integer
+        ):
+            # jax-galsim's rounding of float-to-int is platform dependent
+            # so we explicitly round to ints if needed
+            real_image.array = jnp.around(real_image.array)
+
         # Add (a portion of) this to the original image.
         temp = real_image.subImage(image.bounds)
         if add_to_image:
