@@ -60,12 +60,7 @@ def draw_by_kValue(gsobject, image, jacobian=jnp.eye(2)):
     im = jax.vmap(lambda *args: gsobject._kValue(PositionD(*args)))(
         coords[..., 0], coords[..., 1]
     )
-    # jax-galsim's rounding of float-to-int is platform dependent
-    # so we explicitly round to ints if needed
-    if jnp.issubdtype(im.dtype, jnp.floating) and jnp.issubdtype(
-        image.dtype, jnp.integer
-    ):
-        im = jnp.around(im)
+    im = im.astype(image.dtype)
 
     # Return an image
     return Image(array=im, bounds=image.bounds, wcs=image.wcs, _check_bounds=False)
