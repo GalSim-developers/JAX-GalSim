@@ -244,6 +244,8 @@ class Image(object):
                 #      im2 = ImageD(im)
                 self._dtype = dtype
 
+            # jax-galsim's rounding of float-to-int is platform dependent
+            # so we explicitly round to ints if needed
             self._array = _safe_cast(
                 image.array, jnp.issubdtype(self._dtype, jnp.integer), self._dtype
             )
@@ -372,6 +374,8 @@ class Image(object):
 
     @array.setter
     def array(self, other):
+        # jax-galsim's rounding of float-to-int is platform dependent
+        # so we explicitly round to ints if needed
         self._array = self._array.at[...].set(
             _safe_cast(other, self.isinteger, self.array.dtype)
         )
@@ -597,6 +601,8 @@ class Image(object):
             i2 = bounds.ymax - self.ymin + 1
             j1 = bounds.xmin - self.xmin
             j2 = bounds.xmax - self.xmin + 1
+            # jax-galsim's rounding of float-to-int is platform dependent
+            # so we explicitly round to ints if needed
             self._array = self._array.at[i1:i2, j1:j2].set(
                 _safe_cast(
                     rhs.array, jnp.issubdtype(self.dtype, jnp.integer), self.dtype
@@ -609,6 +615,8 @@ class Image(object):
             )
             self._array = jax.lax.dynamic_update_slice(
                 self.array,
+                # jax-galsim's rounding of float-to-int is platform dependent
+                # so we explicitly round to ints if needed
                 _safe_cast(
                     rhs.array, jnp.issubdtype(self.dtype, jnp.integer), self.dtype
                 ),
@@ -915,6 +923,8 @@ class Image(object):
     def _copyFrom(self, rhs):
         """Same as copyFrom, but no sanity checks."""
         self._array = self._array.at[...].set(
+            # jax-galsim's rounding of float-to-int is platform dependent
+            # so we explicitly round to ints if needed
             _safe_cast(rhs._array, self.isinteger, self.array.dtype)
         )
 
@@ -958,6 +968,8 @@ class Image(object):
 
         # Recast the array type if necessary
         if dtype != self.array.dtype:
+            # jax-galsim's rounding of float-to-int is platform dependent
+            # so we explicitly round to ints if needed
             array = _safe_cast(self.array, jnp.issubdtype(dtype, jnp.integer), dtype)
         elif contiguous:
             # this is a noop since all jax arrays are contiguous
@@ -1120,6 +1132,8 @@ class Image(object):
             self._array,
         )
         self._array = self._array.at[...].set(
+            # jax-galsim's rounding of float-to-int is platform dependent
+            # so we explicitly round to ints if needed
             _safe_cast(
                 (jnp.where(msk, 0.0, 1.0 / safe_array)),
                 jnp.issubdtype(self._array.dtype, jnp.integer),
@@ -1304,6 +1318,8 @@ def _Image(array, bounds, wcs):
     ret._dtype = array.dtype.type
     if ret._dtype in Image._alias_dtypes:
         ret._dtype = Image._alias_dtypes[ret._dtype]
+        # jax-galsim's rounding of float-to-int is platform dependent
+        # so we explicitly round to ints if needed
         array = _safe_cast(array, jnp.issubdtype(ret._dtype, jnp.integer), ret._dtype)
     ret._array = array
     ret._bounds = bounds
@@ -1443,6 +1459,8 @@ def Image_iadd(self, other):
     if dt == self.array.dtype:
         self._array = self.array.at[...].add(a)
     else:
+        # jax-galsim's rounding of float-to-int is platform dependent
+        # so we explicitly round to ints if needed
         self._array = self.array.at[...].set(
             _safe_cast(self.array + a, self.isinteger, self.array.dtype)
         )
@@ -1473,6 +1491,8 @@ def Image_isub(self, other):
     if dt == self.array.dtype:
         self._array = self.array.at[...].subtract(a)
     else:
+        # jax-galsim's rounding of float-to-int is platform dependent
+        # so we explicitly round to ints if needed
         self._array = self.array.at[...].set(
             _safe_cast(self.array - a, self.isinteger, self.array.dtype)
         )
@@ -1499,6 +1519,8 @@ def Image_imul(self, other):
     if dt == self.array.dtype:
         self._array = self.array.at[...].multiply(a)
     else:
+        # jax-galsim's rounding of float-to-int is platform dependent
+        # so we explicitly round to ints if needed
         self._array = self.array.at[...].set(
             _safe_cast(self.array * a, self.isinteger, self.array.dtype)
         )
@@ -1531,6 +1553,8 @@ def Image_idiv(self, other):
         # back to an integer array.  So for integers (or mixed types), don't use /=.
         self._array = self.array.at[...].divide(a)
     else:
+        # jax-galsim's rounding of float-to-int is platform dependent
+        # so we explicitly round to ints if needed
         self._array = self.array.at[...].set(
             _safe_cast(self.array / a, self.isinteger, self.array.dtype)
         )
@@ -1562,6 +1586,8 @@ def Image_ifloordiv(self, other):
     if dt == self.array.dtype:
         self._array = self.array.at[...].set(self.array // a)
     else:
+        # jax-galsim's rounding of float-to-int is platform dependent
+        # so we explicitly round to ints if needed
         self._array = self.array.at[...].set(
             _safe_cast(self.array // a, self.isinteger, self.array.dtype)
         )
@@ -1593,6 +1619,8 @@ def Image_imod(self, other):
     if dt == self.array.dtype:
         self._array = self.array.at[...].set(self.array % a)
     else:
+        # jax-galsim's rounding of float-to-int is platform dependent
+        # so we explicitly round to ints if needed
         self._array = self.array.at[...].set(
             _safe_cast(self.array % a, self.isinteger, self.array.dtype)
         )
@@ -1610,6 +1638,8 @@ def Image_ipow(self, other):
     if not self.isinteger or isinstance(other, int):
         self._array = self.array.at[...].power(other)
     else:
+        # jax-galsim's rounding of float-to-int is platform dependent
+        # so we explicitly round to ints if needed
         self._array = self.array.at[...].set(
             _safe_cast(self.array**other, self.isinteger, self.array.dtype)
         )
