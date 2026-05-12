@@ -150,7 +150,9 @@ class Image(object):
                 dtype = array.dtype.type
                 if dtype in self._alias_dtypes:
                     dtype = self._alias_dtypes[dtype]
-                    array = array.astype(dtype)
+                    # jax-galsim's rounding of float-to-int is platform dependent
+                    # so we explicitly round to ints if needed
+                    array = _safe_cast(array, jnp.issubdtype(dtype, jnp.integer), dtype)
                 elif dtype not in self._valid_dtypes:
                     raise _galsim.GalSimValueError(
                         "Invalid dtype of provided array.",
@@ -158,7 +160,9 @@ class Image(object):
                         self._valid_dtypes,
                     )
             else:
-                array = array.astype(dtype)
+                # jax-galsim's rounding of float-to-int is platform dependent
+                # so we explicitly round to ints if needed
+                array = _safe_cast(array, jnp.issubdtype(dtype, jnp.integer), dtype)
             # Be careful here: we have to watch out for little-endian / big-endian issues.
             # The path of least resistance is to check whether the array.dtype is equal to the
             # native one (using the dtype.isnative flag), and if not, make a new array that has a
@@ -206,7 +210,7 @@ class Image(object):
             if init_value:
                 self._array = self._array.at[...].add(init_value)
         elif array is not None:
-            self._array = array.view(dtype=self._dtype)
+            self._array = array.view()
             nrow, ncol = array.shape
             if not has_tracers(xmin) and not has_tracers(ymin):
                 self._bounds = BoundsI(
@@ -239,7 +243,10 @@ class Image(object):
                 # e.g. im = ImageF(...)
                 #      im2 = ImageD(im)
                 self._dtype = dtype
-            self._array = image.array.astype(self._dtype)
+
+            self._array = _safe_cast(
+                image.array, jnp.issubdtype(self._dtype, jnp.integer), self._dtype
+            )
         else:
             self._array = jnp.zeros(shape=(1, 1), dtype=self._dtype)
             self._bounds = BoundsI()
@@ -591,7 +598,9 @@ class Image(object):
             j1 = bounds.xmin - self.xmin
             j2 = bounds.xmax - self.xmin + 1
             self._array = self._array.at[i1:i2, j1:j2].set(
-                jnp.astype(rhs.array, self.dtype)
+                _safe_cast(
+                    rhs.array, jnp.issubdtype(self.dtype, jnp.integer), self.dtype
+                )
             )
         else:
             start_inds = (
@@ -600,7 +609,9 @@ class Image(object):
             )
             self._array = jax.lax.dynamic_update_slice(
                 self.array,
-                jnp.astype(rhs.array, self.dtype),
+                _safe_cast(
+                    rhs.array, jnp.issubdtype(self.dtype, jnp.integer), self.dtype
+                ),
                 start_inds,
             )
 
@@ -947,7 +958,7 @@ class Image(object):
 
         # Recast the array type if necessary
         if dtype != self.array.dtype:
-            array = self.array.astype(dtype)
+            array = _safe_cast(self.array, jnp.issubdtype(dtype, jnp.integer), dtype)
         elif contiguous:
             # this is a noop since all jax arrays are contiguous
             pass
@@ -1109,7 +1120,11 @@ class Image(object):
             self._array,
         )
         self._array = self._array.at[...].set(
-            (jnp.where(msk, 0.0, 1.0 / safe_array)).astype(self._array.dtype)
+            _safe_cast(
+                (jnp.where(msk, 0.0, 1.0 / safe_array)),
+                jnp.issubdtype(self._array.dtype, jnp.integer),
+                self._array.dtype,
+            )
         )
 
     @implements(_galsim.Image.replaceNegative)
@@ -1289,7 +1304,7 @@ def _Image(array, bounds, wcs):
     ret._dtype = array.dtype.type
     if ret._dtype in Image._alias_dtypes:
         ret._dtype = Image._alias_dtypes[ret._dtype]
-        array = array.astype(ret._dtype)
+        array = _safe_cast(array, jnp.issubdtype(ret._dtype, jnp.integer), ret._dtype)
     ret._array = array
     ret._bounds = bounds
     return ret

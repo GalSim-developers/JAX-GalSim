@@ -808,6 +808,12 @@ The JAX-GalSim version of ``drawImage``
             )
         im1 = self._drawReal(image)
         temp = im1.subImage(image.bounds)
+
+        if jnp.issubdtype(temp.array.dtype, jnp.floating) and jnp.issubdtype(
+            image.array.dtype, jnp.integer
+        ):
+            temp.array = jnp.around(temp.array)
+
         if add_to_image:
             image._array = image._array.at[...].add(temp._array)
         else:
