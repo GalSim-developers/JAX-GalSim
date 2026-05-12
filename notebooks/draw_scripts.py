@@ -305,8 +305,8 @@ def draw_jgs_scan_stamps(
     x = galaxy_params.pop("x")
     y = galaxy_params.pop("y")
 
-    image_positions = jax.vmap(lambda x, y: jgs.PositionD(x=x, y=y))(x, y)
-    local_wcss = jax.vmap(lambda x: wcs.local(image_pos=x))(image_positions)
+    image_positions = vmap(lambda x, y: jgs.PositionD(x=x, y=y))(x, y)
+    local_wcss = vmap(lambda x: wcs.local(image_pos=x))(image_positions)
 
     pad_image = jgs.ImageD(
         jnp.pad(image.array, slen), wcs=image.wcs, bounds=image.bounds.withBorder(slen)
@@ -350,7 +350,7 @@ def draw_jgs_vmap_stamps(
     image_positions = jax.vmap(lambda x, y: jgs.PositionD(x=x, y=y))(x, y)
     local_wcss = jax.vmap(lambda x: wcs.local(image_pos=x))(image_positions)
 
-    _draw_stamps_vmapped = jax.vmap(
+    _draw_stamps_vmapped = vmap(
         partial(_draw_stamp_jgs, psf=psf, slen=slen, fft_size=fft_size)
     )
     stamps = _draw_stamps_vmapped(galaxy_params, image_positions, local_wcss)
