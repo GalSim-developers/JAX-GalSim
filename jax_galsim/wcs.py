@@ -516,7 +516,16 @@ class EuclideanWCS(BaseWCS):
         dvdy = 0.5 * (v[2:ny, 1 : nx - 1] - v[0 : ny - 2, 1 : nx - 1])
 
         area = jnp.abs(dudx * dvdy - dvdx * dudy)
-        image._array = image._array.at[...].set((area * sky_level).astype(image.dtype))
+        im = area * sky_level
+
+        # jax-galsim's rounding of float-to-int is platform dependent
+        # so we explicitly round to ints if needed
+        if jnp.issubdtype(im.dtype, jnp.floating) and jnp.issubdtype(
+            image.dtype, jnp.integer
+        ):
+            im = jnp.around(im)
+
+        image._array = image._array.at[...].set(im)
 
     # Each class should define the __eq__ function.  Then __ne__ is obvious.
     def __ne__(self, other):
