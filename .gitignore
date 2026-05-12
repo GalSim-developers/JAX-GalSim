@@ -132,7 +132,12 @@ dmypy.json
 # We don't want to add notebooks by accident
 *.ipynb
 
-tests/output
+# no pdfs
+*.pdf
+
+# no output directories
+**/output
+
+# VSCode settings
 .vscode/settings.json
 
-output/
