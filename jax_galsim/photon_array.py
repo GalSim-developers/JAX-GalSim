@@ -1000,6 +1000,7 @@ def _add_photons_to_image(x, y, flux, xmin, ymin, arr):
     # dropped and negative indices wrap around
     good = (xinds >= 0) & (xinds < arr.shape[1]) & (yinds >= 0) & (yinds < arr.shape[0])
     _flux = jnp.where(good, flux, 0.0)
+    # TODO: what dp we do with rounding here?
     _arr = arr.at[yinds, xinds].add(_flux.astype(arr.dtype))
 
     return _arr, _flux.sum()
