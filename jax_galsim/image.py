@@ -487,9 +487,72 @@ class Image(object):
     def conjugate(self):
         return self.__class__(self.array.conjugate(), bounds=self.bounds, wcs=self.wcs)
 
-    @implements(_galsim.Image.copy)
-    def copy(self):
-        return self.__class__(self.array.copy(), bounds=self.bounds, wcs=self.wcs)
+    @implements(
+        _galsim.Image.copy,
+        lax_description=(
+            "JAX-GalSim supports extra keyword arguments to ``.copy`` so "
+            "that users can make copies of images while also changing the image "
+            "properties (e.g., the wcs). The extra keywords behave exactly like "
+            "those of ``Image.view``."
+        ),
+    )
+    def copy(
+        self,
+        scale=None,
+        wcs=None,
+        origin=None,
+        center=None,
+        dtype=None,
+        make_const=False,
+        contiguous=False,
+    ):
+        if origin is not None and center is not None:
+            raise _galsim.GalSimIncompatibleValuesError(
+                "Cannot provide both center and origin", center=center, origin=origin
+            )
+
+        if scale is not None:
+            if wcs is not None:
+                raise _galsim.GalSimIncompatibleValuesError(
+                    "Cannot provide both scale and wcs", scale=scale, wcs=wcs
+                )
+            wcs = PixelScale(scale)
+        elif wcs is not None:
+            if not isinstance(wcs, BaseWCS):
+                raise TypeError("wcs parameters must be a galsim.BaseWCS instance")
+        else:
+            wcs = self.wcs
+
+        # Figure out the dtype for the return Image
+        dtype = dtype if dtype else self.dtype
+
+        # If currently empty, just return a new empty image.
+        if not self.bounds.isDefined():
+            return Image(wcs=wcs, dtype=dtype, make_const=make_const)
+
+        # Recast the array type if necessary
+        array = self.array.copy()
+        if dtype != array.dtype:
+            # jax-galsim's rounding of float-to-int is platform dependent
+            # so we explicitly round to ints if needed
+            array = _safe_cast(array, jnp.issubdtype(dtype, jnp.integer), dtype)
+        elif contiguous:
+            # this is a noop since all jax arrays are contiguous
+            pass
+        else:
+            # do nothing here since we made copy above
+            pass
+
+        # Make the return Image - already made copy above
+        ret = self.__class__(array, bounds=self.bounds, wcs=wcs, make_const=make_const)
+
+        # Update the origin if requested
+        if origin is not None:
+            ret.setOrigin(origin)
+        elif center is not None:
+            ret.setCenter(center)
+
+        return ret
 
     @implements(_galsim.Image.get_pixel_centers)
     def get_pixel_centers(self):
@@ -930,7 +993,7 @@ class Image(object):
 
     @implements(
         _galsim.Image.view,
-        lax_description="Contrary to GalSim, this will create a copy of the orginal image.",
+        lax_description="JAX-GalSim does not support image views.",
     )
     def view(
         self,
@@ -942,51 +1005,9 @@ class Image(object):
         make_const=False,
         contiguous=False,
     ):
-        if origin is not None and center is not None:
-            raise _galsim.GalSimIncompatibleValuesError(
-                "Cannot provide both center and origin", center=center, origin=origin
-            )
-
-        if scale is not None:
-            if wcs is not None:
-                raise _galsim.GalSimIncompatibleValuesError(
-                    "Cannot provide both scale and wcs", scale=scale, wcs=wcs
-                )
-            wcs = PixelScale(scale)
-        elif wcs is not None:
-            if not isinstance(wcs, BaseWCS):
-                raise TypeError("wcs parameters must be a galsim.BaseWCS instance")
-        else:
-            wcs = self.wcs
-
-        # Figure out the dtype for the return Image
-        dtype = dtype if dtype else self.dtype
-
-        # If currently empty, just return a new empty image.
-        if not self.bounds.isDefined():
-            return Image(wcs=wcs, dtype=dtype, make_const=make_const)
-
-        # Recast the array type if necessary
-        if dtype != self.array.dtype:
-            # jax-galsim's rounding of float-to-int is platform dependent
-            # so we explicitly round to ints if needed
-            array = _safe_cast(self.array, jnp.issubdtype(dtype, jnp.integer), dtype)
-        elif contiguous:
-            # this is a noop since all jax arrays are contiguous
-            pass
-        else:
-            array = self.array
-
-        # Make the return Image
-        ret = self.__class__(array, bounds=self.bounds, wcs=wcs, make_const=make_const)
-
-        # Update the origin if requested
-        if origin is not None:
-            ret.setOrigin(origin)
-        elif center is not None:
-            ret.setCenter(center)
-
-        return ret
+        raise NotImplementedError(
+            "JAX-GalSim does not support views of images! Use ``.copy`` instead."
+        )
 
     @implements(_galsim.Image.shift)
     def shift(self, *args, **kwargs):
