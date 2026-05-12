@@ -19,7 +19,7 @@ def _maybe_convert_and_warn(image):
             "The dtype of the input image is not supported by jax_galsim. "
             "Converting to float64."
         )
-        _image = image.view(dtype=jnp.float64)
+        _image = image.copy(dtype=jnp.float64)
         if hasattr(image, "header"):
             _image.header = image.header
         return _image
