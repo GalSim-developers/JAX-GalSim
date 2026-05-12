@@ -18,14 +18,11 @@ from jax_galsim.wcs import BaseWCS, PixelScale
 
 IMAGE_LAX_DOCS = """\
 Contrary to GalSim native Image, this implementation does not support
-sharing of the underlying numpy array between different Images or Views.
+sharing of the underlying array between different Images or views.
 This is due to the fact that in JAX numpy arrays are immutable, so any
-operation applied to this Image will create a new ``jnp.ndarray``.
-
-In particular the following methods will create a copy of the Image:
-
-- ``Image.view()``
-- ``Image.subImage()``
+operation applied to this Image will create a new ``jnp.ndarray``. Making
+a view via ``.view()`` will raise an error. Instead, use the ``.copy()``
+method. The ``Image.subImage()`` method will return a copy.
 """
 
 
@@ -993,7 +990,10 @@ class Image(object):
 
     @implements(
         _galsim.Image.view,
-        lax_description="JAX-GalSim does not support image views.",
+        lax_description=(
+            "JAX-GalSim does not support image views. This "
+            "method will raise an error if called."
+        ),
     )
     def view(
         self,
