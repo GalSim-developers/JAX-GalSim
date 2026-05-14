@@ -13,8 +13,8 @@ from jax_galsim.core.utils import ensure_hashable, implements
     _galsim.Shear,
     lax_description=(
         "While the JAX-GalSim implementation of ``Shear`` will raise exceptions for "
-        "invalid shear values (e.g., |g| > 1), it raises ``equinox.EquinoxRuntimeError`` "
-        "exceptions instead of ``galsim.GalSimRangeError`` exceptions."
+        "invalid shear values (e.g., |g| > 1), it raises a generic ``Exception`` "
+        "instead of ``galsim.GalSimRangeError`` exceptions."
     ),
 )
 class Shear(object):
