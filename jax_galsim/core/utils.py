@@ -21,15 +21,15 @@ CONST_TYPES_WITH_JAX = CONST_TYPES + (
 
 
 def check_is_int_then_cast(val, msg):
-    """Cast to integer and raise if value is not int."""
-    # for simple inputs, we can check if the bounds are valid ints
+    """Check if `val` is an integer, raise if not, otherwise cast to int."""
+    # for simple inputs, we can check direct in python
     if isinstance(val, CONST_TYPES) and not has_tracers(val):
         val = cast_to_python_float(val)
         if val != int(val):
             raise TypeError(msg)
         val = int(val)
     else:
-        # otherwise we use more opaque checking upon jit
+        # otherwise we use more opaque checking upon jit via equinox
         val = equinox.error_if(
             val,
             val != jnp.trunc(val),
