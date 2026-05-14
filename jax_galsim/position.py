@@ -5,7 +5,7 @@ from jax.tree_util import register_pytree_node_class
 
 from jax_galsim.core.utils import (
     cast_to_float,
-    cast_to_int,
+    check_is_int_then_cast,
     ensure_hashable,
     implements,
 )
@@ -214,9 +214,13 @@ class PositionI(Position):
     def __init__(self, *args, **kwargs):
         self._parse_args(*args, **kwargs)
 
-        # inputs must be ints
-        self.x = cast_to_int(self.x)
-        self.y = cast_to_int(self.y)
+        # validate input is int
+        self.x = check_is_int_then_cast(
+            self.x, "PositionI must be initialized with integer values"
+        )
+        self.y = check_is_int_then_cast(
+            self.y, "PositionI must be initialized with integer values"
+        )
 
     def _check_scalar(self, other, op):
         try:

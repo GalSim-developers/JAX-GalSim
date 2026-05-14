@@ -1,34 +1,24 @@
 import galsim as _galsim
 import jax
 import jax.numpy as jnp
-import numpy as np
 from jax.tree_util import register_pytree_node_class
 
 from jax_galsim.core.utils import (
+    CONST_TYPES,
     cast_to_float,
     cast_to_int,
+    cast_to_python_float,
+    check_is_int_then_cast,
     ensure_hashable,
     has_tracers,
     implements,
 )
 from jax_galsim.position import Position, PositionD, PositionI
 
-CONST_TYPES = (float, int, np.ndarray, np.int32, np.int64, np.float32, np.float64)
-CONST_TYPES_WITH_JAX = CONST_TYPES + (
-    jax.Array,
-    jnp.array,
-    jnp.int32,
-    jnp.int64,
-    jnp.float32,
-    jnp.float64,
-)
-
-# TODO: write extra docs for JAX changes
 BOUNDS_LAX_DESCR = """\
 The JAX implementation
 
 - will not always test whether the bounds are valid
-- will not always test whether BoundsI is initialized with integers
 
 Further, the JAX implementation adds a new method, ``isStatic`` to the
 ``BoundsI`` class. If JAX-GalSim detects that the ``BoundsI`` instance
@@ -525,30 +515,26 @@ class BoundsI(Bounds):
                 f"Got deltax,deltay = {self.deltax!r},{self.deltay!r}."
             )
 
+        self.deltax = cast_to_python_float(self.deltax)
+        self.deltay = cast_to_python_float(self.deltay)
+        if (self.deltax != int(self.deltax)) or (self.deltay != int(self.deltay)):
+            raise TypeError("BoundsI must be initialized with integer values")
         self.deltax = int(cast_to_int(self.deltax))
         self.deltay = int(cast_to_int(self.deltay))
 
-        if (self.deltax != int(self.deltax)) or (self.deltay != int(self.deltay)):
-            raise TypeError("BoundsI must be initialized with integer values")
+        if has_tracers(self._xmin) or has_tracers(self._ymin):
+            self._isstatic = False
+
+        # validate inputs are ints
+        self._xmin = check_is_int_then_cast(
+            self._xmin, "BoundsI must be initialized with integer values"
+        )
+        self._ymin = check_is_int_then_cast(
+            self._ymin, "BoundsI must be initialized with integer values"
+        )
 
         if self.deltax < 1 and self.deltay < 1:
             self._isdefined = False
-
-        # for simple inputs, we can check if the bounds are valid ints
-        if isinstance(self._xmin, CONST_TYPES) and self._xmin != int(self._xmin):
-            raise TypeError("BoundsI must be initialized with integer values")
-
-        if isinstance(self._ymin, CONST_TYPES) and self._ymin != int(self._ymin):
-            raise TypeError("BoundsI must be initialized with integer values")
-
-        if not has_tracers(self._xmin) and not has_tracers(self._ymin):
-            self._isstatic = True
-            self._xmin = int(np.trunc(self._xmin))
-            self._ymin = int(np.trunc(self._ymin))
-        else:
-            self._isstatic = False
-            self._xmin = cast_to_float(jnp.trunc(self._xmin))
-            self._ymin = cast_to_float(jnp.trunc(self._ymin))
 
         if force_static and not self._isstatic:
             raise RuntimeError(
