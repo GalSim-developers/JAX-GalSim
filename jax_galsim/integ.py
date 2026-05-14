@@ -1,5 +1,3 @@
-from functools import partial
-
 import equinox
 import galsim as _galsim
 import jax.lax
