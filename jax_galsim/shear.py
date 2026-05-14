@@ -50,7 +50,8 @@ class Shear(object):
             g2 = jnp.array(kwargs.pop("g2", 0.0))
             self._g = g1 + 1j * g2
             self._g = equinox.error_if(
-                self._g, jnp.abs(self._g) > 1.,
+                self._g,
+                jnp.abs(self._g) > 1.0,
                 "Requested shear exceeds 1.",
             )
 
@@ -61,7 +62,7 @@ class Shear(object):
             absesq = e1**2 + e2**2
             absesq = equinox.error_if(
                 absesq,
-                absesq > 1.,
+                absesq > 1.0,
                 "Requested distortion exceeds 1.",
             )
             self._g = (e1 + 1j * e2) * self._e2g(absesq)
