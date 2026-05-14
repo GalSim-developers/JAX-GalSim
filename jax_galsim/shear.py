@@ -1,3 +1,4 @@
+import equinox
 import galsim as _galsim
 import jax.numpy as jnp
 from galsim.errors import GalSimIncompatibleValuesError
@@ -45,15 +46,24 @@ class Shear(object):
 
         # g1,g2
         elif "g1" in kwargs or "g2" in kwargs:
-            g1 = kwargs.pop("g1", 0.0)
-            g2 = kwargs.pop("g2", 0.0)
+            g1 = jnp.array(kwargs.pop("g1", 0.0))
+            g2 = jnp.array(kwargs.pop("g2", 0.0))
             self._g = g1 + 1j * g2
+            self._g = equinox.error_if(
+                self._g, jnp.abs(self._g) > 1.,
+                "Requested shear exceeds 1.",
+            )
 
         # e1,e2
         elif "e1" in kwargs or "e2" in kwargs:
-            e1 = kwargs.pop("e1", 0.0)
-            e2 = kwargs.pop("e2", 0.0)
+            e1 = jnp.array(kwargs.pop("e1", 0.0))
+            e2 = jnp.array(kwargs.pop("e2", 0.0))
             absesq = e1**2 + e2**2
+            absesq = equinox.error_if(
+                absesq,
+                absesq > 1.,
+                "Requested distortion exceeds 1.",
+            )
             self._g = (e1 + 1j * e2) * self._e2g(absesq)
 
         # eta1,eta2
@@ -75,7 +85,12 @@ class Shear(object):
             beta = kwargs.pop("beta")
             if not isinstance(beta, Angle):
                 raise TypeError("beta must be an Angle instance.")
-            g = kwargs.pop("g")
+            g = jnp.array(kwargs.pop("g"))
+            g = equinox.error_if(
+                g,
+                g > 1 or g < 0,
+                "Requested |shear| is outside [0,1].",
+            )
             self._g = g * jnp.exp(2j * beta.rad)
 
         # e,beta
@@ -89,7 +104,12 @@ class Shear(object):
             beta = kwargs.pop("beta")
             if not isinstance(beta, Angle):
                 raise TypeError("beta must be an Angle instance.")
-            e = kwargs.pop("e")
+            e = jnp.array(kwargs.pop("e"))
+            e = equinox.error_if(
+                e,
+                (e > 1) | (e < 0),
+                "Requested distortion is outside [0,1].",
+            )
             self._g = self._e2g(e**2) * e * jnp.exp(2j * beta.rad)
 
         # eta,beta
@@ -103,7 +123,12 @@ class Shear(object):
             beta = kwargs.pop("beta")
             if not isinstance(beta, Angle):
                 raise TypeError("beta must be an Angle instance.")
-            eta = kwargs.pop("eta")
+            eta = jnp.array(kwargs.pop("eta"))
+            eta = equinox.error_if(
+                eta,
+                eta < 0,
+                "Requested eta is below 0.",
+            )
             self._g = self._eta2g(eta) * eta * jnp.exp(2j * beta.rad)
 
         # q,beta
@@ -117,7 +142,12 @@ class Shear(object):
             beta = kwargs.pop("beta")
             if not isinstance(beta, Angle):
                 raise TypeError("beta must be an Angle instance.")
-            q = kwargs.pop("q")
+            q = jnp.array(kwargs.pop("q"))
+            q = equinox.error_if(
+                q,
+                (q <= 0) | (q > 1),
+                "Cannot use requested axis ratio.",
+            )
             eta = -jnp.log(q)
             self._g = self._eta2g(eta) * eta * jnp.exp(2j * beta.rad)
 
