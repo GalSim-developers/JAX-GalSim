@@ -11,9 +11,11 @@ from jax_galsim.core.utils import ensure_hashable, implements
 @register_pytree_node_class
 @implements(
     _galsim.Shear,
-    lax_description="""\
-The jax_galsim implementation of ``Shear`` does not perform range checking of the \
-shear (e.g., ``|g| <= 1``) upon construction.""",
+    lax_description=(
+        "While the JAX-GalSim implementation of ``Shear`` will do range checking of "
+        "the shear upon construction, it raises ``equinox.EquinoxRuntimeError`` exceptions "
+        "instead of ``galsim.GalSimRangeError`` exceptions."
+    ),
 )
 class Shear(object):
     def __init__(self, *args, **kwargs):
