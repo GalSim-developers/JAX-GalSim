@@ -9,7 +9,6 @@ from quadax import quadgk
 from jax_galsim.core.utils import implements
 
 
-@equinox.filter_jit
 @implements(
     _galsim.integ.int1d,
     lax_description=(
@@ -24,6 +23,7 @@ method implemented in the ``quadax`` package. Some import caveats are: "
 """
     ),
 )
+@partial(jax.jit, static_argnames=("func", "_wrap_as_callback"))
 def int1d(
     func,
     min,
@@ -38,7 +38,7 @@ def int1d(
     # can be used with jax
     if _wrap_as_callback:
 
-        @equinox.filter_jit
+        @jax.jit
         def _func(x):
             rdt = jax.ShapeDtypeStruct(x.shape, x.dtype)
             return jax.pure_callback(func, rdt, x, vmap_method="sequential")
