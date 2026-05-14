@@ -1,3 +1,5 @@
+from functools import partial
+
 import equinox
 import galsim as _galsim
 import jax.lax
@@ -5,8 +7,6 @@ import jax.numpy as jnp
 from quadax import quadgk
 
 from jax_galsim.core.utils import implements
-
-# @partial(jax.jit, static_argnames=("func", "_wrap_as_callback"))
 
 
 @equinox.filter_jit
