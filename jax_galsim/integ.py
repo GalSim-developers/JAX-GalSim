@@ -18,7 +18,7 @@ method implemented in the ``quadax`` package. Some import caveats are: "
 
 - This implementation is different than the one in GalSim and lacks some features that
   greatly enhance galsim's accuracy.
-- The JAX-GalSim implementation raises a ``equinox.EquinoxRuntimeError`` on error/non-convergence
+- The JAX-GalSim implementation raises a generic ``Exception`` on error/non-convergence
   instead of rasing a ``galsim.GalSimError`` exception.
 """
     ),
