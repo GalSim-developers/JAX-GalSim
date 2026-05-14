@@ -1,5 +1,6 @@
 from functools import partial
 
+import equinox
 import galsim as _galsim
 import jax.lax
 import jax.numpy as jnp
@@ -7,7 +8,10 @@ from quadax import quadgk
 
 from jax_galsim.core.utils import implements
 
+# @partial(jax.jit, static_argnames=("func", "_wrap_as_callback"))
 
+
+@equinox.filter_jit
 @implements(
     _galsim.integ.int1d,
     lax_description=(
@@ -17,12 +21,11 @@ method implemented in the ``quadax`` package. Some import caveats are: "
 
 - This implementation is different than the one in GalSim and lacks some features that
   greatly enhance galsim's accuracy.
-- The JAX-GalSim implementation returns NaN on error/non-convergence instead of
-  rasing an exception.
+- The JAX-GalSim implementation raises a ``equinox.EquinoxRuntimeError`` on error/non-convergence
+  instead of rasing a ``galsim.GalSimError`` exception.
 """
     ),
 )
-@partial(jax.jit, static_argnames=("func", "_wrap_as_callback"))
 def int1d(
     func,
     min,
@@ -37,7 +40,7 @@ def int1d(
     # can be used with jax
     if _wrap_as_callback:
 
-        @jax.jit
+        @equinox.filter_jit
         def _func(x):
             rdt = jax.ShapeDtypeStruct(x.shape, x.dtype)
             return jax.pure_callback(func, rdt, x, vmap_method="sequential")
@@ -72,8 +75,8 @@ def int1d(
         _base_integration,
     )
 
-    return jax.lax.cond(
-        status == 0,
-        lambda: val,
-        lambda: jnp.nan,
+    return equinox.error_if(
+        val,
+        status != 0,
+        "`jax_galsim.int1d` failed to converge!",
     )
