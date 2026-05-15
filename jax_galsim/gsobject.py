@@ -582,6 +582,7 @@ The JAX-GalSim version of ``drawImage``
   to indicate no limit on the extra noise
 - requires that the ``maxN`` option be a constant since PhotonArrays are allocated
   with ``maxN`` photons when this option is used and arrays in JAX must have static sizes.
+- raises generic ``Exception``s instead of more specific exceptions for some invalid inputs
 """,
     )
     def drawImage(
