@@ -1,10 +1,12 @@
 import secrets
 from functools import partial
 
+import equinox
 import galsim as _galsim
 import jax
 import jax.numpy as jnp
 import jax.random as jrandom
+import numpy as np
 from jax.tree_util import register_pytree_node_class
 
 from jax_galsim.core.utils import implements
@@ -122,9 +124,16 @@ class BaseDeviate:
             self._state = _DeviateState(
                 wrap_key_data(jnp.array(seed, dtype=jnp.uint32))
             )
-        else:
+        elif (
+            isinstance(seed, (int, jnp.ndarray, jax.Array, np.ndarray)) or seed is None
+        ):
             _initial_seed = seed or secrets.randbelow(2**31)
             self._state = _DeviateState(jrandom.key(_initial_seed))
+        else:
+            raise TypeError(
+                "Seeds for BaseDeviate must be an int-like, str, tuple, or another BaseDeviate."
+                f"Got seed {seed!r}."
+            )
 
     @property
     def _key(self):
@@ -295,6 +304,19 @@ class UniformDeviate(BaseDeviate):
 class GaussianDeviate(BaseDeviate):
     def __init__(self, seed=None, mean=0.0, sigma=1.0):
         super().__init__(seed=seed)
+
+        if isinstance(sigma, (int, float)):
+            if sigma <= 0:
+                raise ValueError(
+                    f"Gaussian deviates must have a positive sigma. Got {sigma!r}."
+                )
+        else:
+            sigma = equinox.error_if(
+                jnp.array(sigma),
+                sigma <= 0,
+                f"Gaussian deviates must have a positive sigma. Got {sigma!r}.",
+            )
+
         self._params["mean"] = mean
         self._params["sigma"] = sigma
 
@@ -435,6 +457,19 @@ class BinomialDeviate(BaseDeviate):
 class PoissonDeviate(BaseDeviate):
     def __init__(self, seed=None, mean=1.0):
         super().__init__(seed=seed)
+
+        if isinstance(mean, (int, float)):
+            if mean < 0:
+                raise ValueError(
+                    f"Poisson deviates must have a non-negative mean. Got {mean!r}."
+                )
+        else:
+            mean = equinox.error_if(
+                jnp.array(mean),
+                mean < 0,
+                f"Poisson deviates must have a non-negative mean. Got {mean!r}.",
+            )
+
         self._params["mean"] = mean
 
     @property
@@ -484,6 +519,11 @@ class PoissonDeviate(BaseDeviate):
 
     @implements(_galsim.PoissonDeviate.generate_from_expectation)
     def generate_from_expectation(self, array):
+        array = equinox.error_if(
+            jnp.array(array),
+            jnp.any(jnp.array(array) < 0),
+            "Poission deviates must have a non-negative mean.",
+        )
         self._key, _array = self.__class__._generate_from_exp(self._key, array)
         return _array
 
