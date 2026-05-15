@@ -1,6 +1,7 @@
 import copy
 import os
 
+import equinox
 import galsim as _galsim
 import jax
 import jax.numpy as jnp
@@ -1094,12 +1095,10 @@ def _invert_ab_noraise(u, v, ab, abp=None):
         unroll=True,
     )[0:4]
 
-    x, y = jax.lax.cond(
-        jnp.maximum(jnp.max(jnp.abs(dx)), jnp.max(jnp.abs(dy))) > 2e-12,
-        lambda x, y: (x * jnp.nan, y * jnp.nan),
-        lambda x, y: (x, y),
-        x,
-        y,
+    x, y = equinox.error_if(
+        (x, y),
+        jnp.any(jnp.maximum(jnp.max(jnp.abs(dx)), jnp.max(jnp.abs(dy))) > 2e-12),
+        "Unable to solve for image_pos (max iter reached).",
     )
 
     return x, y
