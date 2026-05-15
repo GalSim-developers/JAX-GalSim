@@ -1,6 +1,7 @@
 from collections import namedtuple
 from functools import partial
 
+import equinox
 import galsim as _galsim
 import jax
 import jax.numpy as jnp
@@ -601,7 +602,7 @@ The JAX-GalSim version of ``drawImage``
         offset=None,
         n_photons=None,
         rng=None,
-        max_extra_noise=0.0,
+        max_extra_noise=None,
         poisson_flux=None,
         sensor=None,
         photon_ops=(),
@@ -625,6 +626,13 @@ The JAX-GalSim version of ``drawImage``
 
         if image is not None and not isinstance(image, Image):
             raise TypeError("image is not an Image instance", image)
+
+        # Make sure (gain, area, exptime) have valid values:
+        gain = equinox.error_if(jnp.array(gain), gain <= 0.0, "Invalid gain <= 0.")
+        area = equinox.error_if(jnp.array(area), area <= 0.0, "Invalid area <= 0.")
+        exptime = equinox.error_if(
+            jnp.array(exptime), exptime <= 0.0, "Invalid exptime <= 0."
+        )
 
         if method == "phot" and save_photons and maxN is not None:
             raise GalSimIncompatibleValuesError(
@@ -658,6 +666,13 @@ The JAX-GalSim version of ``drawImage``
                     method=method,
                     sensor=sensor,
                     n_photons=n_photons,
+                )
+            if max_extra_noise is not None:
+                raise GalSimIncompatibleValuesError(
+                    "max_extra_noise is only relevant for method='phot'",
+                    method=method,
+                    sensor=sensor,
+                    max_extra_noise=max_extra_noise,
                 )
             if poisson_flux is not None:
                 raise GalSimIncompatibleValuesError(
@@ -1078,6 +1093,8 @@ The JAX-GalSim version of ``drawImage``
 
     @implements(_galsim.GSObject._calculate_nphotons)
     def _calculate_nphotons(self, n_photons, poisson_flux, max_extra_noise, rng):
+        if max_extra_noise is None:
+            max_extra_noise = 0.0
         n_photons, g, _rng = calculate_n_photons(
             self.flux,
             self._flux_per_photon,
@@ -1106,7 +1123,7 @@ The JAX-GalSim version of ``makePhot``
         self,
         n_photons=None,
         rng=None,
-        max_extra_noise=0.0,
+        max_extra_noise=None,
         poisson_flux=None,
         photon_ops=(),
         local_wcs=None,
@@ -1178,7 +1195,7 @@ The JAX-GalSim version of ``drawPhot``
         add_to_image=False,
         n_photons=None,
         rng=None,
-        max_extra_noise=0.0,
+        max_extra_noise=None,
         poisson_flux=None,
         sensor=None,
         photon_ops=(),
