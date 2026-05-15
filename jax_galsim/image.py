@@ -326,7 +326,7 @@ class Image(object):
 
     def __repr__(self):
         s = "galsim.Image(bounds=%r" % self.bounds
-        if self.bounds.isDefined():
+        if self.bounds.isDefined() and not has_tracers(self.array):
             s += ", array=\n%r" % (ensure_hashable(np.array(self.array)),)
         s += ", wcs=%r" % self.wcs
         if self.isconst:
