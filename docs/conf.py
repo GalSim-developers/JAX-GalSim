@@ -29,9 +29,11 @@ author = "GalSim Developers"
 copyright = "2026, GalSim Developers"
 
 try:
-    from jax_galsim._version import version as release
+    from jax_galsim._version import version
 except ImportError:
-    release = "0.0.1.dev0"
+    version = "0.0.1.dev0"
+
+release = version
 
 # ---------------------------------------------------------------------------
 # General configuration
