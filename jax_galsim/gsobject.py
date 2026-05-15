@@ -1115,10 +1115,10 @@ The JAX-GalSim version of ``drawImage``
         lax_description="""\
 The JAX-GalSim version of ``makePhot``
 
-- does little to no error checking on the inputs
 - uses a default of ``n_photons=None`` instead of ``n_photons=0``
-  to indicate that the number of photons should be determined
-  from the flux and gain
+- uses a default of ``max_extra_noise=None`` instead of ``max_extra_noise=0``
+  to indicate no limit on the extra noise
+- raises generic ``Exception``s instead of more specific exceptions for some invalid inputs
 """,
     )
     def makePhot(
@@ -1187,6 +1187,9 @@ The JAX-GalSim version of ``drawPhot``
 - uses a default of ``n_photons=None`` instead of ``n_photons=0``
   to indicate that the number of photons should be determined
   from the flux and gain
+- uses a default of ``max_extra_noise=None`` instead of ``max_extra_noise=0``
+  to indicate no limit on the extra noise
+- raises generic ``Exception``s instead of more specific exceptions for some invalid inputs
 - requires that the ``maxN`` option must be a constant
 """,
     )
@@ -1226,6 +1229,8 @@ The JAX-GalSim version of ``drawPhot``
             sensor = Sensor()
         elif not isinstance(sensor, Sensor):
             raise TypeError("The sensor provided is not a Sensor instance")
+
+        gain = equinox.error_if(jnp.array(gain), gain <= 0.0, "Invalid gain <= 0.")
 
         if n_photons is not None:
             # n_photons is the length of an array so it is a python int and
