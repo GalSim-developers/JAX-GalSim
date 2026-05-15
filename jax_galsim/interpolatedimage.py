@@ -60,6 +60,8 @@ The JAX equivalent of galsim.InterpolatedImage does not support:
 - the pad_image options
 - depixelize
 - most of the bounds checks, type checks, and dtype casts done by galsim
+- raises a generic ``Exception`` instead of a more specific one for some
+  initialization errors
 """
 
 
