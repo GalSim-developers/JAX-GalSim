@@ -515,9 +515,10 @@ class _InterpolatedImageImpl(GSObject):
                 )
 
         if calculate_stepk or calculate_maxk or flux is not None:
+            image.array = jnp.array(image.array)
             image.array = equinox.error_if(
-                jnp.array(image.array),
-                image.array.sum() == 0.0,
+                image.array,
+                jnp.any(image.array.sum() == 0.0),
                 "This input image has zero total flux. It does not define a "
                 "valid surface brightness profile.",
             )

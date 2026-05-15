@@ -629,10 +629,13 @@ The JAX-GalSim version of ``drawImage``
             raise TypeError("image is not an Image instance", image)
 
         # Make sure (gain, area, exptime) have valid values:
-        gain = equinox.error_if(jnp.array(gain), gain <= 0.0, "Invalid gain <= 0.")
-        area = equinox.error_if(jnp.array(area), area <= 0.0, "Invalid area <= 0.")
+        gain = jnp.array(gain)
+        gain = equinox.error_if(gain, jnp.any(gain <= 0.0), "Invalid gain <= 0.")
+        area = jnp.array(area)
+        area = equinox.error_if(area, jnp.any(area <= 0.0), "Invalid area <= 0.")
+        exptime = jnp.array(exptime)
         exptime = equinox.error_if(
-            jnp.array(exptime), exptime <= 0.0, "Invalid exptime <= 0."
+            exptime, jnp.any(exptime <= 0.0), "Invalid exptime <= 0."
         )
 
         if method == "phot" and save_photons and maxN is not None:
@@ -1228,7 +1231,8 @@ The JAX-GalSim version of ``drawPhot``
         elif not isinstance(sensor, Sensor):
             raise TypeError("The sensor provided is not a Sensor instance")
 
-        gain = equinox.error_if(jnp.array(gain), gain <= 0.0, "Invalid gain <= 0.")
+        gain = jnp.array(gain)
+        gain = equinox.error_if(gain, jnp.any(gain <= 0.0), "Invalid gain <= 0.")
 
         if n_photons is not None:
             # n_photons is the length of an array so it is a python int and

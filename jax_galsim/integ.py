@@ -75,6 +75,6 @@ def int1d(
 
     return equinox.error_if(
         val,
-        status != 0,
+        jnp.any(status != 0),
         "`jax_galsim.int1d` failed to converge!",
     )
