@@ -23,9 +23,11 @@ import warnings
 from functools import partial
 
 import coord as _coord
+import equinox
 import galsim as _galsim
 import jax
 import jax.numpy as jnp
+import numpy as np
 from jax.tree_util import register_pytree_node_class
 
 from jax_galsim.angle import Angle, _Angle, arcsec, degrees, radians
@@ -74,6 +76,16 @@ class CelestialCoord(object):
         elif not isinstance(dec, Angle):
             raise TypeError("dec must be a galsim.Angle")
         else:
+            if isinstance(dec._rad, (float, int)):
+                if dec._rad < -np.pi / 2 or dec._rad > np.pi / 2:
+                    raise ValueError("dec must be between -90 deg and +90 deg.")
+            else:
+                dec._rad = equinox.error_if(
+                    jnp.array(dec._rad),
+                    jnp.any((dec._rad < -jnp.pi / 2) | (dec._rad > jnp.pi / 2)),
+                    "dec must be between -90 deg and +90 deg.",
+                )
+
             # Normal case
             self._ra = ra
             self._dec = dec
@@ -121,15 +133,14 @@ class CelestialCoord(object):
 
     @staticmethod
     @jax.jit
-    @implements(
-        _galsim.celestial.CelestialCoord.from_xyz,
-        lax_description=(
-            "The JAX version of this static method does not check that the norm of the input "
-            "vector is non-zero."
-        ),
-    )
+    @implements(_galsim.celestial.CelestialCoord.from_xyz)
     def from_xyz(x, y, z):
         norm = jnp.sqrt(x * x + y * y + z * z)
+        norm = equinox.error_if(
+            norm,
+            jnp.any(norm == 0),
+            "CelestialCoord for position (0,0,0) is undefined.",
+        )
         ret = CelestialCoord.__new__(CelestialCoord)
         ret._x = x / norm
         ret._y = y / norm
@@ -236,13 +247,7 @@ class CelestialCoord(object):
 
         return _Angle(theta)
 
-    @implements(
-        _galsim.celestial.CelestialCoord.greatCirclePoint,
-        lax_description=(
-            "The JAX version of this method does not check that coord2 defines a unique great "
-            "circle with the current coord at angle theta."
-        ),
-    )
+    @implements(_galsim.celestial.CelestialCoord.greatCirclePoint)
     @jax.jit
     def greatCirclePoint(self, coord2, theta):
         aux = self._get_aux()
@@ -280,8 +285,11 @@ class CelestialCoord(object):
 
         # Normalize
         wr = (wx**2 + wy**2 + wz**2) ** 0.5
-        # if wr == 0.:
-        #     raise ValueError("coord2 does not define a unique great circle with self.")
+        wr = equinox.error_if(
+            wr,
+            jnp.any(wr == 0),
+            "coord2 does not define a unique great circle with self.",
+        )
         wx /= wr
         wy /= wr
         wz /= wr
