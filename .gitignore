@@ -141,3 +141,5 @@ dmypy.json
 # VSCode settings
 .vscode/settings.json
 
+# numpy data
+*.npy
