@@ -113,7 +113,7 @@ def main():
 
     cat = _prepare_catalog(catsim_file)
     cat = _cut_on_good_sizes(
-        cat=cat, psf=psf, max_good_size=STAMP_SLEN, overwrite=False
+        cat=cat, psf=psf, max_good_size=STAMP_SLEN - 4, overwrite=False
     )
 
     print("INFO: Catalog prepared with {} galaxies after cuts.".format(len(cat)))
@@ -151,6 +151,7 @@ def main():
                 psf=psf,
                 ilen=IMAGE_SLEN,
                 max_n_gals=MAX_N_GALS,
+                max_slen=STAMP_SLEN,
             )
             t2 = time.time()
             t_galsim = t2 - t1
