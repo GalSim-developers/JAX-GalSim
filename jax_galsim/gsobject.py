@@ -1187,7 +1187,6 @@ The JAX-GalSim version of ``drawPhot``
   to indicate that the number of photons should be determined
   from the flux and gain
 - uses a default of ``max_extra_noise=None`` instead of ``max_extra_noise=0``
-  to indicate no limit on the extra noise
 - raises a generic ``Exception`` instead of a more specific exception for some invalid inputs
 - requires that the ``maxN`` option must be a constant
 """,
