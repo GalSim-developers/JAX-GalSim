@@ -9,7 +9,7 @@ import jax.random as jrandom
 import numpy as np
 from jax.tree_util import register_pytree_node_class
 
-from jax_galsim.core.utils import implements
+from jax_galsim.core.utils import has_tracers, implements
 
 try:
     from jax.extend.random import wrap_key_data
@@ -313,7 +313,7 @@ class GaussianDeviate(BaseDeviate):
                 raise ValueError(
                     f"Gaussian deviates must have a positive sigma. Got {sigma!r}."
                 )
-        else:
+        elif not has_tracers(sigma):
             sigma = equinox.error_if(
                 jnp.array(sigma),
                 sigma <= 0,
@@ -466,7 +466,7 @@ class PoissonDeviate(BaseDeviate):
                 raise ValueError(
                     f"Poisson deviates must have a non-negative mean. Got {mean!r}."
                 )
-        else:
+        elif not has_tracers(mean):
             mean = equinox.error_if(
                 jnp.array(mean),
                 mean < 0,
