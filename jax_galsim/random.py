@@ -309,15 +309,15 @@ class GaussianDeviate(BaseDeviate):
         super().__init__(seed=seed)
 
         if isinstance(sigma, (int, float)):
-            if sigma <= 0:
+            if sigma < 0:
                 raise ValueError(
-                    f"Gaussian deviates must have a positive sigma. Got {sigma!r}."
+                    f"Gaussian deviates must have a non-negative sigma. Got {sigma!r}."
                 )
         elif not has_tracers(sigma):
             sigma = equinox.error_if(
                 jnp.array(sigma),
-                sigma <= 0,
-                f"Gaussian deviates must have a positive sigma. Got {sigma!r}.",
+                sigma < 0,
+                f"Gaussian deviates must have a non-negative sigma. Got {sigma!r}.",
             )
 
         self._params["mean"] = mean
