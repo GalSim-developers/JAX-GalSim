@@ -200,6 +200,7 @@ def draw_galsim(
     max_n_gals: int,
     slen: int | None = None,
     fft_size: int | None = None,
+    max_slen: int | None = None,
 ):
 
     # create big image
@@ -222,6 +223,11 @@ def draw_galsim(
         stamp = gal.drawImage(
             center=image_pos, wcs=local_wcs, dtype=image.dtype, nx=slen, ny=slen
         )
+
+        if max_slen:
+            assert max(stamp.array.shape) <= max_slen, (
+                f"Stamp size {stamp.array.shape} exceeds maximum stamp size. Consider increasing max_slen."
+            )
 
         b = stamp.bounds & image.bounds
         if b.isDefined():
