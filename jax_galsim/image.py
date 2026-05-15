@@ -102,7 +102,14 @@ class Image(object):
                 )
         else:
             if "array" in kwargs:
-                array = jnp.array(kwargs.pop("array"))
+                array = kwargs.pop("array")
+                if has_tracers(array) or isinstance(array, jnp.ndarray):
+                    pass
+                elif isinstance(array, np.ndarray):
+                    array = jnp.array(cast_numpy_array_to_native_byte_order(array))
+                else:
+                    raise TypeError("Unable to parse %s as an array." % array)
+
                 array, xmin, ymin = self._get_xmin_ymin(
                     array, kwargs, check_bounds=_check_bounds
                 )
