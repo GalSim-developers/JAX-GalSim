@@ -25,7 +25,7 @@ CONST_TYPES = (
 )
 CONST_TYPES_WITH_JAX = CONST_TYPES + (
     jax.Array,
-    jnp.array,
+    jnp.ndarray,
     jnp.int8,
     jnp.int16,
     jnp.int32,
