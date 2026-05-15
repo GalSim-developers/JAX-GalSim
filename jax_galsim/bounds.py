@@ -6,7 +6,6 @@ from jax.tree_util import register_pytree_node_class
 from jax_galsim.core.utils import (
     CONST_TYPES,
     cast_to_float,
-    cast_to_int,
     cast_to_python_float,
     check_is_int_then_cast,
     ensure_hashable,
@@ -519,8 +518,8 @@ class BoundsI(Bounds):
         self.deltay = cast_to_python_float(self.deltay)
         if (self.deltax != int(self.deltax)) or (self.deltay != int(self.deltay)):
             raise TypeError("BoundsI must be initialized with integer values")
-        self.deltax = int(cast_to_int(self.deltax))
-        self.deltay = int(cast_to_int(self.deltay))
+        self.deltax = int(self.deltax)
+        self.deltay = int(self.deltay)
 
         if has_tracers(self._xmin) or has_tracers(self._ymin):
             self._isstatic = False

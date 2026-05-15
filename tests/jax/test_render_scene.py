@@ -365,6 +365,7 @@ def test_render_scene_stamps(slen):
     # present in GalSim when drawing stamps that odd or even sized.
     abs_eps = np.max(np.abs(gs_image_mo.array - gs_image.array))
     rel_eps = 0.0
+    assert abs_eps < 5e-5
 
     if False:
         import pdb
