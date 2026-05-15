@@ -582,7 +582,7 @@ The JAX-GalSim version of ``drawImage``
   to indicate no limit on the extra noise
 - requires that the ``maxN`` option be a constant since PhotonArrays are allocated
   with ``maxN`` photons when this option is used and arrays in JAX must have static sizes.
-- raises generic ``Exception``s instead of more specific exceptions for some invalid inputs
+- raises a generic ``Exception`` instead of a more specific exception for some invalid inputs
 """,
     )
     def drawImage(
@@ -1118,7 +1118,7 @@ The JAX-GalSim version of ``makePhot``
 - uses a default of ``n_photons=None`` instead of ``n_photons=0``
 - uses a default of ``max_extra_noise=None`` instead of ``max_extra_noise=0``
   to indicate no limit on the extra noise
-- raises generic ``Exception``s instead of more specific exceptions for some invalid inputs
+- raises a generic ``Exception`` instead of a more specific exception for some invalid inputs
 """,
     )
     def makePhot(
@@ -1189,7 +1189,7 @@ The JAX-GalSim version of ``drawPhot``
   from the flux and gain
 - uses a default of ``max_extra_noise=None`` instead of ``max_extra_noise=0``
   to indicate no limit on the extra noise
-- raises generic ``Exception``s instead of more specific exceptions for some invalid inputs
+- raises a generic ``Exception`` instead of a more specific exception for some invalid inputs
 - requires that the ``maxN`` option must be a constant
 """,
     )
