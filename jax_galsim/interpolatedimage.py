@@ -2,6 +2,7 @@ import copy
 import math
 from functools import partial
 
+import equinox
 import galsim as _galsim
 import jax
 import jax.numpy as jnp
@@ -117,6 +118,11 @@ class InterpolatedImage(Transformation, metaclass=DirMeta):
             image = fits.read(image, hdu=hdu)
         elif not isinstance(image, Image):
             raise TypeError("Supplied image must be an Image or file name")
+
+        if not (image.dtype == jnp.float32 or image.dtype == jnp.float64):
+            raise GalSimValueError(
+                "Interpolated images must use a float-type image.", image.dtype
+            )
 
         self._jax_children = (
             image,
@@ -505,6 +511,14 @@ class _InterpolatedImageImpl(GSObject):
                     wcs=self._jax_children[1]["wcs"],
                     image=self._jax_children[0],
                 )
+
+        if calculate_stepk or calculate_maxk or flux is not None:
+            image = equinox.error_if(
+                image,
+                image.array.sum() == 0.0,
+                "This input image has zero total flux. It does not define a "
+                "valid surface brightness profile.",
+            )
 
     @doc_inherit
     def withGSParams(self, gsparams=None, **kwargs):
