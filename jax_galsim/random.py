@@ -746,6 +746,10 @@ class Chi2Deviate(BaseDeviate):
 )
 def permute(rng, *args):
     rng = BaseDeviate(rng)
+    if len(args) == 0:
+        raise TypeError(
+            f"`galsim.random.permute` must be called with at least one array. Got {args!r}"
+        )
     arrs = []
     for arr in args:
         arrs.append(jrandom.permutation(rng._key, arr))
