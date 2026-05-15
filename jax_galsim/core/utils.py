@@ -45,11 +45,12 @@ def check_is_int_then_cast(val, msg):
         if val != int(val):
             raise TypeError(msg)
         val = int(val)
-    elif not has_tracers(val):
+    else:
         # otherwise we use more opaque checking upon jit via equinox
+        val = jnp.array(val)
         val = equinox.error_if(
             val,
-            val != jnp.trunc(val),
+            np.any(val != jnp.trunc(val)),
             msg,
         )
         val = val.astype(int)

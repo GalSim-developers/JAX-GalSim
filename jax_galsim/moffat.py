@@ -74,9 +74,10 @@ class Moffat(GSObject):
                     f"JAX-GalSim does not support Moffat beta values <= {self._beta_thr}."
                 )
         elif not has_tracers(beta):
+            beta = jnp.array(beta)
             beta = equinox.error_if(
-                jnp.array(beta),
-                beta <= self._beta_thr,
+                beta,
+                jnp.any(beta <= self._beta_thr),
                 f"JAX-GalSim does not support Moffat beta values <= {self._beta_thr}.",
             )
 
