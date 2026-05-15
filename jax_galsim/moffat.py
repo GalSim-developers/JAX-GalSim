@@ -1,5 +1,6 @@
 from functools import partial
 
+import equinox
 import galsim as _galsim
 import jax
 import jax.numpy as jnp
@@ -31,7 +32,7 @@ def _Knu(nu, x):
     lax_description="""\
 The JAX-GalSim version of the Moffat profile
 
-- does not support truncation or beta < 1.1
+- does not support truncation or beta <= 1.1
 - does not support gsparams.maxk_thresholds > 0.1
 - does not support autodiff with respect to the `beta` parameter
   for Fourier-space evaluations
@@ -65,6 +66,18 @@ class Moffat(GSObject):
             raise ValueError(
                 "JAX-GalSim does not support truncated Moffat profiles "
                 f"(got trunc={repr(trunc)}, always pass the constant 0.0)!"
+            )
+
+        if isinstance(beta, (float, int)):
+            if beta <= self._beta_thr:
+                raise ValueError(
+                    f"JAX-GalSim does not support Moffat beta values <= {self._beta_thr}."
+                )
+        else:
+            beta = equinox.error_if(
+                jnp.array(beta),
+                beta <= self._beta_thr,
+                f"JAX-GalSim does not support Moffat beta values <= {self._beta_thr}.",
             )
 
         # Parse the radius options
