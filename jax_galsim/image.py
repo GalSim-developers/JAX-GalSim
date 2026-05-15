@@ -102,7 +102,7 @@ class Image(object):
                 )
         else:
             if "array" in kwargs:
-                array = kwargs.pop("array")
+                array = jnp.array(kwargs.pop("array"))
                 array, xmin, ymin = self._get_xmin_ymin(
                     array, kwargs, check_bounds=_check_bounds
                 )
