@@ -125,13 +125,16 @@ class BaseDeviate:
                 wrap_key_data(jnp.array(seed, dtype=jnp.uint32))
             )
         elif (
-            isinstance(seed, (int, jnp.ndarray, jax.Array, np.ndarray)) or seed is None
+            isinstance(
+                seed, (int, jnp.ndarray, jax.Array, np.ndarray, np.integer, jnp.integer)
+            )
+            or seed is None
         ):
             _initial_seed = seed or secrets.randbelow(2**31)
             self._state = _DeviateState(jrandom.key(_initial_seed))
         else:
             raise TypeError(
-                "Seeds for BaseDeviate must be an int-like, str, tuple, or another BaseDeviate."
+                "Seeds for BaseDeviate must be an int-like, str, tuple, or another BaseDeviate. "
                 f"Got seed {seed!r}."
             )
 
