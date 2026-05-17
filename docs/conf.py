@@ -28,10 +28,14 @@ project = "JAX-GalSim"
 author = "GalSim Developers"
 copyright = "2026, GalSim Developers"
 
-try:
-    from jax_galsim._version import version
-except ImportError:
-    version = "0.0.1.dev0"
+
+from importlib.metadata import version as get_version
+release: str = get_version("jax-galsim")
+
+# try:
+#     from jax_galsim._version import version
+# except ImportError:
+#     version = "0.0.1.dev0"
 
 release = version
 
