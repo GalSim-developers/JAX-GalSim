@@ -36,8 +36,8 @@ release: str = get_version("jax-galsim")
 #     from jax_galsim._version import version
 # except ImportError:
 #     version = "0.0.1.dev0"
-
-release = version
+# 
+# release = version
 
 # ---------------------------------------------------------------------------
 # General configuration
