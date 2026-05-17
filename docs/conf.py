@@ -31,7 +31,7 @@ copyright = "2026, GalSim Developers"
 
 from importlib.metadata import version as get_version
 release: str = get_version("jax-galsim")
-
+version = release
 # try:
 #     from jax_galsim._version import version
 # except ImportError:
