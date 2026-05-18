@@ -318,7 +318,12 @@ class Image(object):
         if self.bounds.isDefined() and isinstance(
             self.array, (np.ndarray, jnp.ndarray, jax.Array)
         ):
-            s += ", array=\n%r" % (ensure_hashable(np.array(self.array)),)
+            try:
+                np.array(self.array)
+            except Exception:
+                pass
+            else:
+                s += ", array=\n%r" % (np.array(self.array),)
         s += ", wcs=%r" % self.wcs
         if self.isconst:
             s += ", make_const=True"
