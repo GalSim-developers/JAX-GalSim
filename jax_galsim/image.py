@@ -316,7 +316,7 @@ class Image(object):
     def __repr__(self):
         s = "galsim.Image(bounds=%r" % self.bounds
         if self.bounds.isDefined() and isinstance(
-            self.array, (np.ndarray, jnp.ndarray, jax.Array)
+            self.array, (np.ndarray, jax.Array)
         ):
             s += ", array=\n%r" % (ensure_hashable(np.array(self.array)),)
         s += ", wcs=%r" % self.wcs
