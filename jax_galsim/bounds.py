@@ -9,7 +9,6 @@ from jax_galsim.core.utils import (
     cast_to_int,
     check_is_int_then_cast,
     ensure_hashable,
-    has_tracers,
     implements,
 )
 from jax_galsim.position import Position, PositionD, PositionI
@@ -515,7 +514,10 @@ class BoundsI(Bounds):
         self.deltax = cast_to_int(self.deltax)
         self.deltay = cast_to_int(self.deltay)
 
-        if has_tracers(self._xmin) or has_tracers(self._ymin):
+        if not (
+            isinstance(self._xmin, (int, float, np.floating, np.integer))
+            and isinstance(self._ymin, (int, float, np.floating, np.integer))
+        ):
             self._isstatic = False
 
         # validate inputs are ints
