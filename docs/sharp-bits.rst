@@ -70,8 +70,8 @@ With the use of JAX, there are now many possible types for numeric data. These i
 - **NumPy scalars**: Things with types that are subclasses are ``np.floating`` and ``np.integer``.
 - **NumPy array scalars**: Things with a type that is ``np.ndarray`` and has ``np.ndim(...) == 0``.
 - **NumPy arrays**: Things with a type that is ``np.ndarray`` and has ``np.ndim(...) > 0``.
-- **JAX array scalars**: Things with a type that is ``jnp.ndarray`` and has ``np.ndim(...) == 0``.
-- **JAX arrays**: Things with a type that is ``np.ndarray`` and has ``np.ndim(...) > 0``.
+- **JAX array scalars**: Things with a type that is ``jax.numpy.ndarray`` and has ``jax.numpy.ndim(...) == 0``.
+- **JAX arrays**: Things with a type that is ``jax.numpy.ndarray`` and has ``jax.numpy.ndim(...) > 0``.
 
 **JAX does not have pure scalar types like NumPY. JAX uses array scalars for those instead.**
 
