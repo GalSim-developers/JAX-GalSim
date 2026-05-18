@@ -91,12 +91,22 @@ class BaseDeviate:
     def generates_in_pairs(self):
         return False
 
-    @implements(
-        _galsim.BaseDeviate.seed,
-        lax_description="The JAX version of this method does no type checking.",
-    )
+    @implements(_galsim.BaseDeviate.seed)
     def seed(self, seed=None):
-        self._seed(seed=seed)
+        if seed is None:
+            self._seed(seed=seed)
+        elif isinstance(seed, (int, float, np.integer, np.floating)):
+            if seed == int(seed):
+                self._seed(seed=int(seed))
+            else:
+                raise TypeError(f"BaseDeviate seed must be an integer. Got {seed!r}.")
+        else:
+            seed = equinox.error_if(
+                seed,
+                jnp.any(seed != jnp.trunc(seed)),
+                "BaseDeviate seed must be an integer.",
+            )
+            self._seed(seed=seed)
 
     @implements(_galsim.BaseDeviate._seed)
     def _seed(self, seed=None):
