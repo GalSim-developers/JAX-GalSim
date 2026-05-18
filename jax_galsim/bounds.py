@@ -7,7 +7,6 @@ from jax.tree_util import register_pytree_node_class
 from jax_galsim.core.utils import (
     cast_to_float,
     cast_to_int,
-    cast_to_static_numeric_scalar,
     check_is_int_then_cast,
     ensure_hashable,
     has_tracers,
@@ -509,12 +508,8 @@ class BoundsI(Bounds):
 
         self._parse_args(*args, **kwargs)
 
-        msg = (
-            "Jax-GalSim BoundsI instances must have a fixed, static width! "
-            f"Got deltax,deltay = {self.deltax!r},{self.deltay!r}."
-        )
-        self.deltax = cast_to_float(cast_to_static_numeric_scalar(self.deltax, msg=msg))
-        self.deltay = cast_to_float(cast_to_static_numeric_scalar(self.deltay, msg=msg))
+        self.deltax = cast_to_float(self.deltax)
+        self.deltay = cast_to_float(self.deltay)
         if (self.deltax != int(self.deltax)) or (self.deltay != int(self.deltay)):
             raise TypeError("BoundsI must be initialized with integer values")
         self.deltax = cast_to_int(self.deltax)

@@ -1,4 +1,5 @@
 import galsim as _galsim
+import jax
 import jax.numpy as jnp
 import numpy as np
 from jax.tree_util import register_pytree_node_class
@@ -7,7 +8,6 @@ from jax_galsim.angle import AngleUnit, arcsec, radians
 from jax_galsim.celestial import CelestialCoord
 from jax_galsim.core.utils import (
     cast_to_float,
-    cast_to_static_numeric_scalar,
     ensure_hashable,
     implements,
 )
@@ -18,8 +18,23 @@ from jax_galsim.shear import Shear
 from jax_galsim.transform import _Transform
 
 
+def _cast_to_static_numeric_scalar(x, msg=None):
+    if isinstance(x, (int, float, np.integer, np.floating)):
+        return x
+
+    if isinstance(x, (np.ndarray, jax.Array, jnp.ndarray)):
+        if x.ndim == 0:
+            return x.item()
+
+        if all(sv for sv in x.shape == 1):
+            return x.ravel()[0].item()
+
+    msg = msg or f"Cannot convert input {x!r} to a static, numeric scalar."
+    raise RuntimeError(msg)
+
+
 def _cast_to_python_float(x):
-    return cast_to_float(cast_to_static_numeric_scalar(x))
+    return cast_to_float(_cast_to_static_numeric_scalar(x))
 
 
 # We inherit from the reference BaseWCS and only redefine the methods that
