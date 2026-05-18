@@ -7,7 +7,6 @@ import equinox
 import jax
 import jax.numpy as jnp
 import numpy as np
-from jax.tree_util import tree_flatten
 
 
 def check_is_int_then_cast(val, msg):
@@ -41,14 +40,6 @@ def cast_numpy_array_to_native_byte_order(arr):
         return arr
 
     return arr.astype(arr.dtype.newbyteorder("="))
-
-
-def has_tracers(x):
-    """Return True if the input item is a JAX tracer or object, False otherwise."""
-    for item in tree_flatten(x)[0]:
-        if isinstance(item, jax.core.Tracer) or type(item) is object:
-            return True
-    return False
 
 
 def _cast_to_type(x, typ, accept_strings=False):

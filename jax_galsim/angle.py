@@ -27,7 +27,6 @@ from jax.tree_util import register_pytree_node_class
 from jax_galsim.core.utils import (
     cast_to_float,
     ensure_hashable,
-    has_tracers,
     implements,
 )
 
@@ -199,7 +198,7 @@ class Angle(object):
         return _Angle(self._rad - other._rad)
 
     def __mul__(self, other):
-        if not (has_tracers(other) or isinstance(other, NON_COMPLEX_TYPES)):
+        if isinstance(other, (Angle, AngleUnit)):
             raise TypeError(
                 "Cannot multiply Angle by %s of type %s" % (other, type(other))
             )
@@ -210,11 +209,11 @@ class Angle(object):
     def __div__(self, other):
         if isinstance(other, AngleUnit):
             return self._rad / other.value
-        elif has_tracers(other) or isinstance(other, NON_COMPLEX_TYPES):
+        elif not isinstance(other, Angle):
             return _Angle(self._rad / other)
         else:
             raise TypeError(
-                "Cannot divide Angle by %s of type %s" % (other, type(other))
+                "Cannot multiply Angle by %s of type %s" % (other, type(other))
             )
 
     __truediv__ = __div__
