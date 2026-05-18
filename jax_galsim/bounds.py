@@ -499,6 +499,20 @@ class BoundsD(Bounds):
 class BoundsI(Bounds):
     _pos_class = PositionI
 
+    @staticmethod
+    def value_is_static(val):
+        """Return ``True`` if ``value`` is a static constant, ``False`` otherwise.
+
+        This static method is used to test ``xmin`` and ``ymin`` to detect if a ``BoundsI``
+        instance has a constant offset. The method is attached to the ``BoundsI`` instance
+        so that other classes can use it to detect static inputs to ``BoundsI`` classes
+        consistently.
+        """
+        return isinstance(
+            val,
+            (int, float, np.floating, np.integer),
+        )
+
     def __init__(self, *args, **kwargs):
         # initial setting to let stuff pass through freely
         self._isstatic = True
@@ -515,14 +529,7 @@ class BoundsI(Bounds):
         self.deltay = cast_to_int(self.deltay)
 
         if not (
-            isinstance(
-                self._xmin,
-                (int, float, np.floating, np.integer, np.ndarray, jnp.ndarray),
-            )
-            and isinstance(
-                self._ymin,
-                (int, float, np.floating, np.integer, np.ndarray, jnp.ndarray),
-            )
+            BoundsI.value_is_static(self._xmin) and BoundsI.value_is_static(self._ymin)
         ):
             self._isstatic = False
 

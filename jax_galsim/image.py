@@ -198,12 +198,7 @@ class Image(object):
             ncol = int(ncol)
             nrow = int(nrow)
             self._array = self._make_empty(shape=(nrow, ncol), dtype=self._dtype)
-            if not has_tracers(xmin) and not has_tracers(ymin):
-                self._bounds = BoundsI(
-                    xmin=xmin, deltax=ncol, ymin=ymin, deltay=nrow, static=True
-                )
-            else:
-                self._bounds = BoundsI(xmin=xmin, deltax=ncol, ymin=ymin, deltay=nrow)
+            self._bounds = BoundsI(xmin=xmin, deltax=ncol, ymin=ymin, deltay=nrow)
             if init_value:
                 self._array = self._array.at[...].add(init_value)
         elif bounds is not None:
@@ -216,12 +211,7 @@ class Image(object):
         elif array is not None:
             self._array = array.view()
             nrow, ncol = array.shape
-            if not has_tracers(xmin) and not has_tracers(ymin):
-                self._bounds = BoundsI(
-                    xmin=xmin, deltax=ncol, ymin=ymin, deltay=nrow, static=True
-                )
-            else:
-                self._bounds = BoundsI(xmin=xmin, deltax=ncol, ymin=ymin, deltay=nrow)
+            self._bounds = BoundsI(xmin=xmin, deltax=ncol, ymin=ymin, deltay=nrow)
             if init_value is not None:
                 raise _galsim.GalSimIncompatibleValuesError(
                     "Cannot specify init_value with array",
@@ -333,7 +323,9 @@ class Image(object):
 
     def __repr__(self):
         s = "galsim.Image(bounds=%r" % self.bounds
-        if self.bounds.isDefined() and not has_tracers(self.array):
+        if self.bounds.isDefined() and isinstance(
+            self.array, (np.ndarray, jnp.ndarray, jax.Array)
+        ):
             s += ", array=\n%r" % (ensure_hashable(np.array(self.array)),)
         s += ", wcs=%r" % self.wcs
         if self.isconst:
