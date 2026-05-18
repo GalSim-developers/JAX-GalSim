@@ -86,113 +86,51 @@ def compute_major_minor_from_jacobian(jac):
     return major, minor
 
 
-def _cast_to_array_scalar(x, dtype=None):
-    """Cast the input to an array scalar. Works on python scalars, iterables and jax arrays.
-    For iterables it always takes the first element after a call to .ravel()"""
-    if dtype is None:
-        if hasattr(x, "dtype"):
-            dtype = x.dtype
-        else:
-            dtype = float
-
-    if isinstance(x, jax.Array):
-        return jnp.atleast_1d(x).astype(dtype).ravel()[0]
-    elif hasattr(x, "astype"):
-        return x.astype(dtype).ravel()[0]
-    else:
-        return jnp.atleast_1d(jnp.array(x, dtype=dtype)).ravel()[0]
-
-
 def cast_to_python_float(x):
-    """Cast the input to a python float. Works on python floats and jax arrays.
-    For jax arrays it always takes the first element after a call to .ravel()"""
-    if isinstance(x, jax.Array):
-        return _cast_to_array_scalar(x, dtype=float).item()
+    """Cast the input to a python float. Works on python int/floats
+    and jax/numpy arrays. Will raise an error for arrays with more than one value.
+    """
+    if isinstance(x, (int, float, np.integer, np.floating)):
+        return float(x)
+    elif isinstance(x, (np.ndarray, jax.Array, jnp.ndarray)) and (
+        x.ndim == 0 or (x.ndim == 1 and x.shape[0] == 1)
+    ):
+        return float(x.item())
     else:
-        try:
-            return float(x)
-        except TypeError:
-            # this will return the same value for anything float-like that
-            # cannot be cast to float
-            # however, it will raise an error if something is not float-like
-            return 1.0 * x
-        except ValueError as e:
-            # we let NaNs through
-            if " NaN " in str(e):
-                # this will return the same value for anything float-like that
-                # cannot be cast to float
-                # however, it will raise an error if something is not float-like
-                return 1.0 * x
-            else:
-                raise e
+        raise ValueError(f"Cannot convert object {x!r} to a python float!")
 
 
 def cast_to_python_int(x):
-    """Cast the input to a python int. Works on python ints and jax arrays.
-    For jax arrays it always takes the first element after a call to .ravel()"""
-    if isinstance(x, jax.Array):
-        return _cast_to_array_scalar(x, dtype=int).item()
+    """Cast the input to a python int. Works on python int/floats
+    and jax/numpy arrays. Will raise an error for arrays with more than one value,
+    or if it encounters NaNs.
+    """
+    if isinstance(x, (int, float, np.integer, np.floating)):
+        return int(x)
+    elif isinstance(x, (np.ndarray, jax.Array, jnp.ndarray)) and (
+        x.ndim == 0 or (x.ndim == 1 and x.shape[0] == 1)
+    ):
+        return int(x.item())
     else:
-        try:
-            return int(x)
-        except TypeError:
-            # this will return the same value for anything int-like that
-            # cannot be cast to int
-            # however, it will raise an error if something is not int-like
-            return 1 * x
-        except ValueError as e:
-            # we let NaNs through
-            if " NaN " in str(e):
-                # this will return the same value for anything int-like that
-                # cannot be cast to int
-                # however, it will raise an error if something is not int-like
-                return 1 * x
-            else:
-                raise e
+        raise ValueError(f"Cannot convert object {x!r} to a python int!")
 
 
 def cast_to_float(x):
-    """Cast the input to a float. Works on python floats and jax arrays."""
-    try:
+    """Cast the input to a float. Works on python floats, numpy scalars, and jax/numpy arrays."""
+    if isinstance(x, (int, float, np.integer, np.floating)):
         return float(x)
-    except Exception:
-        try:
-            return jnp.asarray(x, dtype=float)
-        except Exception:
-            # this will return the same value for anything float-like that
-            # cannot be cast to float
-            # however, it will raise an error if something is not float-like
-            # we exclude object types since they are used in JAX tracing
-            if type(x) is object:
-                return x
-            else:
-                return 1.0 * x
+    else:
+        # use the python `float` const/func here to promote to the highest
+        # precision available without emitting a warning in JAX
+        return jnp.astype(x, float)
 
 
 def cast_to_int(x):
-    """Cast the input to an int. Works on python floats/ints and jax arrays."""
-    try:
+    """Cast the input to an int. Works on python floats, numpy scalars, and jax/numpy arrays."""
+    if isinstance(x, (int, float, np.integer, np.floating)):
         return int(x)
-    except Exception:
-        try:
-            if not jnp.any(jnp.isnan(x)):
-                return jnp.asarray(x, dtype=int)
-            else:
-                # this will return the same value for anything int-like that
-                # cannot be cast to int
-                # however, it will raise an error if something is not int-like
-                if type(x) is object:
-                    return x
-                else:
-                    return 1 * x
-        except Exception:
-            # this will return the same value for anything int-like that
-            # cannot be cast to int
-            # however, it will raise an error if something is not int-like
-            if type(x) is object:
-                return x
-            else:
-                return 1 * x
+    else:
+        return jnp.astype(x, int)
 
 
 def is_equal_with_arrays(x, y):
