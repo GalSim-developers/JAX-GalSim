@@ -213,7 +213,7 @@ class Angle(object):
             return _Angle(self._rad / other)
         else:
             raise TypeError(
-                "Cannot multiply Angle by %s of type %s" % (other, type(other))
+                "Cannot divide Angle by %s of type %s" % (other, type(other))
             )
 
     __truediv__ = __div__
