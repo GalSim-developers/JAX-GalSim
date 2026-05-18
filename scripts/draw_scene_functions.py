@@ -2,13 +2,13 @@ import os
 
 os.environ["JAX_ENABLE_X64"] = "True"
 
-
 from functools import partial
 from pathlib import Path
 
 import galsim
 import jax
 import jax.numpy as jnp
+import matplotlib.pyplot as plt
 import numpy as np
 from astropy.table import Table
 from jax import jit, random, vmap
@@ -175,8 +175,9 @@ def get_one_full_sample(
     good_sizes = galaxy_props.pop("good_size")
     all_props = {**galaxy_props, "x": x, "y": y}
 
-    assert all_props["x"].shape[0] == max_n_gals
-    assert all_props["flux_b"].shape[0] == max_n_gals
+    assert all_props["x"].shape == (max_n_gals,)
+    assert all_props["flux_b"].shape == (max_n_gals,)
+    assert good_sizes.shape == (max_n_gals,)
 
     return all_props, n_sources.item(), good_sizes
 
@@ -419,9 +420,8 @@ def prepare_catalog(
     return fcat
 
 
-def get_good_sizes_galsim(*, cat, psf, overwrite: bool = False):
-    psf_hash = hash(psf)
-    cache_fname = f"good_sizes{psf_hash}.npy"
+def get_good_sizes_galsim(*, cat, psf, overwrite: bool = False, suffix: str = ""):
+    cache_fname = Path("out") / f"good_sizes-{suffix}.npy"
     if Path(cache_fname).exists() and not overwrite:
         print("INFO: Loading good sizes from file...")
         _good_sizes = np.load(cache_fname)
