@@ -93,14 +93,6 @@ class PhotonArray:
         self._Ntot = _JAX_GALSIM_PHOTON_ARRAY_SIZE or N
         self._Ntot = cast_to_int(self._Ntot)
 
-        if _JAX_GALSIM_PHOTON_ARRAY_SIZE is not None and (
-            self._Ntot > _JAX_GALSIM_PHOTON_ARRAY_SIZE
-        ):
-            raise ValueError(
-                f"The given photon array size {self._Ntot} is larger than "
-                f"the allowed total size {_JAX_GALSIM_PHOTON_ARRAY_SIZE}."
-            )
-
         if _nokeep is not None:
             self._nokeep = _nokeep
         else:
