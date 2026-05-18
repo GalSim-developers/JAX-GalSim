@@ -105,7 +105,6 @@ class BaseDeviate:
 
     @implements(
         _galsim.BaseDeviate.reset,
-        lax_description=("The JAX version of this method does no type checking."),
     )
     def reset(self, seed=None):
         if isinstance(seed, _DeviateState):
