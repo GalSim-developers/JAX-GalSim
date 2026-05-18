@@ -51,6 +51,21 @@ def has_tracers(x):
     return False
 
 
+def cast_to_static_numeric_scalar(x, msg=None):
+    if isinstance(x, (int, float, np.integer, np.floating)):
+        return x
+
+    if isinstance(x, (np.ndarray, jax.Array, jnp.ndarray)):
+        if x.ndim == 0:
+            return x.item()
+
+        if x.ndim == 1 and x.shape[0] == 1:
+            return x[0].item()
+
+    msg = msg or f"Cannot convert input {x!r} to a static, numeric scalar."
+    raise RuntimeError(msg)
+
+
 def _cast_to_type(x, typ, accept_strings=False):
     if isinstance(x, (int, float, np.integer, np.floating)) or (
         accept_strings and isinstance(x, str)

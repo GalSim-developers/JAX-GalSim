@@ -9,6 +9,7 @@ from jax.tree_util import register_pytree_node_class
 from jax_galsim.core.utils import (
     cast_numpy_array_to_native_byte_order,
     cast_to_int,
+    cast_to_static_numeric_scalar,
     implements,
 )
 from jax_galsim.errors import (
@@ -91,7 +92,14 @@ class PhotonArray:
         _nokeep=None,
     ):
         self._Ntot = _JAX_GALSIM_PHOTON_ARRAY_SIZE or N
-        self._Ntot = cast_to_int(self._Ntot)
+        self._Ntot = cast_to_int(
+            cast_to_static_numeric_scalar(
+                self._Ntot,
+                msg=(
+                    f"JAX_GalSim photon arrays must have static sizes., Got {self._Ntot!r}."
+                ),
+            )
+        )
 
         if _JAX_GALSIM_PHOTON_ARRAY_SIZE is not None and (
             self._Ntot > _JAX_GALSIM_PHOTON_ARRAY_SIZE
