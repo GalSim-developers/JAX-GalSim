@@ -61,6 +61,30 @@ does not affect the original.
    # JAX-GalSim — real_part is a copy
    real_part = complex_image.real  # independent array
 
+Scalar Types, Array Types, and Casting
+--------------------------------------
+
+With the use of JAX, there are now many possible types for numeric data. These include
+
+- **Python scalars**: Things with types that are ``float``, ``int``, or ``complex``.
+- **NumPy scalars**: Things with types that are subclasses are ``np.floating`` and ``np.integer``.
+- **Numpy array scalars**: Things with a type that is ``np.ndarray`` and has ``np.ndim(...) == 0``.
+- **Numpy arrays**: Things with a type that is ``np.ndarray`` and has ``np.ndim(...) > 0``.
+- **JAX array scalars**: Things with a type that is ``jnp.ndarray`` and has ``np.ndim(...) == 0``.
+- **JAX arrays**: Things with a type that is ``np.ndarray`` and has ``np.ndim(...) > 0``.
+
+**JAX does not have pure scalar types like NumPY. JAX uses array scalars for those instead.**
+
+JAX-GalSim uses the following rules when handling data types and casting.
+
+- If the item is a Python numeric type (i.e., ``int`` or ``float``) or a
+  NumPy scalar type (i.e., ``isinstance(x, np.number)``, ``isinstance(x, np.integer)``, etc.),
+  convert it to a Python type of the appropriate kind.
+- For all other array-like types, cast to the correct type via ``jax.numpy.astype(x, ...)``.
+- For putting data into FITS headers only, JAX-GalSim converts of NumPy/JAX arrays to Python
+  numeric types as long as there is one element in the array (i.e., it is a NumPy scalar type,
+  an array scalar, or a 1D array with one element).
+
 Random Number Generation
 ------------------------
 
