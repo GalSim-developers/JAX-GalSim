@@ -9,39 +9,13 @@ import jax.numpy as jnp
 import numpy as np
 from jax.tree_util import tree_flatten
 
-CONST_TYPES = (
-    float,
-    int,
-    np.ndarray,
-    np.int8,
-    np.int16,
-    np.int32,
-    np.int64,
-    np.float16,
-    np.float32,
-    np.float64,
-    np.complex64,
-    np.complex128,
-)
-CONST_TYPES_WITH_JAX = CONST_TYPES + (
-    jax.Array,
-    jnp.ndarray,
-    jnp.int8,
-    jnp.int16,
-    jnp.int32,
-    jnp.int64,
-    jnp.float32,
-    jnp.float64,
-    jnp.complex64,
-    jnp.complex128,
-)
-
 
 def check_is_int_then_cast(val, msg):
     """Check if `val` is an integer, raise if not, otherwise cast to int."""
-    # for simple inputs, we can check direct in python
-    if isinstance(val, CONST_TYPES) and not has_tracers(val):
-        val = cast_to_python_float(val)
+    val = cast_to_float(val)
+
+    if isinstance(val, (int, float, np.integer, np.floating)):
+        # for simple inputs, we can check direct in python
         if val != int(val):
             raise TypeError(msg)
         val = int(val)
@@ -75,29 +49,6 @@ def has_tracers(x):
         if isinstance(item, jax.core.Tracer) or type(item) is object:
             return True
     return False
-
-
-@jax.jit
-def compute_major_minor_from_jacobian(jac):
-    h1 = jnp.hypot(jac[0, 0] + jac[1, 1], jac[0, 1] - jac[1, 0])
-    h2 = jnp.hypot(jac[0, 0] - jac[1, 1], jac[0, 1] + jac[1, 0])
-    major = 0.5 * jnp.abs(h1 + h2)
-    minor = 0.5 * jnp.abs(h1 - h2)
-    return major, minor
-
-
-def cast_to_python_float(x):
-    """Cast the input to a python float. Works on python int/floats
-    and jax/numpy arrays. Will raise an error for arrays with more than one value.
-    """
-    if isinstance(x, (int, float, np.integer, np.floating)):
-        return float(x)
-    elif isinstance(x, (np.ndarray, jax.Array, jnp.ndarray)) and (
-        x.ndim == 0 or (x.ndim == 1 and x.shape[0] == 1)
-    ):
-        return float(x.item())
-    else:
-        raise ValueError(f"Cannot convert object {x!r} to a python float!")
 
 
 def _cast_to_type(x, typ, accept_strings=False):

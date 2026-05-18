@@ -1,13 +1,12 @@
 import galsim as _galsim
 import jax
 import jax.numpy as jnp
+import numpy as np
 from jax.tree_util import register_pytree_node_class
 
 from jax_galsim.core.utils import (
-    CONST_TYPES,
     cast_to_float,
     cast_to_int,
-    cast_to_python_float,
     check_is_int_then_cast,
     ensure_hashable,
     has_tracers,
@@ -139,8 +138,8 @@ class Bounds:
         else:
             max_delta = 1
         if (
-            isinstance(self.deltax, CONST_TYPES)
-            and isinstance(self.deltay, CONST_TYPES)
+            isinstance(self.deltax, (int, float, np.integer, np.floating))
+            and isinstance(self.deltay, (int, float, np.integer, np.floating))
             and (self.deltax < max_delta or self.deltay < max_delta)
         ):
             self._isdefined = False
@@ -509,18 +508,21 @@ class BoundsI(Bounds):
 
         self._parse_args(*args, **kwargs)
 
-        if has_tracers(self.deltax) or has_tracers(self.deltay):
+        if not (
+            isinstance(self.deltax, (int, float, np.integer, np.floating))
+            and isinstance(self.deltay, (int, float, np.integer, np.floating))
+        ):
             raise RuntimeError(
-                "Jax-GalSim BoundsI instances must have a fixed width! "
+                "Jax-GalSim BoundsI instances must have a fixed, static width! "
                 f"Got deltax,deltay = {self.deltax!r},{self.deltay!r}."
             )
 
-        self.deltax = cast_to_python_float(self.deltax)
-        self.deltay = cast_to_python_float(self.deltay)
+        self.deltax = cast_to_float(self.deltax)
+        self.deltay = cast_to_float(self.deltay)
         if (self.deltax != int(self.deltax)) or (self.deltay != int(self.deltay)):
             raise TypeError("BoundsI must be initialized with integer values")
-        self.deltax = int(cast_to_int(self.deltax))
-        self.deltay = int(cast_to_int(self.deltay))
+        self.deltax = cast_to_int(self.deltax)
+        self.deltay = cast_to_int(self.deltay)
 
         if has_tracers(self._xmin) or has_tracers(self._ymin):
             self._isstatic = False

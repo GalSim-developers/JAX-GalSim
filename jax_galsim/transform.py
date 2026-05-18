@@ -1,15 +1,24 @@
 import galsim as _galsim
+import jax
 import jax.numpy as jnp
 from jax.tree_util import register_pytree_node_class
 
 from jax_galsim.core.utils import (
-    compute_major_minor_from_jacobian,
     ensure_hashable,
     implements,
 )
 from jax_galsim.gsobject import GSObject
 from jax_galsim.gsparams import GSParams
 from jax_galsim.position import PositionD
+
+
+@jax.jit
+def _compute_major_minor_from_jacobian(jac):
+    h1 = jnp.hypot(jac[0, 0] + jac[1, 1], jac[0, 1] - jac[1, 0])
+    h2 = jnp.hypot(jac[0, 0] - jac[1, 1], jac[0, 1] + jac[1, 0])
+    major = 0.5 * jnp.abs(h1 + h2)
+    minor = 0.5 * jnp.abs(h1 - h2)
+    return major, minor
 
 
 @implements(
@@ -277,12 +286,12 @@ class Transformation(GSObject):
 
     @property
     def _maxk(self):
-        _, minor = compute_major_minor_from_jacobian(self._jac)
+        _, minor = _compute_major_minor_from_jacobian(self._jac)
         return self._original.maxk / minor
 
     @property
     def _stepk(self):
-        major, _ = compute_major_minor_from_jacobian(self._jac)
+        major, _ = _compute_major_minor_from_jacobian(self._jac)
         stepk = self._original.stepk / major
         # If we have a shift, we need to further modify stepk
         #     stepk = Pi/R
