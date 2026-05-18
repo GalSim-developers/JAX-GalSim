@@ -4,14 +4,17 @@ os.environ["JAX_ENABLE_X64"] = "True"
 
 
 from functools import partial
+from pathlib import Path
 
 import galsim
 import jax
 import jax.numpy as jnp
 import numpy as np
+from astropy.table import Table
 from jax import jit, random, vmap
 from jax.typing import ArrayLike
 from surveycodex.utilities import mag2counts, mean_sky_level
+from tqdm import tqdm
 
 import jax_galsim as jgs
 
@@ -35,10 +38,8 @@ _DUMMY_PARAMS = {
     "q_d": 1.0,
     "q_b": 1.0,
     "beta": 0.0,
+    "good_size": 1,
 }
-
-
-# TODO: consider adding padding to images
 
 
 def get_default_lsst_background() -> float:
@@ -67,7 +68,7 @@ def add_noise(rng_key, *, x: ArrayLike, bg: float, n: int = 1):
     return out.squeeze(0)
 
 
-def _format_column_to_dict(row):
+def format_column_to_dict(row):
     # ignore AGN component
     a_b = row["a_b"].item()
     a_d = row["a_d"].item()
@@ -95,7 +96,6 @@ def _format_column_to_dict(row):
     flux_b = flux_tot * fluxnorm_bulge / total_fluxnorm
     flux_d = flux_tot * fluxnorm_disk / total_fluxnorm
 
-    # TODO: do flux 0 gsobjects change anything in the final image?
     # dummy values to play nicely with vmap
     return {
         "flux_b": flux_b,
@@ -108,18 +108,30 @@ def _format_column_to_dict(row):
     }
 
 
+def format_column_to_dict_extra(row):
+    out = format_column_to_dict(row)
+
+    out["good_size"] = row["good_size"]
+    return out
+
+
 # use jax random here, which I think will make reproducibility easier
-def sample_cat(key, *, n_sources: int, max_n_sources: int, cat):
+def sample_cat(key, *, n_sources: int, max_n_gals: int, cat):
+    assert n_sources <= max_n_gals, (
+        "Number of sources in sample {} exceeds maximum number of sources {}.".format(
+            n_sources, max_n_gals
+        )
+    )
     indices = random.choice(key, jnp.arange(len(cat)), shape=(n_sources,), replace=True)
     indices_np = np.array(indices)
     rows = cat[indices_np]
 
     sample_params = []
     for row in rows:
-        sample_params.append(_format_column_to_dict(row))
+        sample_params.append(format_column_to_dict_extra(row))
 
     all_params = {}
-    for p in PARAM_NAMES:
+    for p in PARAM_NAMES + ["good_size"]:
         out = []
         for n in range(n_sources):
             out.append(sample_params[n][p])
@@ -127,10 +139,11 @@ def sample_cat(key, *, n_sources: int, max_n_sources: int, cat):
         all_params[p] = np.array(out)
 
     # add dummy values so that shape of parameter arrays is always the same
-    for p in PARAM_NAMES:
-        for n in range(n_sources, max_n_sources):
+    for p in PARAM_NAMES + ["good_size"]:
+        for n in range(n_sources, max_n_gals):
             all_params[p] = np.append(all_params[p], _DUMMY_PARAMS[p])
 
+    assert all_params["flux_b"].shape[0] == max_n_gals
     return all_params
 
 
@@ -142,6 +155,11 @@ def get_one_full_sample(
 
     k, k1 = random.split(key)
     n_sources = random.poisson(k1, lam=mean_sources, shape=())
+    assert n_sources <= max_n_gals, (
+        "Number of sources in sample {} exceeds maximum number of sources {}.".format(
+            n_sources, max_n_gals
+        )
+    )
 
     k, k2 = random.split(k)
     k, k3 = random.split(k)
@@ -153,15 +171,14 @@ def get_one_full_sample(
 
     # get galaxy properties
     _, k4 = random.split(k)
-    galaxy_props = sample_cat(
-        k4, n_sources=n_sources, max_n_sources=max_n_gals, cat=cat
-    )
+    galaxy_props = sample_cat(k4, n_sources=n_sources, max_n_gals=max_n_gals, cat=cat)
+    good_sizes = galaxy_props.pop("good_size")
     all_props = {**galaxy_props, "x": x, "y": y}
 
     assert all_props["x"].shape[0] == max_n_gals
     assert all_props["flux_b"].shape[0] == max_n_gals
 
-    return all_props, n_sources.item()
+    return all_props, n_sources.item(), good_sizes
 
 
 # drawing in vanilla GalSim first a la wl-shear-sims
@@ -201,6 +218,7 @@ def draw_galsim(
     slen: int | None = None,
     fft_size: int | None = None,
     max_slen: int | None = None,
+    good_sizes=None,
 ):
 
     # create big image
@@ -208,7 +226,9 @@ def draw_galsim(
     wcs = image.wcs
 
     assert n_sources <= max_n_gals, (
-        "Number of sources in sample exceeds maximum number of sources."
+        "Number of sources in sample {} exceeds maximum number of sources {}.".format(
+            n_sources, max_n_gals
+        )
     )
 
     for n in range(n_sources):
@@ -228,6 +248,12 @@ def draw_galsim(
             assert max(stamp.array.shape) <= max_slen, (
                 f"Stamp size {stamp.array.shape} exceeds maximum stamp size. Consider increasing max_slen."
             )
+            if good_sizes is not None:
+                assert good_sizes[n] == stamp.array.shape[0], (
+                    "Good size and stamp size in GalSim differ {} vs {}".format(
+                        good_sizes[n], stamp.array.shape[0]
+                    )
+                )
 
         b = stamp.bounds & image.bounds
         if b.isDefined():
@@ -374,3 +400,78 @@ def draw_jgs_vmap_stamps(
     )[0][0]
 
     return final_pad_image.array[slen:-slen, slen:-slen]
+
+
+def prepare_catalog(
+    catsim_file: str, max_hlr: float = 2.0, min_mag: float = 20.0, max_mag: float = 27.0
+):
+    cat = Table.read(catsim_file, format="fits")
+
+    # avoid objects that are too bright, too dim, or too big
+    hlr_b = np.sqrt(cat["a_b"] * cat["b_b"])
+    hlr_d = np.sqrt(cat["a_d"] * cat["b_d"])
+    _mask1 = hlr_b < max_hlr
+    _mask2 = hlr_d < max_hlr
+    _mask3 = (hlr_b > 0) | (hlr_d > 0)
+    _mask4 = (cat["r_ab"] < max_mag) & (cat["r_ab"] > min_mag)
+    mask = _mask1 & _mask2 & _mask3 & _mask4
+    fcat = cat[mask]
+    return fcat
+
+
+def get_good_sizes_galsim(*, cat, psf, overwrite: bool = False):
+    psf_hash = hash(psf)
+    cache_fname = f"good_sizes{psf_hash}.npy"
+    if Path(cache_fname).exists() and not overwrite:
+        print("INFO: Loading good sizes from file...")
+        _good_sizes = np.load(cache_fname)
+    else:
+        print("INFO: Computing good sizes for catalog")
+        # takes < 1 min
+        _good_sizes = []
+        for ii in tqdm(range(len(cat)), desc="Getting good sizes for cut..."):
+            gal = get_bd_galsim(**format_column_to_dict(cat[ii]), psf=psf)
+            _good_size = gal.getGoodImageSize(0.2)
+            _good_sizes.append(_good_size)
+
+        _good_sizes = np.array(_good_sizes)
+        np.save(cache_fname, _good_sizes)
+
+    return _good_sizes
+
+
+def add_results_to_pdf(gs_arr, jgs_np_arr, t_galsim, t_jgalsim, ii, pdf):
+
+    vmin = min(gs_arr.min(), jgs_np_arr.min())
+    vmax = max(gs_arr.max(), jgs_np_arr.max())
+
+    residual = gs_arr - jgs_np_arr
+    # make sure colorbar for residual is symmetric
+    res_vmin = -max(abs(residual.min()), abs(residual.max()))
+    res_vmax = max(abs(residual.min()), abs(residual.max()))
+
+    fig, axes = plt.subplots(1, 3, figsize=(18, 6))
+    fig.suptitle(
+        f"Sample {ii}  |  GalSim: {t_galsim:.3f}s  |  JAX-GalSim: {t_jgalsim:.3f}s",
+        fontsize=13,
+    )
+
+    im0 = axes[0].imshow(gs_arr, origin="lower", cmap="viridis", vmin=vmin, vmax=vmax)
+    axes[0].set_title("GalSim")
+    fig.colorbar(im0, ax=axes[0])
+
+    im1 = axes[1].imshow(
+        jgs_np_arr, origin="lower", cmap="viridis", vmin=vmin, vmax=vmax
+    )
+    axes[1].set_title("JAX-GalSim")
+    fig.colorbar(im1, ax=axes[1])
+
+    im2 = axes[2].imshow(
+        residual, origin="lower", cmap="RdBu_r", vmin=res_vmin, vmax=res_vmax
+    )
+    axes[2].set_title("Residual (GalSim - JAX-GalSim)")
+    fig.colorbar(im2, ax=axes[2])
+
+    fig.tight_layout()
+    pdf.savefig(fig)
+    plt.close(fig)
