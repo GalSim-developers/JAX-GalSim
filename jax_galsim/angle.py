@@ -55,7 +55,7 @@ class AngleUnit(object):
     def __init__(self, value):
         if isinstance(value, AngleUnit):
             raise TypeError("Cannot construct AngleUnit from another AngleUnit")
-        self._value = cast_to_float(value)
+        self._value = cast_to_float(value, accept_strings=True)
 
     @property
     @implements(_galsim.AngleUnit.value)

@@ -115,9 +115,18 @@ def cast_to_python_int(x):
         raise ValueError(f"Cannot convert object {x!r} to a python int!")
 
 
-def cast_to_float(x):
-    """Cast the input to a float. Works on python floats, numpy scalars, and jax/numpy arrays."""
-    if isinstance(x, (int, float, np.integer, np.floating)):
+def cast_to_float(x, accept_strings=False):
+    """Cast the input to a float. Works on python floats, numpy scalars, and jax/numpy arrays.
+
+    Parameters:
+        accept_strings:    If True, allow string to ``float`` conversion.  [default: False]
+
+    Returns:
+        Input value ``x`` casted to a ``float``.
+    """
+    if isinstance(x, (int, float, np.integer, np.floating)) or (
+        accept_strings and isinstance(x, str)
+    ):
         return float(x)
     else:
         # use the python `float` const/func here to promote to the highest
