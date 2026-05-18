@@ -515,8 +515,14 @@ class BoundsI(Bounds):
         self.deltay = cast_to_int(self.deltay)
 
         if not (
-            isinstance(self._xmin, (int, float, np.floating, np.integer))
-            and isinstance(self._ymin, (int, float, np.floating, np.integer))
+            isinstance(
+                self._xmin,
+                (int, float, np.floating, np.integer, np.ndarray, jnp.ndarray),
+            )
+            and isinstance(
+                self._ymin,
+                (int, float, np.floating, np.integer, np.ndarray, jnp.ndarray),
+            )
         ):
             self._isstatic = False
 
@@ -534,7 +540,7 @@ class BoundsI(Bounds):
         if force_static and not self._isstatic:
             raise RuntimeError(
                 "BoundsI initialized with non-static "
-                f"data (xmin,ymin = {self._xmin},{self._yminb}) "
+                f"data (xmin,ymin = {self._xmin!r},{self._ymin!r}) "
                 "when static data was explicitly requested."
             )
 
