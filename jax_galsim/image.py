@@ -105,8 +105,10 @@ class Image(object):
                 array = kwargs.pop("array")
                 if isinstance(array, np.ndarray):
                     array = jnp.array(cast_numpy_array_to_native_byte_order(array))
+                elif isinstance(array, jnp.ndarray):
+                    pass
                 else:
-                    array = jnp.asarray(array)
+                    raise TypeError(f"Unable to parse {array!r} as an array.")
 
                 array, xmin, ymin = self._get_xmin_ymin(
                     array, kwargs, check_bounds=_check_bounds
@@ -717,12 +719,13 @@ class Image(object):
 
         def _raise_if_nonzero(bnds, x_or_y, msg):
             if x_or_y == "x":
-                if bnds.isStatic() and bnds.xmin != 0:
-                    raise _galsim.GalSimIncompatibleValuesError(
-                        msg,
-                        hermitian=hermitian,
-                        bounds=bnds,
-                    )
+                if bnds.isStatic():
+                    if bnds.xmin != 0:
+                        raise _galsim.GalSimIncompatibleValuesError(
+                            msg,
+                            hermitian=hermitian,
+                            bounds=bnds,
+                        )
                 else:
                     bnds.xmin = equinox.error_if(
                         bnds.xmin,
@@ -730,12 +733,13 @@ class Image(object):
                         msg,
                     )
             else:
-                if bnds.isStatic() and bnds.ymin != 0:
-                    raise _galsim.GalSimIncompatibleValuesError(
-                        msg,
-                        hermitian=hermitian,
-                        bounds=bnds,
-                    )
+                if bnds.isStatic():
+                    if bnds.ymin != 0:
+                        raise _galsim.GalSimIncompatibleValuesError(
+                            msg,
+                            hermitian=hermitian,
+                            bounds=bnds,
+                        )
                 else:
                     bnds.ymin = equinox.error_if(
                         bnds.ymin,
