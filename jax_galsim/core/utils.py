@@ -100,23 +100,17 @@ def cast_to_python_float(x):
         raise ValueError(f"Cannot convert object {x!r} to a python float!")
 
 
-def cast_to_python_int(x):
-    """Cast the input to a python int. Works on python int/floats
-    and jax/numpy arrays. Will raise an error for arrays with more than one value,
-    or if it encounters NaNs.
-    """
-    if isinstance(x, (int, float, np.integer, np.floating)):
-        return int(x)
-    elif isinstance(x, (np.ndarray, jax.Array, jnp.ndarray)) and (
-        x.ndim == 0 or (x.ndim == 1 and x.shape[0] == 1)
+def _cast_to_type(x, typ, accept_strings=False):
+    if isinstance(x, (int, float, np.integer, np.floating)) or (
+        accept_strings and isinstance(x, str)
     ):
-        return int(x.item())
+        return typ(x)
     else:
-        raise ValueError(f"Cannot convert object {x!r} to a python int!")
+        return jnp.astype(x, typ)
 
 
 def cast_to_float(x, accept_strings=False):
-    """Cast the input to a float. Works on python floats, numpy scalars, and jax/numpy arrays.
+    """Cast the input to a float. Works on python floats/ints, numpy scalars, and jax/numpy arrays.
 
     Parameters:
         accept_strings:    If True, allow string to ``float`` conversion.  [default: False]
@@ -124,22 +118,21 @@ def cast_to_float(x, accept_strings=False):
     Returns:
         Input value ``x`` casted to a ``float``.
     """
-    if isinstance(x, (int, float, np.integer, np.floating)) or (
-        accept_strings and isinstance(x, str)
-    ):
-        return float(x)
-    else:
-        # use the python `float` const/func here to promote to the highest
-        # precision available without emitting a warning in JAX
-        return jnp.astype(x, float)
+    # use the python `float` const/func here to promote to the highest
+    # precision available without emitting a warning in JAX
+    return _cast_to_type(x, float, accept_strings=accept_strings)
 
 
-def cast_to_int(x):
-    """Cast the input to an int. Works on python floats, numpy scalars, and jax/numpy arrays."""
-    if isinstance(x, (int, float, np.integer, np.floating)):
-        return int(x)
-    else:
-        return jnp.astype(x, int)
+def cast_to_int(x, accept_strings=False):
+    """Cast the input to an int. Works on python floats/ints, numpy scalars, and jax/numpy arrays.
+
+    Parameters:
+        accept_strings:    If True, allow string to ``int`` conversion.  [default: False]
+
+    Returns:
+        Input value ``x`` casted to an ``int``.
+    """
+    return _cast_to_type(x, int, accept_strings=accept_strings)
 
 
 def is_equal_with_arrays(x, y):

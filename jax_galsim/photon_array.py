@@ -8,7 +8,7 @@ from jax.tree_util import register_pytree_node_class
 
 from jax_galsim.core.utils import (
     cast_numpy_array_to_native_byte_order,
-    cast_to_python_int,
+    cast_to_int,
     implements,
 )
 from jax_galsim.errors import (
@@ -91,19 +91,16 @@ class PhotonArray:
         _nokeep=None,
     ):
         self._Ntot = _JAX_GALSIM_PHOTON_ARRAY_SIZE or N
-        if _JAX_GALSIM_PHOTON_ARRAY_SIZE is not None:
-            try:
-                # this will raise a boolean conversion error in JAX
-                # which we swallow
-                err_cond = (N > _JAX_GALSIM_PHOTON_ARRAY_SIZE) or False
-            except Exception:
-                err_cond = False
+        self._Ntot = cast_to_int(self._Ntot)
 
-            if err_cond:
-                raise GalSimValueError(
-                    f"The given photon array size {N} is larger than "
-                    f"the allowed total size {_JAX_GALSIM_PHOTON_ARRAY_SIZE}."
-                )
+        if _JAX_GALSIM_PHOTON_ARRAY_SIZE is not None and (
+            self._Ntot > _JAX_GALSIM_PHOTON_ARRAY_SIZE
+        ):
+            raise GalSimValueError(
+                f"The given photon array size {self._Ntot} is larger than "
+                f"the allowed total size {_JAX_GALSIM_PHOTON_ARRAY_SIZE}."
+            )
+
         if _nokeep is not None:
             self._nokeep = _nokeep
         else:
@@ -820,7 +817,7 @@ class PhotonArray:
         import numpy as np
 
         s = "galsim.PhotonArray(%r, x=array(%r), y=array(%r), flux=array(%r)" % (
-            cast_to_python_int(self.size()),
+            self.size(),
             np.array(self.x).tolist(),
             np.array(self.y).tolist(),
             np.array(self.flux).tolist(),
@@ -844,7 +841,7 @@ class PhotonArray:
         return s
 
     def __str__(self):
-        return "galsim.PhotonArray(%r)" % cast_to_python_int(self.size())
+        return "galsim.PhotonArray(%r)" % self.size()
 
     __hash__ = None
 
