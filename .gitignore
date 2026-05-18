@@ -137,6 +137,7 @@ dmypy.json
 
 # no output directories
 **/output
+**/out
 
 # VSCode settings
 .vscode/settings.json
