@@ -28,13 +28,13 @@ import jax_galsim as jgs
 
 IMAGE_SLEN = 250
 MAX_N_GALS = 130
-STAMP_SLEN = 61
 # good image size (isolated galaxy) and stamp size used in scene by galsim differ
 BUFFER = 4
 BACKGROUND = get_default_lsst_background()
 FFT_SIZE = 128
 BATCH_BINS = (61, 81, 101)
 SUFFIX = f"{IMAGE_SLEN}-{BATCH_BINS[-1]}-scan-cpu-batch-sizes"
+DEVICE = jax.devices()[0]
 
 
 def main():
@@ -45,7 +45,9 @@ def main():
 
     cat = prepare_catalog(catsim_file)
     n1 = len(cat)
-    good_sizes = get_good_sizes_galsim(cat=cat, psf=psf, overwrite=False)
+    good_sizes = get_good_sizes_galsim(
+        cat=cat, psf=psf, overwrite=False, suffix="gaussian-07"
+    )
     cat["good_size"] = good_sizes
     mask_good_size = cat["good_size"] < BATCH_BINS[-1] - BUFFER
     cat = cat[mask_good_size]
@@ -58,31 +60,19 @@ def main():
     times_galsim = []
     times_jgalsim = []
 
-    # prepare three draw functions
-    _draw1 = partial(
-        draw_jgs_scan_stamps,
-        psf=xpsf,
-        ilen=IMAGE_SLEN,
-        fft_size=FFT_SIZE,
-        max_n_gals=MAX_N_GALS,
-        slen=BATCH_BINS[0],
-    )
-    _draw2 = partial(
-        draw_jgs_scan_stamps,
-        psf=xpsf,
-        ilen=IMAGE_SLEN,
-        fft_size=FFT_SIZE,
-        max_n_gals=MAX_N_GALS,
-        slen=BATCH_BINS[1],
-    )
-    _draw3 = partial(
-        draw_jgs_scan_stamps,
-        psf=xpsf,
-        ilen=IMAGE_SLEN,
-        fft_size=FFT_SIZE,
-        max_n_gals=MAX_N_GALS,
-        slen=BATCH_BINS[2],
-    )
+    # prepare draw_function
+    _draw_fncs = []
+    for _batch_slen in BATCH_BINS:
+        _draw_fncs.append(
+            partial(
+                draw_jgs_scan_stamps,
+                psf=xpsf,
+                ilen=IMAGE_SLEN,
+                fft_size=FFT_SIZE,
+                max_n_gals=MAX_N_GALS,
+                slen=_batch_slen,
+            )
+        )
 
     # timing results average over 100 samples
     pdf_name = Path("out") / f"residuals_{SUFFIX}.pdf"
@@ -95,16 +85,6 @@ def main():
             sample, n, gsizes = get_one_full_sample(
                 rkey, cat=cat, ilen=IMAGE_SLEN, max_n_gals=MAX_N_GALS
             )
-
-            if ii == 0:  # trigger jit compilation
-                _ = draw_jgs_scan_stamps(
-                    sample,
-                    psf=xpsf,
-                    ilen=IMAGE_SLEN,
-                    slen=STAMP_SLEN,
-                    fft_size=FFT_SIZE,
-                    max_n_gals=MAX_N_GALS,
-                )
 
             t1 = time.time()
             gs_arr = draw_galsim(
@@ -120,29 +100,30 @@ def main():
             t_galsim = t2 - t1
             times_galsim.append(t_galsim)
 
-            # NOTE: could time the device put separately
-            sample_jax = device_put(sample)
-            gsizes_jax = device_put(gsizes)
+            if ii == 0:  # trigger jit compilation for all draw function
+                for draw_fnc in _draw_fncs:
+                    draw_fnc(sample)
+
+            sample_jax = device_put(sample, device=DEVICE)
+            gsizes_jax = device_put(gsizes, device=DEVICE)
 
             # jax draw
             t1 = time.time()
+
+            # the following two lines will trigger transfer guard, but that is unavoidable when
+            # creating arrays, care about other implicit ones that can happen below.
+            # TODO: explain why unavoidable
+            jgs_arr = jnp.zeros((IMAGE_SLEN, IMAGE_SLEN), device=DEVICE)
+            _drawn = jnp.zeros_like(gsizes_jax).astype(bool)
             with jax.transfer_guard("disallow"):
                 # split into batches using good sizes estimated from galsim
-                jgs_arr = jnp.zeros((IMAGE_SLEN, IMAGE_SLEN))
-                _drawn = jnp.zeros_like(gsizes).astype(bool)
-                for b in BATCH_BINS:
-                    _mask = (~_drawn) & (gsizes <= b)
+                for ii, b in enumerate(BATCH_BINS):
+                    _mask = (~_drawn) & (gsizes_jax <= device_put(b, device=DEVICE))
                     _sample_jax = {}
                     for p in sample_jax:
                         _sample_jax[p] = sample_jax[p] * _mask.astype(float)
-                    _jgs_arr = draw_jgs_scan_stamps(
-                        _sample_jax,
-                        psf=xpsf,
-                        ilen=IMAGE_SLEN,
-                        slen=b,
-                        fft_size=FFT_SIZE,
-                        max_n_gals=MAX_N_GALS,
-                    ).block_until_ready()
+                    _jgs_arr = _draw_fncs[ii](_sample_jax).block_until_ready()
+                    assert not jnp.any(jnp.isnan(_jgs_arr))
                     assert _jgs_arr.shape[0] == IMAGE_SLEN
                     jgs_arr += _jgs_arr
                     _drawn = _drawn.at[_mask].set(True)
