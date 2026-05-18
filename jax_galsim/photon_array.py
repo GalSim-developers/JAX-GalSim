@@ -96,7 +96,7 @@ class PhotonArray:
         if _JAX_GALSIM_PHOTON_ARRAY_SIZE is not None and (
             self._Ntot > _JAX_GALSIM_PHOTON_ARRAY_SIZE
         ):
-            raise GalSimValueError(
+            raise ValueError(
                 f"The given photon array size {self._Ntot} is larger than "
                 f"the allowed total size {_JAX_GALSIM_PHOTON_ARRAY_SIZE}."
             )
