@@ -280,22 +280,14 @@ class Image(object):
             b = kwargs.pop("bounds")
             if not isinstance(b, BoundsI):
                 raise TypeError("bounds must be a galsim.BoundsI instance")
-            if (
-                check_bounds
-                and b.isDefined()
-                and not has_tracers(b.xmin)
-                and not has_tracers(b.ymin)
-                and not has_tracers(b.xmax)
-                and not has_tracers(b.ymax)
-            ):
-                # We need to disable this when jitting
-                if b.xmax - b.xmin + 1 != array.shape[1]:
+            if check_bounds and b.isDefined():
+                if b.deltax != array.shape[1]:
                     raise _galsim.GalSimIncompatibleValuesError(
                         "Shape of array is inconsistent with provided bounds",
                         array=array,
                         bounds=b,
                     )
-                if b.ymax - b.ymin + 1 != array.shape[0]:
+                if b.deltay != array.shape[0]:
                     raise _galsim.GalSimIncompatibleValuesError(
                         "Shape of array is inconsistent with provided bounds",
                         array=array,
@@ -588,14 +580,8 @@ class Image(object):
                 "Attempt to access subImage of undefined image"
             )
         if (
-            not has_tracers(self.bounds.xmin)
-            and not has_tracers(self.bounds.xmax)
-            and not has_tracers(self.bounds.ymin)
-            and not has_tracers(self.bounds.ymax)
-            and not has_tracers(bounds.xmin)
-            and not has_tracers(bounds.xmax)
-            and not has_tracers(bounds.ymin)
-            and not has_tracers(bounds.ymax)
+            self.bounds.isStatic()
+            and bounds.isStatic()
             and not self.bounds.includes(bounds)
         ):
             raise _galsim.GalSimBoundsError(
@@ -633,14 +619,8 @@ class Image(object):
                 "Attempt to access values of an undefined image"
             )
         if (
-            not has_tracers(self.bounds.xmin)
-            and not has_tracers(self.bounds.xmax)
-            and not has_tracers(self.bounds.ymin)
-            and not has_tracers(self.bounds.ymax)
-            and not has_tracers(bounds.xmin)
-            and not has_tracers(bounds.xmax)
-            and not has_tracers(bounds.ymin)
-            and not has_tracers(bounds.ymax)
+            self.bounds.isStatic()
+            and bounds.isStatic()
             and not self.bounds.includes(bounds)
         ):
             raise _galsim.GalSimBoundsError(
