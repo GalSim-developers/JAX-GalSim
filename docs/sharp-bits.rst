@@ -85,6 +85,10 @@ JAX-GalSim uses the following rules when handling data types and casting.
   numeric types as long as there is one element in the array (i.e., it is a NumPy scalar type,
   an array scalar, or a 1D array with one element).
 
+These rules allow JAX-GalSim to transparently handle JAX's tracing operations, but can result in
+the code raising generic ``Exception`` instances instead of more specific ``GalSim`` exceptions in
+some cases.
+
 Random Number Generation
 ------------------------
 
