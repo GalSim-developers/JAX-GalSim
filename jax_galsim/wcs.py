@@ -1,12 +1,16 @@
 import galsim as _galsim
-import jax
 import jax.numpy as jnp
 import numpy as np
 from jax.tree_util import register_pytree_node_class
 
 from jax_galsim.angle import AngleUnit, arcsec, radians
 from jax_galsim.celestial import CelestialCoord
-from jax_galsim.core.utils import ensure_hashable, implements
+from jax_galsim.core.utils import (
+    cast_to_float,
+    cast_to_static_numeric_scalar,
+    ensure_hashable,
+    implements,
+)
 from jax_galsim.errors import GalSimValueError
 from jax_galsim.gsobject import GSObject
 from jax_galsim.position import Position, PositionD, PositionI
@@ -15,17 +19,7 @@ from jax_galsim.transform import _Transform
 
 
 def _cast_to_python_float(x):
-    """Cast the input to a python float. Works on python int/floats
-    and jax/numpy arrays. Will raise an error for arrays with more than one value.
-    """
-    if isinstance(x, (int, float, np.integer, np.floating)):
-        return float(x)
-    elif isinstance(x, (np.ndarray, jax.Array, jnp.ndarray)) and (
-        x.ndim == 0 or (x.ndim == 1 and x.shape[0] == 1)
-    ):
-        return float(x.item())
-    else:
-        raise ValueError(f"Cannot convert object {x!r} to a python float!")
+    return cast_to_float(cast_to_static_numeric_scalar(x))
 
 
 # We inherit from the reference BaseWCS and only redefine the methods that
