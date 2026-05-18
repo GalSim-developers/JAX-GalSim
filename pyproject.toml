@@ -10,7 +10,7 @@ description     = "The modular galaxy image simulation toolkit, but in JAX"
 dynamic         = ["version"]
 license         = { file = "LICENSE" }
 readme          = "README.md"
-dependencies    = ["numpy >=1.18.0", "galsim >=2.7.0", "jax >=0.6.0", "astropy >=2.0", "quadax"]
+dependencies    = ["numpy >=1.18.0", "galsim >=2.7.0", "jax >=0.6.0", "astropy >=2.0", "quadax", "equinox"]
 
 [project.optional-dependencies]
 dev  = ["pytest", "pytest-codspeed"]

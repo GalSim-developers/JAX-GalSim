@@ -28,6 +28,13 @@ enabled_tests:
     - test_astropy.py
     - test_celestial.py
 
+# tests to explicitly skip
+# applied on top of the enabled set above
+skipped_tests:
+  coord:
+    - "tests/Coord/tests/test_celestial.py::test_xyz_raises"
+    - "tests/Coord/tests/test_celestial.py::test_greatcircle_raises"
+
 # This documents which error messages will be allowed
 # without being reported as an error. These typically
 # correspond to features that are not implemented yet
@@ -87,10 +94,6 @@ allowed_failures:
   - "module 'jax_galsim' has no attribute 'InterpolatedKImage'"
   - "module 'jax_galsim' has no attribute 'CorrelatedNoise'"
   - "CelestialCoord.precess is too slow"  # cannot get jax to warmup but once it does it passes
-  - "ValueError not raised by from_xyz"
-  - "ValueError not raised by greatCirclePoint"
-  - "TypeError not raised by __mul__"
-  - "ValueError not raised by CelestialCoord"
   - "module 'jax_galsim' has no attribute 'BaseCorrelatedNoise'"
   - "module 'jax_galsim' has no attribute 'fft'"
   - "Transform does not support callable arguments."

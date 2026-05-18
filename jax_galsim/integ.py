@@ -1,5 +1,6 @@
 from functools import partial
 
+import equinox
 import galsim as _galsim
 import jax.lax
 import jax.numpy as jnp
@@ -17,8 +18,8 @@ method implemented in the ``quadax`` package. Some import caveats are: "
 
 - This implementation is different than the one in GalSim and lacks some features that
   greatly enhance galsim's accuracy.
-- The JAX-GalSim implementation returns NaN on error/non-convergence instead of
-  rasing an exception.
+- The JAX-GalSim implementation raises a generic ``Exception`` on error/non-convergence
+  instead of rasing a ``galsim.GalSimError`` exception.
 """
     ),
 )
@@ -72,8 +73,8 @@ def int1d(
         _base_integration,
     )
 
-    return jax.lax.cond(
-        status == 0,
-        lambda: val,
-        lambda: jnp.nan,
+    return equinox.error_if(
+        val,
+        jnp.any(status != 0),
+        "`jax_galsim.int1d` failed to converge!",
     )

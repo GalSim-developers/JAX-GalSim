@@ -98,6 +98,9 @@ def pytest_collection_modifyitems(config, items):
         ):
             item.add_marker(skip)
 
+        if any([t in item.nodeid for t in test_config["skipped_tests"]["coord"]]):
+            item.add_marker(skip)
+
 
 @lru_cache(maxsize=128)
 def _infile(val, fname):

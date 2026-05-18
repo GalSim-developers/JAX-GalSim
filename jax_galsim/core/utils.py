@@ -3,10 +3,59 @@ import textwrap
 from functools import partial
 from typing import NamedTuple
 
+import equinox
 import jax
 import jax.numpy as jnp
 import numpy as np
 from jax.tree_util import tree_flatten
+
+CONST_TYPES = (
+    float,
+    int,
+    np.ndarray,
+    np.int8,
+    np.int16,
+    np.int32,
+    np.int64,
+    np.float16,
+    np.float32,
+    np.float64,
+    np.complex64,
+    np.complex128,
+)
+CONST_TYPES_WITH_JAX = CONST_TYPES + (
+    jax.Array,
+    jnp.ndarray,
+    jnp.int8,
+    jnp.int16,
+    jnp.int32,
+    jnp.int64,
+    jnp.float32,
+    jnp.float64,
+    jnp.complex64,
+    jnp.complex128,
+)
+
+
+def check_is_int_then_cast(val, msg):
+    """Check if `val` is an integer, raise if not, otherwise cast to int."""
+    # for simple inputs, we can check direct in python
+    if isinstance(val, CONST_TYPES) and not has_tracers(val):
+        val = cast_to_python_float(val)
+        if val != int(val):
+            raise TypeError(msg)
+        val = int(val)
+    else:
+        # otherwise we use more opaque checking upon jit via equinox
+        val = jnp.array(val)
+        val = equinox.error_if(
+            val,
+            np.any(val != jnp.trunc(val)),
+            msg,
+        )
+        val = val.astype(int)
+
+    return val
 
 
 def cast_numpy_array_to_native_byte_order(arr):
