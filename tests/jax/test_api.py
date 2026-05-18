@@ -360,7 +360,6 @@ def _run_object_checks(obj, cls, kind):
                         "xmax",
                         "ymax",
                         "isStatic",
-                        "value_is_static",
                     ]:
                         continue
 
