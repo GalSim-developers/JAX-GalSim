@@ -495,6 +495,20 @@ class BoundsD(Bounds):
         )
 
 
+def _cast_to_static_numeric_scalar(x, msg):
+    if isinstance(x, (int, float, np.integer, np.floating)):
+        return x
+
+    if isinstance(x, (np.ndarray, jax.Array, jnp.ndarray)):
+        if x.ndim == 0:
+            return x.item()
+
+        if x.ndim == 1 and x.shape[0] == 1:
+            return x[0].item()
+
+    raise RuntimeError(msg)
+
+
 @implements(_galsim.BoundsI, lax_description=BOUNDS_LAX_DESCR)
 @register_pytree_node_class
 class BoundsI(Bounds):
@@ -508,14 +522,12 @@ class BoundsI(Bounds):
 
         self._parse_args(*args, **kwargs)
 
-        if not (
-            isinstance(self.deltax, (int, float, np.integer, np.floating))
-            and isinstance(self.deltay, (int, float, np.integer, np.floating))
-        ):
-            raise RuntimeError(
-                "Jax-GalSim BoundsI instances must have a fixed, static width! "
-                f"Got deltax,deltay = {self.deltax!r},{self.deltay!r}."
-            )
+        msg = (
+            "Jax-GalSim BoundsI instances must have a fixed, static width! "
+            f"Got deltax,deltay = {self.deltax!r},{self.deltay!r}."
+        )
+        self.deltax = _cast_to_static_numeric_scalar(self.deltax, msg)
+        self.deltay = _cast_to_static_numeric_scalar(self.deltay, msg)
 
         self.deltax = cast_to_float(self.deltax)
         self.deltay = cast_to_float(self.deltay)
