@@ -18,6 +18,9 @@ from jax_galsim.shear import Shear
 from jax_galsim.transform import _Transform
 
 
+# this function casts input values to python numeric values
+# this kind of casting is only done for writing FITS headers
+# and should never be done anywhere else in the code base
 def _cast_to_static_numeric_scalar(x, msg=None):
     if isinstance(x, (int, float, np.integer, np.floating)):
         return x
