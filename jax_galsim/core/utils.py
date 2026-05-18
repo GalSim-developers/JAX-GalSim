@@ -59,8 +59,8 @@ def cast_to_static_numeric_scalar(x, msg=None):
         if x.ndim == 0:
             return x.item()
 
-        if x.ndim == 1 and x.shape[0] == 1:
-            return x[0].item()
+        if all(sv for sv in x.shape == 1):
+            return x.ravel()[0].item()
 
     msg = msg or f"Cannot convert input {x!r} to a static, numeric scalar."
     raise RuntimeError(msg)
