@@ -21,10 +21,7 @@ The JAX implementation
 Further, the JAX implementation adds a new method, ``isStatic`` to the
 ``BoundsI`` class. If JAX-GalSim detects that the ``BoundsI`` instance
 has been instantiated with static, known values, ``isStatic()`` will
-return ``True``. You can indicate to JAX-GalSim that a ``BoundsI``
-instance should be static via initializing it with the ``static``
-keyword set to the ``True``. If the object detects that it is being
-initialized with non-static data, an error will be raised.
+return ``True``.
 
 ``BoundsI`` objects in JAX-Galsim support an additional initialization
 call ``BoundsI(xmin=..., deltax=..., ymin=..., deltay=...)``. In this case,
@@ -362,10 +359,8 @@ class Bounds:
         """Create a jax_galsim `BoundsD/I` from a `galsim.BoundsD/I` object."""
         if isinstance(galsim_bounds, _galsim.BoundsD):
             _cls = BoundsD
-            kwargs = {}
         elif isinstance(galsim_bounds, _galsim.BoundsI):
             _cls = BoundsI
-            kwargs = {"static": True}
         else:
             raise TypeError(
                 "galsim_bounds must be either a %s or a %s"
@@ -377,7 +372,6 @@ class Bounds:
                 galsim_bounds.xmax,
                 galsim_bounds.ymin,
                 galsim_bounds.ymax,
-                **kwargs,
             )
         else:
             return _cls()
@@ -503,8 +497,6 @@ class BoundsI(Bounds):
         # initial setting to let stuff pass through freely
         self._isstatic = True
 
-        force_static = kwargs.pop("static", False)
-
         self._parse_args(*args, **kwargs)
 
         self.deltax = cast_to_float(self.deltax)
@@ -536,13 +528,6 @@ class BoundsI(Bounds):
 
         if self.deltax < 1 and self.deltay < 1:
             self._isdefined = False
-
-        if force_static and not self._isstatic:
-            raise RuntimeError(
-                "BoundsI initialized with non-static "
-                f"data (xmin,ymin = {self._xmin!r},{self._ymin!r}) "
-                "when static data was explicitly requested."
-            )
 
     def _check_scalar(self, x, name):
         try:
