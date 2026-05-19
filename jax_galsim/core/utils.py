@@ -9,14 +9,31 @@ import jax.numpy as jnp
 import numpy as np
 from jax.tree_util import tree_flatten
 
-CONST_TYPES = (float, int, np.ndarray, np.int32, np.int64, np.float32, np.float64)
+CONST_TYPES = (
+    float,
+    int,
+    np.ndarray,
+    np.int8,
+    np.int16,
+    np.int32,
+    np.int64,
+    np.float16,
+    np.float32,
+    np.float64,
+    np.complex64,
+    np.complex128,
+)
 CONST_TYPES_WITH_JAX = CONST_TYPES + (
     jax.Array,
-    jnp.array,
+    jnp.ndarray,
+    jnp.int8,
+    jnp.int16,
     jnp.int32,
     jnp.int64,
     jnp.float32,
     jnp.float64,
+    jnp.complex64,
+    jnp.complex128,
 )
 
 
@@ -30,9 +47,10 @@ def check_is_int_then_cast(val, msg):
         val = int(val)
     else:
         # otherwise we use more opaque checking upon jit via equinox
+        val = jnp.array(val)
         val = equinox.error_if(
             val,
-            val != jnp.trunc(val),
+            np.any(val != jnp.trunc(val)),
             msg,
         )
         val = val.astype(int)

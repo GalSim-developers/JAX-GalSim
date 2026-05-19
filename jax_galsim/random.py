@@ -1,10 +1,12 @@
 import secrets
 from functools import partial
 
+import equinox
 import galsim as _galsim
 import jax
 import jax.numpy as jnp
 import jax.random as jrandom
+import numpy as np
 from jax.tree_util import register_pytree_node_class
 
 from jax_galsim.core.utils import implements
@@ -89,12 +91,22 @@ class BaseDeviate:
     def generates_in_pairs(self):
         return False
 
-    @implements(
-        _galsim.BaseDeviate.seed,
-        lax_description="The JAX version of this method does no type checking.",
-    )
+    @implements(_galsim.BaseDeviate.seed)
     def seed(self, seed=None):
-        self._seed(seed=seed)
+        if seed is None:
+            self._seed(seed=seed)
+        elif isinstance(seed, (int, float, np.integer, np.floating)):
+            if seed == int(seed):
+                self._seed(seed=int(seed))
+            else:
+                raise TypeError(f"BaseDeviate seed must be an integer. Got {seed!r}.")
+        else:
+            seed = equinox.error_if(
+                seed,
+                jnp.any(seed != jnp.trunc(seed)),
+                "BaseDeviate seed must be an integer.",
+            )
+            self._seed(seed=seed)
 
     @implements(_galsim.BaseDeviate._seed)
     def _seed(self, seed=None):
@@ -103,7 +115,6 @@ class BaseDeviate:
 
     @implements(
         _galsim.BaseDeviate.reset,
-        lax_description=("The JAX version of this method does no type checking."),
     )
     def reset(self, seed=None):
         if isinstance(seed, _DeviateState):
@@ -122,9 +133,19 @@ class BaseDeviate:
             self._state = _DeviateState(
                 wrap_key_data(jnp.array(seed, dtype=jnp.uint32))
             )
-        else:
+        elif (
+            isinstance(
+                seed, (int, jnp.ndarray, jax.Array, np.ndarray, np.integer, jnp.integer)
+            )
+            or seed is None
+        ):
             _initial_seed = seed or secrets.randbelow(2**31)
             self._state = _DeviateState(jrandom.key(_initial_seed))
+        else:
+            raise TypeError(
+                "Seeds for BaseDeviate must be an int-like, str, tuple, or another BaseDeviate. "
+                f"Got seed {seed!r}."
+            )
 
     @property
     def _key(self):
@@ -295,6 +316,20 @@ class UniformDeviate(BaseDeviate):
 class GaussianDeviate(BaseDeviate):
     def __init__(self, seed=None, mean=0.0, sigma=1.0):
         super().__init__(seed=seed)
+
+        if isinstance(sigma, (int, float)):
+            if sigma < 0:
+                raise ValueError(
+                    f"Gaussian deviates must have a non-negative sigma. Got {sigma!r}."
+                )
+        else:
+            sigma = jnp.array(sigma)
+            sigma = equinox.error_if(
+                sigma,
+                jnp.any(sigma < 0),
+                f"Gaussian deviates must have a non-negative sigma. Got {sigma!r}.",
+            )
+
         self._params["mean"] = mean
         self._params["sigma"] = sigma
 
@@ -435,6 +470,20 @@ class BinomialDeviate(BaseDeviate):
 class PoissonDeviate(BaseDeviate):
     def __init__(self, seed=None, mean=1.0):
         super().__init__(seed=seed)
+
+        if isinstance(mean, (int, float)):
+            if mean < 0:
+                raise ValueError(
+                    f"Poisson deviates must have a non-negative mean. Got {mean!r}."
+                )
+        else:
+            mean = jnp.array(mean)
+            mean = equinox.error_if(
+                mean,
+                jnp.any(mean < 0),
+                f"Poisson deviates must have a non-negative mean. Got {mean!r}.",
+            )
+
         self._params["mean"] = mean
 
     @property
@@ -484,6 +533,11 @@ class PoissonDeviate(BaseDeviate):
 
     @implements(_galsim.PoissonDeviate.generate_from_expectation)
     def generate_from_expectation(self, array):
+        array = equinox.error_if(
+            jnp.array(array),
+            jnp.any(jnp.array(array) < 0),
+            "Poission deviates must have a non-negative mean.",
+        )
         self._key, _array = self.__class__._generate_from_exp(self._key, array)
         return _array
 
@@ -706,6 +760,10 @@ class Chi2Deviate(BaseDeviate):
 )
 def permute(rng, *args):
     rng = BaseDeviate(rng)
+    if len(args) == 0:
+        raise TypeError(
+            f"`galsim.random.permute` must be called with at least one array. Got {args!r}"
+        )
     arrs = []
     for arr in args:
         arrs.append(jrandom.permutation(rng._key, arr))

@@ -208,7 +208,14 @@ class PositionD(Position):
         raise TypeError("Can only %s a PositionD by float values" % op)
 
 
-@implements(_galsim.PositionI)
+@implements(
+    _galsim.PositionI,
+    lax_description=(
+        "The ``jax_galsim.PositionI`` class will raise generic "
+        "``Exception``s instead of a more specific exception for invalid "
+        "inputs."
+    ),
+)
 @register_pytree_node_class
 class PositionI(Position):
     def __init__(self, *args, **kwargs):

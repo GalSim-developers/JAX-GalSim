@@ -280,9 +280,9 @@ def _run_benchmark_invert_ab_noraise(u, v, ab):
 
 @pytest.mark.parametrize("kind", ["run"])
 def test_benchmark_invert_ab_noraise(benchmark, kind):
-    u = jnp.arange(1000).astype(jnp.float64)
-    v = jnp.arange(1000).astype(jnp.float64)
-    ab = jnp.array([[[-0.5, 0.3], [-0.1, 2.0]], [[-1.0, 0.3], [-0.1, 4.0]]])
+    u = jnp.arange(1000).astype(jnp.float64) / 1000.0
+    v = jnp.arange(1000).astype(jnp.float64) / 1000.0
+    ab = jnp.array([[[0.6, 0.04], [-0.03, 0.5]], [[0.4, -0.02], [0.01, 0.7]]])
     dt = _run_benchmarks(
         benchmark,
         kind,

@@ -1,4 +1,5 @@
 import galsim as _galsim
+import jax.numpy as jnp
 import numpy as np
 import pytest
 
@@ -118,3 +119,22 @@ def test_celestial_jax_ecliptic_obliquity():
             ecliptic_obliquity(epoch).rad,
             _ecliptic_obliquity(epoch).rad,
         )
+
+
+def test_celestial_jax_xyz_raises():
+    np.testing.assert_raises(
+        Exception, jax_galsim.CelestialCoord.from_xyz, 0.0, 0.0, 0.0
+    )
+
+
+def test_celestial_jax_greatcircle_raises():
+    theta = 50 * jax_galsim.radians
+    eq1 = jax_galsim.CelestialCoord(
+        0 * jax_galsim.radians, 0 * jax_galsim.radians
+    )  # point on the equator
+    eq2 = jax_galsim.CelestialCoord(
+        jnp.array(1) * jax_galsim.radians, 0 * jax_galsim.radians
+    )  # 1 radian along equator
+
+    np.testing.assert_raises(Exception, eq1.greatCirclePoint, eq1, theta)
+    np.testing.assert_raises(Exception, eq2.greatCirclePoint, eq2, theta)

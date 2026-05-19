@@ -21,9 +21,30 @@
 # SOFTWARE.
 import galsim as _galsim
 import jax.numpy as jnp
+import numpy as np
 from jax.tree_util import register_pytree_node_class
 
-from jax_galsim.core.utils import cast_to_float, ensure_hashable, implements
+from jax_galsim.core.utils import (
+    cast_to_float,
+    ensure_hashable,
+    has_tracers,
+    implements,
+)
+
+NON_COMPLEX_TYPES = (
+    float,
+    int,
+    np.int16,
+    np.int32,
+    np.int64,
+    np.float32,
+    np.float64,
+    jnp.int16,
+    jnp.int32,
+    jnp.int64,
+    jnp.float32,
+    jnp.float64,
+)
 
 
 @implements(_galsim.AngleUnit)
@@ -178,6 +199,10 @@ class Angle(object):
         return _Angle(self._rad - other._rad)
 
     def __mul__(self, other):
+        if not (has_tracers(other) or isinstance(other, NON_COMPLEX_TYPES)):
+            raise TypeError(
+                "Cannot multiply Angle by %s of type %s" % (other, type(other))
+            )
         return _Angle(self._rad * other)
 
     __rmul__ = __mul__
@@ -185,8 +210,12 @@ class Angle(object):
     def __div__(self, other):
         if isinstance(other, AngleUnit):
             return self._rad / other.value
-        else:
+        elif has_tracers(other) or isinstance(other, NON_COMPLEX_TYPES):
             return _Angle(self._rad / other)
+        else:
+            raise TypeError(
+                "Cannot divide Angle by %s of type %s" % (other, type(other))
+            )
 
     __truediv__ = __div__
 

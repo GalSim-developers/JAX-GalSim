@@ -561,6 +561,24 @@ class PhotonArray:
         do_flux=True,
         do_other=True,
     ):
+        # jax naturally checks the other error cases in the test suite with the `.at`
+        # syntax, but it does not check out of bounds inds like ints so we do that here
+        if isinstance(target_indices, int) and (
+            target_indices < -self._nokeep.shape[0]
+            or target_indices >= self._nokeep.shape[0]
+        ):
+            raise ValueError(
+                f"target_indices is invalid for the target PhotonArray. Got {target_indices!r}"
+            )
+
+        if isinstance(source_indices, int) and (
+            source_indices < -rhs._nokeep.shape[0]
+            or source_indices >= rhs._nokeep.shape[0]
+        ):
+            raise ValueError(
+                f"source_indices is invalid for the source PhotonArray. Got {source_indices!r}"
+            )
+
         return self._copyFrom(
             rhs, target_indices, source_indices, do_xy, do_flux, do_other
         )

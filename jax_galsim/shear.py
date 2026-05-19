@@ -53,7 +53,7 @@ class Shear(object):
             self._g = g1 + 1j * g2
             self._g = equinox.error_if(
                 self._g,
-                jnp.abs(self._g) > 1.0,
+                jnp.any(jnp.abs(self._g) > 1.0),
                 "Requested shear exceeds 1.",
             )
 
@@ -64,7 +64,7 @@ class Shear(object):
             absesq = e1**2 + e2**2
             absesq = equinox.error_if(
                 absesq,
-                absesq > 1.0,
+                jnp.any(absesq > 1.0),
                 "Requested distortion exceeds 1.",
             )
             self._g = (e1 + 1j * e2) * self._e2g(absesq)
@@ -91,7 +91,7 @@ class Shear(object):
             g = jnp.array(kwargs.pop("g"))
             g = equinox.error_if(
                 g,
-                g > 1 or g < 0,
+                jnp.any((g > 1) | (g < 0)),
                 "Requested |shear| is outside [0,1].",
             )
             self._g = g * jnp.exp(2j * beta.rad)
@@ -110,7 +110,7 @@ class Shear(object):
             e = jnp.array(kwargs.pop("e"))
             e = equinox.error_if(
                 e,
-                (e > 1) | (e < 0),
+                jnp.any((e > 1) | (e < 0)),
                 "Requested distortion is outside [0,1].",
             )
             self._g = self._e2g(e**2) * e * jnp.exp(2j * beta.rad)
@@ -129,7 +129,7 @@ class Shear(object):
             eta = jnp.array(kwargs.pop("eta"))
             eta = equinox.error_if(
                 eta,
-                eta < 0,
+                jnp.any(eta < 0),
                 "Requested eta is below 0.",
             )
             self._g = self._eta2g(eta) * eta * jnp.exp(2j * beta.rad)
@@ -148,7 +148,7 @@ class Shear(object):
             q = jnp.array(kwargs.pop("q"))
             q = equinox.error_if(
                 q,
-                (q <= 0) | (q > 1),
+                jnp.any((q <= 0) | (q > 1)),
                 "Cannot use requested axis ratio.",
             )
             eta = -jnp.log(q)
