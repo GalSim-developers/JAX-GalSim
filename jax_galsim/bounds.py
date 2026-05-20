@@ -783,20 +783,22 @@ class BoundsI(Bounds):
         nodes that will be traced by JAX and auxiliary static data."""
         # Define the children nodes of the PyTree that need tracing
         aux_data = {"isstatic": self._isstatic, "isstaticshape": self._isstaticshape}
+
+        if self._isstatic:
+            aux_data["xmin"] = self.xmin
+            aux_data["ymin"] = self.ymin
+
         if self._isstaticshape:
             aux_data["deltax"] = self.deltax
             aux_data["deltay"] = self.deltay
             aux_data["isdefined"] = self._isdefined
 
         if self._isstatic:
-            aux_data["xmin"] = self.xmin
-            aux_data["ymin"] = self.ymin
-
-        children = tuple(
-            jnp.broadcast_arrays(
-                self.xmin, self.deltax, self.ymin, self.deltay, self._isdefined
-            )
-        )
+            children = tuple()
+        elif self._isstaticshape:
+            children = (self.xmin, self.ymin)
+        else:
+            children = (self.xmin, self.deltax, self.ymin, self.deltay, self._isdefined)
 
         return (children, aux_data)
 
@@ -804,25 +806,27 @@ class BoundsI(Bounds):
     def tree_unflatten(cls, aux_data, children):
         """Recreates an instance of the class from flatten representation"""
         ret = cls.__new__(cls)
+        ret._isstatic = aux_data["isstatic"]
+        ret._isstaticshape = aux_data["isstaticshape"]
 
-        if aux_data["isstaticshape"]:
+        if ret._isstatic:
+            ret.xmin = aux_data["xmin"]
+            ret.ymin = aux_data["ymin"]
+            ret.deltax = aux_data["deltax"]
+            ret.deltay = aux_data["deltay"]
+            ret._isdefined = aux_data["isdefined"]
+        elif ret._isstaticshape:
+            ret.xmin = children[0]
+            ret.ymin = children[1]
             ret.deltax = aux_data["deltax"]
             ret.deltay = aux_data["deltay"]
             ret._isdefined = aux_data["isdefined"]
         else:
+            ret.xmin = children[0]
             ret.deltax = children[1]
+            ret.ymin = children[2]
             ret.deltay = children[3]
             ret._isdefined = children[4]
-
-        if aux_data["isstatic"]:
-            ret.xmin = aux_data["xmin"]
-            ret.ymin = aux_data["ymin"]
-        else:
-            ret.xmin = children[0]
-            ret.ymin = children[2]
-
-        ret._isstatic = aux_data["isstatic"]
-        ret._isstaticshape = aux_data["isstaticshape"]
 
         return ret
 
