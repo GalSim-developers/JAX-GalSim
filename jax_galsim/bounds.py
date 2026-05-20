@@ -184,9 +184,43 @@ class Bounds:
 
     @implements(_galsim.Bounds.includes)
     def includes(self, *args):
-        raise NotImplementedError(
-            "Subclasses of `Bounds` must implement the `includes` method!"
-        )
+        if len(args) == 1:
+            if isinstance(args[0], Bounds):
+                b = args[0]
+                return (
+                    jnp.array(self.isDefined())
+                    & jnp.array(b.isDefined())
+                    & jnp.array(self.xmin <= b.xmin)
+                    & jnp.array(self.xmax >= b.xmax)
+                    & jnp.array(self.ymin <= b.ymin)
+                    & jnp.array(self.ymax >= b.ymax)
+                )
+            elif isinstance(args[0], Position):
+                p = args[0]
+                return (
+                    jnp.array(self.isDefined())
+                    & jnp.array(self.xmin <= p.x)
+                    & jnp.array(self.ymin <= p.y)
+                    & jnp.array(p.x <= self.xmax)
+                    & jnp.array(p.y <= self.ymax)
+                )
+            else:
+                raise TypeError("Invalid argument %s" % args[0])
+        elif len(args) == 2:
+            x, y = args
+            x = cast_to_float(x)
+            y = cast_to_float(y)
+            return (
+                jnp.array(self.isDefined())
+                & jnp.array(self.xmin <= x)
+                & jnp.array(self.ymin <= y)
+                & jnp.array(x <= self.xmax)
+                & jnp.array(y <= self.ymax)
+            )
+        elif len(args) == 0:
+            raise TypeError("include takes at least 1 argument (0 given)")
+        else:
+            raise TypeError("include takes at most 2 arguments (%d given)" % len(args))
 
     @implements(_galsim.Bounds.expand)
     def expand(self, factor_x, factor_y=None):
@@ -519,10 +553,10 @@ class BoundsD(Bounds):
 
     def __init__(self, *args, **kwargs):
         do_isdefined = self._parse_args(*args, **kwargs)
-        self.xmin = cast_to_float(self.xmin)
-        self.deltax = cast_to_float(self.deltax)
-        self.ymin = cast_to_float(self.ymin)
-        self.deltay = cast_to_float(self.deltay)
+        self.xmin = cast_to_float(jnp.array(self.xmin))
+        self.deltax = cast_to_float(jnp.array(self.deltax))
+        self.ymin = cast_to_float(jnp.array(self.ymin))
+        self.deltay = cast_to_float(jnp.array(self.deltay))
         if do_isdefined:
             self._isdefined = (self.deltax >= 0) & (self.deltay >= 0)
         self._isdefined = jnp.array(self._isdefined)
@@ -563,44 +597,6 @@ class BoundsD(Bounds):
     @property
     def _center(self):
         return PositionD((self.xmax + self.xmin) / 2.0, (self.ymax + self.ymin) / 2.0)
-
-    @implements(_galsim.Bounds.includes)
-    def includes(self, *args):
-        if len(args) == 1:
-            if isinstance(args[0], Bounds):
-                b = args[0]
-                return (
-                    self.isDefined()
-                    & b.isDefined()
-                    & (self.xmin <= b.xmin)
-                    & (self.xmax >= b.xmax)
-                    & (self.ymin <= b.ymin)
-                    & (self.ymax >= b.ymax)
-                )
-            elif isinstance(args[0], Position):
-                p = args[0]
-                return (
-                    self.isDefined()
-                    & (self.xmin <= p.x)
-                    & (self.ymin <= p.y)
-                    & (p.x <= self.xmax)
-                    & (p.y <= self.ymax)
-                )
-            else:
-                raise TypeError("Invalid argument %s" % args[0])
-        elif len(args) == 2:
-            x, y = args
-            return (
-                self.isDefined()
-                & (self.xmin <= cast_to_float(x))
-                & (self.ymin <= cast_to_float(y))
-                & (cast_to_float(x) <= self.xmax)
-                & (cast_to_float(y) <= self.ymax)
-            )
-        elif len(args) == 0:
-            raise TypeError("include takes at least 1 argument (0 given)")
-        else:
-            raise TypeError("include takes at most 2 arguments (%d given)" % len(args))
 
     def __repr__(self):
         # sometimes we will encounter a tracer here
@@ -750,46 +746,6 @@ class BoundsI(Bounds):
             self.xmin + self.deltax // 2,
             self.ymin + self.deltay // 2,
         )
-
-    @implements(_galsim.Bounds.includes)
-    def includes(self, *args):
-        if len(args) == 1:
-            if isinstance(args[0], Bounds):
-                b = args[0]
-                return (
-                    jnp.array(self.isDefined())
-                    & jnp.array(b.isDefined())
-                    & jnp.array(self.xmin <= b.xmin)
-                    & jnp.array(self.xmax >= b.xmax)
-                    & jnp.array(self.ymin <= b.ymin)
-                    & jnp.array(self.ymax >= b.ymax)
-                )
-            elif isinstance(args[0], Position):
-                p = args[0]
-                return (
-                    jnp.array(self.isDefined())
-                    & jnp.array(self.xmin <= p.x)
-                    & jnp.array(self.ymin <= p.y)
-                    & jnp.array(p.x <= self.xmax)
-                    & jnp.array(p.y <= self.ymax)
-                )
-            else:
-                raise TypeError("Invalid argument %s" % args[0])
-        elif len(args) == 2:
-            x, y = args
-            x = cast_to_float(x)
-            y = cast_to_float(y)
-            return (
-                jnp.array(self.isDefined())
-                & jnp.array(self.xmin <= x)
-                & jnp.array(self.ymin <= y)
-                & jnp.array(x <= self.xmax)
-                & jnp.array(y <= self.ymax)
-            )
-        elif len(args) == 0:
-            raise TypeError("include takes at least 1 argument (0 given)")
-        else:
-            raise TypeError("include takes at most 2 arguments (%d given)" % len(args))
 
     def __repr__(self):
         if self._isdefined:
