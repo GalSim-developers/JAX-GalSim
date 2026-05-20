@@ -526,7 +526,7 @@ def _bounds_pos_add_op_dynamic(self, other):
         )
         is_defined = jnp.where(
             jnp.array(self._isdefined),
-            jnp.array(ret.deltax >= 0) & jnp.array(ret.deltay >= 0),
+            jnp.array(ret.deltax >= 1) & jnp.array(ret.deltay >= 1),
             jnp.array(True),
         )
         # we have to do a conversion to static bools here too
