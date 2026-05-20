@@ -811,23 +811,23 @@ class BoundsI(Bounds):
                 p = args[0]
                 return (
                     jnp.array(self.isDefined())
-                    & (self.xmin <= p.x)
-                    & (self.ymin <= p.y)
-                    & (p.x <= self.xmax)
-                    & (p.y <= self.ymax)
+                    & jnp.array(self.xmin <= p.x)
+                    & jnp.array(self.ymin <= p.y)
+                    & jnp.array(p.x <= self.xmax)
+                    & jnp.array(p.y <= self.ymax)
                 )
             else:
                 raise TypeError("Invalid argument %s" % args[0])
         elif len(args) == 2:
             x, y = args
-            x = cast_to_float(jnp.array(x))
-            y = cast_to_float(jnp.array(y))
+            x = cast_to_float(x)
+            y = cast_to_float(y)
             return (
                 jnp.array(self.isDefined())
-                & (self.xmin <= x)
-                & (self.ymin <= y)
-                & (x <= self.xmax)
-                & (y <= self.ymax)
+                & jnp.array(self.xmin <= x)
+                & jnp.array(self.ymin <= y)
+                & jnp.array(x <= self.xmax)
+                & jnp.array(y <= self.ymax)
             )
         elif len(args) == 0:
             raise TypeError("include takes at least 1 argument (0 given)")
