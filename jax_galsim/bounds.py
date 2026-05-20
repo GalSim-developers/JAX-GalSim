@@ -632,7 +632,7 @@ class BoundsD(Bounds):
 
     def __eq__(self, other):
         if self is other:
-            return True
+            return jnp.array(True)
         elif isinstance(other, self.__class__):
             return (
                 self.isDefined()
@@ -643,7 +643,7 @@ class BoundsD(Bounds):
                 & (self.ymax == other.ymax)
             ) | ((~self.isDefined()) & (~other.isDefined()))
         else:
-            return False
+            return jnp.array(False)
 
     def __ne__(self, other):
         return ~self.__eq__(other)
@@ -883,7 +883,10 @@ class BoundsI(Bounds):
 
     def __eq__(self, other):
         if self is other:
-            return True
+            if self.isStatic() and other.isStatic():
+                return True
+            else:
+                return jnp.array(True)
         elif isinstance(other, self.__class__):
             if self.isStatic() and other.isStatic():
                 min_eq = (self.xmin == other.xmin) and (self.ymin == other.ymin)
