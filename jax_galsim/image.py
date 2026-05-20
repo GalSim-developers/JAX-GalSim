@@ -269,6 +269,13 @@ class Image(object):
                 raise TypeError("wcs parameters must be a galsim.BaseWCS instance")
             self.wcs = wcs
 
+        # raise an error if bounds doesn't have a fixed width
+        if not self._bounds.isStaticShape():
+            raise RuntimeError(
+                "JAX-GalSim `Image` objects must have a `BoundsI` instance with "
+                "a static shape (i.e., `image.bounds.isStaticShape() is True`)."
+            )
+
     @staticmethod
     def _get_xmin_ymin(array, kwargs, check_bounds=True):
         """A helper function for parsing xmin, ymin, bounds options with a given array"""
@@ -280,6 +287,14 @@ class Image(object):
             b = kwargs.pop("bounds")
             if not isinstance(b, BoundsI):
                 raise TypeError("bounds must be a galsim.BoundsI instance")
+
+            # raise an error if bounds doesn't have a fixed width
+            if not b.isStaticShape():
+                raise RuntimeError(
+                    "JAX-GalSim `Image` objects must have a `BoundsI` instance with "
+                    "a static shape (i.e., `image.bounds.isStaticShape() is True`)."
+                )
+
             if check_bounds and b.isDefined():
                 if b.deltax != array.shape[1]:
                     raise _galsim.GalSimIncompatibleValuesError(
@@ -571,6 +586,14 @@ class Image(object):
             raise GalSimImmutableError("Cannot modify an immutable Image", self)
         if not isinstance(bounds, BoundsI):
             raise TypeError("bounds must be a galsim.BoundsI instance")
+
+        # raise an error if bounds doesn't have a fixed width
+        if not bounds.isStaticShape():
+            raise RuntimeError(
+                "JAX-GalSim `Image` objects must have a `BoundsI` instance with "
+                "a static shape (i.e., `image.bounds.isStaticShape() is True`)."
+            )
+
         self._array = self._make_empty(shape=bounds.numpyShape(), dtype=self.dtype)
         self._bounds = bounds
         if wcs is not None:
@@ -580,6 +603,14 @@ class Image(object):
     def subImage(self, bounds):
         if not isinstance(bounds, BoundsI):
             raise TypeError("bounds must be a galsim.BoundsI instance")
+
+        # raise an error if bounds doesn't have a fixed width
+        if not bounds.isStaticShape():
+            raise RuntimeError(
+                "JAX-GalSim `Image` objects must have a `BoundsI` instance with "
+                "a static shape (i.e., `image.bounds.isStaticShape() is True`)."
+            )
+
         if not self.bounds.isDefined():
             raise _galsim.GalSimUndefinedBoundsError(
                 "Attempt to access subImage of undefined image"
@@ -591,6 +622,13 @@ class Image(object):
         ):
             raise _galsim.GalSimBoundsError(
                 "Attempt to access subImage not (fully) in image", bounds, self.bounds
+            )
+        else:
+            inc_val = jnp.array(self.bounds.includes(bounds))
+            inc_val = equinox.error_if(
+                inc_val,
+                jnp.any(~inc_val),
+                "Attempt to access subImage not (fully) in image",
             )
 
         if self.bounds.isStatic() and bounds.isStatic():
@@ -619,6 +657,14 @@ class Image(object):
             raise GalSimImmutableError("Cannot modify an immutable Image", self)
         if not isinstance(bounds, BoundsI):
             raise TypeError("bounds must be a galsim.BoundsI instance")
+
+        # raise an error if bounds doesn't have a fixed width
+        if not bounds.isStaticShape():
+            raise RuntimeError(
+                "JAX-GalSim `Image` objects must have a `BoundsI` instance with "
+                "a static shape (i.e., `image.bounds.isStaticShape() is True`)."
+            )
+
         if not self.bounds.isDefined():
             raise _galsim.GalSimUndefinedBoundsError(
                 "Attempt to access values of an undefined image"
@@ -631,6 +677,14 @@ class Image(object):
             raise _galsim.GalSimBoundsError(
                 "Attempt to access subImage not (fully) in image", bounds, self.bounds
             )
+        else:
+            inc_val = jnp.array(self.bounds.includes(bounds))
+            inc_val = equinox.error_if(
+                inc_val,
+                jnp.any(~inc_val),
+                "Attempt to access subImage not (fully) in image",
+            )
+
         if not isinstance(rhs, Image):
             raise TypeError("Trying to copyFrom a non-image")
         if bounds.numpyShape() != rhs.bounds.numpyShape():
@@ -721,6 +775,13 @@ class Image(object):
     def wrap(self, bounds, hermitian=False):
         if not isinstance(bounds, BoundsI):
             raise TypeError("bounds must be a galsim.BoundsI instance")
+
+        # raise an error if bounds doesn't have a fixed width
+        if not bounds.isStaticShape():
+            raise RuntimeError(
+                "JAX-GalSim `Image` objects must have a `BoundsI` instance with "
+                "a static shape (i.e., `image.bounds.isStaticShape() is True`)."
+            )
 
         def _raise_if_nonzero(bnds, x_or_y, msg):
             if x_or_y == "x":
@@ -902,11 +963,18 @@ class Image(object):
             raise _galsim.GalSimError(
                 "calculate_inverse_fft requires that the image has a PixelScale wcs."
             )
-        if not self.bounds.includes(0, 0):
+        if self.bounds.isStatic() and not self.bounds.includes(0, 0):
             raise _galsim.GalSimBoundsError(
                 "calculate_inverse_fft requires that the image includes (0,0)",
                 PositionI(0, 0),
                 self.bounds,
+            )
+        else:
+            inc_val = jnp.array(self.bounds.includes(0, 0))
+            inc_val = equinox.error_if(
+                inc_val,
+                jnp.any(~inc_val),
+                "calculate_inverse_fft requires that the image includes (0,0)",
             )
 
         No2 = max(
@@ -1067,12 +1135,20 @@ class Image(object):
             raise _galsim.GalSimUndefinedBoundsError(
                 "Attempt to access values of an undefined image"
             )
-        if not self.bounds.includes(x, y):
+        if self.bounds.isStatic() and not self.bounds.includes(x, y):
             raise _galsim.GalSimBoundsError(
                 "Attempt to access position not in bounds of image.",
                 PositionI(x, y),
                 self.bounds,
             )
+        else:
+            inc_val = jnp.array(self.bounds.includes(x, y))
+            inc_val = equinox.error_if(
+                inc_val,
+                jnp.any(~inc_val),
+                "Attempt to access position not in bounds of image.",
+            )
+
         return self._getValue(x, y)
 
     @implements(_galsim.Image._getValue)
@@ -1090,10 +1166,18 @@ class Image(object):
         pos, value = parse_pos_args(
             args, kwargs, "x", "y", integer=True, others=["value"]
         )
-        if not self.bounds.includes(pos):
+        if self.bounds.isStatic() and not self.bounds.includes(pos):
             raise _galsim.GalSimBoundsError(
                 "Attempt to set position not in bounds of image", pos, self.bounds
             )
+        else:
+            inc_val = jnp.array(self.bounds.includes(pos))
+            inc_val = equinox.error_if(
+                inc_val,
+                jnp.any(~inc_val),
+                "Attempt to set position not in bounds of image",
+            )
+
         self._setValue(pos.x, pos.y, value)
 
     @implements(_galsim.Image._setValue)
@@ -1111,10 +1195,18 @@ class Image(object):
         pos, value = parse_pos_args(
             args, kwargs, "x", "y", integer=True, others=["value"]
         )
-        if not self.bounds.includes(pos):
+        if self.bounds.isStatic() and not self.bounds.includes(pos):
             raise _galsim.GalSimBoundsError(
                 "Attempt to set position not in bounds of image", pos, self.bounds
             )
+        else:
+            inc_val = jnp.array(self.bounds.includes(pos))
+            inc_val = equinox.error_if(
+                inc_val,
+                jnp.any(~inc_val),
+                "Attempt to set position not in bounds of image",
+            )
+
         self._addValue(pos.x, pos.y, value)
 
     @implements(_galsim.Image._addValue)

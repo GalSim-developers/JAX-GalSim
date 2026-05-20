@@ -2,6 +2,7 @@ import equinox
 import galsim as _galsim
 import jax
 import jax.numpy as jnp
+import numpy as np
 from jax.tree_util import register_pytree_node_class
 
 from jax_galsim.core.utils import (
@@ -809,26 +810,49 @@ class BoundsI(Bounds):
                     )
             elif isinstance(args[0], Position):
                 p = args[0]
-                return (
-                    jnp.array(self.isDefined())
-                    & jnp.array(self.xmin <= p.x)
-                    & jnp.array(self.ymin <= p.y)
-                    & jnp.array(p.x <= self.xmax)
-                    & jnp.array(p.y <= self.ymax)
-                )
+                ok_types = (int, float, np.integer, np.floating)
+                if (
+                    self._isstatic
+                    and isinstance(p.x, ok_types)
+                    and isinstance(p.y, ok_types)
+                ):
+                    return (
+                        self.isDefined()
+                        and (self.xmin <= p.x)
+                        and (self.ymin <= p.y)
+                        and (p.x <= self.xmax)
+                        and (p.y <= self.ymax)
+                    )
+                else:
+                    return (
+                        jnp.array(self.isDefined())
+                        & jnp.array(self.xmin <= p.x)
+                        & jnp.array(self.ymin <= p.y)
+                        & jnp.array(p.x <= self.xmax)
+                        & jnp.array(p.y <= self.ymax)
+                    )
             else:
                 raise TypeError("Invalid argument %s" % args[0])
         elif len(args) == 2:
             x, y = args
             x = cast_to_float(x)
             y = cast_to_float(y)
-            return (
-                jnp.array(self.isDefined())
-                & jnp.array(self.xmin <= x)
-                & jnp.array(self.ymin <= y)
-                & jnp.array(x <= self.xmax)
-                & jnp.array(y <= self.ymax)
-            )
+            if self._isstatic and isinstance(x, float) and isinstance(y, float):
+                return (
+                    self.isDefined()
+                    and (self.xmin <= x)
+                    and (self.ymin <= y)
+                    and (x <= self.xmax)
+                    and (y <= self.ymax)
+                )
+            else:
+                return (
+                    jnp.array(self.isDefined())
+                    & jnp.array(self.xmin <= x)
+                    & jnp.array(self.ymin <= y)
+                    & jnp.array(x <= self.xmax)
+                    & jnp.array(y <= self.ymax)
+                )
         elif len(args) == 0:
             raise TypeError("include takes at least 1 argument (0 given)")
         else:
