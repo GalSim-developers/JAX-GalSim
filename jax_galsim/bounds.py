@@ -180,41 +180,9 @@ class Bounds:
 
     @implements(_galsim.Bounds.includes)
     def includes(self, *args):
-        if len(args) == 1:
-            if isinstance(args[0], Bounds):
-                b = args[0]
-                return (
-                    self.isDefined()
-                    & b.isDefined()
-                    & (self.xmin <= b.xmin)
-                    & (self.xmax >= b.xmax)
-                    & (self.ymin <= b.ymin)
-                    & (self.ymax >= b.ymax)
-                )
-            elif isinstance(args[0], Position):
-                p = args[0]
-                return (
-                    self.isDefined()
-                    & (self.xmin <= p.x)
-                    & (self.ymin <= p.y)
-                    & (p.x <= self.xmax)
-                    & (p.y <= self.ymax)
-                )
-            else:
-                raise TypeError("Invalid argument %s" % args[0])
-        elif len(args) == 2:
-            x, y = args
-            return (
-                self.isDefined()
-                & (self.xmin <= float(x))
-                & (self.ymin <= float(y))
-                & (float(x) <= self.xmax)
-                & (float(y) <= self.ymax)
-            )
-        elif len(args) == 0:
-            raise TypeError("include takes at least 1 argument (0 given)")
-        else:
-            raise TypeError("include takes at most 2 arguments (%d given)" % len(args))
+        raise NotImplementedError(
+            "Subclasses of `Bounds` must implement the `includes` method!"
+        )
 
     @implements(_galsim.Bounds.expand)
     def expand(self, factor_x, factor_y=None):
@@ -571,6 +539,44 @@ class BoundsD(Bounds):
     def _center(self):
         return PositionD((self.xmax + self.xmin) / 2.0, (self.ymax + self.ymin) / 2.0)
 
+    @implements(_galsim.Bounds.includes)
+    def includes(self, *args):
+        if len(args) == 1:
+            if isinstance(args[0], Bounds):
+                b = args[0]
+                return (
+                    self.isDefined()
+                    & b.isDefined()
+                    & (self.xmin <= b.xmin)
+                    & (self.xmax >= b.xmax)
+                    & (self.ymin <= b.ymin)
+                    & (self.ymax >= b.ymax)
+                )
+            elif isinstance(args[0], Position):
+                p = args[0]
+                return (
+                    self.isDefined()
+                    & (self.xmin <= p.x)
+                    & (self.ymin <= p.y)
+                    & (p.x <= self.xmax)
+                    & (p.y <= self.ymax)
+                )
+            else:
+                raise TypeError("Invalid argument %s" % args[0])
+        elif len(args) == 2:
+            x, y = args
+            return (
+                self.isDefined()
+                & (self.xmin <= cast_to_float(x))
+                & (self.ymin <= cast_to_float(y))
+                & (cast_to_float(x) <= self.xmax)
+                & (cast_to_float(y) <= self.ymax)
+            )
+        elif len(args) == 0:
+            raise TypeError("include takes at least 1 argument (0 given)")
+        else:
+            raise TypeError("include takes at most 2 arguments (%d given)" % len(args))
+
     def __repr__(self):
         # sometimes we will encounter a tracer here
         # and so we suppress any boolean conversion errors
@@ -778,57 +784,55 @@ class BoundsI(Bounds):
             self.ymin + self.deltay // 2,
         )
 
-    def tree_flatten(self):
-        """This function flattens the Bounds into a list of children
-        nodes that will be traced by JAX and auxiliary static data."""
-        # Define the children nodes of the PyTree that need tracing
-        aux_data = {"isstatic": self._isstatic, "isstaticshape": self._isstaticshape}
-
-        if self._isstatic:
-            aux_data["xmin"] = self.xmin
-            aux_data["ymin"] = self.ymin
-
-        if self._isstaticshape:
-            aux_data["deltax"] = self.deltax
-            aux_data["deltay"] = self.deltay
-            aux_data["isdefined"] = self._isdefined
-
-        if self._isstatic:
-            children = tuple()
-        elif self._isstaticshape:
-            children = (self.xmin, self.ymin)
+    @implements(_galsim.Bounds.includes)
+    def includes(self, *args):
+        if len(args) == 1:
+            if isinstance(args[0], Bounds):
+                b = args[0]
+                if self.isStatic() and b.isStatic():
+                    return (
+                        self.isDefined()
+                        and b.isDefined()
+                        and (self.xmin <= b.xmin)
+                        and (self.xmax >= b.xmax)
+                        and (self.ymin <= b.ymin)
+                        and (self.ymax >= b.ymax)
+                    )
+                else:
+                    return (
+                        jnp.array(self.isDefined())
+                        & jnp.array(b.isDefined())
+                        & jnp.array(self.xmin <= b.xmin)
+                        & jnp.array(self.xmax >= b.xmax)
+                        & jnp.array(self.ymin <= b.ymin)
+                        & jnp.array(self.ymax >= b.ymax)
+                    )
+            elif isinstance(args[0], Position):
+                p = args[0]
+                return (
+                    jnp.array(self.isDefined())
+                    & (self.xmin <= p.x)
+                    & (self.ymin <= p.y)
+                    & (p.x <= self.xmax)
+                    & (p.y <= self.ymax)
+                )
+            else:
+                raise TypeError("Invalid argument %s" % args[0])
+        elif len(args) == 2:
+            x, y = args
+            x = cast_to_float(jnp.array(x))
+            y = cast_to_float(jnp.array(y))
+            return (
+                jnp.array(self.isDefined())
+                & (self.xmin <= x)
+                & (self.ymin <= y)
+                & (x <= self.xmax)
+                & (y <= self.ymax)
+            )
+        elif len(args) == 0:
+            raise TypeError("include takes at least 1 argument (0 given)")
         else:
-            children = (self.xmin, self.deltax, self.ymin, self.deltay, self._isdefined)
-
-        return (children, aux_data)
-
-    @classmethod
-    def tree_unflatten(cls, aux_data, children):
-        """Recreates an instance of the class from flatten representation"""
-        ret = cls.__new__(cls)
-        ret._isstatic = aux_data["isstatic"]
-        ret._isstaticshape = aux_data["isstaticshape"]
-
-        if ret._isstatic:
-            ret.xmin = aux_data["xmin"]
-            ret.ymin = aux_data["ymin"]
-            ret.deltax = aux_data["deltax"]
-            ret.deltay = aux_data["deltay"]
-            ret._isdefined = aux_data["isdefined"]
-        elif ret._isstaticshape:
-            ret.xmin = children[0]
-            ret.ymin = children[1]
-            ret.deltax = aux_data["deltax"]
-            ret.deltay = aux_data["deltay"]
-            ret._isdefined = aux_data["isdefined"]
-        else:
-            ret.xmin = children[0]
-            ret.deltax = children[1]
-            ret.ymin = children[2]
-            ret.deltay = children[3]
-            ret._isdefined = children[4]
-
-        return ret
+            raise TypeError("include takes at most 2 arguments (%d given)" % len(args))
 
     def __repr__(self):
         # sometimes we will encounter a tracer here
@@ -948,3 +952,55 @@ class BoundsI(Bounds):
                 "other must be either a %s or a %s"
                 % (self.__class__.__name__, self._pos_class.__name__)
             )
+
+    def tree_flatten(self):
+        """This function flattens the Bounds into a list of children
+        nodes that will be traced by JAX and auxiliary static data."""
+        # Define the children nodes of the PyTree that need tracing
+        aux_data = {"isstatic": self._isstatic, "isstaticshape": self._isstaticshape}
+
+        if self._isstatic:
+            aux_data["xmin"] = self.xmin
+            aux_data["ymin"] = self.ymin
+
+        if self._isstaticshape:
+            aux_data["deltax"] = self.deltax
+            aux_data["deltay"] = self.deltay
+            aux_data["isdefined"] = self._isdefined
+
+        if self._isstatic:
+            children = tuple()
+        elif self._isstaticshape:
+            children = (self.xmin, self.ymin)
+        else:
+            children = (self.xmin, self.deltax, self.ymin, self.deltay, self._isdefined)
+
+        return (children, aux_data)
+
+    @classmethod
+    def tree_unflatten(cls, aux_data, children):
+        """Recreates an instance of the class from flatten representation"""
+        ret = cls.__new__(cls)
+        ret._isstatic = aux_data["isstatic"]
+        ret._isstaticshape = aux_data["isstaticshape"]
+
+        if ret._isstatic:
+            ret.xmin = aux_data["xmin"]
+            ret.ymin = aux_data["ymin"]
+            ret.deltax = aux_data["deltax"]
+            ret.deltay = aux_data["deltay"]
+            ret._isdefined = aux_data["isdefined"]
+        elif ret._isstaticshape:
+            ret.xmin = children[0]
+            ret.ymin = children[1]
+            ret.deltax = aux_data["deltax"]
+            ret.deltay = aux_data["deltay"]
+            ret._isdefined = aux_data["isdefined"]
+        else:
+            ret.xmin = children[0]
+            ret.deltax = children[1]
+            ret.ymin = children[2]
+            ret.deltay = children[3]
+            ret._isdefined = children[4]
+
+        return ret
