@@ -6,6 +6,7 @@ from jax.tree_util import register_pytree_node_class
 
 from jax_galsim.core.utils import (
     cast_to_float,
+    cast_to_int,
     check_is_int_then_cast,
     ensure_hashable,
     implements,
@@ -722,21 +723,59 @@ class BoundsI(Bounds):
         else:
             return 0, 0
 
+    # we store xmin internally as a float even though it is an int
+    # so that autodiff works properly (needs floats in general)
+    @property
+    def xmin(self):
+        return jnp.astype(self._xmin, int)
+
+    @xmin.setter
+    def xmin(self, value):
+        self._xmin = jnp.astype(value, float)
+
     @property
     def xmax(self):
-        return self.xmin + self.deltax - 1
+        return cast_to_int(self.xmin + self.deltax - 1)
 
     @xmax.setter
     def xmax(self, value):
         self.deltax = value - self.xmin + 1
+        self.deltax = check_is_int_then_cast(
+            self.deltax, "BoundsI xmax must be set to an integer value"
+        )
+        # attempt to convert widths to static values
+        # this will raise if values are being traced
+        # we let that error propagate instead of reraising
+        # our own.
+        if not isinstance(self.deltax, int):
+            self.deltax = int(self.deltax.item())
+
+    # we store ymin internally as a float even though it is an int
+    # so that autodiff works properly (needs floats in general)
+    @property
+    def ymin(self):
+        return jnp.astype(self._ymin, int)
+
+    @ymin.setter
+    def ymin(self, value):
+        self._ymin = jnp.astype(value, float)
 
     @property
     def ymax(self):
-        return self.ymin + self.deltay - 1
+        return cast_to_int(self.ymin + self.deltay - 1)
 
     @ymax.setter
     def ymax(self, value):
         self.deltay = value - self.ymin + 1
+        self.deltay = check_is_int_then_cast(
+            self.deltay, "BoundsI ymax must be set to an integer value"
+        )
+        # attempt to convert widths to static values
+        # this will raise if values are being traced
+        # we let that error propagate instead of reraising
+        # our own.
+        if not isinstance(self.deltay, int):
+            self.deltay = int(self.deltay.item())
 
     def _area(self):
         # Remember the + 1 this time to include the pixels on both edges of the bounds.
@@ -796,7 +835,7 @@ class BoundsI(Bounds):
         """This function flattens the Bounds into a list of children
         nodes that will be traced by JAX and auxiliary static data."""
         # Define the children nodes of the PyTree that need tracing
-        children = (self.xmin, self.ymin)
+        children = (self._xmin, self._ymin)
 
         # untraced aux data
         aux_data = {}
@@ -810,8 +849,8 @@ class BoundsI(Bounds):
     def tree_unflatten(cls, aux_data, children):
         """Recreates an instance of the class from flatten representation"""
         ret = cls.__new__(cls)
-        ret.xmin = children[0]
-        ret.ymin = children[1]
+        ret._xmin = children[0]
+        ret._ymin = children[1]
         ret.deltax = aux_data["deltax"]
         ret.deltay = aux_data["deltay"]
         ret._isdefined = aux_data["isdefined"]
