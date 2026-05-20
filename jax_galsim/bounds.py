@@ -171,7 +171,7 @@ class Bounds:
     @implements(_galsim.Bounds.true_center)
     def true_center(self):
         if not isinstance(self._isdefined, jnp.ndarray):
-            if not self.isDefined():
+            if not self._isdefined:
                 raise _galsim.GalSimUndefinedBoundsError(
                     "true_center is invalid for an undefined Bounds"
                 )
