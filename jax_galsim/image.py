@@ -873,6 +873,8 @@ class Image(object):
                     self.bounds.ymax + 1,
                 ),
             )
+            if not isinstance(No2, int):
+                No2 = int(No2.item())
 
         full_bounds = BoundsI(xmin=-No2, deltax=2 * No2, ymin=-No2, deltay=2 * No2)
         if (
