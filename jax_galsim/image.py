@@ -872,14 +872,12 @@ class Image(object):
             ),
         )
 
+        # galsim branches here if the image has the correct bounds, but JAX can't branch
+        # on calls that generate different size arrays
+        # so we always make a new image
         full_bounds = BoundsI(xmin=-No2, deltax=2 * No2, ymin=-No2, deltay=2 * No2)
-        if self.bounds == full_bounds:
-            # Then the image is already in the shape we need.
-            ximage = self
-        else:
-            # Then we pad out with zeros
-            ximage = Image(full_bounds, dtype=self.dtype, init_value=0)
-            ximage[self.bounds] = self[self.bounds]
+        ximage = Image(full_bounds, dtype=self.dtype, init_value=0)
+        ximage[self.bounds] = self[self.bounds]
 
         dx = self.scale
         # dk = 2pi / (N dk)
@@ -928,21 +926,22 @@ class Image(object):
         )
 
         target_bounds = BoundsI(xmin=0, deltax=No2 + 1, ymin=-No2, deltay=2 * No2)
-        if self.bounds == target_bounds:
-            # Then the image is already in the shape we need.
-            kimage = self
-        else:
-            # Then we can pad out with zeros and wrap to get this in the form we need.
-            full_bounds = BoundsI(xmin=0, deltax=No2 + 1, ymin=-No2, deltay=2 * No2 + 1)
-            kimage = Image(full_bounds, dtype=self.dtype, init_value=0)
-            posx_bounds = BoundsI(
-                xmin=0,
-                xmax=self.bounds.xmax,
-                ymin=self.bounds.ymin,
-                ymax=self.bounds.ymax,
-            )
-            kimage[posx_bounds] = self[posx_bounds]
-            kimage = kimage._wrap(target_bounds, True, False, 2 * No2)
+
+        # galsim branches here if the image has the correct bounds, but JAX can't branch
+        # on calls that generate different size arrays
+        # so we always make a new image
+
+        # Then we can pad out with zeros and wrap to get this in the form we need.
+        full_bounds = BoundsI(xmin=0, deltax=No2 + 1, ymin=-No2, deltay=2 * No2 + 1)
+        kimage = Image(full_bounds, dtype=self.dtype, init_value=0)
+        posx_bounds = BoundsI(
+            xmin=0,
+            xmax=self.bounds.xmax,
+            ymin=self.bounds.ymin,
+            ymax=self.bounds.ymax,
+        )
+        kimage[posx_bounds] = self[posx_bounds]
+        kimage = kimage._wrap(target_bounds, True, False, 2 * No2)
 
         dk = self.scale
         # dx = 2pi / (N dk)

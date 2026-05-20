@@ -287,14 +287,24 @@ class Bounds:
         elif isinstance(other, self.__class__):
             self_isdef = jnp.array(self.isDefined())
             other_isdef = jnp.array(other.isDefined())
-            return (
-                self_isdef
-                & other_isdef
-                & jnp.array(self.xmin == other.xmin)
-                & jnp.array(self.ymin == other.ymin)
-                & jnp.array(self.xmax == other.xmax)
-                & jnp.array(self.ymax == other.ymax)
-            ) | ((~self_isdef) & (~other_isdef))
+            if isinstance(self, BoundsD):
+                return (
+                    self_isdef
+                    & other_isdef
+                    & jnp.array(self.xmin == other.xmin)
+                    & jnp.array(self.ymin == other.ymin)
+                    & jnp.array(self.xmax == other.xmax)
+                    & jnp.array(self.ymax == other.ymax)
+                ) | ((~self_isdef) & (~other_isdef))
+            else:
+                return (
+                    self_isdef
+                    & other_isdef
+                    & jnp.array(self.xmin == other.xmin)
+                    & jnp.array(self.ymin == other.ymin)
+                    & jnp.array(self.deltax == other.deltax)
+                    & jnp.array(self.deltay == other.deltay)
+                ) | ((~self_isdef) & (~other_isdef))
         else:
             return jnp.array(False)
 
