@@ -7,6 +7,7 @@ from jax.tree_util import register_pytree_node_class
 from jax_galsim.angle import AngleUnit, arcsec, radians
 from jax_galsim.celestial import CelestialCoord
 from jax_galsim.core.utils import (
+    STATIC_SCALAR_TYPES,
     cast_to_float,
     ensure_hashable,
     implements,
@@ -22,7 +23,7 @@ from jax_galsim.transform import _Transform
 # this kind of casting is only done for writing FITS headers
 # and should never be done anywhere else in the code base
 def _cast_to_static_numeric_scalar(x, msg=None):
-    if isinstance(x, (int, float, np.integer, np.floating)):
+    if isinstance(x, STATIC_SCALAR_TYPES):
         return x
 
     if isinstance(x, (np.ndarray, jax.Array, jnp.ndarray)):

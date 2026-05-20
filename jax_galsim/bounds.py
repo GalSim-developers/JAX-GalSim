@@ -2,10 +2,10 @@ import equinox
 import galsim as _galsim
 import jax
 import jax.numpy as jnp
-import numpy as np
 from jax.tree_util import register_pytree_node_class
 
 from jax_galsim.core.utils import (
+    STATIC_SCALAR_TYPES,
     cast_to_float,
     check_is_int_then_cast,
     ensure_hashable,
@@ -810,7 +810,7 @@ class BoundsI(Bounds):
                     )
             elif isinstance(args[0], Position):
                 p = args[0]
-                ok_types = (int, float, np.integer, np.floating)
+                ok_types = STATIC_SCALAR_TYPES
                 if (
                     self._isstatic
                     and isinstance(p.x, ok_types)

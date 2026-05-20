@@ -8,12 +8,14 @@ import jax
 import jax.numpy as jnp
 import numpy as np
 
+STATIC_SCALAR_TYPES = (int, float, np.integer, np.floating)
+
 
 def check_is_int_then_cast(val, msg):
     """Check if `val` is an integer, raise if not, otherwise cast to int."""
     val = cast_to_float(val)
 
-    if isinstance(val, (int, float, np.integer, np.floating)):
+    if isinstance(val, STATIC_SCALAR_TYPES):
         # for simple inputs, we can check direct in python
         if val != int(val):
             raise TypeError(msg)
@@ -43,9 +45,7 @@ def cast_numpy_array_to_native_byte_order(arr):
 
 
 def _cast_to_type(x, typ, accept_strings=False):
-    if isinstance(x, (int, float, np.integer, np.floating)) or (
-        accept_strings and isinstance(x, str)
-    ):
+    if isinstance(x, STATIC_SCALAR_TYPES) or (accept_strings and isinstance(x, str)):
         return typ(x)
     else:
         return jnp.astype(x, typ)

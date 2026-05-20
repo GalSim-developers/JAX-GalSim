@@ -9,7 +9,7 @@ import jax.random as jrandom
 import numpy as np
 from jax.tree_util import register_pytree_node_class
 
-from jax_galsim.core.utils import implements
+from jax_galsim.core.utils import STATIC_SCALAR_TYPES, implements
 
 try:
     from jax.extend.random import wrap_key_data
@@ -95,7 +95,7 @@ class BaseDeviate:
     def seed(self, seed=None):
         if seed is None:
             self._seed(seed=seed)
-        elif isinstance(seed, (int, float, np.integer, np.floating)):
+        elif isinstance(seed, STATIC_SCALAR_TYPES):
             if seed == int(seed):
                 self._seed(seed=int(seed))
             else:

@@ -7,6 +7,7 @@ from jax.tree_util import register_pytree_node_class
 
 from jax_galsim.bounds import Bounds, BoundsD, BoundsI
 from jax_galsim.core.utils import (
+    STATIC_SCALAR_TYPES,
     cast_numpy_array_to_native_byte_order,
     ensure_hashable,
     implements,
@@ -1135,7 +1136,12 @@ class Image(object):
             raise _galsim.GalSimUndefinedBoundsError(
                 "Attempt to access values of an undefined image"
             )
-        if self.bounds.isStatic() and not self.bounds.includes(x, y):
+        if (
+            self.bounds.isStatic()
+            and isinstance(x, STATIC_SCALAR_TYPES)
+            and isinstance(y, STATIC_SCALAR_TYPES)
+            and not self.bounds.includes(x, y)
+        ):
             raise _galsim.GalSimBoundsError(
                 "Attempt to access position not in bounds of image.",
                 PositionI(x, y),
@@ -1166,7 +1172,7 @@ class Image(object):
         pos, value = parse_pos_args(
             args, kwargs, "x", "y", integer=True, others=["value"]
         )
-        if self.bounds.isStatic() and not self.bounds.includes(pos):
+        if self.bounds.isStatic() and pos.isStatic() and not self.bounds.includes(pos):
             raise _galsim.GalSimBoundsError(
                 "Attempt to set position not in bounds of image", pos, self.bounds
             )
@@ -1195,7 +1201,7 @@ class Image(object):
         pos, value = parse_pos_args(
             args, kwargs, "x", "y", integer=True, others=["value"]
         )
-        if self.bounds.isStatic() and not self.bounds.includes(pos):
+        if self.bounds.isStatic() and pos.isStatic() and not self.bounds.includes(pos):
             raise _galsim.GalSimBoundsError(
                 "Attempt to set position not in bounds of image", pos, self.bounds
             )
