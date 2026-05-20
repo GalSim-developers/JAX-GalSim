@@ -730,10 +730,10 @@ class BoundsI(Bounds):
 
     def _area(self):
         # Remember the + 1 this time to include the pixels on both edges of the bounds.
-        if self._isdefined:
-            return self.deltax * self.deltay
-        else:
+        if not self._isdefined:
             return 0
+        else:
+            return self.deltax * self.deltay
 
     @property
     def _center(self):
