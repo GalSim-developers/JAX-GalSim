@@ -859,25 +859,30 @@ class Image(object):
                 "JAX-GalSim does not support forward FFTs of complex dtypes."
             )
 
-        # TODO: figure out how to do FFT at fixed size and then reconstruct
-        # the result
-        No2 = max(
-            max(
-                -self.bounds.xmin,
-                self.bounds.xmax + 1,
-            ),
-            max(
-                -self.bounds.ymin,
-                self.bounds.ymax + 1,
-            ),
-        )
+        # This has to be a static known constant since it is an array size
+        # so we ensure it is evaluated at compile-time and extract it
+        # from the array.
+        with jax.ensure_compile_time_eval():
+            No2 = jnp.maximum(
+                jnp.maximum(
+                    -self.bounds.xmin,
+                    self.bounds.xmax + 1,
+                ),
+                jnp.maximum(
+                    -self.bounds.ymin,
+                    self.bounds.ymax + 1,
+                ),
+            )
 
-        # galsim branches here if the image has the correct bounds, but JAX can't branch
-        # on calls that generate different size arrays
-        # so we always make a new image
         full_bounds = BoundsI(xmin=-No2, deltax=2 * No2, ymin=-No2, deltay=2 * No2)
-        ximage = Image(full_bounds, dtype=self.dtype, init_value=0)
-        ximage[self.bounds] = self[self.bounds]
+        if (
+            self.bounds.deltax == full_bounds.deltax
+            and self.bounds.deltay == full_bounds.deltay
+        ):
+            ximage = self
+        else:
+            ximage = Image(full_bounds, dtype=self.dtype, init_value=0)
+            ximage[self.bounds] = self[self.bounds]
 
         dx = self.scale
         # dk = 2pi / (N dk)
@@ -920,28 +925,35 @@ class Image(object):
             "calculate_inverse_fft requires that the image includes (0,0)",
         )
 
-        No2 = max(
-            max(self.bounds.xmax, -self.bounds.ymin),
-            self.bounds.ymax,
-        )
+        # This has to be a static known constant since it is an array size
+        # so we ensure it is evaluated at compile-time and extract it
+        # from the array.
+        with jax.ensure_compile_time_eval():
+            No2 = jnp.maximum(
+                jnp.maximum(self.bounds.xmax, -self.bounds.ymin),
+                self.bounds.ymax,
+            )
+            if not isinstance(No2, int):
+                No2 = int(No2.item())
 
         target_bounds = BoundsI(xmin=0, deltax=No2 + 1, ymin=-No2, deltay=2 * No2)
-
-        # galsim branches here if the image has the correct bounds, but JAX can't branch
-        # on calls that generate different size arrays
-        # so we always make a new image
-
-        # Then we can pad out with zeros and wrap to get this in the form we need.
-        full_bounds = BoundsI(xmin=0, deltax=No2 + 1, ymin=-No2, deltay=2 * No2 + 1)
-        kimage = Image(full_bounds, dtype=self.dtype, init_value=0)
-        posx_bounds = BoundsI(
-            xmin=0,
-            xmax=self.bounds.xmax,
-            ymin=self.bounds.ymin,
-            ymax=self.bounds.ymax,
-        )
-        kimage[posx_bounds] = self[posx_bounds]
-        kimage = kimage._wrap(target_bounds, True, False, 2 * No2)
+        if (
+            self.bounds.deltax == target_bounds.deltax
+            and self.bounds.deltay == target_bounds.deltay
+        ):
+            kimage = self
+        else:
+            # Then we can pad out with zeros and wrap to get this in the form we need.
+            full_bounds = BoundsI(xmin=0, deltax=No2 + 1, ymin=-No2, deltay=2 * No2 + 1)
+            kimage = Image(full_bounds, dtype=self.dtype, init_value=0)
+            posx_bounds = BoundsI(
+                xmin=0,
+                xmax=self.bounds.xmax,
+                ymin=self.bounds.ymin,
+                ymax=self.bounds.ymax,
+            )
+            kimage[posx_bounds] = self[posx_bounds]
+            kimage = kimage._wrap(target_bounds, True, False, 2 * No2)
 
         dk = self.scale
         # dx = 2pi / (N dk)
