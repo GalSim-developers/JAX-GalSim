@@ -4,7 +4,6 @@ import jax.numpy as jnp
 from jax.tree_util import register_pytree_node_class
 
 from jax_galsim.core.utils import (
-    STATIC_SCALAR_TYPES,
     cast_to_float,
     check_is_int_then_cast,
     ensure_hashable,
@@ -181,13 +180,6 @@ class Position(object):
         return gs_class(
             cast(self.x),
             cast(self.y),
-        )
-
-    def isStatic(self):
-        """Returns ``True`` if the ``Position`` instance
-        ``x`` and ``y`` values are not arrays"""
-        return isinstance(self.x, STATIC_SCALAR_TYPES) and isinstance(
-            self.y, STATIC_SCALAR_TYPES
         )
 
 
