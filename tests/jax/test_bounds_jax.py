@@ -23,9 +23,7 @@ def test_bounds_jax_vmap_isdefined_int():
     # turn a bounds of arrays into a list of bounds
     # see https://github.com/jax-ml/jax/discussions/35711
     list_of_bnds = jax.tree.transpose(
-        jax.tree.structure(bds),
-        None,
-        jax.tree.map(list, bds)
+        jax.tree.structure(bds), None, jax.tree.map(list, bds)
     )
     assert list_of_bnds[0] != list_of_bnds[2]
     assert list_of_bnds[1] == list_of_bnds[2]
