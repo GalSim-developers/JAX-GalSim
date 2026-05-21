@@ -24,6 +24,8 @@ from GalSim.
 - Upon initialization, if a ``BoundsI`` object has a non-static shape, JAX-GalSim will attempt to convert
   it to a static shape by extracting the dimensions from the array via ``.item()``. This operation will
   cause JAX to raise an error if the code is being traced.
+- If a ``BoundsI`` object is declared with static ``xmin`` and ``ymin`` values, an error will be raised
+  if one attempts to convert those values to non-static values.
 - JAX-GalSim does not support the use of the `&/+` dunder methods (i.e., ``__and__`` and ``__add__``)
   for ``BoundsI`` objects when tracing code.
 - JAX-Galsim supports an additional initialization signature  ``BoundsI(xmin=..., deltax=..., ymin=..., deltay=...)``
@@ -675,6 +677,10 @@ class BoundsI(Bounds):
     _pos_class = PositionI
 
     def __init__(self, *args, **kwargs):
+        # we set these variables to disable type checking and conversion
+        # for xmin/ymin while we initialize the object
+        self._isstatic = True
+        self._dotypechecking = False
         self._parse_args(*args, **kwargs)
 
         # validate inputs are ints
@@ -702,6 +708,13 @@ class BoundsI(Bounds):
 
         self._isdefined = self.deltax >= 1 and self.deltay >= 1
 
+        # now we compute these properties correctly and turn on type checking
+        if isinstance(self._xmin, int) and isinstance(self._ymin, int):
+            self._isstatic = True
+        else:
+            self._isstatic = False
+        self._dotypechecking = True
+
     def _check_scalar(self, x, name):
         try:
             if (
@@ -727,11 +740,22 @@ class BoundsI(Bounds):
     # so that autodiff works properly (needs floats in general)
     @property
     def xmin(self):
-        return jnp.astype(self._xmin, int)
+        if self._isstatic:
+            return self._xmin
+        else:
+            return jnp.astype(self._xmin, int)
 
     @xmin.setter
     def xmin(self, value):
-        self._xmin = jnp.astype(value, float)
+        value = check_is_int_then_cast(value, "BoundsI xmin values must be integers")
+        if self._isstatic:
+            if self._dotypechecking and isinstance(value, jnp.ndarray):
+                raise RuntimeError(
+                    "Static `BoundsI` classes cannot be converted to dynamic ones."
+                )
+            self._xmin = value
+        else:
+            self._xmin = jnp.astype(value, float)
 
     @property
     def xmax(self):
@@ -754,11 +778,22 @@ class BoundsI(Bounds):
     # so that autodiff works properly (needs floats in general)
     @property
     def ymin(self):
-        return jnp.astype(self._ymin, int)
+        if self._isstatic:
+            return self._ymin
+        else:
+            return jnp.astype(self._ymin, int)
 
     @ymin.setter
     def ymin(self, value):
-        self._ymin = jnp.astype(value, float)
+        value = check_is_int_then_cast(value, "BoundsI ymin values must be integers")
+        if self._isstatic:
+            if self._dotypechecking and isinstance(value, jnp.ndarray):
+                raise RuntimeError(
+                    "Static `BoundsI` classes cannot be converted to dynamic ones."
+                )
+            self._ymin = value
+        else:
+            self._ymin = jnp.astype(value, float)
 
     @property
     def ymax(self):
