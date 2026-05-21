@@ -29,8 +29,7 @@ PARAM_NAMES = [
 ]
 
 DUMMY = 0.1  # not too small,
-
-_DUMMY_PARAMS = {
+DUMMY_PARAMS = {
     "flux_b": 0.0,
     "flux_d": 0.0,
     "hlr_b": DUMMY,
@@ -39,6 +38,8 @@ _DUMMY_PARAMS = {
     "q_b": 1.0,
     "beta": 0.0,
     "good_size": 1,
+    "x": 0.0,
+    "y": 0.0,
 }
 
 
@@ -141,7 +142,7 @@ def sample_cat(key, *, n_sources: int, max_n_gals: int, cat):
     # add dummy values so that shape of parameter arrays is always the same
     for p in PARAM_NAMES + ["good_size"]:
         for n in range(n_sources, max_n_gals):
-            all_params[p] = np.append(all_params[p], _DUMMY_PARAMS[p])
+            all_params[p] = np.append(all_params[p], DUMMY_PARAMS[p])
 
     assert all_params["flux_b"].shape[0] == max_n_gals
     return all_params
