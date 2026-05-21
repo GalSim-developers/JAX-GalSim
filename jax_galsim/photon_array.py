@@ -93,6 +93,14 @@ class PhotonArray:
         self._Ntot = _JAX_GALSIM_PHOTON_ARRAY_SIZE or N
         self._Ntot = cast_to_int(self._Ntot)
 
+        if _JAX_GALSIM_PHOTON_ARRAY_SIZE is not None:
+            equinox.error_if(
+                jnp.array(N),
+                jnp.array(N > _JAX_GALSIM_PHOTON_ARRAY_SIZE),
+                f"The given photon array size {N} is larger than "
+                f"the allowed total size {_JAX_GALSIM_PHOTON_ARRAY_SIZE}.",
+            )
+
         if _nokeep is not None:
             self._nokeep = _nokeep
         else:
