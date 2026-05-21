@@ -197,10 +197,15 @@ class GSObject:
         return -1.0 * self
 
     def __eq__(self, other):
-        return (self is other) or (
-            (type(other) is self.__class__)
-            and is_equal_with_arrays(self.tree_flatten(), other.tree_flatten())
-        )
+        if self is other:
+            return jnp.array(True)
+        elif type(other) is self.__class__:
+            return is_equal_with_arrays(self.tree_flatten(), other.tree_flatten())
+        else:
+            return jnp.array(False)
+
+    def __ne__(self, other):
+        return ~self.__eq__(other)
 
     @implements(_galsim.GSObject.xValue)
     def xValue(self, *args, **kwargs):

@@ -1202,18 +1202,23 @@ class Image(object):
         # >>> assert galsim.ImageD(int_array) == galsim.ImageF(int_array) # passes
         # >>> assert galsim.ImageD(double_array) == galsim.ImageF(double_array) # fails
 
-        return self is other or (
-            isinstance(other, Image)
-            and self.bounds == other.bounds
-            and self.wcs == other.wcs
-            and (
-                not self.bounds.isDefined() or jnp.array_equal(self.array, other.array)
+        if self is other:
+            return jnp.array(True)
+        elif isinstance(other, Image):
+            return (
+                jnp.array(self.bounds == other.bounds)
+                & jnp.array(self.wcs == other.wcs)
+                & (
+                    (~jnp.array(self.bounds.isDefined()))
+                    | jnp.array_equal(self.array, other.array)
+                )
+                & jnp.array(self.isconst == other.isconst)
             )
-            and self.isconst == other.isconst
-        )
+        else:
+            return jnp.array(False)
 
     def __ne__(self, other):
-        return not self.__eq__(other)
+        return ~self.__eq__(other)
 
     @implements(_galsim.Image.transpose)
     def transpose(self):
