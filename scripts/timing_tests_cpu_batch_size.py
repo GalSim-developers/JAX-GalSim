@@ -33,6 +33,8 @@ import jax_galsim as jgs
 
 
 IMAGE_SLEN = 250
+N_SAMPLES = 200
+
 FACTOR = 1  # base is 250
 # good image size (isolated galaxy) and stamp size used in scene by galsim differ
 BUFFER = 3  # sometimes good size below and final stamp size differ by a small amount, IDK why
@@ -41,7 +43,6 @@ FFT_SIZE = 128
 SLEN_BINS = (61, 81, 101)
 MAX_N_GALS = 150 * FACTOR
 MAX_N_GAL_BINS = (105 * FACTOR, 12 * FACTOR, 7 * FACTOR)
-N_SAMPLES = 200
 DEVICE = jax.devices()[0]
 assert sorted(SLEN_BINS) == list(SLEN_BINS), "Needs to be sorted"
 
@@ -137,9 +138,8 @@ def main():
                     draw_fncs, MAX_N_GAL_BINS, SLEN_BINS
                 ):
                     _mask1 = ~_drawn
-                    _mask2 = jnp.less_equal(
-                        gsizes_jax, device_put(_sslen, device=DEVICE) - BUFFER
-                    )
+                    _sslen_jax = device_put(_sslen, device=DEVICE)
+                    _mask2 = jnp.less_equal(gsizes_jax, _sslen_jax - BUFFER)
                     _mask = _mask1 & _mask2
                     if _mask.sum() == 0:
                         continue
