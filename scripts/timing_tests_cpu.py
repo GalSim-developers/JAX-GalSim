@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import os
+from functools import partial
 
 os.environ["JAX_ENABLE_X64"] = "True"
 import time
@@ -18,7 +19,7 @@ from draw_scene_functions import (
     get_one_full_sample,
     prepare_catalog,
 )
-from jax import device_put, random
+from jax import device_put, jit, random
 from matplotlib.backends.backend_pdf import PdfPages
 from tqdm import tqdm
 
@@ -40,7 +41,9 @@ def main():
     catsim_file = "../../../Downloads/catsim/OneDegSq.fits"
 
     cat = prepare_catalog(catsim_file)
-    good_sizes = get_good_sizes_galsim(cat=cat, psf=psf, overwrite=False)
+    good_sizes = get_good_sizes_galsim(
+        cat=cat, psf=psf, overwrite=False, suffix="gaussian-07"
+    )
     cat["good_size"] = good_sizes
     _mask = cat["good_size"] < STAMP_SLEN - BUFFER
     cat = cat[_mask]
@@ -50,7 +53,18 @@ def main():
     times_galsim = []
     times_jgalsim = []
 
-    # get mean_sources
+    # jax draw function prepare and jit
+    # it's better to be explicit here even though `draw_jgs_scan_stamps` already has a decorator
+    draw_jax_fnc = jit(
+        partial(
+            draw_jgs_scan_stamps,
+            psf=xpsf,
+            ilen=IMAGE_SLEN,
+            slen=STAMP_SLEN,
+            fft_size=FFT_SIZE,
+            max_n_gals=MAX_N_GALS,
+        )
+    )
 
     # timing results average over 100 samples
     pdf_name = Path("out") / f"residuals_{SUFFIX}.pdf"
@@ -65,15 +79,9 @@ def main():
             )
 
             if ii == 0:  # trigger jit compilation
-                _ = draw_jgs_scan_stamps(
-                    sample,
-                    psf=xpsf,
-                    ilen=IMAGE_SLEN,
-                    slen=STAMP_SLEN,
-                    fft_size=FFT_SIZE,
-                    max_n_gals=MAX_N_GALS,
-                )
+                _ = draw_jax_fnc(sample).block_until_ready()  # do we need block here?
 
+            # timing galsim
             t1 = time.time()
             gs_arr = draw_galsim(
                 sample,
@@ -91,17 +99,10 @@ def main():
             # could time the device put separately
             sample_jax = device_put(sample)
 
-            # scan is the same
+            # timing jax-galsim
             t1 = time.time()
             with jax.transfer_guard("disallow"):
-                jgs_arr = draw_jgs_scan_stamps(
-                    sample_jax,
-                    psf=xpsf,
-                    ilen=IMAGE_SLEN,
-                    slen=STAMP_SLEN,
-                    fft_size=FFT_SIZE,
-                    max_n_gals=MAX_N_GALS,
-                ).block_until_ready()
+                jgs_arr = draw_jax_fnc(sample_jax).block_until_ready()
             t2 = time.time()
             t_jgalsim = t2 - t1
             times_jgalsim.append(t_jgalsim)

@@ -420,11 +420,11 @@ def prepare_catalog(
     return fcat
 
 
-def get_good_sizes_galsim(*, cat, psf, overwrite: bool = False, suffix: str = ""):
-    cache_fname = Path("out") / f"good_sizes-{suffix}.npy"
-    if Path(cache_fname).exists() and not overwrite:
-        print("INFO: Loading good sizes from file...")
-        _good_sizes = np.load(cache_fname)
+def get_good_sizes_galsim(*, cat, psf, suffix: str, overwrite: bool = False):
+    cache_fpath = Path("out") / f"good_sizes-{suffix}.npy"
+    if Path(cache_fpath).exists() and not overwrite:
+        print(f"INFO: Loading good sizes from file: {cache_fpath}")
+        _good_sizes = np.load(cache_fpath)
     else:
         print("INFO: Computing good sizes for catalog")
         # takes < 1 min
@@ -435,7 +435,7 @@ def get_good_sizes_galsim(*, cat, psf, overwrite: bool = False, suffix: str = ""
             _good_sizes.append(_good_size)
 
         _good_sizes = np.array(_good_sizes)
-        np.save(cache_fname, _good_sizes)
+        np.save(cache_fpath, _good_sizes)
 
     return _good_sizes
 
