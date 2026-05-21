@@ -1,5 +1,6 @@
 from contextlib import contextmanager
 
+import equinox
 import galsim as _galsim
 import jax
 import jax.numpy as jnp
