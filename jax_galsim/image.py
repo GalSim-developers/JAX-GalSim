@@ -859,6 +859,8 @@ class Image(object):
                 "JAX-GalSim does not support forward FFTs of complex dtypes."
             )
 
+        # TODO: figure out how to do FFT at fixed size and then reconstruct
+        # the result. - MRB
         # This has to be a static known constant since it is an array size
         # so we ensure it is evaluated at compile-time and extract it
         # from the array.
