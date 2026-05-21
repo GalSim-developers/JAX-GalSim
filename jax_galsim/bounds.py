@@ -1,16 +1,14 @@
 import galsim as _galsim
 import jax
 import jax.numpy as jnp
+import numpy as np
 from jax.tree_util import register_pytree_node_class
 
 from jax_galsim.core.utils import (
-    CONST_TYPES,
     cast_to_float,
     cast_to_int,
-    cast_to_python_float,
     check_is_int_then_cast,
     ensure_hashable,
-    has_tracers,
     implements,
 )
 from jax_galsim.position import Position, PositionD, PositionI
@@ -23,10 +21,7 @@ The JAX implementation
 Further, the JAX implementation adds a new method, ``isStatic`` to the
 ``BoundsI`` class. If JAX-GalSim detects that the ``BoundsI`` instance
 has been instantiated with static, known values, ``isStatic()`` will
-return ``True``. You can indicate to JAX-GalSim that a ``BoundsI``
-instance should be static via initializing it with the ``static``
-keyword set to the ``True``. If the object detects that it is being
-initialized with non-static data, an error will be raised.
+return ``True``.
 
 ``BoundsI`` objects in JAX-Galsim support an additional initialization
 call ``BoundsI(xmin=..., deltax=..., ymin=..., deltay=...)``. In this case,
@@ -139,8 +134,8 @@ class Bounds:
         else:
             max_delta = 1
         if (
-            isinstance(self.deltax, CONST_TYPES)
-            and isinstance(self.deltay, CONST_TYPES)
+            isinstance(self.deltax, (int, float, np.integer, np.floating))
+            and isinstance(self.deltay, (int, float, np.integer, np.floating))
             and (self.deltax < max_delta or self.deltay < max_delta)
         ):
             self._isdefined = False
@@ -364,10 +359,8 @@ class Bounds:
         """Create a jax_galsim `BoundsD/I` from a `galsim.BoundsD/I` object."""
         if isinstance(galsim_bounds, _galsim.BoundsD):
             _cls = BoundsD
-            kwargs = {}
         elif isinstance(galsim_bounds, _galsim.BoundsI):
             _cls = BoundsI
-            kwargs = {"static": True}
         else:
             raise TypeError(
                 "galsim_bounds must be either a %s or a %s"
@@ -379,7 +372,6 @@ class Bounds:
                 galsim_bounds.xmax,
                 galsim_bounds.ymin,
                 galsim_bounds.ymax,
-                **kwargs,
             )
         else:
             return _cls()
@@ -505,24 +497,25 @@ class BoundsI(Bounds):
         # initial setting to let stuff pass through freely
         self._isstatic = True
 
-        force_static = kwargs.pop("static", False)
-
         self._parse_args(*args, **kwargs)
 
-        if has_tracers(self.deltax) or has_tracers(self.deltay):
-            raise RuntimeError(
-                "Jax-GalSim BoundsI instances must have a fixed width! "
-                f"Got deltax,deltay = {self.deltax!r},{self.deltay!r}."
-            )
-
-        self.deltax = cast_to_python_float(self.deltax)
-        self.deltay = cast_to_python_float(self.deltay)
+        self.deltax = cast_to_float(self.deltax)
+        self.deltay = cast_to_float(self.deltay)
         if (self.deltax != int(self.deltax)) or (self.deltay != int(self.deltay)):
             raise TypeError("BoundsI must be initialized with integer values")
-        self.deltax = int(cast_to_int(self.deltax))
-        self.deltay = int(cast_to_int(self.deltay))
+        self.deltax = cast_to_int(self.deltax)
+        self.deltay = cast_to_int(self.deltay)
 
-        if has_tracers(self._xmin) or has_tracers(self._ymin):
+        if not (
+            isinstance(
+                self._xmin,
+                (int, float, np.floating, np.integer),
+            )
+            and isinstance(
+                self._ymin,
+                (int, float, np.floating, np.integer),
+            )
+        ):
             self._isstatic = False
 
         # validate inputs are ints
@@ -535,13 +528,6 @@ class BoundsI(Bounds):
 
         if self.deltax < 1 and self.deltay < 1:
             self._isdefined = False
-
-        if force_static and not self._isstatic:
-            raise RuntimeError(
-                "BoundsI initialized with non-static "
-                f"data (xmin,ymin = {self._xmin},{self._yminb}) "
-                "when static data was explicitly requested."
-            )
 
     def _check_scalar(self, x, name):
         try:

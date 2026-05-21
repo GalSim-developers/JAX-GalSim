@@ -1,3 +1,4 @@
+import equinox
 import galsim as _galsim
 import jax
 import jax.numpy as jnp
@@ -8,7 +9,6 @@ from jax_galsim.bounds import Bounds, BoundsD, BoundsI
 from jax_galsim.core.utils import (
     cast_numpy_array_to_native_byte_order,
     ensure_hashable,
-    has_tracers,
     implements,
 )
 from jax_galsim.errors import GalSimImmutableError
@@ -103,12 +103,12 @@ class Image(object):
         else:
             if "array" in kwargs:
                 array = kwargs.pop("array")
-                if has_tracers(array) or isinstance(array, jnp.ndarray):
-                    pass
-                elif isinstance(array, np.ndarray):
+                if isinstance(array, np.ndarray):
                     array = jnp.array(cast_numpy_array_to_native_byte_order(array))
+                elif isinstance(array, jnp.ndarray):
+                    pass
                 else:
-                    raise TypeError("Unable to parse %s as an array." % array)
+                    raise TypeError(f"Unable to parse {array!r} as an array.")
 
                 array, xmin, ymin = self._get_xmin_ymin(
                     array, kwargs, check_bounds=_check_bounds
@@ -198,12 +198,7 @@ class Image(object):
             ncol = int(ncol)
             nrow = int(nrow)
             self._array = self._make_empty(shape=(nrow, ncol), dtype=self._dtype)
-            if not has_tracers(xmin) and not has_tracers(ymin):
-                self._bounds = BoundsI(
-                    xmin=xmin, deltax=ncol, ymin=ymin, deltay=nrow, static=True
-                )
-            else:
-                self._bounds = BoundsI(xmin=xmin, deltax=ncol, ymin=ymin, deltay=nrow)
+            self._bounds = BoundsI(xmin=xmin, deltax=ncol, ymin=ymin, deltay=nrow)
             if init_value:
                 self._array = self._array.at[...].add(init_value)
         elif bounds is not None:
@@ -216,12 +211,7 @@ class Image(object):
         elif array is not None:
             self._array = array.view()
             nrow, ncol = array.shape
-            if not has_tracers(xmin) and not has_tracers(ymin):
-                self._bounds = BoundsI(
-                    xmin=xmin, deltax=ncol, ymin=ymin, deltay=nrow, static=True
-                )
-            else:
-                self._bounds = BoundsI(xmin=xmin, deltax=ncol, ymin=ymin, deltay=nrow)
+            self._bounds = BoundsI(xmin=xmin, deltax=ncol, ymin=ymin, deltay=nrow)
             if init_value is not None:
                 raise _galsim.GalSimIncompatibleValuesError(
                     "Cannot specify init_value with array",
@@ -290,22 +280,14 @@ class Image(object):
             b = kwargs.pop("bounds")
             if not isinstance(b, BoundsI):
                 raise TypeError("bounds must be a galsim.BoundsI instance")
-            if (
-                check_bounds
-                and b.isDefined()
-                and not has_tracers(b.xmin)
-                and not has_tracers(b.ymin)
-                and not has_tracers(b.xmax)
-                and not has_tracers(b.ymax)
-            ):
-                # We need to disable this when jitting
-                if b.xmax - b.xmin + 1 != array.shape[1]:
+            if check_bounds and b.isDefined():
+                if b.deltax != array.shape[1]:
                     raise _galsim.GalSimIncompatibleValuesError(
                         "Shape of array is inconsistent with provided bounds",
                         array=array,
                         bounds=b,
                     )
-                if b.ymax - b.ymin + 1 != array.shape[0]:
+                if b.deltay != array.shape[0]:
                     raise _galsim.GalSimIncompatibleValuesError(
                         "Shape of array is inconsistent with provided bounds",
                         array=array,
@@ -333,8 +315,15 @@ class Image(object):
 
     def __repr__(self):
         s = "galsim.Image(bounds=%r" % self.bounds
-        if self.bounds.isDefined() and not has_tracers(self.array):
-            s += ", array=\n%r" % (ensure_hashable(np.array(self.array)),)
+        if self.bounds.isDefined() and isinstance(
+            self.array, (np.ndarray, jnp.ndarray, jax.Array)
+        ):
+            try:
+                np.array(self.array)
+            except Exception:
+                pass
+            else:
+                s += ", array=\n%r" % (np.array(self.array),)
         s += ", wcs=%r" % self.wcs
         if self.isconst:
             s += ", make_const=True"
@@ -596,14 +585,8 @@ class Image(object):
                 "Attempt to access subImage of undefined image"
             )
         if (
-            not has_tracers(self.bounds.xmin)
-            and not has_tracers(self.bounds.xmax)
-            and not has_tracers(self.bounds.ymin)
-            and not has_tracers(self.bounds.ymax)
-            and not has_tracers(bounds.xmin)
-            and not has_tracers(bounds.xmax)
-            and not has_tracers(bounds.ymin)
-            and not has_tracers(bounds.ymax)
+            self.bounds.isStatic()
+            and bounds.isStatic()
             and not self.bounds.includes(bounds)
         ):
             raise _galsim.GalSimBoundsError(
@@ -641,14 +624,8 @@ class Image(object):
                 "Attempt to access values of an undefined image"
             )
         if (
-            not has_tracers(self.bounds.xmin)
-            and not has_tracers(self.bounds.xmax)
-            and not has_tracers(self.bounds.ymin)
-            and not has_tracers(self.bounds.ymax)
-            and not has_tracers(bounds.xmin)
-            and not has_tracers(bounds.xmax)
-            and not has_tracers(bounds.ymin)
-            and not has_tracers(bounds.ymax)
+            self.bounds.isStatic()
+            and bounds.isStatic()
             and not self.bounds.includes(bounds)
         ):
             raise _galsim.GalSimBoundsError(
@@ -744,37 +721,60 @@ class Image(object):
     def wrap(self, bounds, hermitian=False):
         if not isinstance(bounds, BoundsI):
             raise TypeError("bounds must be a galsim.BoundsI instance")
+
+        def _raise_if_nonzero(bnds, x_or_y, msg):
+            if x_or_y == "x":
+                if bnds.isStatic():
+                    if bnds.xmin != 0:
+                        raise _galsim.GalSimIncompatibleValuesError(
+                            msg,
+                            hermitian=hermitian,
+                            bounds=bnds,
+                        )
+                else:
+                    bnds.xmin = equinox.error_if(
+                        bnds.xmin,
+                        jnp.any(bnds.xmin != 0),
+                        msg,
+                    )
+            else:
+                if bnds.isStatic():
+                    if bnds.ymin != 0:
+                        raise _galsim.GalSimIncompatibleValuesError(
+                            msg,
+                            hermitian=hermitian,
+                            bounds=bnds,
+                        )
+                else:
+                    bnds.ymin = equinox.error_if(
+                        bnds.ymin,
+                        jnp.any(bnds.ymin != 0),
+                        msg,
+                    )
+
+            return bnds
+
         # Get this at the start to check for invalid bounds and raise the exception before
         # possibly writing data past the edge of the image.
         if not hermitian:
             return self._wrap(bounds, False, False, None)
         elif hermitian == "x":
-            if not has_tracers(self.bounds.xmin) and self.bounds.xmin != 0:
-                raise _galsim.GalSimIncompatibleValuesError(
-                    "hermitian == 'x' requires self.bounds.xmin == 0",
-                    hermitian=hermitian,
-                    bounds=self.bounds,
-                )
-            if not has_tracers(bounds.xmin) and bounds.xmin != 0:
-                raise _galsim.GalSimIncompatibleValuesError(
-                    "hermitian == 'x' requires bounds.xmin == 0",
-                    hermitian=hermitian,
-                    bounds=bounds,
-                )
+            self._bounds = _raise_if_nonzero(
+                self.bounds, "x", "hermitian == 'x' requires self.bounds.xmin == 0"
+            )
+            bounds = _raise_if_nonzero(
+                bounds, "x", "hermitian == 'x' requires bounds.xmin == 0"
+            )
+
             return self._wrap(bounds, True, False, 2 * bounds.xmax)
         elif hermitian == "y":
-            if not has_tracers(self.bounds.ymin) and self.bounds.ymin != 0:
-                raise _galsim.GalSimIncompatibleValuesError(
-                    "hermitian == 'y' requires self.bounds.ymin == 0",
-                    hermitian=hermitian,
-                    bounds=self.bounds,
-                )
-            if not has_tracers(bounds.ymin) and bounds.ymin != 0:
-                raise _galsim.GalSimIncompatibleValuesError(
-                    "hermitian == 'y' requires bounds.ymin == 0",
-                    hermitian=hermitian,
-                    bounds=bounds,
-                )
+            self._bounds = _raise_if_nonzero(
+                self.bounds, "y", "hermitian == 'y' requires self.bounds.ymin == 0"
+            )
+            bounds = _raise_if_nonzero(
+                bounds, "y", "hermitian == 'y' requires bounds.ymin == 0"
+            )
+
             return self._wrap(bounds, False, True, 2 * bounds.ymax)
         else:
             raise _galsim.GalSimValueError(

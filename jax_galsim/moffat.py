@@ -13,7 +13,6 @@ from jax_galsim.core.interpolate import akima_interp, akima_interp_coeffs
 from jax_galsim.core.math import safe_sqrt
 from jax_galsim.core.utils import (
     ensure_hashable,
-    has_tracers,
     implements,
 )
 from jax_galsim.gsobject import GSObject
@@ -59,13 +58,10 @@ class Moffat(GSObject):
         # let define beta_thr a threshold to trigger the truncature
         self._beta_thr = 1.1
 
-        if has_tracers(trunc) or (
-            isinstance(trunc, (np.ndarray, float, jnp.ndarray, int))
-            and np.any(trunc != 0)
-        ):
+        if (not isinstance(trunc, (float, int))) or trunc != 0:
             raise ValueError(
                 "JAX-GalSim does not support truncated Moffat profiles "
-                f"(got trunc={repr(trunc)}, always pass the constant 0.0)!"
+                f"(got trunc={trunc!r}, always pass the constant 0.0)!"
             )
 
         if isinstance(beta, (float, int)):
