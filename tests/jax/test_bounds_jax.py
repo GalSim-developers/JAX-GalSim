@@ -85,6 +85,13 @@ def _plus_bounds_far_away_float(bnds):
     return bnds, bnds.isDefined()
 
 
+@jax.vmap
+@jax.jit
+def _plus_bounds_pos_far_away_float(bnds):
+    bnds = bnds + jax_galsim.PositionD(x=100, y=110)
+    return bnds, bnds.isDefined()
+
+
 def test_bounds_jax_vmap_plus_float():
     xmin = jnp.array([9, 10, 11, 12])
     xmax = jnp.array([12, 11, 10, 9])
@@ -105,4 +112,20 @@ def test_bounds_jax_vmap_plus_float():
     np.testing.assert_array_equal(bnds.xmin[1:], 100)
     np.testing.assert_array_equal(bnds.xmax[1:], 110)
     np.testing.assert_array_equal(bnds.ymin[1:], 100)
+    np.testing.assert_array_equal(bnds.ymax[1:], 110)
+
+    bnds, isdef = _make_bounds_float(xmin, ymin, xmax, ymax)
+    np.testing.assert_array_equal(bnds.isDefined(), isdef, strict=True)
+    bnds, isdef = _plus_bounds_pos_far_away_float(bnds)
+    assert bnds.isDefined().shape == (4,)
+    np.testing.assert_array_equal(bnds.isDefined(), True)
+    np.testing.assert_array_equal(bnds.isDefined(), isdef, strict=True)
+    assert bnds.xmin[0] == 9
+    assert bnds.xmax[0] == 100
+    assert bnds.ymin[0] == 9
+    assert bnds.ymax[0] == 110
+
+    np.testing.assert_array_equal(bnds.xmin[1:], 100)
+    np.testing.assert_array_equal(bnds.xmax[1:], 100)
+    np.testing.assert_array_equal(bnds.ymin[1:], 110)
     np.testing.assert_array_equal(bnds.ymax[1:], 110)
