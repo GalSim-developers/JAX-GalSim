@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import math
 import os
 
 os.environ["JAX_ENABLE_X64"] = "True"
@@ -22,7 +23,7 @@ from draw_scene_functions import (
     get_one_full_sample,
     prepare_catalog,
 )
-from jax import device_put, random
+from jax import device_put, jit, random
 from matplotlib.backends.backend_pdf import PdfPages
 from tqdm import tqdm
 
@@ -32,19 +33,21 @@ import jax_galsim as jgs
 # (for loop within scan?)
 
 
-IMAGE_SLEN = 250
-N_SAMPLES = 200
+IMAGE_SLEN = 1000
+N_SAMPLES = 152
 
-FACTOR = 1  # base is 250
 # good image size (isolated galaxy) and stamp size used in scene by galsim differ
 BUFFER = 3  # sometimes good size below and final stamp size differ by a small amount, IDK why
 BACKGROUND = get_default_lsst_background()
 FFT_SIZE = 128
 SLEN_BINS = (61, 81, 101)
-MAX_N_GALS = 150 * FACTOR
-MAX_N_GAL_BINS = (105 * FACTOR, 12 * FACTOR, 7 * FACTOR)
+# MAX_N_GALS = 150 * FACTOR
+# MAX_N_GAL_BINS = (100 * FACTOR, 10 * FACTOR, 5 * FACTOR)
+MAX_N_GALS = 1600
+MAX_N_GAL_BINS = (1000, 100, 20)
 DEVICE = jax.devices()[0]
 assert sorted(SLEN_BINS) == list(SLEN_BINS), "Needs to be sorted"
+MAX_N_ITERS = 2
 
 SUFFIX = f"{IMAGE_SLEN}-{SLEN_BINS[-1]}-{N_SAMPLES}-scan-cpu-batch-sizes"
 
@@ -76,13 +79,15 @@ def main():
     draw_fncs = []
     for _max_n_gals, _batch_slen in zip(MAX_N_GAL_BINS, SLEN_BINS):
         draw_fncs.append(
-            partial(
-                draw_jgs_scan_stamps,
-                psf=xpsf,
-                ilen=IMAGE_SLEN,
-                fft_size=FFT_SIZE,
-                max_n_gals=_max_n_gals,
-                slen=_batch_slen,
+            jit(
+                partial(
+                    draw_jgs_scan_stamps,
+                    psf=xpsf,
+                    ilen=IMAGE_SLEN,
+                    fft_size=FFT_SIZE,
+                    max_n_gals=_max_n_gals,
+                    slen=_batch_slen,
+                )
             )
         )
 
@@ -144,25 +149,35 @@ def main():
                     if _mask.sum() == 0:
                         continue
 
-                    # need to make new array that includes only galaxies in mask
-                    # padded by 0 to match `_max_n_gals`
-                    # throw error if array ends up being larger than this
-                    _sample_jax = {}
-                    for p in sample_jax:
-                        _sample_jax[p] = sample_jax[p][_mask]
+                    n_gals = int(_mask.sum().item())
+                    _n_iters_needed = math.ceil(n_gals / _max_n_gals)
+                    assert _n_iters_needed <= MAX_N_ITERS, (
+                        f"Consider increasing max_n_gals (n_gals: {n_gals}, max_n_gals:{_max_n_gals}) in bin {_sslen}, niters: {_n_iters_needed}"
+                    )
+                    # assert n_gals <= _max_n_gals, f"{n_gals} larger than {_max_n_gals}"
+                    # print("ngals:", n_gals)
+                    # print("niters:", _n_iters_needed)
+                    for kk in range(_n_iters_needed):
+                        idx1 = kk * _max_n_gals
+                        idx2 = (kk + 1) * _max_n_gals
+                        _sample_kk = {
+                            k: v[_mask][idx1:idx2] for k, v in sample_jax.items()
+                        }
+                        _n_gals_kk = len(_sample_kk["flux_b"])
 
-                    n_gals = len(_sample_jax["flux_b"])
-                    assert n_gals <= _max_n_gals, f"{n_gals} larger than {_max_n_gals}"
-                    # padding if required
-                    for _ in range(n_gals, _max_n_gals, 1):
-                        for p in _sample_jax:
-                            _sample_jax[p] = np.append(_sample_jax[p], DUMMY_PARAMS[p])
-                    assert len(_sample_jax["flux_b"]) == _max_n_gals
+                        # padding if required
+                        for _ in range(_n_gals_kk, _max_n_gals, 1):
+                            for p in _sample_kk:
+                                _sample_kk[p] = np.append(
+                                    _sample_kk[p], DUMMY_PARAMS[p]
+                                )
+                        assert len(_sample_kk["flux_b"]) == _max_n_gals
 
-                    # assert not jnp.any(jnp.isnan(_jgs_arr))
-                    # assert _jgs_arr.shape[0] == IMAGE_SLEN
-                    _jgs_arr = _draw_fnc(_sample_jax).block_until_ready()
-                    jgs_arr += _jgs_arr
+                        # assert not jnp.any(jnp.isnan(_jgs_arr))
+                        # assert _jgs_arr.shape[0] == IMAGE_SLEN
+                        _jgs_arr = _draw_fnc(_sample_kk).block_until_ready()
+                        jgs_arr += _jgs_arr
+
                     _drawn = _drawn.at[_mask].set(True)
                     _n_gals_record.append(n_gals)
             n_gals_record.append(_n_gals_record)
