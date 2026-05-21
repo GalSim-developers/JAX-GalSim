@@ -1146,3 +1146,9 @@ def test_api_gsparams():
         assert getattr(jgsp, k) == v
         assert getattr(gsp, k) == v
         assert getattr(jjgsp, k) == v
+
+    assert jgsp == jjgsp
+    assert isinstance(jgsp == jjgsp, bool)
+
+    kwargs["minimum_fft_size"] = 126
+    assert jgsp != jax_galsim.GSParams(**kwargs)
