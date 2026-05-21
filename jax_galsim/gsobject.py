@@ -1057,12 +1057,12 @@ The JAX-GalSim version of ``drawImage``
                 )
 
         # Can't both recenter a provided image and add to it.
-        if recenter and image.center != PositionI(0, 0) and add_to_image:
-            raise _galsim.GalSimIncompatibleValuesError(
+        if recenter and add_to_image:
+            zp = PositionI(0, 0)
+            equinox.error_if(
+                zp.x,
+                image.center != zp,
                 "Cannot use add_to_image=True unless image is centered at (0,0) or recenter=False",
-                recenter=recenter,
-                image=image,
-                add_to_image=add_to_image,
             )
 
         # Set the center to 0,0 if appropriate
