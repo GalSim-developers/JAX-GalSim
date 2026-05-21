@@ -1,3 +1,4 @@
+import equinox
 import galsim as _galsim
 import jax
 import jax.numpy as jnp
@@ -14,26 +15,31 @@ from jax_galsim.core.utils import (
 from jax_galsim.position import Position, PositionD, PositionI
 
 BOUNDS_LAX_DESCR = """\
-The JAX implementation
+The JAX-GalSim implementation of the ``BoundsI/D`` classes have some key differences
+from GalSim.
 
-- will not always test whether the bounds are valid
-
-Further, the JAX implementation adds a new method, ``isStatic`` to the
-``BoundsI`` class. If JAX-GalSim detects that the ``BoundsI`` instance
-has been instantiated with static, known values, ``isStatic()`` will
-return ``True``.
-
-``BoundsI`` objects in JAX-Galsim support an additional initialization
-call ``BoundsI(xmin=..., deltax=..., ymin=..., deltay=...)``. In this case,
-the values for ``deltax/y`` indicate the width of the bounds and must be
-static constants.
-
-When calling ``jax.vmap`` over ``BoundsI`` objects, only ``x/ymin``
-are vectorized over. This restriction allows for code that renders
-objects in fixed sized stamps with variable locations, a common
-operation. ``BoundsI`` objects which are static (i.e., ``isStatic()``
-returns ``True``) are treated as constants with respect to ``vmap``,
-``jit``, and other JAX transforms.
+- ``BoundsI`` instances must have statically known shapes, but may have non-static
+  start locations (i.e., ``xmin`` and ``ymin`` may be JAX arrays, traced in JIT operations, etc.).
+  This restriction mirrors the JAX restriction that arrays have fixed shapes when traced
+  for function transformations like ``jax.vmap``, ``jax.jit``, etc.
+- Upon initialization, if a ``BoundsI`` object has a non-static shape, JAX-GalSim will attempt to convert
+  it to a static shape by extracting the dimensions from the array via ``.item()``. This operation will
+  cause JAX to raise an error if the code is being traced.
+- If a ``BoundsI`` object is declared with static ``xmin`` and ``ymin`` values, an error will be raised
+  if one attempts to convert those values to non-static values.
+- ``Bounds`` classes in JAX-GalSim have an etxra method, ``isStatic`` that returns ``True`` if the object
+  was instantiated with static ``xmin`` and ``ymin`` values. This method always returns ``False`` for
+  ``BoundsD`` objects.
+- JAX-GalSim does not support the use of the `&` and `+` operators (i.e., the dunder methods ``__and__``
+  and ``__add__`` ) with ``BoundsI`` objects when tracing code.
+- JAX-Galsim supports an additional initialization signature  ``BoundsI(xmin=..., deltax=..., ymin=..., deltay=...)``
+  to help users specify the widths ``deltax`` and ``deltay`` statically at initialization.
+- When calling ``jax.vmap``, ``jax.jit`` etc. with ``BoundsI`` objects, ``xmin`` and ``ymin`` are
+  traced by JAX. The combination of this feature with statically known shapes allows for code that renders
+  objects in fixed sized stamps with variable locations, a common operation.
+- For ``BoundsD``, all ``x(y)min(max)`` values are traced as arrays.
+- ``Bounds`` objects always return a JAX boolean values for various method calls, except for
+  ``BoundsI.isDefined()`` which is always a Python boolean value.
 """
 
 
@@ -46,11 +52,13 @@ class Bounds:
         )
 
     def _parse_args(self, *args, **kwargs):
+        do_isdefined = True
+
         if len(kwargs) == 0:
             if len(args) == 4:
-                self._isdefined = True
                 self.xmin, self.xmax, self.ymin, self.ymax = args
             elif len(args) == 0:
+                do_isdefined = False
                 self._isdefined = False
                 self.xmin = 0
                 self.ymin = 0
@@ -70,7 +78,6 @@ class Bounds:
                     self.ymin = args[0].ymin
                     self.deltay = args[0].deltay + offset
                 elif isinstance(args[0], Position):
-                    self._isdefined = True
                     self.xmin = self.xmax = args[0].x
                     self.ymin = self.ymax = args[0].y
                 else:
@@ -78,14 +85,12 @@ class Bounds:
                         "Single argument to %s must be either a Bounds or a Position"
                         % (self.__class__.__name__)
                     )
-                self._isdefined = True
             elif len(args) == 2:
                 if isinstance(args[0], Position) and isinstance(args[1], Position):
-                    self._isdefined = True
-                    self.xmin = min(args[0].x, args[1].x)
-                    self.xmax = max(args[0].x, args[1].x)
-                    self.ymin = min(args[0].y, args[1].y)
-                    self.ymax = max(args[0].y, args[1].y)
+                    self.xmin = jnp.minimum(args[0].x, args[1].x)
+                    self.xmax = jnp.maximum(args[0].x, args[1].x)
+                    self.ymin = jnp.minimum(args[0].y, args[1].y)
+                    self.ymax = jnp.maximum(args[0].y, args[1].y)
                 else:
                     raise TypeError(
                         "Two arguments to %s must be Positions"
@@ -103,7 +108,6 @@ class Bounds:
             )
         else:
             try:
-                self._isdefined = True
                 self.xmin = kwargs.pop("xmin")
                 self.ymin = kwargs.pop("ymin")
             except KeyError:
@@ -128,17 +132,7 @@ class Bounds:
             if kwargs:
                 raise TypeError("Got unexpected keyword arguments %s" % kwargs.keys())
 
-        # for simple inputs, we can check if the bounds are valid
-        if isinstance(self, BoundsD):
-            max_delta = 0
-        else:
-            max_delta = 1
-        if (
-            isinstance(self.deltax, (int, float, np.integer, np.floating))
-            and isinstance(self.deltay, (int, float, np.integer, np.floating))
-            and (self.deltax < max_delta or self.deltay < max_delta)
-        ):
-            self._isdefined = False
+        return do_isdefined
 
     @implements(_galsim.Bounds.area)
     def area(self):
@@ -166,18 +160,32 @@ class Bounds:
     @property
     @implements(_galsim.Bounds.center)
     def center(self):
-        if not self.isDefined():
-            raise _galsim.GalSimUndefinedBoundsError(
-                "center is invalid for an undefined Bounds"
+        if isinstance(self._isdefined, bool):
+            if not self._isdefined:
+                raise _galsim.GalSimUndefinedBoundsError(
+                    "center is invalid for an undefined Bounds"
+                )
+        else:
+            self._isdefined = equinox.error_if(
+                self._isdefined,
+                jnp.any(~self._isdefined),
+                "center is invalid for an undefined Bounds",
             )
         return self._center
 
     @property
     @implements(_galsim.Bounds.true_center)
     def true_center(self):
-        if not self.isDefined():
-            raise _galsim.GalSimUndefinedBoundsError(
-                "true_center is invalid for an undefined Bounds"
+        if isinstance(self._isdefined, bool):
+            if not self._isdefined:
+                raise _galsim.GalSimUndefinedBoundsError(
+                    "true_center is invalid for an undefined Bounds"
+                )
+        else:
+            self._isdefined = equinox.error_if(
+                self._isdefined,
+                jnp.any(~self._isdefined),
+                "true_center is invalid for an undefined Bounds",
             )
         return PositionD((self.xmax + self.xmin) / 2.0, (self.ymax + self.ymin) / 2.0)
 
@@ -187,32 +195,34 @@ class Bounds:
             if isinstance(args[0], Bounds):
                 b = args[0]
                 return (
-                    self.isDefined()
-                    & b.isDefined()
-                    & (self.xmin <= b.xmin)
-                    & (self.xmax >= b.xmax)
-                    & (self.ymin <= b.ymin)
-                    & (self.ymax >= b.ymax)
+                    jnp.array(self.isDefined())
+                    & jnp.array(b.isDefined())
+                    & jnp.array(self.xmin <= b.xmin)
+                    & jnp.array(self.xmax >= b.xmax)
+                    & jnp.array(self.ymin <= b.ymin)
+                    & jnp.array(self.ymax >= b.ymax)
                 )
             elif isinstance(args[0], Position):
                 p = args[0]
                 return (
-                    self.isDefined()
-                    & (self.xmin <= p.x)
-                    & (self.ymin <= p.y)
-                    & (p.x <= self.xmax)
-                    & (p.y <= self.ymax)
+                    jnp.array(self.isDefined())
+                    & jnp.array(self.xmin <= p.x)
+                    & jnp.array(self.ymin <= p.y)
+                    & jnp.array(p.x <= self.xmax)
+                    & jnp.array(p.y <= self.ymax)
                 )
             else:
                 raise TypeError("Invalid argument %s" % args[0])
         elif len(args) == 2:
             x, y = args
+            x = cast_to_float(x)
+            y = cast_to_float(y)
             return (
-                self.isDefined()
-                & (self.xmin <= float(x))
-                & (self.ymin <= float(y))
-                & (float(x) <= self.xmax)
-                & (float(y) <= self.ymax)
+                jnp.array(self.isDefined())
+                & jnp.array(self.xmin <= x)
+                & jnp.array(self.ymin <= y)
+                & jnp.array(x <= self.xmax)
+                & jnp.array(y <= self.ymax)
             )
         elif len(args) == 0:
             raise TypeError("include takes at least 1 argument (0 given)")
@@ -264,59 +274,29 @@ class Bounds:
     def __and__(self, other):
         if not isinstance(other, self.__class__):
             raise TypeError("other must be a %s instance" % self.__class__.__name__)
-        if not self.isDefined() or not other.isDefined():
-            return self.__class__()
-        else:
-            xmin = jnp.maximum(self.xmin, other.xmin)
-            xmax = jnp.minimum(self.xmax, other.xmax)
-            ymin = jnp.maximum(self.ymin, other.ymin)
-            ymax = jnp.minimum(self.ymax, other.ymax)
-            if xmin > xmax or ymin > ymax:
-                return self.__class__()
-            else:
-                return self.__class__(xmin, xmax, ymin, ymax)
+
+        return _bounds_and_op_dynamic(self, other)
 
     def __add__(self, other):
         if isinstance(other, self.__class__):
-            if not other.isDefined():
-                return self
-            elif self.isDefined():
-                xmin = jnp.minimum(self.xmin, other.xmin)
-                xmax = jnp.maximum(self.xmax, other.xmax)
-                ymin = jnp.minimum(self.ymin, other.ymin)
-                ymax = jnp.maximum(self.ymax, other.ymax)
-                return self.__class__(xmin, xmax, ymin, ymax)
-            else:
-                return other
+            return _bounds_bounds_add_op_dynamic(self, other)
         elif isinstance(other, self._pos_class):
-            if self.isDefined():
-                xmin = jnp.minimum(self.xmin, other.x)
-                xmax = jnp.maximum(self.xmax, other.x)
-                ymin = jnp.minimum(self.ymin, other.y)
-                ymax = jnp.maximum(self.ymax, other.y)
-                return self.__class__(xmin, xmax, ymin, ymax)
-            else:
-                return self.__class__(other)
+            return _bounds_pos_add_op_dynamic(self, other)
         else:
             raise TypeError(
                 "other must be either a %s or a %s"
                 % (self.__class__.__name__, self._pos_class.__name__)
             )
 
-    def _getinitargs(self):
-        if self.isDefined():
-            return (self.xmin, self.xmax, self.ymin, self.ymax)
-        else:
-            return ()
-
     def __eq__(self, other):
-        return self is other or (
-            isinstance(other, self.__class__)
-            and self._getinitargs() == other._getinitargs()
+        raise NotImplementedError(
+            "The `__eq__` magic method must be implemented by subclasses of `Bounds`."
         )
 
     def __ne__(self, other):
-        return not self.__eq__(other)
+        raise NotImplementedError(
+            "The `__ne__` magic method must be implemented by subclasses of `Bounds`."
+        )
 
     def __hash__(self):
         return hash(
@@ -333,26 +313,23 @@ class Bounds:
         """This function flattens the Bounds into a list of children
         nodes that will be traced by JAX and auxiliary static data."""
         # Define the children nodes of the PyTree that need tracing
-        if self.isDefined():
-            children = (self.xmin, self.deltax, self.ymin, self.deltay)
-        else:
-            children = tuple()
+        children = (self.xmin, self.deltax, self.ymin, self.deltay, self._isdefined)
         # Define auxiliary static data that doesn’t need to be traced
-        aux_data = None
+        aux_data = {"isstatic": self._isstatic}
         return (children, aux_data)
 
     @classmethod
     def tree_unflatten(cls, aux_data, children):
         """Recreates an instance of the class from flatten representation"""
-        if children:
-            return cls(
-                xmin=children[0],
-                deltax=children[1],
-                ymin=children[2],
-                deltay=children[3],
-            )
-        else:
-            return cls()
+        ret = cls.__new__(cls)
+        ret.xmin = children[0]
+        ret.deltax = children[1]
+        ret.ymin = children[2]
+        ret.deltay = children[3]
+        ret._isdefined = children[4]
+        ret._isstatic = aux_data["isstatic"]
+
+        return ret
 
     @classmethod
     def from_galsim(cls, galsim_bounds):
@@ -402,25 +379,205 @@ class Bounds:
         return self._isstatic
 
 
+def _bounds_and_op_dynamic(self, other):
+    xmin = jnp.maximum(self.xmin, other.xmin)
+    xmax = jnp.minimum(self.xmax, other.xmax)
+    ymin = jnp.maximum(self.ymin, other.ymin)
+    ymax = jnp.minimum(self.ymax, other.ymax)
+
+    is_defined = (
+        jnp.array(self.isDefined())
+        & jnp.array(other.isDefined())
+        & jnp.array(ymin <= ymax)
+        & jnp.array(xmin <= xmax)
+    )
+    xmin = jnp.where(
+        is_defined,
+        xmin,
+        0.0,
+    )
+    xmax = jnp.where(
+        is_defined,
+        xmax,
+        0.0,
+    )
+    ymin = jnp.where(
+        is_defined,
+        ymin,
+        0.0,
+    )
+    ymax = jnp.where(
+        is_defined,
+        ymax,
+        0.0,
+    )
+
+    cls = self.__class__
+    if isinstance(self, BoundsI):
+        # we use the class constructor here to ensure we properly convert
+        # bounds shape to static ints
+        ret = cls(
+            xmin=xmin,
+            deltax=xmax - xmin + 1,
+            ymin=ymin,
+            deltay=ymax - ymin + 1,
+        )
+        # we have to do a conversion to static bools here too
+        with jax.ensure_compile_time_eval():
+            ret._isdefined = bool(is_defined.item())
+    else:
+        ret = cls.__new__(cls)
+        ret.xmin = xmin
+        ret.deltax = xmax - xmin
+        ret.ymin = ymin
+        ret.deltay = ymax - ymin
+        ret._isdefined = is_defined
+        ret._isstatic = False
+
+    return ret
+
+
+def _bounds_bounds_add_op_dynamic(self, other):
+    def _ret_correct_attr(self_isdef, self_attr, other_isdef, other_attr, op):
+        return jnp.where(
+            ~jnp.array(other_isdef),
+            self_attr,
+            jnp.where(jnp.array(self_isdef), op(self_attr, other_attr), other_attr),
+        )
+
+    xmin = _ret_correct_attr(
+        self._isdefined, self.xmin, other._isdefined, other.xmin, jnp.minimum
+    )
+    xmax = _ret_correct_attr(
+        self._isdefined, self.xmax, other._isdefined, other.xmax, jnp.maximum
+    )
+    ymin = _ret_correct_attr(
+        self._isdefined, self.ymin, other._isdefined, other.ymin, jnp.minimum
+    )
+    ymax = _ret_correct_attr(
+        self._isdefined, self.ymax, other._isdefined, other.ymax, jnp.maximum
+    )
+
+    cls = self.__class__
+    if isinstance(self, BoundsI):
+        # we use the class constructor here to ensure we properly convert
+        # bounds shape to static ints
+        ret = cls(
+            xmin=xmin,
+            deltax=xmax - xmin + 1,
+            ymin=ymin,
+            deltay=ymax - ymin + 1,
+        )
+        is_defined = jnp.where(
+            ~jnp.array(other._isdefined),
+            jnp.array(self._isdefined),
+            jnp.where(
+                jnp.array(self._isdefined),
+                jnp.array(ret.deltax >= 1) & jnp.array(ret.deltay >= 1),
+                jnp.array(other._isdefined),
+            ),
+        )
+        # we have to do a conversion to static bools here too
+        with jax.ensure_compile_time_eval():
+            ret._isdefined = bool(is_defined.item())
+    else:
+        ret = cls.__new__(cls)
+        ret.xmin = xmin
+        ret.deltax = xmax - xmin
+        ret.ymin = ymin
+        ret.deltay = ymax - ymin
+        ret._isdefined = jnp.where(
+            ~jnp.array(other._isdefined),
+            jnp.array(self._isdefined),
+            jnp.where(
+                jnp.array(self._isdefined),
+                jnp.array(ret.deltax >= 0) & jnp.array(ret.deltay >= 0),
+                jnp.array(other._isdefined),
+            ),
+        )
+        ret._isstatic = False
+
+    return ret
+
+
+def _bounds_pos_add_op_dynamic(self, other):
+    xmin = jnp.where(
+        self._isdefined,
+        jnp.minimum(self.xmin, other.x),
+        other.x,
+    )
+    xmax = jnp.where(
+        self._isdefined,
+        jnp.maximum(self.xmax, other.x),
+        other.x,
+    )
+    ymin = jnp.where(
+        self._isdefined,
+        jnp.minimum(self.ymin, other.y),
+        other.y,
+    )
+    ymax = jnp.where(
+        self._isdefined,
+        jnp.maximum(self.ymax, other.y),
+        other.y,
+    )
+
+    cls = self.__class__
+    if isinstance(self, BoundsI):
+        # we use the class constructor here to ensure we properly convert
+        # bounds shape to static ints
+        ret = cls(
+            xmin=xmin,
+            deltax=xmax - xmin + 1,
+            ymin=ymin,
+            deltay=ymax - ymin + 1,
+        )
+        is_defined = jnp.where(
+            jnp.array(self._isdefined),
+            jnp.array(ret.deltax >= 1) & jnp.array(ret.deltay >= 1),
+            jnp.array(True),
+        )
+        # we have to do a conversion to static bools here too
+        with jax.ensure_compile_time_eval():
+            ret._isdefined = bool(is_defined.item())
+    else:
+        ret = cls.__new__(cls)
+        ret.xmin = xmin
+        ret.deltax = xmax - xmin
+        ret.ymin = ymin
+        ret.deltay = ymax - ymin
+        ret._isdefined = jnp.where(
+            self._isdefined,
+            jnp.array(ret.deltax >= 0) & jnp.array(ret.deltay >= 0),
+            jnp.array(True),
+        )
+        ret._isstatic = False
+
+    return ret
+
+
 @implements(_galsim.BoundsD, lax_description=BOUNDS_LAX_DESCR)
 @register_pytree_node_class
 class BoundsD(Bounds):
     _pos_class = PositionD
 
     def __init__(self, *args, **kwargs):
+        do_isdefined = self._parse_args(*args, **kwargs)
+        self.xmin = cast_to_float(jnp.array(self.xmin))
+        self.deltax = cast_to_float(jnp.array(self.deltax))
+        self.ymin = cast_to_float(jnp.array(self.ymin))
+        self.deltay = cast_to_float(jnp.array(self.deltay))
+        if do_isdefined:
+            self._isdefined = (self.deltax >= 0) & (self.deltay >= 0)
+        self._isdefined = jnp.array(self._isdefined)
         self._isstatic = False
-        self._parse_args(*args, **kwargs)
-        self.xmin = cast_to_float(self.xmin)
-        self.deltax = cast_to_float(self.deltax)
-        self.ymin = cast_to_float(self.ymin)
-        self.deltay = cast_to_float(self.deltay)
 
     def _check_scalar(self, x, name):
         try:
             if (
-                isinstance(x, jax.Array)
+                isinstance(x, (jax.Array, jnp.ndarray, np.ndarray))
                 and x.shape == ()
-                and x.dtype.name in ["float32", "float64", "float"]
+                and jnp.issubdtype(jnp.array(x).dtype, jnp.floating)
             ):
                 return
             elif x == float(x):
@@ -453,7 +610,17 @@ class BoundsD(Bounds):
         return PositionD((self.xmax + self.xmin) / 2.0, (self.ymax + self.ymin) / 2.0)
 
     def __repr__(self):
-        if self.isDefined():
+        # sometimes we will encounter a tracer here
+        # and so we suppress any boolean conversion errors
+        try:
+            if jnp.any(self.isDefined()):
+                print_full = True
+            else:
+                print_full = False
+        except Exception:
+            print_full = True
+
+        if print_full:
             return "galsim.%s(%r, %r, %r, %r)" % (
                 self.__class__.__name__,
                 ensure_hashable(self.xmin),
@@ -465,7 +632,17 @@ class BoundsD(Bounds):
             return "galsim.%s()" % (self.__class__.__name__)
 
     def __str__(self):
-        if self.isDefined():
+        # sometimes we will encounter a tracer here
+        # and so we suppress any boolean conversion errors
+        try:
+            if jnp.any(self.isDefined()):
+                print_full = True
+            else:
+                print_full = False
+        except Exception:
+            print_full = True
+
+        if print_full:
             return "galsim.%s(%s,%s,%s,%s)" % (
                 self.__class__.__name__,
                 ensure_hashable(self.xmin),
@@ -475,6 +652,26 @@ class BoundsD(Bounds):
             )
         else:
             return "galsim.%s()" % (self.__class__.__name__)
+
+    def __eq__(self, other):
+        if self is other:
+            return jnp.array(True)
+        elif isinstance(other, self.__class__):
+            self_isdef = jnp.array(self.isDefined())
+            other_isdef = jnp.array(other.isDefined())
+            return (
+                self_isdef
+                & other_isdef
+                & jnp.array(self.xmin == other.xmin)
+                & jnp.array(self.ymin == other.ymin)
+                & jnp.array(self.xmax == other.xmax)
+                & jnp.array(self.ymax == other.ymax)
+            ) | ((~self_isdef) & (~other_isdef))
+        else:
+            return jnp.array(False)
+
+    def __ne__(self, other):
+        return ~self.__eq__(other)
 
     def __hash__(self):
         return hash(
@@ -487,6 +684,10 @@ class BoundsD(Bounds):
             )
         )
 
+    def _getinitargs(self):
+        # defined only for galsim test suite
+        return (self.xmin, self.xmax, self.ymin, self.ymax)
+
 
 @implements(_galsim.BoundsI, lax_description=BOUNDS_LAX_DESCR)
 @register_pytree_node_class
@@ -494,47 +695,51 @@ class BoundsI(Bounds):
     _pos_class = PositionI
 
     def __init__(self, *args, **kwargs):
-        # initial setting to let stuff pass through freely
+        # we set these variables to disable type checking and conversion
+        # for xmin/ymin while we initialize the object
         self._isstatic = True
-
+        self._dotypechecking = False
         self._parse_args(*args, **kwargs)
 
-        self.deltax = cast_to_float(self.deltax)
-        self.deltay = cast_to_float(self.deltay)
-        if (self.deltax != int(self.deltax)) or (self.deltay != int(self.deltay)):
-            raise TypeError("BoundsI must be initialized with integer values")
-        self.deltax = cast_to_int(self.deltax)
-        self.deltay = cast_to_int(self.deltay)
-
-        if not (
-            isinstance(
-                self._xmin,
-                (int, float, np.floating, np.integer),
-            )
-            and isinstance(
-                self._ymin,
-                (int, float, np.floating, np.integer),
-            )
-        ):
-            self._isstatic = False
-
         # validate inputs are ints
-        self._xmin = check_is_int_then_cast(
-            self._xmin, "BoundsI must be initialized with integer values"
+        self.deltax = check_is_int_then_cast(
+            self.deltax, "BoundsI must be initialized with integer values"
         )
-        self._ymin = check_is_int_then_cast(
-            self._ymin, "BoundsI must be initialized with integer values"
+        self.deltay = check_is_int_then_cast(
+            self.deltay, "BoundsI must be initialized with integer values"
+        )
+        self.xmin = check_is_int_then_cast(
+            self.xmin, "BoundsI must be initialized with integer values"
+        )
+        self.ymin = check_is_int_then_cast(
+            self.ymin, "BoundsI must be initialized with integer values"
         )
 
-        if self.deltax < 1 and self.deltay < 1:
-            self._isdefined = False
+        # attempt to convert widths to static values
+        # this will raise if values are being traced
+        # we let that error propagate instead of reraising
+        # our own.
+        with jax.ensure_compile_time_eval():
+            if not isinstance(self.deltax, int):
+                self.deltax = int(self.deltax.item())
+            if not isinstance(self.deltay, int):
+                self.deltay = int(self.deltay.item())
+
+        self._isdefined = self.deltax >= 1 and self.deltay >= 1
+
+        # now we compute these properties correctly and turn on type checking
+        if isinstance(self._xmin, int) and isinstance(self._ymin, int):
+            self._isstatic = True
+        else:
+            self._isstatic = False
+        self._dotypechecking = True
 
     def _check_scalar(self, x, name):
         try:
             if (
-                isinstance(x, jax.Array)
+                isinstance(x, (jax.Array, jnp.ndarray, np.ndarray))
                 and x.shape == ()
-                and x.dtype.name in ["int32", "int64", "int"]
+                and jnp.issubdtype(jnp.array(x).dtype, jnp.integer)
             ):
                 return
             elif x == int(x):
@@ -545,58 +750,92 @@ class BoundsI(Bounds):
 
     def numpyShape(self):
         "A simple utility function to get the numpy shape that corresponds to this `Bounds` object."
-        if self.isDefined():
+        if self._isdefined:
             return self.deltay, self.deltax
         else:
             return 0, 0
 
+    # we store xmin internally as a float even though it is an int
+    # so that autodiff works properly (needs floats in general)
     @property
     def xmin(self):
         if self._isstatic:
             return self._xmin
         else:
-            return jnp.astype(self._xmin, jnp.int_)
+            return jnp.astype(self._xmin, int)
 
     @xmin.setter
     def xmin(self, value):
+        value = check_is_int_then_cast(value, "BoundsI xmin values must be integers")
         if self._isstatic:
+            if self._dotypechecking and not isinstance(value, int):
+                raise RuntimeError(
+                    "Static `BoundsI` classes cannot be converted to dynamic ones."
+                )
             self._xmin = value
         else:
-            self._xmin = jnp.astype(value, jnp.float_)
+            self._xmin = jnp.astype(value, float)
 
     @property
     def xmax(self):
-        return self.xmin + self.deltax - 1
+        return cast_to_int(self.xmin + self.deltax - 1)
 
     @xmax.setter
     def xmax(self, value):
         self.deltax = value - self.xmin + 1
+        self.deltax = check_is_int_then_cast(
+            self.deltax, "BoundsI xmax must be set to an integer value"
+        )
+        # attempt to convert widths to static values
+        # this will raise if values are being traced
+        # we let that error propagate instead of reraising
+        # our own.
+        with jax.ensure_compile_time_eval():
+            if not isinstance(self.deltax, int):
+                self.deltax = int(self.deltax.item())
 
+    # we store ymin internally as a float even though it is an int
+    # so that autodiff works properly (needs floats in general)
     @property
     def ymin(self):
         if self._isstatic:
             return self._ymin
         else:
-            return jnp.astype(self._ymin, jnp.int_)
+            return jnp.astype(self._ymin, int)
 
     @ymin.setter
     def ymin(self, value):
+        value = check_is_int_then_cast(value, "BoundsI ymin values must be integers")
         if self._isstatic:
+            if self._dotypechecking and not isinstance(value, int):
+                raise RuntimeError(
+                    "Static `BoundsI` classes cannot be converted to dynamic ones."
+                )
             self._ymin = value
         else:
-            self._ymin = jnp.astype(value, jnp.float_)
+            self._ymin = jnp.astype(value, float)
 
     @property
     def ymax(self):
-        return self.ymin + self.deltay - 1
+        return cast_to_int(self.ymin + self.deltay - 1)
 
     @ymax.setter
     def ymax(self, value):
         self.deltay = value - self.ymin + 1
+        self.deltay = check_is_int_then_cast(
+            self.deltay, "BoundsI ymax must be set to an integer value"
+        )
+        # attempt to convert widths to static values
+        # this will raise if values are being traced
+        # we let that error propagate instead of reraising
+        # our own.
+        with jax.ensure_compile_time_eval():
+            if not isinstance(self.deltay, int):
+                self.deltay = int(self.deltay.item())
 
     def _area(self):
         # Remember the + 1 this time to include the pixels on both edges of the bounds.
-        if not self.isDefined():
+        if not self._isdefined:
             return 0
         else:
             return self.deltax * self.deltay
@@ -613,58 +852,8 @@ class BoundsI(Bounds):
             self.ymin + self.deltay // 2,
         )
 
-    def tree_flatten(self):
-        """This function flattens the Bounds into a list of children
-        nodes that will be traced by JAX and auxiliary static data."""
-        # Define the children nodes of the PyTree that need tracing
-        if self.isDefined():
-            if self._isstatic:
-                # Define the children nodes of the PyTree that need tracing
-                children = tuple()
-
-                # Define auxiliary static data that doesn’t need to be traced
-                aux_data = {
-                    "xmin": self._xmin,
-                    "ymin": self._ymin,
-                    "deltax": self.deltax,
-                    "deltay": self.deltay,
-                }
-            else:
-                children = (self._xmin, self._ymin)
-                # Define auxiliary static data that doesn’t need to be traced
-                aux_data = {"deltax": self.deltax, "deltay": self.deltay}
-        else:
-            children = tuple()
-            aux_data = None
-
-        return (children, aux_data)
-
-    @classmethod
-    def tree_unflatten(cls, aux_data, children):
-        """Recreates an instance of the class from flatten representation"""
-        if aux_data is not None:
-            ret = cls.__new__(cls)
-            if "xmin" in aux_data and "ymin" in aux_data:
-                ret._isstatic = True
-                ret._xmin = aux_data["xmin"]
-                ret._ymin = aux_data["ymin"]
-            else:
-                ret._isstatic = False
-                ret._xmin = children[0]
-                ret._ymin = children[1]
-            ret.deltax = aux_data["deltax"]
-            ret.deltay = aux_data["deltay"]
-            if ret.deltax < 1 and ret.deltay < 1:
-                ret._isdefined = False
-            else:
-                ret._isdefined = True
-        else:
-            ret = cls()
-
-        return ret
-
     def __repr__(self):
-        if self.isDefined():
+        if self._isdefined:
             return "galsim.%s(xmin=%r, deltax=%r, ymin=%r, deltay=%r)" % (
                 self.__class__.__name__,
                 ensure_hashable(self.xmin),
@@ -676,7 +865,7 @@ class BoundsI(Bounds):
             return "galsim.%s()" % (self.__class__.__name__)
 
     def __str__(self):
-        if self.isDefined():
+        if self._isdefined:
             return "galsim.%s(xmin=%s, deltax=%s, ymin=%s, deltay=%s)" % (
                 self.__class__.__name__,
                 ensure_hashable(self.xmin),
@@ -687,16 +876,45 @@ class BoundsI(Bounds):
         else:
             return "galsim.%s()" % (self.__class__.__name__)
 
-    def _getinitargs(self):
-        if self.isDefined():
-            return (self.xmin, self.deltax, self.ymin, self.deltay)
-        else:
-            return ()
-
     def __eq__(self, other):
-        return self is other or (
-            isinstance(other, BoundsI) and self._getinitargs() == other._getinitargs()
-        )
+        if self is other:
+            if self._isstatic:
+                return True
+            else:
+                return jnp.array(True)
+        elif isinstance(other, self.__class__):
+            if self._isstatic and other._isstatic:
+                return (
+                    self._isdefined
+                    and other._isdefined
+                    and self.xmin == other.xmin
+                    and self.ymin == other.ymin
+                    and self.deltax == other.deltax
+                    and self.deltay == other.deltay
+                ) or ((not self._isdefined) and (not other._isdefined))
+            else:
+                self_isdef = jnp.array(self.isDefined())
+                other_isdef = jnp.array(other.isDefined())
+                return (
+                    self_isdef
+                    & other_isdef
+                    & jnp.array(self.xmin == other.xmin)
+                    & jnp.array(self.ymin == other.ymin)
+                    & jnp.array(self.deltax == other.deltax)
+                    & jnp.array(self.deltay == other.deltay)
+                ) | ((~self_isdef) & (~other_isdef))
+        else:
+            if self._isstatic:
+                return False
+            else:
+                return jnp.array(False)
+
+    def __ne__(self, other):
+        eqval = self.__eq__(other)
+        if isinstance(eqval, bool):
+            return not eqval
+        else:
+            return ~eqval
 
     def __hash__(self):
         return hash(
@@ -708,3 +926,39 @@ class BoundsI(Bounds):
                 ensure_hashable(self.deltay),
             )
         )
+
+    def tree_flatten(self):
+        """This function flattens the Bounds into a list of children
+        nodes that will be traced by JAX and auxiliary static data."""
+        aux_data = {"isstatic": self._isstatic}
+
+        # Define the children nodes of the PyTree that need tracing
+        if self._isstatic:
+            children = tuple()
+            aux_data["xmin"] = self._xmin
+            aux_data["ymin"] = self._ymin
+        else:
+            children = (self._xmin, self._ymin)
+
+        # untraced aux data
+        aux_data["deltax"] = self.deltax
+        aux_data["deltay"] = self.deltay
+        aux_data["isdefined"] = self._isdefined
+
+        return (children, aux_data)
+
+    @classmethod
+    def tree_unflatten(cls, aux_data, children):
+        """Recreates an instance of the class from flatten representation"""
+        ret = cls.__new__(cls)
+        if aux_data["isstatic"]:
+            ret._xmin = aux_data["xmin"]
+            ret._ymin = aux_data["ymin"]
+        else:
+            ret._xmin = children[0]
+            ret._ymin = children[1]
+        ret.deltax = aux_data["deltax"]
+        ret.deltay = aux_data["deltay"]
+        ret._isdefined = aux_data["isdefined"]
+        ret._isstatic = aux_data["isstatic"]
+        return ret

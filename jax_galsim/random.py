@@ -9,7 +9,7 @@ import jax.random as jrandom
 import numpy as np
 from jax.tree_util import register_pytree_node_class
 
-from jax_galsim.core.utils import implements
+from jax_galsim.core.utils import STATIC_SCALAR_TYPES, implements, is_equal_with_arrays
 
 try:
     from jax.extend.random import wrap_key_data
@@ -95,7 +95,7 @@ class BaseDeviate:
     def seed(self, seed=None):
         if seed is None:
             self._seed(seed=seed)
-        elif isinstance(seed, (int, float, np.integer, np.floating)):
+        elif isinstance(seed, STATIC_SCALAR_TYPES):
             if seed == int(seed):
                 self._seed(seed=int(seed))
             else:
@@ -244,16 +244,17 @@ class BaseDeviate:
         return self.duplicate()
 
     def __eq__(self, other):
-        return self is other or (
-            isinstance(other, self.__class__)
-            and jnp.array_equal(
+        if self is other:
+            return jnp.array(True)
+        elif isinstance(other, self.__class__):
+            return jnp.array_equal(
                 jrandom.key_data(self._key), jrandom.key_data(other._key)
-            )
-            and self._params == other._params
-        )
+            ) & is_equal_with_arrays(self._params, other._params)
+        else:
+            return jnp.array(False)
 
     def __ne__(self, other):
-        return not self.__eq__(other)
+        return ~self.__eq__(other)
 
     __hash__ = None
 

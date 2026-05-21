@@ -112,10 +112,13 @@ class AngleUnit(object):
             return "galsim.AngleUnit(%r)" % (ensure_hashable(self.value),)
 
     def __eq__(self, other):
-        return isinstance(other, AngleUnit) and jnp.array_equal(self.value, other.value)
+        if not isinstance(other, AngleUnit):
+            return jnp.array(False)
+        else:
+            return jnp.array_equal(self.value, other.value)
 
     def __ne__(self, other):
-        return not self.__eq__(other)
+        return ~self.__eq__(other)
 
     def __hash__(self):
         return hash(("galsim.AngleUnit", ensure_hashable(self.value)))
@@ -253,10 +256,13 @@ class Angle(object):
         return "galsim.Angle(%r, galsim.radians)" % (ensure_hashable(self.rad),)
 
     def __eq__(self, other):
-        return isinstance(other, Angle) and jnp.array_equal(self.rad, other.rad)
+        if not isinstance(other, Angle):
+            return jnp.array(False)
+        else:
+            return jnp.array_equal(self.rad, other.rad)
 
     def __ne__(self, other):
-        return not self.__eq__(other)
+        return ~self.__eq__(other)
 
     def __le__(self, other):
         if not isinstance(other, Angle):

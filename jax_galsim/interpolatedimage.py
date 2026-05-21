@@ -328,17 +328,24 @@ class InterpolatedImage(Transformation, metaclass=DirMeta):
         return "galsim.InterpolatedImage(image=%s, flux=%s)" % (self.image, self.flux)
 
     def __eq__(self, other):
-        return self is other or (
-            isinstance(other, InterpolatedImage)
-            and self._xim == other._xim
-            and self.x_interpolant == other.x_interpolant
-            and self.k_interpolant == other.k_interpolant
-            and self.flux == other.flux
-            and self._original._offset == other._original._offset
-            and self.gsparams == other.gsparams
-            and self._stepk == other._stepk
-            and self._maxk == other._maxk
-        )
+        if self is other:
+            return jnp.array(True)
+        elif isinstance(other, InterpolatedImage):
+            return (
+                jnp.array(self._xim == other._xim)
+                & jnp.array(self.x_interpolant == other.x_interpolant)
+                & jnp.array(self.k_interpolant == other.k_interpolant)
+                & jnp.array_equal(self.flux, other.flux)
+                & jnp.array(self._original._offset == other._original._offset)
+                & jnp.array(self.gsparams == other.gsparams)
+                & jnp.array_equal(self._stepk, other._stepk)
+                & jnp.array_equal(self._maxk, other._maxk)
+            )
+        else:
+            return jnp.array(False)
+
+    def __ne__(self, other):
+        return ~self.__eq__(other)
 
     def tree_flatten(self):
         """This function flattens the InterpolatedImage into a list of children

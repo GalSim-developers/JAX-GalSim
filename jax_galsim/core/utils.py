@@ -8,12 +8,14 @@ import jax
 import jax.numpy as jnp
 import numpy as np
 
+STATIC_SCALAR_TYPES = (int, float, np.integer, np.floating)
+
 
 def check_is_int_then_cast(val, msg):
     """Check if `val` is an integer, raise if not, otherwise cast to int."""
     val = cast_to_float(val)
 
-    if isinstance(val, (int, float, np.integer, np.floating)):
+    if isinstance(val, STATIC_SCALAR_TYPES):
         # for simple inputs, we can check direct in python
         if val != int(val):
             raise TypeError(msg)
@@ -23,7 +25,7 @@ def check_is_int_then_cast(val, msg):
         val = jnp.array(val)
         val = equinox.error_if(
             val,
-            np.any(val != jnp.trunc(val)),
+            jnp.any(val != jnp.trunc(val)),
             msg,
         )
         val = val.astype(int)
@@ -43,9 +45,7 @@ def cast_numpy_array_to_native_byte_order(arr):
 
 
 def _cast_to_type(x, typ, accept_strings=False):
-    if isinstance(x, (int, float, np.integer, np.floating)) or (
-        accept_strings and isinstance(x, str)
-    ):
+    if isinstance(x, STATIC_SCALAR_TYPES) or (accept_strings and isinstance(x, str)):
         return typ(x)
     else:
         return jnp.astype(x, typ)
@@ -77,52 +77,61 @@ def cast_to_int(x, accept_strings=False):
     return _cast_to_type(x, int, accept_strings=accept_strings)
 
 
-def is_equal_with_arrays(x, y):
+def is_equal_with_arrays(x, y, currval=None, no_jax=False):
     """Return True if the data is equal, False otherwise. Handles jax.Array types."""
+    if no_jax:
+        arr_func = np.array
+        arr_eq_func = np.array_equal
+    else:
+        arr_func = jnp.array
+        arr_eq_func = jnp.array_equal
+
+    if currval is None:
+        currval = arr_func(True)
+
     if isinstance(x, list):
         if isinstance(y, list) and len(x) == len(y):
             for vx, vy in zip(x, y):
-                if not is_equal_with_arrays(vx, vy):
-                    return False
-            return True
+                currval &= is_equal_with_arrays(vx, vy, currval=currval, no_jax=no_jax)
         else:
-            return False
+            currval &= arr_func(False)
     elif isinstance(x, tuple):
         if isinstance(y, tuple) and len(x) == len(y):
             for vx, vy in zip(x, y):
-                if not is_equal_with_arrays(vx, vy):
-                    return False
-            return True
+                currval &= is_equal_with_arrays(vx, vy, currval=currval, no_jax=no_jax)
         else:
-            return False
+            currval &= arr_func(False)
     elif isinstance(x, set):
         if isinstance(y, set) and len(x) == len(y):
             for vx, vy in zip(sorted(x), sorted(y)):
-                if not is_equal_with_arrays(vx, vy):
-                    return False
-            return True
+                currval &= is_equal_with_arrays(vx, vy, currval=currval, no_jax=no_jax)
         else:
-            return False
+            currval &= arr_func(False)
     elif isinstance(x, dict):
         if isinstance(y, dict) and len(x) == len(y):
             for kx, vx in x.items():
-                if kx not in y or (not is_equal_with_arrays(vx, y[kx])):
-                    return False
-            return True
+                if kx not in y:
+                    currval &= arr_func(False)
+                else:
+                    currval &= is_equal_with_arrays(
+                        vx, y[kx], currval=currval, no_jax=no_jax
+                    )
         else:
-            return False
+            currval &= jnp.array(False)
     elif isinstance(x, jax.Array) and jnp.ndim(x) > 0:
         if isinstance(y, jax.Array) and y.shape == x.shape:
-            return jnp.array_equal(x, y)
+            currval &= arr_eq_func(x, y)
         else:
-            return False
+            currval &= arr_func(False)
     elif (isinstance(x, jax.Array) and jnp.ndim(x) == 0) or (
         isinstance(y, jax.Array) and jnp.ndim(y) == 0
     ):
         # this case covers comparing an array scalar to a python scalar or vice versa
-        return jnp.array_equal(x, y)
+        currval &= arr_eq_func(x, y)
     else:
-        return x == y
+        currval &= arr_func(x == y)
+
+    return currval
 
 
 def _convert_to_numpy_nan(x):

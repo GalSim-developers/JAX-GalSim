@@ -126,6 +126,16 @@ def _run_object_checks(obj, cls, kind):
 
         # check that we can hash the object
         hash(obj)
+
+        # check that val jax array
+        if (
+            hasattr(obj, "isStatic")
+            and obj.isStatic()
+            or isinstance(obj, jax_galsim.Sensor)
+        ):
+            assert isinstance(eval(repr(obj)) == obj, bool)
+        else:
+            assert isinstance(eval(repr(obj)) == obj, jnp.ndarray)
     elif kind == "to-from-galsim":
         gs_obj = obj.to_galsim()
         jgs_obj = obj.from_galsim(gs_obj)
@@ -141,6 +151,14 @@ def _run_object_checks(obj, cls, kind):
 
         # check that we cannot hash the object
         assert obj.__hash__ is None
+
+        # check that val jax array
+        if (hasattr(obj, "isStatic") and obj.isStatic()) or isinstance(
+            obj, jax_galsim.Sensor
+        ):
+            assert isinstance(eval(repr(obj)) == obj, bool)
+        else:
+            assert isinstance(eval(repr(obj)) == obj, jnp.ndarray)
     elif kind == "pickle-eval-repr-wcs":
         import jax_galsim as galsim  # noqa: F401
 
@@ -152,6 +170,16 @@ def _run_object_checks(obj, cls, kind):
 
         # check that we cannot hash the object
         hash(obj)
+
+        # check that val jax array
+        if (
+            hasattr(obj, "isStatic")
+            and obj.isStatic()
+            or isinstance(obj, jax_galsim.Sensor)
+        ):
+            assert isinstance(eval(repr(obj)) == obj, bool)
+        else:
+            assert isinstance(eval(repr(obj)) == obj, jnp.ndarray)
     elif kind == "jax-compatible":
         # JAX tracing should be an identity
         assert cls.tree_unflatten(*((obj.tree_flatten())[::-1])) == obj
@@ -359,13 +387,9 @@ def _run_object_checks(obj, cls, kind):
                     if issubclass(cls, jax_galsim.Bounds) and method in [
                         "xmax",
                         "ymax",
-                        "isStatic",
-                    ]:
-                        continue
-
-                    if issubclass(cls, jax_galsim.BoundsI) and method in [
                         "xmin",
                         "ymin",
+                        "isStatic",
                     ]:
                         continue
 
@@ -1122,3 +1146,9 @@ def test_api_gsparams():
         assert getattr(jgsp, k) == v
         assert getattr(gsp, k) == v
         assert getattr(jjgsp, k) == v
+
+    assert jgsp == jjgsp
+    assert isinstance(jgsp == jjgsp, bool)
+
+    kwargs["minimum_fft_size"] = 126
+    assert jgsp != jax_galsim.GSParams(**kwargs)

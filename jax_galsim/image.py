@@ -584,14 +584,12 @@ class Image(object):
             raise _galsim.GalSimUndefinedBoundsError(
                 "Attempt to access subImage of undefined image"
             )
-        if (
-            self.bounds.isStatic()
-            and bounds.isStatic()
-            and not self.bounds.includes(bounds)
-        ):
-            raise _galsim.GalSimBoundsError(
-                "Attempt to access subImage not (fully) in image", bounds, self.bounds
-            )
+        inc_val = jnp.array(self.bounds.includes(bounds))
+        inc_val = equinox.error_if(
+            inc_val,
+            jnp.any(~inc_val),
+            "Attempt to access subImage not (fully) in image",
+        )
 
         if self.bounds.isStatic() and bounds.isStatic():
             i1 = bounds.ymin - self.ymin
@@ -623,14 +621,14 @@ class Image(object):
             raise _galsim.GalSimUndefinedBoundsError(
                 "Attempt to access values of an undefined image"
             )
-        if (
-            self.bounds.isStatic()
-            and bounds.isStatic()
-            and not self.bounds.includes(bounds)
-        ):
-            raise _galsim.GalSimBoundsError(
-                "Attempt to access subImage not (fully) in image", bounds, self.bounds
-            )
+
+        inc_val = jnp.array(self.bounds.includes(bounds))
+        inc_val = equinox.error_if(
+            inc_val,
+            jnp.any(~inc_val),
+            "Attempt to access subImage not (fully) in image",
+        )
+
         if not isinstance(rhs, Image):
             raise TypeError("Trying to copyFrom a non-image")
         if bounds.numpyShape() != rhs.bounds.numpyShape():
@@ -848,17 +846,23 @@ class Image(object):
             )
 
         # TODO: figure out how to do FFT at fixed size and then reconstruct
-        # the result
-        No2 = max(
-            max(
-                -self.bounds.xmin,
-                self.bounds.xmax + 1,
-            ),
-            max(
-                -self.bounds.ymin,
-                self.bounds.ymax + 1,
-            ),
-        )
+        # the result. - MRB
+        # This has to be a static known constant since it is an array size
+        # so we ensure it is evaluated at compile-time and extract it
+        # from the array.
+        with jax.ensure_compile_time_eval():
+            No2 = jnp.maximum(
+                jnp.maximum(
+                    -self.bounds.xmin,
+                    self.bounds.xmax + 1,
+                ),
+                jnp.maximum(
+                    -self.bounds.ymin,
+                    self.bounds.ymax + 1,
+                ),
+            )
+            if not isinstance(No2, int):
+                No2 = int(No2.item())
 
         full_bounds = BoundsI(xmin=-No2, deltax=2 * No2, ymin=-No2, deltay=2 * No2)
         if self.bounds == full_bounds:
@@ -902,17 +906,24 @@ class Image(object):
             raise _galsim.GalSimError(
                 "calculate_inverse_fft requires that the image has a PixelScale wcs."
             )
-        if not self.bounds.includes(0, 0):
-            raise _galsim.GalSimBoundsError(
-                "calculate_inverse_fft requires that the image includes (0,0)",
-                PositionI(0, 0),
-                self.bounds,
-            )
 
-        No2 = max(
-            max(self.bounds.xmax, -self.bounds.ymin),
-            self.bounds.ymax,
+        inc_val = jnp.array(self.bounds.includes(0, 0))
+        inc_val = equinox.error_if(
+            inc_val,
+            jnp.any(~inc_val),
+            "calculate_inverse_fft requires that the image includes (0,0)",
         )
+
+        # This has to be a static known constant since it is an array size
+        # so we ensure it is evaluated at compile-time and extract it
+        # from the array.
+        with jax.ensure_compile_time_eval():
+            No2 = jnp.maximum(
+                jnp.maximum(self.bounds.xmax, -self.bounds.ymin),
+                self.bounds.ymax,
+            )
+            if not isinstance(No2, int):
+                No2 = int(No2.item())
 
         target_bounds = BoundsI(xmin=0, deltax=No2 + 1, ymin=-No2, deltay=2 * No2)
         if self.bounds == target_bounds:
@@ -1067,12 +1078,13 @@ class Image(object):
             raise _galsim.GalSimUndefinedBoundsError(
                 "Attempt to access values of an undefined image"
             )
-        if not self.bounds.includes(x, y):
-            raise _galsim.GalSimBoundsError(
-                "Attempt to access position not in bounds of image.",
-                PositionI(x, y),
-                self.bounds,
-            )
+        inc_val = jnp.array(self.bounds.includes(x, y))
+        inc_val = equinox.error_if(
+            inc_val,
+            jnp.any(~inc_val),
+            "Attempt to access position not in bounds of image.",
+        )
+
         return self._getValue(x, y)
 
     @implements(_galsim.Image._getValue)
@@ -1090,10 +1102,13 @@ class Image(object):
         pos, value = parse_pos_args(
             args, kwargs, "x", "y", integer=True, others=["value"]
         )
-        if not self.bounds.includes(pos):
-            raise _galsim.GalSimBoundsError(
-                "Attempt to set position not in bounds of image", pos, self.bounds
-            )
+        inc_val = jnp.array(self.bounds.includes(pos))
+        inc_val = equinox.error_if(
+            inc_val,
+            jnp.any(~inc_val),
+            "Attempt to set position not in bounds of image",
+        )
+
         self._setValue(pos.x, pos.y, value)
 
     @implements(_galsim.Image._setValue)
@@ -1111,10 +1126,13 @@ class Image(object):
         pos, value = parse_pos_args(
             args, kwargs, "x", "y", integer=True, others=["value"]
         )
-        if not self.bounds.includes(pos):
-            raise _galsim.GalSimBoundsError(
-                "Attempt to set position not in bounds of image", pos, self.bounds
-            )
+        inc_val = jnp.array(self.bounds.includes(pos))
+        inc_val = equinox.error_if(
+            inc_val,
+            jnp.any(~inc_val),
+            "Attempt to set position not in bounds of image",
+        )
+
         self._addValue(pos.x, pos.y, value)
 
     @implements(_galsim.Image._addValue)
@@ -1184,18 +1202,23 @@ class Image(object):
         # >>> assert galsim.ImageD(int_array) == galsim.ImageF(int_array) # passes
         # >>> assert galsim.ImageD(double_array) == galsim.ImageF(double_array) # fails
 
-        return self is other or (
-            isinstance(other, Image)
-            and self.bounds == other.bounds
-            and self.wcs == other.wcs
-            and (
-                not self.bounds.isDefined() or jnp.array_equal(self.array, other.array)
+        if self is other:
+            return jnp.array(True)
+        elif isinstance(other, Image):
+            return (
+                jnp.array(self.bounds == other.bounds)
+                & jnp.array(self.wcs == other.wcs)
+                & (
+                    (~jnp.array(self.bounds.isDefined()))
+                    | jnp.array_equal(self.array, other.array)
+                )
+                & jnp.array(self.isconst == other.isconst)
             )
-            and self.isconst == other.isconst
-        )
+        else:
+            return jnp.array(False)
 
     def __ne__(self, other):
-        return not self.__eq__(other)
+        return ~self.__eq__(other)
 
     @implements(_galsim.Image.transpose)
     def transpose(self):
@@ -1242,16 +1265,8 @@ class Image(object):
     def tree_flatten(self):
         """Flatten the image into a list of values."""
         # Define the children nodes of the PyTree that need tracing
-        if self.bounds.isStatic():
-            children = (self.array, self.wcs)
-            aux_data = {
-                "dtype": self.dtype,
-                "bounds": self.bounds,
-                "isconst": self.isconst,
-            }
-        else:
-            children = (self.array, self.wcs, self.bounds)
-            aux_data = {"dtype": self.dtype, "isconst": self.isconst}
+        children = (self.array, self.wcs, self.bounds)
+        aux_data = {"dtype": self.dtype, "isconst": self.isconst}
         # other routines may add these attributes to images on the fly
         # we have to include them here so that JAX knows how to handle them in jitting etc.
         if hasattr(self, "added_flux"):
@@ -1269,26 +1284,16 @@ class Image(object):
         obj = object.__new__(cls)
         obj._array = children[0]
         obj.wcs = children[1]
-        if "bounds" in aux_data:
-            obj._bounds = aux_data["bounds"]
-            obj._dtype = aux_data["dtype"]
-            obj._is_const = aux_data["isconst"]
-            if len(children) > 2:
-                obj.added_flux = children[2]
-            if "header" in aux_data:
-                obj.header = aux_data["header"]
-            if len(children) > 3:
-                obj.photons = children[3]
-        else:
-            obj._bounds = children[2]
-            obj._dtype = aux_data["dtype"]
-            obj._is_const = aux_data["isconst"]
-            if len(children) > 3:
-                obj.added_flux = children[3]
-            if "header" in aux_data:
-                obj.header = aux_data["header"]
-            if len(children) > 4:
-                obj.photons = children[4]
+        obj._bounds = children[2]
+        obj._dtype = aux_data["dtype"]
+        obj._is_const = aux_data["isconst"]
+        if len(children) > 3:
+            obj.added_flux = children[3]
+        if "header" in aux_data:
+            obj.header = aux_data["header"]
+        if len(children) > 4:
+            obj.photons = children[4]
+
         return obj
 
     @classmethod
@@ -1313,9 +1318,12 @@ class Image(object):
     def to_galsim(self):
         """Create a galsim `Image` from a `jax_galsim.Image` object."""
         wcs = self.wcs.to_galsim() if self.wcs is not None else None
-        return _galsim.Image(
+        ret = _galsim.Image(
             np.asarray(self.array), bounds=self.bounds.to_galsim(), wcs=wcs
         )
+        if hasattr(self, "header"):
+            ret.header = self.header
+        return ret
 
     @implements(
         _galsim.Image.FindAdaptiveMom,
