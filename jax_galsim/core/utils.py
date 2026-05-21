@@ -79,8 +79,6 @@ def cast_to_int(x, accept_strings=False):
 
 def is_equal_with_arrays(x, y, currval=None, no_jax=False):
     """Return True if the data is equal, False otherwise. Handles jax.Array types."""
-    print("x|y|currval:", repr(x), repr(y), repr(currval), flush=True)
-
     if no_jax:
         arr_func = np.array
         arr_eq_func = np.array_equal
@@ -92,28 +90,24 @@ def is_equal_with_arrays(x, y, currval=None, no_jax=False):
         currval = arr_func(True)
 
     if isinstance(x, list):
-        print("list branch", flush=True)
         if isinstance(y, list) and len(x) == len(y):
             for vx, vy in zip(x, y):
                 currval &= is_equal_with_arrays(vx, vy, currval=currval, no_jax=no_jax)
         else:
             currval &= arr_func(False)
     elif isinstance(x, tuple):
-        print("tuple branch", flush=True)
         if isinstance(y, tuple) and len(x) == len(y):
             for vx, vy in zip(x, y):
                 currval &= is_equal_with_arrays(vx, vy, currval=currval, no_jax=no_jax)
         else:
             currval &= arr_func(False)
     elif isinstance(x, set):
-        print("set branch", flush=True)
         if isinstance(y, set) and len(x) == len(y):
             for vx, vy in zip(sorted(x), sorted(y)):
                 currval &= is_equal_with_arrays(vx, vy, currval=currval, no_jax=no_jax)
         else:
             currval &= arr_func(False)
     elif isinstance(x, dict):
-        print("dict branch", flush=True)
         if isinstance(y, dict) and len(x) == len(y):
             for kx, vx in x.items():
                 if kx not in y:
@@ -125,7 +119,6 @@ def is_equal_with_arrays(x, y, currval=None, no_jax=False):
         else:
             currval &= jnp.array(False)
     elif isinstance(x, jax.Array) and jnp.ndim(x) > 0:
-        print("array branch", flush=True)
         if isinstance(y, jax.Array) and y.shape == x.shape:
             currval &= arr_eq_func(x, y)
         else:
@@ -133,11 +126,9 @@ def is_equal_with_arrays(x, y, currval=None, no_jax=False):
     elif (isinstance(x, jax.Array) and jnp.ndim(x) == 0) or (
         isinstance(y, jax.Array) and jnp.ndim(y) == 0
     ):
-        print("array scalar branch", flush=True)
         # this case covers comparing an array scalar to a python scalar or vice versa
         currval &= arr_eq_func(x, y)
     else:
-        print("default branch", flush=True)
         currval &= arr_func(x == y)
 
     return currval
