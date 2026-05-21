@@ -12,7 +12,7 @@ import jax
 import jax.numpy as jnp
 import numpy as np
 from draw_scene_functions import (
-    DUMMY,
+    DUMMY_PARAMS,
     add_results_to_pdf,
     draw_galsim,
     draw_jgs_scan_stamps,
@@ -28,14 +28,16 @@ from tqdm import tqdm
 import jax_galsim as jgs
 
 IMAGE_SLEN = 250
-MAX_N_GALS = 130
 # good image size (isolated galaxy) and stamp size used in scene by galsim differ
-BUFFER = 4
+BUFFER = 3  # sometimes good size below and final stamp size differ by a small amount, IDK why
 BACKGROUND = get_default_lsst_background()
 FFT_SIZE = 128
-BATCH_BINS = (61, 81, 101)
-SUFFIX = f"{IMAGE_SLEN}-{BATCH_BINS[-1]}-scan-cpu-batch-sizes"
+SLEN_BINS = (61, 81, 101)
+MAX_N_GALS = 150
+MAX_N_GAL_BINS = (130, 21, 7)
+SUFFIX = f"{IMAGE_SLEN}-{SLEN_BINS[-1]}-scan-cpu-batch-sizes"
 DEVICE = jax.devices()[0]
+assert sorted(SLEN_BINS) == list(SLEN_BINS), "Needs to be sorted"
 
 
 def main():
@@ -50,7 +52,7 @@ def main():
         cat=cat, psf=psf, overwrite=False, suffix="gaussian-07"
     )
     cat["good_size"] = good_sizes
-    mask_good_size = cat["good_size"] < BATCH_BINS[-1] - BUFFER
+    mask_good_size = cat["good_size"] < SLEN_BINS[-1] - BUFFER
     cat = cat[mask_good_size]
     print(
         "INFO: Catalog prepared with {} galaxies after cuts (before cut {}).".format(
@@ -62,22 +64,22 @@ def main():
     times_jgalsim = []
 
     # prepare draw_function
-    _draw_fncs = []
-    for _batch_slen in BATCH_BINS:
-        _draw_fncs.append(
+    draw_fncs = []
+    for _max_n_gals, _batch_slen in zip(MAX_N_GAL_BINS, SLEN_BINS):
+        draw_fncs.append(
             partial(
                 draw_jgs_scan_stamps,
                 psf=xpsf,
                 ilen=IMAGE_SLEN,
                 fft_size=FFT_SIZE,
-                max_n_gals=MAX_N_GALS,
+                max_n_gals=_max_n_gals,
                 slen=_batch_slen,
             )
         )
 
     # timing results average over 100 samples
     pdf_name = Path("out") / f"residuals_{SUFFIX}.pdf"
-    rkeys = random.split(random.PRNGKey(42), 10)
+    rkeys = random.split(random.PRNGKey(43), 100)
     with PdfPages(pdf_name) as pdf:
         for ii, rkey in tqdm(
             enumerate(rkeys), total=len(rkeys), desc="Timing galsim vs jax-galsim..."
@@ -94,7 +96,7 @@ def main():
                 psf=psf,
                 ilen=IMAGE_SLEN,
                 max_n_gals=MAX_N_GALS,  # sanity
-                max_slen=BATCH_BINS[-1],  # sanity
+                max_slen=SLEN_BINS[-1],  # sanity
                 # good_sizes=gsizes,
             )
             t2 = time.time()
@@ -102,8 +104,9 @@ def main():
             times_galsim.append(t_galsim)
 
             if ii == 0:  # trigger jit compilation for all draw function
-                for draw_fnc in _draw_fncs:
-                    draw_fnc(sample)
+                for _max_n_gals, draw_fnc in zip(MAX_N_GAL_BINS, draw_fncs):
+                    _new_dict = {p: sample[p][:_max_n_gals] for p in sample}
+                    draw_fnc(_new_dict).block_until_ready()
 
             sample_jax = device_put(sample, device=DEVICE)
             gsizes_jax = device_put(gsizes, device=DEVICE)
@@ -111,25 +114,46 @@ def main():
 
             # jax draw
             t1 = time.time()
-
             # the following two lines will trigger transfer guard, but that is unavoidable when
             # creating arrays, care about other implicit ones that can happen below.
             # TODO: explain why unavoidable
             jgs_arr = jnp.zeros((IMAGE_SLEN, IMAGE_SLEN), device=DEVICE)
             _drawn = jnp.zeros_like(gsizes_jax, device=DEVICE).astype(bool)
+            _drawn = _drawn | jnp.less_equal(gsizes_jax, 1)  # simplicity later
             with jax.transfer_guard("allow"):
                 # split into batches using good sizes estimated from galsim
-                for ii, b in enumerate(BATCH_BINS):
-                    _mask = (~_drawn) & (gsizes_jax <= device_put(b, device=DEVICE))
+                for _draw_fnc, _max_n_gals, _sslen in zip(
+                    draw_fncs, MAX_N_GAL_BINS, SLEN_BINS
+                ):
+                    _mask1 = ~_drawn
+                    _mask2 = jnp.less_equal(
+                        gsizes_jax, device_put(_sslen, device=DEVICE) - BUFFER
+                    )
+                    _mask = _mask1 & _mask2
+                    if _mask.sum() == 0:
+                        continue
+
+                    # need to make new array that includes only galaxies in mask
+                    # padded by 0 to match `_max_n_gals`
+                    # throw error if array ends up being larger than this
                     _sample_jax = {}
                     for p in sample_jax:
                         if p in ("flux_b", "flux_d"):
-                            _sample_jax[p] = sample_jax[p].at[~_mask].set(0.0)
+                            _sample_jax[p] = sample_jax[p][_mask]
                         else:
-                            _sample_jax[p] = sample_jax[p].at[~_mask].set(DUMMY)
-                    _jgs_arr = _draw_fncs[ii](_sample_jax).block_until_ready()
-                    assert not jnp.any(jnp.isnan(_jgs_arr))
-                    assert _jgs_arr.shape[0] == IMAGE_SLEN
+                            _sample_jax[p] = sample_jax[p][_mask]
+
+                    n_gals = len(_sample_jax["flux_b"])
+                    assert n_gals <= _max_n_gals, f"{n_gals} larger than {_max_n_gals}"
+                    # padding if required
+                    for _ in range(n_gals, _max_n_gals, 1):
+                        for p in _sample_jax:
+                            _sample_jax[p] = np.append(_sample_jax[p], DUMMY_PARAMS[p])
+                    assert len(_sample_jax["flux_b"]) == _max_n_gals
+
+                    # assert not jnp.any(jnp.isnan(_jgs_arr))
+                    # assert _jgs_arr.shape[0] == IMAGE_SLEN
+                    _jgs_arr = _draw_fnc(_sample_jax).block_until_ready()
                     jgs_arr += _jgs_arr
                     _drawn = _drawn.at[_mask].set(True)
             t2 = time.time()
@@ -144,20 +168,20 @@ def main():
     summary_fname = Path("out") / f"summary_{SUFFIX}.txt"
     with open(summary_fname, "w") as fp:
         print(
-            f"Median time (per image) for GalSim: {np.median(times_galsim):.3f} seconds",
+            f"Average time (per image) for GalSim: {np.mean(times_galsim):.3f} seconds",
             file=fp,
         )
         print(
-            f"Average time (per image) for GalSim: {np.mean(times_galsim):.3f} seconds",
+            f"Median time (per image) for GalSim: {np.median(times_galsim):.3f} seconds",
             file=fp,
         )
 
         print(
-            f"Median time (per image) for JAX-GalSim: {np.median(times_jgalsim):.3f} seconds",
+            f"Average time (per image) for JAX-GalSim: {np.mean(times_jgalsim):.3f} seconds",
             file=fp,
         )
         print(
-            f"Average time (per image) for JAX-GalSim: {np.mean(times_jgalsim):.3f} seconds",
+            f"Median time (per image) for JAX-GalSim: {np.median(times_jgalsim):.3f} seconds",
             file=fp,
         )
 
