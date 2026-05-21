@@ -48,6 +48,3 @@ about the inner workings of GalSim and how to code in JAX.
 ## Current GalSim API Coverage
 
 See the corresponding [documentation page](https://jax-galsim.readthedocs.io/en/latest/api-coverage.html) for a list of what is currently implemented.
-
-
-blah
