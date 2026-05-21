@@ -3,6 +3,7 @@
 import os
 
 os.environ["JAX_ENABLE_X64"] = "True"
+import pickle
 import time
 from functools import partial
 from pathlib import Path
@@ -27,17 +28,24 @@ from tqdm import tqdm
 
 import jax_galsim as jgs
 
+# TODO: add functionality to handle small edge cases larger than _max_n_gal
+# (for loop within scan?)
+
+
 IMAGE_SLEN = 250
+FACTOR = 1  # base is 250
 # good image size (isolated galaxy) and stamp size used in scene by galsim differ
 BUFFER = 3  # sometimes good size below and final stamp size differ by a small amount, IDK why
 BACKGROUND = get_default_lsst_background()
 FFT_SIZE = 128
 SLEN_BINS = (61, 81, 101)
-MAX_N_GALS = 150
-MAX_N_GAL_BINS = (130, 21, 7)
-SUFFIX = f"{IMAGE_SLEN}-{SLEN_BINS[-1]}-scan-cpu-batch-sizes"
+MAX_N_GALS = 150 * FACTOR
+MAX_N_GAL_BINS = (105 * FACTOR, 12 * FACTOR, 7 * FACTOR)
+N_SAMPLES = 200
 DEVICE = jax.devices()[0]
 assert sorted(SLEN_BINS) == list(SLEN_BINS), "Needs to be sorted"
+
+SUFFIX = f"{IMAGE_SLEN}-{SLEN_BINS[-1]}-{N_SAMPLES}-scan-cpu-batch-sizes"
 
 
 def main():
@@ -79,7 +87,8 @@ def main():
 
     # timing results average over 100 samples
     pdf_name = Path("out") / f"residuals_{SUFFIX}.pdf"
-    rkeys = random.split(random.PRNGKey(43), 100)
+    n_gals_record = []
+    rkeys = random.split(random.PRNGKey(43), N_SAMPLES)
     with PdfPages(pdf_name) as pdf:
         for ii, rkey in tqdm(
             enumerate(rkeys), total=len(rkeys), desc="Timing galsim vs jax-galsim..."
@@ -120,6 +129,8 @@ def main():
             jgs_arr = jnp.zeros((IMAGE_SLEN, IMAGE_SLEN), device=DEVICE)
             _drawn = jnp.zeros_like(gsizes_jax, device=DEVICE).astype(bool)
             _drawn = _drawn | jnp.less_equal(gsizes_jax, 1)  # simplicity later
+
+            _n_gals_record = []
             with jax.transfer_guard("allow"):
                 # split into batches using good sizes estimated from galsim
                 for _draw_fnc, _max_n_gals, _sslen in zip(
@@ -138,10 +149,7 @@ def main():
                     # throw error if array ends up being larger than this
                     _sample_jax = {}
                     for p in sample_jax:
-                        if p in ("flux_b", "flux_d"):
-                            _sample_jax[p] = sample_jax[p][_mask]
-                        else:
-                            _sample_jax[p] = sample_jax[p][_mask]
+                        _sample_jax[p] = sample_jax[p][_mask]
 
                     n_gals = len(_sample_jax["flux_b"])
                     assert n_gals <= _max_n_gals, f"{n_gals} larger than {_max_n_gals}"
@@ -156,6 +164,8 @@ def main():
                     _jgs_arr = _draw_fnc(_sample_jax).block_until_ready()
                     jgs_arr += _jgs_arr
                     _drawn = _drawn.at[_mask].set(True)
+                    _n_gals_record.append(n_gals)
+            n_gals_record.append(_n_gals_record)
             t2 = time.time()
             t_jgalsim = t2 - t1
             assert jnp.all(_drawn)
@@ -163,6 +173,9 @@ def main():
 
             # save residual images to a multipage pdf for inspection
             add_results_to_pdf(gs_arr, np.array(jgs_arr), t_galsim, t_jgalsim, ii, pdf)
+
+    with open(f"out/record-{N_SAMPLES}-{IMAGE_SLEN}.pickle", "wb") as handle:
+        pickle.dump(n_gals_record, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
     # print summary timing results
     summary_fname = Path("out") / f"summary_{SUFFIX}.txt"
