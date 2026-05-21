@@ -871,6 +871,7 @@ class Image(object):
         ):
             ximage = self
         else:
+            # Then we pad out with zeros
             ximage = Image(full_bounds, dtype=self.dtype, init_value=0)
             ximage[self.bounds] = self[self.bounds]
 
