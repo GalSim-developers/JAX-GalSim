@@ -61,8 +61,21 @@ does not affect the original.
    # JAX-GalSim — real_part is a copy
    real_part = complex_image.real  # independent array
 
-Scalar Types, Array Types, and Casting
---------------------------------------
+Fixed Array Shapes in JAX Function Transformations
+--------------------------------------------------
+
+JAX function transformations (e.g., ``jax.jit``, ``jax.vmap``, etc.) require statically known
+array shapes in order to support tracing. To support this, the JAX-GalSim ``BoundsI`` class must
+have a statically known shape. Further this class can be instantiated via the syntax
+``BoundsI(xmin=..., deltax=..., ymin=..., deltay=...)`` where ``deltax/y`` are the statically defined
+shape. ``BoundsI`` classes may have dynamically set ``x/ymin`` values. However, in this case the ``&``
+and ``+`` operations, which can change the shape of the ``BoundsI`` instance are not allowed in
+JAX-traced code. ``BoundsI`` instances have a special method ``isStatic()`` which returns ``True``
+if the object was instantiated with statically know ``x/ymin`` values. A static ``BoundsI`` class
+cannot be converted to a dynamic one via assignment and an attempt to do so will raise an exception.
+
+Scalar Types, Array Types, and Type Casting
+-------------------------------------------
 
 With the use of JAX, there are now many possible types for numeric data. These include
 
@@ -88,6 +101,23 @@ JAX-GalSim uses the following rules when handling data types and casting.
 These rules allow JAX-GalSim to transparently handle JAX's tracing operations, but can result in
 the code raising generic ``Exception`` instances instead of more specific ``GalSim`` exceptions in
 some cases.
+
+Object Comparison with ``==``
+-----------------------------
+
+In JAX-GalSim, all objects which define arrays to be traced by JAX will return JAX boolean
+array scalars (i.e., ``jax.numpy.array(True)`` or ``jax.numpy.array(False)``) as the result
+of the ``==`` operator. Important cases of this rule are static ``BoundsI`` objects and
+``Interpolant`` objects (and their subclasses), which return Python boolean values (i.e.
+``True`` and ``False``). These difference can be a source of subtle bugs since the negation
+of JAX array boolean values is typically done with ``~``, while for Python boolean values it is
+done with ``not``. Mixing these two forms can cause unexpected and incorrect results since
+
+.. code-block:: python
+
+   >>> ~True is False
+   <python-input-0>:1: SyntaxWarning: "is" with 'int' literal. Did you mean "=="?
+   False
 
 Random Number Generation
 ------------------------
