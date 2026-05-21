@@ -34,7 +34,7 @@ import jax_galsim as jgs
 
 
 IMAGE_SLEN = 1000
-N_SAMPLES = 152
+N_SAMPLES = 153
 
 # good image size (isolated galaxy) and stamp size used in scene by galsim differ
 BUFFER = 3  # sometimes good size below and final stamp size differ by a small amount, IDK why
@@ -44,7 +44,7 @@ SLEN_BINS = (61, 81, 101)
 # MAX_N_GALS = 150 * FACTOR
 # MAX_N_GAL_BINS = (100 * FACTOR, 10 * FACTOR, 5 * FACTOR)
 MAX_N_GALS = 1600
-MAX_N_GAL_BINS = (1000, 100, 20)
+MAX_N_GAL_BINS = (1400, 105, 30)
 DEVICE = jax.devices()[0]
 assert sorted(SLEN_BINS) == list(SLEN_BINS), "Needs to be sorted"
 MAX_N_ITERS = 2
