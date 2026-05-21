@@ -869,11 +869,17 @@ class BoundsI(Bounds):
     def tree_flatten(self):
         """This function flattens the Bounds into a list of children
         nodes that will be traced by JAX and auxiliary static data."""
+        aux_data = {"isstatic": self._isstatic}
+
         # Define the children nodes of the PyTree that need tracing
-        children = (self._xmin, self._ymin)
+        if self._isstatic:
+            children = tuple()
+            aux_data["xmin"] = self._xmin
+            aux_data["ymin"] = self._ymin
+        else:
+            children = (self._xmin, self._ymin)
 
         # untraced aux data
-        aux_data = {}
         aux_data["deltax"] = self.deltax
         aux_data["deltay"] = self.deltay
         aux_data["isdefined"] = self._isdefined
@@ -884,10 +890,14 @@ class BoundsI(Bounds):
     def tree_unflatten(cls, aux_data, children):
         """Recreates an instance of the class from flatten representation"""
         ret = cls.__new__(cls)
-        ret._xmin = children[0]
-        ret._ymin = children[1]
+        if aux_data["isstatic"]:
+            ret._xmin = aux_data["xmin"]
+            ret._ymin = aux_data["ymin"]
+        else:
+            ret._xmin = children[0]
+            ret._ymin = children[1]
         ret.deltax = aux_data["deltax"]
         ret.deltay = aux_data["deltay"]
         ret._isdefined = aux_data["isdefined"]
-
+        ret._isstatic = aux_data["isstatic"]
         return ret
