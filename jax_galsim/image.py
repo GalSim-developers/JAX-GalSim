@@ -933,6 +933,7 @@ class Image(object):
             self.bounds.deltax == target_bounds.deltax
             and self.bounds.deltay == target_bounds.deltay
         ):
+            # Then the image is already in the shape we need.
             kimage = self
         else:
             # Then we can pad out with zeros and wrap to get this in the form we need.
