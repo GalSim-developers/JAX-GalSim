@@ -162,9 +162,9 @@ class Transformation(GSObject):
             return jnp.array(True)
         elif isinstance(other, Transformation):
             return (
-                (self._original == other._original)
+                jnp.array(self._original == other._original)
                 & jnp.array_equal(self._jac, other._jac)
-                & (self._offset == other._params["offset"])
+                & jnp.array(self._offset == other._params["offset"])
                 & jnp.array_equal(self._flux_ratio, other._flux_ratio)
                 & jnp.array(self._gsparams == other._gsparams)
                 & jnp.array(self._propagate_gsparams == other._propagate_gsparams)

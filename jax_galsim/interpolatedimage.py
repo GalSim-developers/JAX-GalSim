@@ -332,11 +332,11 @@ class InterpolatedImage(Transformation, metaclass=DirMeta):
             return jnp.array(True)
         elif isinstance(other, InterpolatedImage):
             return (
-                (self._xim == other._xim)
+                jnp.array(self._xim == other._xim)
                 & jnp.array(self.x_interpolant == other.x_interpolant)
                 & jnp.array(self.k_interpolant == other.k_interpolant)
                 & jnp.array_equal(self.flux, other.flux)
-                & (self._original._offset == other._original._offset)
+                & jnp.array(self._original._offset == other._original._offset)
                 & jnp.array(self.gsparams == other.gsparams)
                 & jnp.array_equal(self._stepk, other._stepk)
                 & jnp.array_equal(self._maxk, other._maxk)

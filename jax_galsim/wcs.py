@@ -557,7 +557,7 @@ class EuclideanWCS(BaseWCS):
 
     # Each class should define the __eq__ function.  Then __ne__ is obvious.
     def __ne__(self, other):
-        return not self.__eq__(other)
+        return ~self.__eq__(other)
 
 
 @implements(_galsim.wcs.UniformWCS)
@@ -599,12 +599,16 @@ class UniformWCS(EuclideanWCS):
 
     # Just check if the locals match and if the origins match.
     def __eq__(self, other):
-        return self is other or (
-            isinstance(other, self.__class__)
-            and self._local_wcs == other._local_wcs
-            and self.origin == other.origin
-            and self.world_origin == other.world_origin
-        )
+        if self is other:
+            return jnp.array(True)
+        elif isinstance(other, self.__class__):
+            return (
+                jnp.array(self._local_wcs == other._local_wcs)
+                & jnp.array(self.origin == other.origin)
+                & jnp.array(self.world_origin == other.world_origin)
+            )
+        else:
+            return jnp.array(False)
 
 
 @implements(_galsim.wcs.LocalWCS)
@@ -828,7 +832,7 @@ class CelestialWCS(BaseWCS):
 
     # Each class should define the __eq__ function.  Then __ne__ is obvious.
     def __ne__(self, other):
-        return not self.__eq__(other)
+        return ~self.__eq__(other)
 
 
 #########################################################################################
@@ -953,9 +957,12 @@ class PixelScale(LocalWCS):
         return PixelScale(self._scale)
 
     def __eq__(self, other):
-        return self is other or (
-            isinstance(other, PixelScale) and self.scale == other.scale
-        )
+        if self is other:
+            return jnp.array(True)
+        elif isinstance(other, PixelScale):
+            return jnp.array_equal(self.scale, other.scale)
+        else:
+            return jnp.array(False)
 
     def __repr__(self):
         return "galsim.PixelScale(%r)" % (ensure_hashable(self.scale),)
@@ -1076,11 +1083,14 @@ class ShearWCS(LocalWCS):
         return ShearWCS(self._scale, self._shear)
 
     def __eq__(self, other):
-        return self is other or (
-            isinstance(other, ShearWCS)
-            and self.scale == other.scale
-            and self.shear == other.shear
-        )
+        if self is other:
+            return jnp.array(True)
+        elif isinstance(other, ShearWCS):
+            return jnp.array(self.scale == other.scale) & jnp.array(
+                self.shear == other.shear
+            )
+        else:
+            return jnp.array(False)
 
     def __repr__(self):
         return "galsim.ShearWCS(%r, %r)" % (ensure_hashable(self.scale), self.shear)
@@ -1282,6 +1292,17 @@ class JacobianWCS(LocalWCS):
         return JacobianWCS(self.dudx, self.dudy, self.dvdx, self.dvdy)
 
     def __eq__(self, other):
+        if self is other:
+            return jnp.array(True)
+        elif isinstance(other, JacobianWCS):
+            return (
+                jnp.array_equal(self.dudx, other.dudx)
+                & jnp.array_equal(self.dudy, other.dudy)
+                & jnp.array_equal(self.dvdx, other.dvdx)
+                & jnp.array_equal(self.dvdy, other.dvdy)
+            )
+        else:
+            return jnp.array(False)
         return self is other or (
             isinstance(other, JacobianWCS)
             and self.dudx == other.dudx
