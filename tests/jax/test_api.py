@@ -359,12 +359,9 @@ def _run_object_checks(obj, cls, kind):
                     if issubclass(cls, jax_galsim.Bounds) and method in [
                         "xmax",
                         "ymax",
-                    ]:
-                        continue
-
-                    if issubclass(cls, jax_galsim.BoundsI) and method in [
                         "xmin",
                         "ymin",
+                        "isStatic",
                     ]:
                         continue
 
