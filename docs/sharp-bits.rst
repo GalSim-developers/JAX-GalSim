@@ -73,7 +73,7 @@ With the use of JAX, there are now many possible types for numeric data. These i
 - **JAX array scalars**: Things with a type that is ``jax.numpy.ndarray`` and has ``jax.numpy.ndim(...) == 0``.
 - **JAX arrays**: Things with a type that is ``jax.numpy.ndarray`` and has ``jax.numpy.ndim(...) > 0``.
 
-**JAX does not have pure scalar types like NumPY. JAX uses array scalars for those instead.**
+**JAX does not have pure scalar types like NumPy. JAX uses array scalars for those instead.**
 
 JAX-GalSim uses the following rules when handling data types and casting.
 
