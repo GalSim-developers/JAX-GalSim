@@ -67,7 +67,7 @@ Scalar Types, Array Types, and Casting
 With the use of JAX, there are now many possible types for numeric data. These include
 
 - **Python scalars**: Things with types that are ``float``, ``int``, or ``complex``.
-- **NumPy scalars**: Things with types that are subclasses are ``np.floating`` and ``np.integer``.
+- **NumPy scalars**: Things with types that are subclasses of ``np.floating`` and ``np.integer``.
 - **NumPy array scalars**: Things with a type that is ``np.ndarray`` and has ``np.ndim(...) == 0``.
 - **NumPy arrays**: Things with a type that is ``np.ndarray`` and has ``np.ndim(...) > 0``.
 - **JAX array scalars**: Things with a type that is ``jax.numpy.ndarray`` and has ``jax.numpy.ndim(...) == 0``.
