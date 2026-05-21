@@ -2,6 +2,7 @@ import equinox
 import galsim as _galsim
 import jax
 import jax.numpy as jnp
+import numpy as np
 from jax.tree_util import register_pytree_node_class
 
 from jax_galsim.core.utils import (
@@ -26,8 +27,11 @@ from GalSim.
   cause JAX to raise an error if the code is being traced.
 - If a ``BoundsI`` object is declared with static ``xmin`` and ``ymin`` values, an error will be raised
   if one attempts to convert those values to non-static values.
-- JAX-GalSim does not support the use of the `&/+` dunder methods (i.e., ``__and__`` and ``__add__``)
-  for ``BoundsI`` objects when tracing code.
+- ``Bounds`` classes in JAX-GalSim have an etxra method, ``isStatic`` that returns ``True`` if the object
+  was instantiated with static ``xmin`` and ``ymin`` values. This method always returns ``False`` for
+  ``BoundsD`` objects.
+- JAX-GalSim does not support the use of the `&` and `+` operators (i.e., the dunder methods ``__and__``
+  and ``__add__`` ) with ``BoundsI`` objects when tracing code.
 - JAX-Galsim supports an additional initialization signature  ``BoundsI(xmin=..., deltax=..., ymin=..., deltay=...)``
   to help users specify the widths ``deltax`` and ``deltay`` statically at initialization.
 - When calling ``jax.vmap``, ``jax.jit`` etc. with ``BoundsI`` objects, ``xmin`` and ``ymin`` are
@@ -156,7 +160,7 @@ class Bounds:
     @property
     @implements(_galsim.Bounds.center)
     def center(self):
-        if not isinstance(self._isdefined, jnp.ndarray):
+        if isinstance(self._isdefined, bool):
             if not self._isdefined:
                 raise _galsim.GalSimUndefinedBoundsError(
                     "center is invalid for an undefined Bounds"
@@ -172,7 +176,7 @@ class Bounds:
     @property
     @implements(_galsim.Bounds.true_center)
     def true_center(self):
-        if not isinstance(self._isdefined, jnp.ndarray):
+        if isinstance(self._isdefined, bool):
             if not self._isdefined:
                 raise _galsim.GalSimUndefinedBoundsError(
                     "true_center is invalid for an undefined Bounds"
@@ -331,7 +335,7 @@ class Bounds:
         # Define the children nodes of the PyTree that need tracing
         children = (self.xmin, self.deltax, self.ymin, self.deltay, self._isdefined)
         # Define auxiliary static data that doesn’t need to be traced
-        aux_data = None
+        aux_data = {"isstatic": self._isstatic}
         return (children, aux_data)
 
     @classmethod
@@ -343,6 +347,7 @@ class Bounds:
         ret.ymin = children[2]
         ret.deltay = children[3]
         ret._isdefined = children[4]
+        ret._isstatic = aux_data["isstatic"]
 
         return ret
 
@@ -386,6 +391,12 @@ class Bounds:
             )
         else:
             return gs_class()
+
+    def isStatic(self):
+        """Returns ``True`` if the ``BoundsI`` instance
+        has static, known dimensions and location. Always returns
+        ``False`` for ``BoundsD``."""
+        return self._isstatic
 
 
 def _bounds_and_op_dynamic(self, other):
@@ -432,7 +443,8 @@ def _bounds_and_op_dynamic(self, other):
             deltay=ymax - ymin + 1,
         )
         # we have to do a conversion to static bools here too
-        ret._isdefined = bool(is_defined.item())
+        with jax.ensure_compile_time_eval():
+            ret._isdefined = bool(is_defined.item())
     else:
         ret = cls.__new__(cls)
         ret.xmin = xmin
@@ -440,6 +452,7 @@ def _bounds_and_op_dynamic(self, other):
         ret.ymin = ymin
         ret.deltay = ymax - ymin
         ret._isdefined = is_defined
+        ret._isstatic = False
 
     return ret
 
@@ -485,7 +498,8 @@ def _bounds_bounds_add_op_dynamic(self, other):
             ),
         )
         # we have to do a conversion to static bools here too
-        ret._isdefined = bool(is_defined.item())
+        with jax.ensure_compile_time_eval():
+            ret._isdefined = bool(is_defined.item())
     else:
         ret = cls.__new__(cls)
         ret.xmin = xmin
@@ -501,6 +515,7 @@ def _bounds_bounds_add_op_dynamic(self, other):
                 jnp.array(other._isdefined),
             ),
         )
+        ret._isstatic = False
 
     return ret
 
@@ -543,7 +558,8 @@ def _bounds_pos_add_op_dynamic(self, other):
             jnp.array(True),
         )
         # we have to do a conversion to static bools here too
-        ret._isdefined = bool(is_defined.item())
+        with jax.ensure_compile_time_eval():
+            ret._isdefined = bool(is_defined.item())
     else:
         ret = cls.__new__(cls)
         ret.xmin = xmin
@@ -555,6 +571,7 @@ def _bounds_pos_add_op_dynamic(self, other):
             jnp.array(ret.deltax >= 0) & jnp.array(ret.deltay >= 0),
             jnp.array(True),
         )
+        ret._isstatic = False
 
     return ret
 
@@ -573,13 +590,14 @@ class BoundsD(Bounds):
         if do_isdefined:
             self._isdefined = (self.deltax >= 0) & (self.deltay >= 0)
         self._isdefined = jnp.array(self._isdefined)
+        self._isstatic = False
 
     def _check_scalar(self, x, name):
         try:
             if (
-                isinstance(x, jax.Array)
+                isinstance(x, (jax.Array, jnp.ndarray, np.ndarray))
                 and x.shape == ()
-                and jnp.issubdtype(x.dtype, jnp.floating)
+                and jnp.issubdtype(jnp.array(x).dtype, jnp.floating)
             ):
                 return
             elif x == float(x):
@@ -701,10 +719,11 @@ class BoundsI(Bounds):
         # this will raise if values are being traced
         # we let that error propagate instead of reraising
         # our own.
-        if not isinstance(self.deltax, int):
-            self.deltax = int(self.deltax.item())
-        if not isinstance(self.deltay, int):
-            self.deltay = int(self.deltay.item())
+        with jax.ensure_compile_time_eval():
+            if not isinstance(self.deltax, int):
+                self.deltax = int(self.deltax.item())
+            if not isinstance(self.deltay, int):
+                self.deltay = int(self.deltay.item())
 
         self._isdefined = self.deltax >= 1 and self.deltay >= 1
 
@@ -718,9 +737,9 @@ class BoundsI(Bounds):
     def _check_scalar(self, x, name):
         try:
             if (
-                isinstance(x, jax.Array)
+                isinstance(x, (jax.Array, jnp.ndarray, np.ndarray))
                 and x.shape == ()
-                and jnp.issubdtype(x.dtype, jnp.integer)
+                and jnp.issubdtype(jnp.array(x).dtype, jnp.integer)
             ):
                 return
             elif x == int(x):
@@ -749,7 +768,7 @@ class BoundsI(Bounds):
     def xmin(self, value):
         value = check_is_int_then_cast(value, "BoundsI xmin values must be integers")
         if self._isstatic:
-            if self._dotypechecking and isinstance(value, jnp.ndarray):
+            if self._dotypechecking and not isinstance(value, int):
                 raise RuntimeError(
                     "Static `BoundsI` classes cannot be converted to dynamic ones."
                 )
@@ -771,8 +790,9 @@ class BoundsI(Bounds):
         # this will raise if values are being traced
         # we let that error propagate instead of reraising
         # our own.
-        if not isinstance(self.deltax, int):
-            self.deltax = int(self.deltax.item())
+        with jax.ensure_compile_time_eval():
+            if not isinstance(self.deltax, int):
+                self.deltax = int(self.deltax.item())
 
     # we store ymin internally as a float even though it is an int
     # so that autodiff works properly (needs floats in general)
@@ -787,7 +807,7 @@ class BoundsI(Bounds):
     def ymin(self, value):
         value = check_is_int_then_cast(value, "BoundsI ymin values must be integers")
         if self._isstatic:
-            if self._dotypechecking and isinstance(value, jnp.ndarray):
+            if self._dotypechecking and not isinstance(value, int):
                 raise RuntimeError(
                     "Static `BoundsI` classes cannot be converted to dynamic ones."
                 )
@@ -809,8 +829,9 @@ class BoundsI(Bounds):
         # this will raise if values are being traced
         # we let that error propagate instead of reraising
         # our own.
-        if not isinstance(self.deltay, int):
-            self.deltay = int(self.deltay.item())
+        with jax.ensure_compile_time_eval():
+            if not isinstance(self.deltay, int):
+                self.deltay = int(self.deltay.item())
 
     def _area(self):
         # Remember the + 1 this time to include the pixels on both edges of the bounds.

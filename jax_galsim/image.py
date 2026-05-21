@@ -594,12 +594,7 @@ class Image(object):
             "Attempt to access subImage not (fully) in image",
         )
 
-        if (
-            isinstance(self.bounds.xmin, int)
-            and isinstance(self.bounds.ymin, int)
-            and isinstance(bounds.xmin, int)
-            and isinstance(bounds.ymin, int)
-        ):
+        if self.bounds.isStatic() and bounds.isStatic():
             i1 = bounds.ymin - self.ymin
             i2 = bounds.ymax - self.ymin + 1
             j1 = bounds.xmin - self.xmin
@@ -647,12 +642,7 @@ class Image(object):
                 rhs=rhs,
             )
 
-        if (
-            isinstance(self.bounds.xmin, int)
-            and isinstance(self.bounds.ymin, int)
-            and isinstance(bounds.xmin, int)
-            and isinstance(bounds.ymin, int)
-        ):
+        if self.bounds.isStatic() and bounds.isStatic():
             i1 = bounds.ymin - self.ymin
             i2 = bounds.ymax - self.ymin + 1
             j1 = bounds.xmin - self.xmin
@@ -736,7 +726,7 @@ class Image(object):
 
         def _raise_if_nonzero(bnds, x_or_y, msg):
             if x_or_y == "x":
-                if isinstance(bnds.xmin, int):
+                if bnds.isStatic():
                     if bnds.xmin != 0:
                         raise _galsim.GalSimIncompatibleValuesError(
                             msg,
@@ -750,7 +740,7 @@ class Image(object):
                         msg,
                     )
             else:
-                if isinstance(bnds.ymin, int):
+                if bnds.isStatic():
                     if bnds.ymin != 0:
                         raise _galsim.GalSimIncompatibleValuesError(
                             msg,

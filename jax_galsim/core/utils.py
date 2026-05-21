@@ -25,7 +25,7 @@ def check_is_int_then_cast(val, msg):
         val = jnp.array(val)
         val = equinox.error_if(
             val,
-            np.any(val != jnp.trunc(val)),
+            jnp.any(val != jnp.trunc(val)),
             msg,
         )
         val = val.astype(int)
