@@ -869,6 +869,7 @@ class Image(object):
             self.bounds.deltax == full_bounds.deltax
             and self.bounds.deltay == full_bounds.deltay
         ):
+            # Then the image is already in the shape we need.
             ximage = self
         else:
             # Then we pad out with zeros
