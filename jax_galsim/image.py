@@ -1328,9 +1328,12 @@ class Image(object):
     def to_galsim(self):
         """Create a galsim `Image` from a `jax_galsim.Image` object."""
         wcs = self.wcs.to_galsim() if self.wcs is not None else None
-        return _galsim.Image(
+        ret = _galsim.Image(
             np.asarray(self.array), bounds=self.bounds.to_galsim(), wcs=wcs
         )
+        if hasattr(self, "header"):
+            ret.header = self.header
+        return ret
 
     @implements(
         _galsim.Image.FindAdaptiveMom,
