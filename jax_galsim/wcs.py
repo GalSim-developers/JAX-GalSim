@@ -30,7 +30,7 @@ def _cast_to_static_numeric_scalar(x, msg=None):
         if x.ndim == 0:
             return x.item()
 
-        if all(sv for sv in x.shape == 1):
+        if all(sv == 1 for sv in x.shape):
             return x.ravel()[0].item()
 
     msg = msg or f"Cannot convert input {x!r} to a static, numeric scalar."
