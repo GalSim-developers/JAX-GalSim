@@ -321,6 +321,7 @@ def _draw_stamp_and_add_to_image(carry, x, psf, fft_size, slen):
     return (image,), None
 
 
+# TODO: replace with associative scan?
 @partial(jit, static_argnames=("psf", "ilen", "slen", "fft_size", "max_n_gals"))
 def draw_jgs_scan_stamps(
     galaxy_params: dict,
