@@ -1059,8 +1059,8 @@ The JAX-GalSim version of ``drawImage``
         # Can't both recenter a provided image and add to it.
         if recenter and add_to_image:
             zp = PositionI(0, 0)
-            equinox.error_if(
-                zp.x,
+            zp.x = equinox.error_if(
+                jnp.array(zp.x, dtype=int),
                 image.center != zp,
                 "Cannot use add_to_image=True unless image is centered at (0,0) or recenter=False",
             )
