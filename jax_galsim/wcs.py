@@ -1303,13 +1303,6 @@ class JacobianWCS(LocalWCS):
             )
         else:
             return jnp.array(False)
-        return self is other or (
-            isinstance(other, JacobianWCS)
-            and self.dudx == other.dudx
-            and self.dudy == other.dudy
-            and self.dvdx == other.dvdx
-            and self.dvdy == other.dvdy
-        )
 
     def __repr__(self):
         return "galsim.JacobianWCS(%r, %r, %r, %r)" % (
