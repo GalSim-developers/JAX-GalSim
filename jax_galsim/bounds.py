@@ -289,34 +289,14 @@ class Bounds:
             )
 
     def __eq__(self, other):
-        if self is other:
-            return jnp.array(True)
-        elif isinstance(other, self.__class__):
-            self_isdef = jnp.array(self.isDefined())
-            other_isdef = jnp.array(other.isDefined())
-            if isinstance(self, BoundsD):
-                return (
-                    self_isdef
-                    & other_isdef
-                    & jnp.array(self.xmin == other.xmin)
-                    & jnp.array(self.ymin == other.ymin)
-                    & jnp.array(self.xmax == other.xmax)
-                    & jnp.array(self.ymax == other.ymax)
-                ) | ((~self_isdef) & (~other_isdef))
-            else:
-                return (
-                    self_isdef
-                    & other_isdef
-                    & jnp.array(self.xmin == other.xmin)
-                    & jnp.array(self.ymin == other.ymin)
-                    & jnp.array(self.deltax == other.deltax)
-                    & jnp.array(self.deltay == other.deltay)
-                ) | ((~self_isdef) & (~other_isdef))
-        else:
-            return jnp.array(False)
+        raise NotImplementedError(
+            "The `__eq__` magic method must be implemented by subclasses of `Bounds`."
+        )
 
     def __ne__(self, other):
-        return ~self.__eq__(other)
+        raise NotImplementedError(
+            "The `__ne__` magic method must be implemented by subclasses of `Bounds`."
+        )
 
     def __hash__(self):
         return hash(
@@ -673,6 +653,26 @@ class BoundsD(Bounds):
         else:
             return "galsim.%s()" % (self.__class__.__name__)
 
+    def __eq__(self, other):
+        if self is other:
+            return jnp.array(True)
+        elif isinstance(other, self.__class__):
+            self_isdef = jnp.array(self.isDefined())
+            other_isdef = jnp.array(other.isDefined())
+            return (
+                self_isdef
+                & other_isdef
+                & jnp.array(self.xmin == other.xmin)
+                & jnp.array(self.ymin == other.ymin)
+                & jnp.array(self.xmax == other.xmax)
+                & jnp.array(self.ymax == other.ymax)
+            ) | ((~self_isdef) & (~other_isdef))
+        else:
+            return jnp.array(False)
+
+    def __ne__(self, other):
+        return ~self.__eq__(other)
+
     def __hash__(self):
         return hash(
             (
@@ -875,6 +875,46 @@ class BoundsI(Bounds):
             )
         else:
             return "galsim.%s()" % (self.__class__.__name__)
+
+    def __eq__(self, other):
+        if self is other:
+            if self._isstatic:
+                return True
+            else:
+                return jnp.array(True)
+        elif isinstance(other, self.__class__):
+            if self._isstatic and other._isstatic:
+                return (
+                    self._isdefined
+                    and other._isdefined
+                    and self.xmin == other.xmin
+                    and self.ymin == other.ymin
+                    and self.deltax == other.deltax
+                    and self.deltay == other.deltay
+                ) or ((not self._isdefined) and (not other._isdefined))
+            else:
+                self_isdef = jnp.array(self.isDefined())
+                other_isdef = jnp.array(other.isDefined())
+                return (
+                    self_isdef
+                    & other_isdef
+                    & jnp.array(self.xmin == other.xmin)
+                    & jnp.array(self.ymin == other.ymin)
+                    & jnp.array(self.deltax == other.deltax)
+                    & jnp.array(self.deltay == other.deltay)
+                ) | ((~self_isdef) & (~other_isdef))
+        else:
+            if self._isstatic:
+                return False
+            else:
+                return jnp.array(False)
+
+    def __ne__(self, other):
+        eqval = self.__eq__(other)
+        if isinstance(eqval, bool):
+            return not eqval
+        else:
+            return ~eqval
 
     def __hash__(self):
         return hash(

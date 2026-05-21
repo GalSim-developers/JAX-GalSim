@@ -865,10 +865,7 @@ class Image(object):
                 No2 = int(No2.item())
 
         full_bounds = BoundsI(xmin=-No2, deltax=2 * No2, ymin=-No2, deltay=2 * No2)
-        if (
-            self.bounds.deltax == full_bounds.deltax
-            and self.bounds.deltay == full_bounds.deltay
-        ):
+        if self.bounds == full_bounds:
             # Then the image is already in the shape we need.
             ximage = self
         else:
@@ -929,10 +926,7 @@ class Image(object):
                 No2 = int(No2.item())
 
         target_bounds = BoundsI(xmin=0, deltax=No2 + 1, ymin=-No2, deltay=2 * No2)
-        if (
-            self.bounds.deltax == target_bounds.deltax
-            and self.bounds.deltay == target_bounds.deltay
-        ):
+        if self.bounds == target_bounds:
             # Then the image is already in the shape we need.
             kimage = self
         else:
