@@ -280,7 +280,6 @@ class Image(object):
             b = kwargs.pop("bounds")
             if not isinstance(b, BoundsI):
                 raise TypeError("bounds must be a galsim.BoundsI instance")
-
             if check_bounds and b.isDefined():
                 if b.deltax != array.shape[1]:
                     raise _galsim.GalSimIncompatibleValuesError(
@@ -572,7 +571,6 @@ class Image(object):
             raise GalSimImmutableError("Cannot modify an immutable Image", self)
         if not isinstance(bounds, BoundsI):
             raise TypeError("bounds must be a galsim.BoundsI instance")
-
         self._array = self._make_empty(shape=bounds.numpyShape(), dtype=self.dtype)
         self._bounds = bounds
         if wcs is not None:
@@ -582,7 +580,6 @@ class Image(object):
     def subImage(self, bounds):
         if not isinstance(bounds, BoundsI):
             raise TypeError("bounds must be a galsim.BoundsI instance")
-
         if not self.bounds.isDefined():
             raise _galsim.GalSimUndefinedBoundsError(
                 "Attempt to access subImage of undefined image"
@@ -620,7 +617,6 @@ class Image(object):
             raise GalSimImmutableError("Cannot modify an immutable Image", self)
         if not isinstance(bounds, BoundsI):
             raise TypeError("bounds must be a galsim.BoundsI instance")
-
         if not self.bounds.isDefined():
             raise _galsim.GalSimUndefinedBoundsError(
                 "Attempt to access values of an undefined image"
