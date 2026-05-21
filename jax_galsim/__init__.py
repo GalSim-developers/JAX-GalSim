@@ -105,3 +105,14 @@ from . import integ
 
 # this one is specific to jax_galsim
 from . import core
+
+# Chromatic profiles
+from .sed import SED
+from .bandpass import Bandpass
+from .chromatic import (
+    ChromaticObject,
+    Chromatic,
+    ChromaticAtmosphere,
+    ChromaticConvolution,
+    ChromaticSum,
+)
