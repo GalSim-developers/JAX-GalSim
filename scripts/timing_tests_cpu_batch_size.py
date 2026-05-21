@@ -12,6 +12,7 @@ import jax
 import jax.numpy as jnp
 import numpy as np
 from draw_scene_functions import (
+    DUMMY,
     add_results_to_pdf,
     draw_galsim,
     draw_jgs_scan_stamps,
@@ -106,6 +107,7 @@ def main():
 
             sample_jax = device_put(sample, device=DEVICE)
             gsizes_jax = device_put(gsizes, device=DEVICE)
+            assert gsizes_jax.shape == sample_jax["flux_b"].shape
 
             # jax draw
             t1 = time.time()
@@ -114,14 +116,17 @@ def main():
             # creating arrays, care about other implicit ones that can happen below.
             # TODO: explain why unavoidable
             jgs_arr = jnp.zeros((IMAGE_SLEN, IMAGE_SLEN), device=DEVICE)
-            _drawn = jnp.zeros_like(gsizes_jax).astype(bool)
-            with jax.transfer_guard("disallow"):
+            _drawn = jnp.zeros_like(gsizes_jax, device=DEVICE).astype(bool)
+            with jax.transfer_guard("allow"):
                 # split into batches using good sizes estimated from galsim
                 for ii, b in enumerate(BATCH_BINS):
                     _mask = (~_drawn) & (gsizes_jax <= device_put(b, device=DEVICE))
                     _sample_jax = {}
                     for p in sample_jax:
-                        _sample_jax[p] = sample_jax[p] * _mask.astype(float)
+                        if p in ("flux_b", "flux_d"):
+                            _sample_jax[p] = sample_jax[p].at[~_mask].set(0.0)
+                        else:
+                            _sample_jax[p] = sample_jax[p].at[~_mask].set(DUMMY)
                     _jgs_arr = _draw_fncs[ii](_sample_jax).block_until_ready()
                     assert not jnp.any(jnp.isnan(_jgs_arr))
                     assert _jgs_arr.shape[0] == IMAGE_SLEN
