@@ -102,16 +102,17 @@ These rules allow JAX-GalSim to transparently handle JAX's tracing operations, b
 the code raising generic ``Exception`` instances instead of more specific ``GalSim`` exceptions in
 some cases.
 
-Object Comparison with ``==``
------------------------------
+Object Comparison with the ``==`` Operator
+------------------------------------------
 
 In JAX-GalSim, all objects which define arrays to be traced by JAX will return JAX boolean
 array scalars (i.e., ``jax.numpy.array(True)`` or ``jax.numpy.array(False)``) as the result
-of the ``==`` operator. Important cases of this rule are static ``BoundsI`` objects and
-``Interpolant`` objects (and their subclasses), which return Python boolean values (i.e.
-``True`` and ``False``). These difference can be a source of subtle bugs since the negation
-of JAX array boolean values is typically done with ``~``, while for Python boolean values it is
-done with ``not``. Mixing these two forms can cause unexpected and incorrect results since
+of the ``==`` operator, otherwise they return Python boolean values. Important cases of this
+rule are static ``BoundsI`` objects and ``Interpolant`` objects (and their subclasses), which
+return Python boolean values (i.e. ``True`` and ``False``). These difference can be a source
+of subtle bugs since the negation of JAX array boolean values is typically done with ``~``,
+while for Python boolean values it is done with ``not``. Mixing these two forms can cause
+unexpected and incorrect results since
 
 .. code-block:: python
 
