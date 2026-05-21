@@ -763,7 +763,7 @@ class Image(object):
                 self.bounds, "x", "hermitian == 'x' requires self.bounds.xmin == 0"
             )
             bounds = _raise_if_nonzero(
-                bounds, "x", "hermitian == 'x' requires self.bounds.xmin == 0"
+                bounds, "x", "hermitian == 'x' requires bounds.xmin == 0"
             )
 
             return self._wrap(bounds, True, False, 2 * bounds.xmax)
