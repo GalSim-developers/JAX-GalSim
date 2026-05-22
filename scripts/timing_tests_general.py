@@ -35,11 +35,11 @@ DEVICE = jax.devices()[0]
 
 
 def main(
-    n_samples: int = typer.Option(help="How many big images do you want?"),
+    stamp_bins_str: str = typer.Option(),
+    max_n_gals_bins_str=typer.Option(),
     image_slen: int = typer.Option(),
-    stamp_slen_bins: list[int] = typer.Option(),
-    max_n_gals_bins: list[int] = typer.Option(),
     max_n_gals_global: int = typer.Option(),
+    n_samples: int = typer.Option(help="How many big images do you want?"),
     catsim_fpath: str = "../../../Downloads/catsim/OneDegSq.fits",
     outdir: str = typer.Option(),
     scan_or_vmap: str = typer.Option(default="scan"),
@@ -55,6 +55,8 @@ def main(
     extra_suffix: str = typer.Option(default=""),
     fix_galsim_stamp_size: bool = False,  # fixed to largest in stamp_slen_bins
 ):
+    stamp_bins = _parse_bins_str_input(stamp_bins_str)
+    max_n_gals_bins = _parse_bins_str_input(max_n_gals_bins_str)
     # does not support multi-threading or multiprocessing
     assert tuple(sorted(stamp_slen_bins)) == stamp_slen_bins
     assert scan_or_vmap in ("scan", "vmap")
@@ -305,6 +307,15 @@ def _get_bins_hash(out_path: Path, *, stamp_slen_bins, max_n_gals_bins) -> int:
     with open(hash_json, "w") as handle:
         json.dump(h, handle)
     return the_hash
+
+
+def _parse_bins_str_input(bins_str: str):
+    the_bins = [float(x) for x in bins_str.split(",")]
+    # they need to bwe integers
+    for x in the_bins:
+        assert int(x) == x
+    the_bins = [int(x) for x in the_bins]
+    return the_bins
 
 
 if __name__ == "__main__":
