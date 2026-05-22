@@ -290,7 +290,7 @@ def draw_jax_galsim_size_bins(
 
 def _get_bins_hash(out_path: Path, *, stamp_slen_bins, max_n_gals_bins) -> int:
     # very simple, just save these bins with an "id" if never has been used before
-    # otherwise assign next one available
+    # otherwise assign next one available in order of 0,1,2,...
     hash_json = out_path / "bin_hash.json"
     _key = (*stamp_slen_bins, *max_n_gals_bins)  # just unpack tuple
 
