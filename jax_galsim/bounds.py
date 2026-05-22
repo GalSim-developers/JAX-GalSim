@@ -700,7 +700,7 @@ class BoundsI(Bounds):
         # we set these variables to disable type checking and conversion
         # for xmin/ymin while we initialize the object
         self._isstatic = True
-        self._dotypechecking = False
+        self._dotypeconversion = False
         self._parse_args(*args, **kwargs)
 
         # validate inputs are ints
@@ -734,7 +734,7 @@ class BoundsI(Bounds):
             self._isstatic = True
         else:
             self._isstatic = False
-        self._dotypechecking = True
+        self._dotypeconversion = True
 
     def _check_scalar(self, x, name):
         try:
@@ -770,7 +770,7 @@ class BoundsI(Bounds):
     def xmin(self, value):
         value = check_is_int_then_cast(value, "BoundsI xmin values must be integers")
         if self._isstatic:
-            if self._dotypechecking:
+            if self._dotypeconversion:
                 # attempt to convert widths to static values
                 # this will raise if values are being traced
                 # we let that error propagate instead of reraising
@@ -824,7 +824,7 @@ class BoundsI(Bounds):
     def ymin(self, value):
         value = check_is_int_then_cast(value, "BoundsI ymin values must be integers")
         if self._isstatic:
-            if self._dotypechecking:
+            if self._dotypeconversion:
                 # attempt to convert widths to static values
                 # this will raise if values are being traced
                 # we let that error propagate instead of reraising
