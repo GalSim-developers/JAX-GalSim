@@ -18,6 +18,7 @@ from draw_scene_functions import (
     add_results_to_pdf,
     draw_galsim,
     draw_jgs_scan_stamps,
+    draw_jgs_vmap_stamps,
     get_default_lsst_background,
     get_good_sizes_galsim,
     get_one_full_sample,
@@ -29,27 +30,33 @@ from tqdm import tqdm
 
 import jax_galsim as jgs
 
-# TODO: add functionality to handle small edge cases larger than _max_n_gal
-# (for loop within scan?)
+# NOTE: Could consider scan over list with -1 = number of galaxies in catalog
+# if -1 then not drawn, if in the sample and in the bin then we draw it
+# precompute the size
+# not cache the stamp
 
 
-IMAGE_SLEN = 1000
-N_SAMPLES = 153
+# IMAGE_SLEN = 1000
+IMAGE_SLEN = 250
+N_SAMPLES = 201
 
 # good image size (isolated galaxy) and stamp size used in scene by galsim differ
 BUFFER = 3  # sometimes good size below and final stamp size differ by a small amount, IDK why
 BACKGROUND = get_default_lsst_background()
 FFT_SIZE = 128
 SLEN_BINS = (61, 81, 101)
-# MAX_N_GALS = 150 * FACTOR
-# MAX_N_GAL_BINS = (100 * FACTOR, 10 * FACTOR, 5 * FACTOR)
-MAX_N_GALS = 1600
-MAX_N_GAL_BINS = (1400, 105, 30)
+MAX_N_GALS = 150
+MAX_N_GAL_BINS = (100, 10, 5)
+# MAX_N_GALS = 1600
+# MAX_N_GAL_BINS = (1400, 105, 30)
 DEVICE = jax.devices()[0]
-assert sorted(SLEN_BINS) == list(SLEN_BINS), "Needs to be sorted"
-MAX_N_ITERS = 2
+MAX_N_ITERS = 2  # just for info, does not actually change how code runs
+SCAN_OR_VMAP = "scan"
 
-SUFFIX = f"{IMAGE_SLEN}-{SLEN_BINS[-1]}-{N_SAMPLES}-scan-cpu-batch-sizes"
+SUFFIX = f"{IMAGE_SLEN}-{SLEN_BINS[-1]}-{N_SAMPLES}-{SCAN_OR_VMAP}-cpu-batch-sizes"
+# TODO; try associate scan instead of scan
+
+assert sorted(SLEN_BINS) == list(SLEN_BINS), "Needs to be sorted"
 
 
 def main():
@@ -67,9 +74,8 @@ def main():
     mask_good_size = cat["good_size"] < SLEN_BINS[-1] - BUFFER
     cat = cat[mask_good_size]
     print(
-        "INFO: Catalog prepared with {} galaxies after cuts (before cut {}).".format(
-            len(cat), n1
-        )
+        f"INFO: Catalog prepared with {len(cat)} galaxies after (good size) cut "
+        f"(before this cut {n1})."
     )
 
     times_galsim = []
@@ -77,11 +83,14 @@ def main():
 
     # prepare draw_function
     draw_fncs = []
+    _draw_fnc_raw = (
+        draw_jgs_scan_stamps if SCAN_OR_VMAP == "scan" else draw_jgs_vmap_stamps
+    )
     for _max_n_gals, _batch_slen in zip(MAX_N_GAL_BINS, SLEN_BINS):
         draw_fncs.append(
             jit(
                 partial(
-                    draw_jgs_scan_stamps,
+                    _draw_fnc_raw,
                     psf=xpsf,
                     ilen=IMAGE_SLEN,
                     fft_size=FFT_SIZE,
@@ -154,6 +163,7 @@ def main():
                     assert _n_iters_needed <= MAX_N_ITERS, (
                         f"Consider increasing max_n_gals (n_gals: {n_gals}, max_n_gals:{_max_n_gals}) in bin {_sslen}, niters: {_n_iters_needed}"
                     )
+
                     # assert n_gals <= _max_n_gals, f"{n_gals} larger than {_max_n_gals}"
                     # print("ngals:", n_gals)
                     # print("niters:", _n_iters_needed)
