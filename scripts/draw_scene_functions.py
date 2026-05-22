@@ -34,8 +34,8 @@ DUMMY_PARAMS = {
     "flux_d": 0.0,
     "hlr_b": DUMMY,
     "hlr_d": DUMMY,
-    "q_d": 1.0,
-    "q_b": 1.0,
+    "q_d": 1.0,  # circle
+    "q_b": 1.0,  # circle
     "beta": 0.0,
     "good_size": 1,
     "x": 0.0,
