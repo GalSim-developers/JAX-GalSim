@@ -1,3 +1,5 @@
+from functools import partial
+
 import jax
 import jax.numpy as jnp
 import numpy as np
@@ -217,7 +219,7 @@ def test_bounds_jax_vmap_plus_raises_int():
         _plus_bounds_pos_far_away_float(bnds)
 
 
-def test_bounds_jax_int_set():
+def test_bounds_jax_int_set_static():
     bnds = jax_galsim.BoundsI(xmin=1, ymin=1, deltax=10, deltay=11)
 
     bnds.xmin = 11.0
@@ -247,3 +249,110 @@ def test_bounds_jax_int_set():
     bnds.deltay = jnp.array(13, dtype=float)
     assert isinstance(bnds.deltay, int)
     assert bnds.deltay == 13
+
+
+def test_bounds_jax_int_set_dynamic():
+    bnds = jax_galsim.BoundsI(
+        xmin=jnp.array(1), ymin=jnp.array(2), deltax=10, deltay=11
+    )
+
+    bnds.xmin = 11.0
+    assert isinstance(bnds.xmin, jnp.ndarray)
+    assert bnds.xmin == 11
+    bnds.xmin = jnp.array(12, dtype=float)
+    assert isinstance(bnds.xmin, jnp.ndarray)
+    assert bnds.xmin == 12
+
+    bnds.ymin = 12.0
+    assert isinstance(bnds.ymin, jnp.ndarray)
+    assert bnds.ymin == 12
+    bnds.ymin = jnp.array(13, dtype=float)
+    assert isinstance(bnds.ymin, jnp.ndarray)
+    assert bnds.ymin == 13
+
+    bnds.deltax = 11.0
+    assert isinstance(bnds.deltax, int)
+    assert bnds.deltax == 11
+    bnds.deltax = jnp.array(12, dtype=float)
+    assert isinstance(bnds.deltax, int)
+    assert bnds.deltax == 12
+
+    bnds.deltay = 12.0
+    assert isinstance(bnds.deltay, int)
+    assert bnds.deltay == 12
+    bnds.deltay = jnp.array(13, dtype=float)
+    assert isinstance(bnds.deltay, int)
+    assert bnds.deltay == 13
+
+
+def test_bounds_jax_int_set_jit_raises():
+    @jax.jit
+    def _make_bnds_bad_xmin(xmin):
+        bnds = jax_galsim.BoundsI(xmin=1, ymin=1, deltax=10, deltay=11)
+        bnds.xmin = xmin
+        return bnds
+
+    @jax.jit
+    def _make_bnds_bad_ymin(ymin):
+        bnds = jax_galsim.BoundsI(xmin=1, ymin=1, deltax=10, deltay=11)
+        bnds.ymin = ymin
+        return bnds
+
+    with pytest.raises(Exception):
+        _make_bnds_bad_xmin(2)
+
+    with pytest.raises(Exception):
+        _make_bnds_bad_ymin(2)
+
+    @jax.jit
+    def _make_bnds_bad_deltax(deltax):
+        bnds = jax_galsim.BoundsI(xmin=1, ymin=1, deltax=10, deltay=11)
+        bnds.deltax = deltax
+        return bnds
+
+    @jax.jit
+    def _make_bnds_bad_deltay(deltay):
+        bnds = jax_galsim.BoundsI(xmin=1, ymin=1, deltax=10, deltay=11)
+        bnds.deltay = deltay
+        return bnds
+
+    with pytest.raises(Exception):
+        _make_bnds_bad_deltay(2)
+
+    with pytest.raises(Exception):
+        _make_bnds_bad_deltay(2)
+
+
+def test_bounds_jax_int_set_jit():
+    @jax.jit
+    def _make_bnds_set_xmin(xmin):
+        bnds = jax_galsim.BoundsI(xmin=jnp.array(1), ymin=1, deltax=10, deltay=11)
+        bnds.xmin = xmin
+        return bnds
+
+    @jax.jit
+    def _make_bnds_set_ymin(ymin):
+        bnds = jax_galsim.BoundsI(xmin=jnp.array(1), ymin=1, deltax=10, deltay=11)
+        bnds.ymin = ymin
+        return bnds
+
+    bnds = _make_bnds_set_xmin(2)
+    assert isinstance(bnds.ymin, jnp.ndarray)
+    assert bnds.xmin == 2
+    assert isinstance(bnds.xmin, jnp.ndarray)
+
+    bnds = _make_bnds_set_ymin(2)
+    assert isinstance(bnds.ymin, jnp.ndarray)
+    assert bnds.ymin == 2
+    assert isinstance(bnds.ymin, jnp.ndarray)
+
+    @partial(jax.jit, static_argnames=("xmin",))
+    def _make_bnds_set_xmin_static(xmin):
+        bnds = jax_galsim.BoundsI(xmin=1, ymin=1, deltax=10, deltay=11)
+        bnds.xmin = xmin
+        return bnds
+
+    bnds = _make_bnds_set_xmin_static(2)
+    assert isinstance(bnds.xmin, int)
+    assert isinstance(bnds.ymin, int)
+    assert bnds.xmin == 2
