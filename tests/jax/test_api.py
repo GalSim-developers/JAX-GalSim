@@ -129,8 +129,8 @@ def _run_object_checks(obj, cls, kind):
 
         # check that val jax array
         if (
-            hasattr(obj, "isStatic")
-            and obj.isStatic()
+            (hasattr(obj, "isStatic")
+            and obj.isStatic())
             or isinstance(obj, jax_galsim.Sensor)
         ):
             assert isinstance(eval(repr(obj)) == obj, bool)
