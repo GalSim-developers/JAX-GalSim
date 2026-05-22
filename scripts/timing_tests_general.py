@@ -35,7 +35,7 @@ DEVICE = jax.devices()[0]
 
 
 def main(
-    stamp_bins_str: str = typer.Option(),
+    stamp_slen_bins_str: str = typer.Option(),
     max_n_gals_bins_str=typer.Option(),
     image_slen: int = typer.Option(),
     max_n_gals_global: int = typer.Option(),
@@ -55,10 +55,13 @@ def main(
     extra_suffix: str = typer.Option(default=""),
     fix_galsim_stamp_size: bool = False,  # fixed to largest in stamp_slen_bins
 ):
-    stamp_bins = _parse_bins_str_input(stamp_bins_str)
-    max_n_gals_bins = _parse_bins_str_input(max_n_gals_bins_str)
     # does not support multi-threading or multiprocessing
+    # need to parse as str as typer does not support lists
+    stamp_slen_bins = _parse_bins_str_input(stamp_slen_bins_str)
+    max_n_gals_bins = _parse_bins_str_input(max_n_gals_bins_str)
+
     assert tuple(sorted(stamp_slen_bins)) == stamp_slen_bins
+    assert tuple(sorted(max_n_gals_bins)) == max_n_gals_bins
     assert scan_or_vmap in ("scan", "vmap")
     assert cpu_or_gpu in ("cpu", "gpu")
 
@@ -315,7 +318,7 @@ def _parse_bins_str_input(bins_str: str):
     for x in the_bins:
         assert int(x) == x
     the_bins = [int(x) for x in the_bins]
-    return the_bins
+    return tuple(the_bins)
 
 
 if __name__ == "__main__":
