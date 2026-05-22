@@ -215,3 +215,35 @@ def test_bounds_jax_vmap_plus_raises_int():
 
     with pytest.raises(Exception):
         _plus_bounds_pos_far_away_float(bnds)
+
+
+def test_bounds_jax_int_set():
+    bnds = jax_galsim.BoundsI(xmin=1, ymin=1, deltax=10, deltay=11)
+
+    bnds.xmin = 11.0
+    assert isinstance(bnds.xmin, int)
+    assert bnds.xmin == 11
+    bnds.xmin = jnp.array(12, dtype=float)
+    assert isinstance(bnds.xmin, int)
+    assert bnds.xmin == 12
+
+    bnds.ymin = 12.0
+    assert isinstance(bnds.ymin, int)
+    assert bnds.ymin == 12
+    bnds.ymin = jnp.array(13, dtype=float)
+    assert isinstance(bnds.ymin, int)
+    assert bnds.ymin == 13
+
+    bnds.deltax = 11.0
+    assert isinstance(bnds.deltax, int)
+    assert bnds.deltax == 11
+    bnds.deltax = jnp.array(12, dtype=float)
+    assert isinstance(bnds.deltax, int)
+    assert bnds.deltax == 12
+
+    bnds.deltay = 12.0
+    assert isinstance(bnds.deltay, int)
+    assert bnds.deltay == 12
+    bnds.deltay = jnp.array(13, dtype=float)
+    assert isinstance(bnds.deltay, int)
+    assert bnds.deltay == 13

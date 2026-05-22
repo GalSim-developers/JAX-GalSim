@@ -24,9 +24,11 @@ from GalSim.
   for function transformations like ``jax.vmap``, ``jax.jit``, etc.
 - Upon initialization, if a ``BoundsI`` object has a non-static shape, JAX-GalSim will attempt to convert
   it to a static shape by extracting the dimensions from the array via ``.item()``. This operation will
-  cause JAX to raise an error if the code is being traced.
-- If a ``BoundsI`` object is declared with static ``xmin`` and ``ymin`` values, an error will be raised
-  if one attempts to convert those values to non-static values.
+  cause JAX to raise an error if the code is being traced. JAX-Galsim performs the same conversion operation
+  when the ``deltax`` or ``deltay`` properties are set to non-static values via assignment.
+- If a ``BoundsI`` object is declared with static ``xmin`` and ``ymin`` values, and then one attempts to
+  convert them to non-static values via assignment, JAX-GalSim will attempt to convert the assigned values
+  back to static values. This operation will raise an error if the code is being traced.
 - ``Bounds`` classes in JAX-GalSim have an etxra method, ``isStatic`` that returns ``True`` if the object
   was instantiated with static ``xmin`` and ``ymin`` values. This method always returns ``False`` for
   ``BoundsD`` objects.
@@ -768,13 +770,35 @@ class BoundsI(Bounds):
     def xmin(self, value):
         value = check_is_int_then_cast(value, "BoundsI xmin values must be integers")
         if self._isstatic:
-            if self._dotypechecking and not isinstance(value, int):
-                raise RuntimeError(
-                    "Static `BoundsI` classes cannot be converted to dynamic ones."
-                )
+            if self._dotypechecking:
+                # attempt to convert widths to static values
+                # this will raise if values are being traced
+                # we let that error propagate instead of reraising
+                # our own.
+                with jax.ensure_compile_time_eval():
+                    if not isinstance(value, int):
+                        value = int(value.item())
             self._xmin = value
         else:
             self._xmin = jnp.astype(value, float)
+
+    @property
+    def deltax(self):
+        return self._deltax
+
+    @deltax.setter
+    def deltax(self, value):
+        value = check_is_int_then_cast(
+            value, "BoundsI deltax must be set to an integer value"
+        )
+        # attempt to convert widths to static values
+        # this will raise if values are being traced
+        # we let that error propagate instead of reraising
+        # our own.
+        with jax.ensure_compile_time_eval():
+            if not isinstance(value, int):
+                value = int(value.item())
+        self._deltax = value
 
     @property
     def xmax(self):
@@ -782,17 +806,10 @@ class BoundsI(Bounds):
 
     @xmax.setter
     def xmax(self, value):
-        self.deltax = value - self.xmin + 1
-        self.deltax = check_is_int_then_cast(
-            self.deltax, "BoundsI xmax must be set to an integer value"
+        value = check_is_int_then_cast(
+            value, "BoundsI xmax must be set to an integer value"
         )
-        # attempt to convert widths to static values
-        # this will raise if values are being traced
-        # we let that error propagate instead of reraising
-        # our own.
-        with jax.ensure_compile_time_eval():
-            if not isinstance(self.deltax, int):
-                self.deltax = int(self.deltax.item())
+        self.deltax = value - self.xmin + 1
 
     # we store ymin internally as a float even though it is an int
     # so that autodiff works properly (needs floats in general)
@@ -807,13 +824,35 @@ class BoundsI(Bounds):
     def ymin(self, value):
         value = check_is_int_then_cast(value, "BoundsI ymin values must be integers")
         if self._isstatic:
-            if self._dotypechecking and not isinstance(value, int):
-                raise RuntimeError(
-                    "Static `BoundsI` classes cannot be converted to dynamic ones."
-                )
+            if self._dotypechecking:
+                # attempt to convert widths to static values
+                # this will raise if values are being traced
+                # we let that error propagate instead of reraising
+                # our own.
+                with jax.ensure_compile_time_eval():
+                    if not isinstance(value, int):
+                        value = int(value.item())
             self._ymin = value
         else:
             self._ymin = jnp.astype(value, float)
+
+    @property
+    def deltay(self):
+        return self._deltay
+
+    @deltay.setter
+    def deltay(self, value):
+        value = check_is_int_then_cast(
+            value, "BoundsI deltay must be set to an integer value"
+        )
+        # attempt to convert widths to static values
+        # this will raise if values are being traced
+        # we let that error propagate instead of reraising
+        # our own.
+        with jax.ensure_compile_time_eval():
+            if not isinstance(value, int):
+                value = int(value.item())
+        self._deltay = value
 
     @property
     def ymax(self):
@@ -821,17 +860,10 @@ class BoundsI(Bounds):
 
     @ymax.setter
     def ymax(self, value):
-        self.deltay = value - self.ymin + 1
-        self.deltay = check_is_int_then_cast(
-            self.deltay, "BoundsI ymax must be set to an integer value"
+        value = check_is_int_then_cast(
+            value, "BoundsI ymax must be set to an integer value"
         )
-        # attempt to convert widths to static values
-        # this will raise if values are being traced
-        # we let that error propagate instead of reraising
-        # our own.
-        with jax.ensure_compile_time_eval():
-            if not isinstance(self.deltay, int):
-                self.deltay = int(self.deltay.item())
+        self.deltay = value - self.ymin + 1
 
     def _area(self):
         # Remember the + 1 this time to include the pixels on both edges of the bounds.
