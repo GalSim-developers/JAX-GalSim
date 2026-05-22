@@ -3,18 +3,34 @@ requires      = ["setuptools>=45", "setuptools-scm>=8"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name            = "JAX-GalSim"
-authors         = [{ name = "GalSim Developers" }]
+name = "JAX-GalSim"
+authors = [{ name = "GalSim Developers" }]
 requires-python = ">= 3.11"
-description     = "The modular galaxy image simulation toolkit, but in JAX"
-dynamic         = ["version"]
-license         = { file = "LICENSE" }
-readme          = "README.md"
-dependencies    = ["numpy >=1.18.0", "galsim >=2.7.0", "jax >=0.6.0", "astropy >=2.0", "quadax", "equinox"]
+description = "The modular galaxy image simulation toolkit, but in JAX"
+dynamic = ["version"]
+license = { file = "LICENSE" }
+readme = "README.md"
+dependencies = [
+    "numpy >=1.18.0",
+    "galsim >=2.7.0",
+    "jax >=0.6.0",
+    "astropy >=2.0",
+    "quadax",
+    "equinox",
+]
 
 [project.optional-dependencies]
-dev  = ["pytest==8.*", "pytest-codspeed", "pytest-randomly", "pytest-split", "pytest-retry", "pytest-xdist"]
+dev = [
+    "pytest==8.*",
+    "pytest-codspeed",
+    "pytest-randomly",
+    "pytest-split",
+    "pytest-retry",
+    "pytest-xdist",
+    "typer",
+]
 docs = ["sphinx>=7.0", "furo>=2024.1.29", "sphinx-design>=0.5", "sphinx-copybutton"]
+notebooks = ['ipython', 'jupyter', 'ipykernel']
 
 [project.urls]
 home = "https://github.com/GalSim-developers/JAX-GalSim"
