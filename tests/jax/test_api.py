@@ -386,6 +386,8 @@ def _run_object_checks(obj, cls, kind):
                         "xmin",
                         "ymin",
                         "isStatic",
+                        "deltax",
+                        "deltay",
                     ]:
                         continue
 
