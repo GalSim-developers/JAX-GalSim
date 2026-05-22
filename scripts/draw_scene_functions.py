@@ -422,8 +422,10 @@ def prepare_catalog(
     return fcat
 
 
-def get_good_sizes_galsim(*, cat, psf, suffix: str, overwrite: bool = False):
-    cache_fpath = Path("out") / f"good_sizes-{suffix}.npy"
+def get_good_sizes_galsim(
+    *, cat, psf, suffix: str, out_path: Path, overwrite: bool = False
+):
+    cache_fpath = out_path / f"good_sizes-{suffix}.npy"
     if Path(cache_fpath).exists() and not overwrite:
         print(f"INFO: Loading good sizes from file: {cache_fpath}")
         _good_sizes = np.load(cache_fpath)
