@@ -379,15 +379,19 @@ def _run_object_checks(obj, cls, kind):
                     ):
                         continue
 
-                    # jax-galsim Bounds classes do not store xmax, ymax
+                    # jax-galsim BoundsI classes do not store xmin, ymin
+                    if issubclass(cls, jax_galsim.BoundsI) and method in [
+                        "xmin",
+                        "ymin",
+                        "deltax",
+                        "deltay",
+                    ]:
+                        continue
+
                     if issubclass(cls, jax_galsim.Bounds) and method in [
                         "xmax",
                         "ymax",
-                        "xmin",
-                        "ymin",
                         "isStatic",
-                        "deltax",
-                        "deltay",
                     ]:
                         continue
 
