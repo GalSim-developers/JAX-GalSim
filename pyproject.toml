@@ -17,6 +17,7 @@ dependencies = [
     "astropy >=2.0",
     "quadax",
     "equinox",
+    "surveycodex",
 ]
 
 [project.optional-dependencies]
@@ -30,7 +31,7 @@ dev = [
     "typer",
 ]
 docs = ["sphinx>=7.0", "furo>=2024.1.29", "sphinx-design>=0.5", "sphinx-copybutton"]
-notebooks = ["ipython", "jupyter", "ipykernel"]
+notebooks = ["ipython", "jupyter", "ipykernel", "matplotlib", "tqdm"]
 
 [project.urls]
 home = "https://github.com/GalSim-developers/JAX-GalSim"
