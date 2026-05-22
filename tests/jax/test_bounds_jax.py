@@ -135,7 +135,7 @@ def test_bounds_jax_vmap_plus_float():
 @jax.vmap
 @jax.jit
 def _make_bounds_int(xmin, ymin):
-    bnds = jax_galsim.BoundsI(xmin=xmin, ymin=ymin, deltax=10, deltay=10)
+    bnds = jax_galsim.BoundsI(xmin=xmin, ymin=ymin, deltax=10, deltay=11)
     return bnds, bnds.isDefined()
 
 
@@ -146,6 +146,12 @@ def test_bounds_jax_vmap_isdefined_int():
     np.testing.assert_array_equal(bnds.isDefined(), isdef[0], strict=True)
     np.testing.assert_array_equal(bnds.isDefined(), True)
     assert jnp.all(isdef)
+    np.testing.assert_array_equal(bnds.xmin, xmin, strict=True)
+    np.testing.assert_array_equal(bnds.ymin, ymin, strict=True)
+    assert isinstance(bnds.deltax, int)
+    assert bnds.deltax == 10
+    assert isinstance(bnds.deltay, int)
+    assert bnds.deltay == 11
 
 
 @jax.vmap
