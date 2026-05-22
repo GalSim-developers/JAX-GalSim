@@ -1,6 +1,7 @@
 import jax
 import jax.numpy as jnp
 import numpy as np
+import pytest
 
 import jax_galsim
 
@@ -129,3 +130,82 @@ def test_bounds_jax_vmap_plus_float():
     np.testing.assert_array_equal(bnds.xmax[1:], 100)
     np.testing.assert_array_equal(bnds.ymin[1:], 110)
     np.testing.assert_array_equal(bnds.ymax[1:], 110)
+
+
+@jax.vmap
+@jax.jit
+def _make_bounds_int(xmin, ymin):
+    bnds = jax_galsim.BoundsI(xmin=xmin, ymin=ymin, deltax=10, deltay=10)
+    return bnds, bnds.isDefined()
+
+
+def test_bounds_jax_vmap_isdefined_int():
+    xmin = jnp.array([9, 10, 11, 12])
+    ymin = jnp.array([9, 11, 10, 12])
+    bnds, isdef = _make_bounds_int(xmin, ymin)
+    np.testing.assert_array_equal(bnds.isDefined(), isdef[0], strict=True)
+    np.testing.assert_array_equal(bnds.isDefined(), True)
+    assert jnp.all(isdef)
+
+
+@jax.vmap
+@jax.jit
+def _make_bounds_int_bad(xmin, ymin, delta):
+    bnds = jax_galsim.BoundsI(xmin=xmin, ymin=ymin, deltax=delta, deltay=delta)
+    return bnds, bnds.isDefined()
+
+
+def test_bounds_jax_vmap_varying_shape_raises_int():
+    xmin = jnp.array([9, 10, 11, 12])
+    ymin = jnp.array([9, 11, 10, 12])
+    delta = jnp.array([9, 11, 10, 12])
+    with pytest.raises(Exception):
+        _make_bounds_int_bad(xmin, ymin, delta)
+
+
+@jax.vmap
+@jax.jit
+def _and_bounds_empty_int(bnds):
+    bnds = bnds & jax_galsim.BoundsI()
+    return bnds, bnds.isDefined()
+
+
+def test_bounds_jax_vmap_and_raises_isdefined_int():
+    xmin = jnp.array([9, 10, 11, 12])
+    ymin = jnp.array([9, 11, 10, 12])
+    bnds, isdef = _make_bounds_int(xmin, ymin)
+    np.testing.assert_array_equal(bnds.isDefined(), isdef[0], strict=True)
+    np.testing.assert_array_equal(bnds.isDefined(), True)
+    assert jnp.all(isdef)
+
+    with pytest.raises(Exception):
+        _and_bounds_empty_int(bnds)
+
+
+@jax.vmap
+@jax.jit
+def _plus_bounds_far_away_int(bnds):
+    bnds = bnds + jax_galsim.BoundsI(xmin=100, deltax=110, ymin=100, deltay=110)
+    return bnds, bnds.isDefined()
+
+
+@jax.vmap
+@jax.jit
+def _plus_bounds_pos_far_away_int(bnds):
+    bnds = bnds + jax_galsim.PositionI(x=100, y=110)
+    return bnds, bnds.isDefined()
+
+
+def test_bounds_jax_vmap_plus_raises_int():
+    xmin = jnp.array([9, 10, 11, 12])
+    ymin = jnp.array([9, 11, 10, 12])
+    bnds, isdef = _make_bounds_int(xmin, ymin)
+    np.testing.assert_array_equal(bnds.isDefined(), isdef[0], strict=True)
+    np.testing.assert_array_equal(bnds.isDefined(), True)
+    assert jnp.all(isdef)
+
+    with pytest.raises(Exception):
+        _plus_bounds_far_away_int(bnds)
+
+    with pytest.raises(Exception):
+        _plus_bounds_pos_far_away_float(bnds)
