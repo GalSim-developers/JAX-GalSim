@@ -97,7 +97,7 @@ def main(
     )
 
     # hash for unique folder name
-    fix_galsim_str = "-fix-galsim-" if fix_galsim_stamp_size else ""
+    fix_galsim_str = "-fix-galsim" if fix_galsim_stamp_size else ""
     hash_name = (
         f"{image_slen}-{n_samples}-{psf_type}-{fft_size}-{seed}-"
         f"hb{bin_hash}-{cpu_or_gpu}-{scan_or_vmap}{fix_galsim_str}{extra_suffix}"
@@ -338,12 +338,19 @@ def _get_bins_hash(out_path: Path, *, stamp_slen_bins, max_n_gals_bins) -> int:
 
 
 def _parse_bins_str_input(bins_str: str):
-    the_bins = [float(x) for x in bins_str.split(",")]
-    # they need to bwe integers
-    for x in the_bins:
-        assert int(x) == x
-    the_bins = [int(x) for x in the_bins]
-    return tuple(the_bins)
+    if "," not in bins_str:
+        # try to cast as a single number
+        return (int(bins_str),)
+    elif bins_str.count(",") == 1:
+        # something like '60,' was passed in, remove comma and try to cast
+        return (int(bins_str[:-1]),)
+    else:
+        the_bins = [float(x) for x in bins_str.split(",")]
+        # they need to be integers
+        for x in the_bins:
+            assert int(x) == x
+        the_bins = [int(x) for x in the_bins]
+        return tuple(the_bins)
 
 
 if __name__ == "__main__":
