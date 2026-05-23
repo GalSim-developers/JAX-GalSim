@@ -83,7 +83,7 @@ jobs:
             --splitting-algorithm least_duration \
             --clean-durations \
             --retries 1 \
-            -n 2
+            -n 3
 
       - name: Upload test durations
         uses: actions/upload-artifact@v7
