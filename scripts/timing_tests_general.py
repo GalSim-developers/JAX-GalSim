@@ -4,8 +4,8 @@ import math
 import os
 
 os.environ["JAX_ENABLE_X64"] = "True"
+os.environ["_TYPER_STANDARD_TRACEBACK"] = "1"
 import json
-import pickle
 import time
 from functools import partial
 from pathlib import Path
@@ -40,7 +40,7 @@ def main(
     image_slen: int = typer.Option(),
     max_n_gals_global: int = typer.Option(),
     n_samples: int = typer.Option(help="How many big images do you want?"),
-    catsim_fpath: str = "../../../Downloads/catsim/OneDegSq.fits",
+    catsim_fpath: str = "../../Downloads/catsim/OneDegSq.fits",
     outdir: str = typer.Option(),
     scan_or_vmap: str = typer.Option(default="scan"),
     cpu_or_gpu: str = typer.Option(default="cpu"),
@@ -54,6 +54,7 @@ def main(
     max_hlr: float = typer.Option(default=2.0),  # arcsecs
     extra_suffix: str = typer.Option(default=""),
     fix_galsim_stamp_size: bool = False,  # fixed to largest in stamp_slen_bins
+    max_n_iters: int | None = typer.Option(None),
 ):
     # does not support multi-threading or multiprocessing
     # need to parse as str as typer does not support lists
@@ -91,13 +92,15 @@ def main(
     assert out_root_path.exists()
 
     # get hash for bins specified
-    bin_hash = _get_bins_hash(out_root_path, stamp_slen_bins, max_n_gals_bins)
+    bin_hash = _get_bins_hash(
+        out_root_path, stamp_slen_bins=stamp_slen_bins, max_n_gals_bins=max_n_gals_bins
+    )
 
     # hash for unique folder name
-    fix_galsim_str = "fix-galsim-" if fix_galsim_stamp_size else ""
+    fix_galsim_str = "-fix-galsim-" if fix_galsim_stamp_size else ""
     hash_name = (
-        f"{n_samples}-{image_slen}-{psf_type}-{fft_size}-{seed}-"
-        f"hb{bin_hash}-{cpu_or_gpu}-{fix_galsim_str}{extra_suffix}"
+        f"{image_slen}-{n_samples}-{psf_type}-{fft_size}-{seed}-"
+        f"hb{bin_hash}-{cpu_or_gpu}-{scan_or_vmap}{fix_galsim_str}{extra_suffix}"
     )
 
     out_folder = out_root_path / hash_name
@@ -187,24 +190,40 @@ def main(
                 ilen=image_slen,
                 gsizes_jax=gsizes_jax,
                 device=device,
-                max_n_iters=None,
+                buffer=buffer,
+                max_n_iters=max_n_iters,
             )
             t2 = time.time()
             t_jgalsim = t2 - t1
             times_jgalsim.append(t_jgalsim)
 
             # write down record for potential refinement
-            n_gals_record.append((gsizes_jax))
+            n_gals_record.append(_create_record(gsizes, stamp_slen_bins, buffer))
 
             # save residual images to a multipage pdf for inspection
             add_results_to_pdf(gs_arr, np.array(jgs_arr), t_galsim, t_jgalsim, ii, pdf)
 
-    with open(out_folder / "record.pickle", "wb") as handle:
-        pickle.dump(n_gals_record, handle, protocol=pickle.HIGHEST_PROTOCOL)
+    with open(out_folder / "record.json", "w") as fp:
+        json.dump(n_gals_record, fp, indent="\t")
 
     _save_timing_results(
         out_folder=out_folder, times_galsim=times_galsim, times_jgalsim=times_jgalsim
     )
+
+
+def _create_record(gsizes, stamp_slen_bins, buffer):
+    _record = []
+    for ii in range(len(stamp_slen_bins)):
+        if ii == 0:
+            s1 = stamp_slen_bins[0]
+            dummy_mask = gsizes > 1
+            _record.append(int(np.sum(dummy_mask & (gsizes <= s1 - buffer))))
+
+        else:
+            s1 = stamp_slen_bins[ii - 1] - buffer
+            s2 = stamp_slen_bins[ii] - buffer
+            _record.append(int(np.sum((gsizes > s1) & (gsizes <= s2))))
+    return _record
 
 
 def _save_timing_results(*, times_galsim: list, times_jgalsim: list, out_folder: Path):
@@ -251,7 +270,7 @@ def draw_jax_galsim_size_bins(
     # we mark objects zeroed out as drawn already
     _drawn = _drawn | jnp.less_equal(gsizes_jax, 1)
 
-    with jax.transfer_guard("disable"):
+    with jax.transfer_guard("allow"):
         # split into batches using good sizes estimated from galsim
         for _draw_fnc, _max_n_gals, _sslen in zip(
             draw_fncs, max_n_gals_bins, stamp_slen_bins
@@ -260,7 +279,9 @@ def draw_jax_galsim_size_bins(
             _sslen_jax = device_put(_sslen, device=device)
             _mask2 = jnp.less_equal(gsizes_jax, _sslen_jax - buffer_jax)
             _mask = _mask1 & _mask2
-            if _mask.sum() == 0:  # no objects to draw in this bin
+
+            # no objects to draw in this bin
+            if _mask.sum() == device_put(0, device=device):
                 continue
 
             n_gals = int(_mask.sum().item())
@@ -293,9 +314,10 @@ def draw_jax_galsim_size_bins(
 
 def _get_bins_hash(out_path: Path, *, stamp_slen_bins, max_n_gals_bins) -> int:
     # very simple, just save these bins with an "id" if never has been used before
-    # otherwise assign next one available in order of 0,1,2,...
+    # otherwise assign next one available
     hash_json = out_path / "bin_hash.json"
     _key = (*stamp_slen_bins, *max_n_gals_bins)  # just unpack tuple
+    _key = "-".join([str(x) for x in _key])
 
     h = {}  # will be overwritten if exists
     if hash_json.exists():
