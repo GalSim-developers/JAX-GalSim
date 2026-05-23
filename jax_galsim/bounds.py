@@ -697,43 +697,20 @@ class BoundsI(Bounds):
     _pos_class = PositionI
 
     def __init__(self, *args, **kwargs):
-        # we set these variables to disable type checking and conversion
-        # for xmin/ymin while we initialize the object
+        # we set these variables to disable array to python int
+        # or python int to array conversions for xmin/ymin while we
+        # initialize the object.
+        # the setter methods below validate that the inputs are ints,
+        # so we skip that in the init.
+        # the class always converts deltax/deltay to python ints and
+        # an error will be raised if that cannot be done.
         self._isstatic = True
         self._dotypeconversion = False
         self._parse_args(*args, **kwargs)
 
-        # validate inputs are ints
-        self.deltax = check_is_int_then_cast(
-            self.deltax, "BoundsI must be initialized with integer values"
-        )
-        self.deltay = check_is_int_then_cast(
-            self.deltay, "BoundsI must be initialized with integer values"
-        )
-        self.xmin = check_is_int_then_cast(
-            self.xmin, "BoundsI must be initialized with integer values"
-        )
-        self.ymin = check_is_int_then_cast(
-            self.ymin, "BoundsI must be initialized with integer values"
-        )
-
-        # attempt to convert widths to static values
-        # this will raise if values are being traced
-        # we let that error propagate instead of reraising
-        # our own.
-        with jax.ensure_compile_time_eval():
-            if not isinstance(self.deltax, int):
-                self.deltax = int(self.deltax.item())
-            if not isinstance(self.deltay, int):
-                self.deltay = int(self.deltay.item())
-
+        # now we compute these properties correctly and turn on type conversion
         self._isdefined = self.deltax >= 1 and self.deltay >= 1
-
-        # now we compute these properties correctly and turn on type checking
-        if isinstance(self._xmin, int) and isinstance(self._ymin, int):
-            self._isstatic = True
-        else:
-            self._isstatic = False
+        self._isstatic = isinstance(self._xmin, int) and isinstance(self._ymin, int)
         self._dotypeconversion = True
 
     def _check_scalar(self, x, name):
@@ -757,14 +734,12 @@ class BoundsI(Bounds):
         else:
             return 0, 0
 
-    # we store xmin internally as a float even though it is an int
-    # so that autodiff works properly (needs floats in general)
     @property
     def xmin(self):
-        if self._isstatic:
-            return self._xmin
-        else:
-            return jnp.astype(self._xmin, int)
+        # for non-static bounds we store xmin internally as a float even
+        # though it is an int so that autodiff works properly (needs floats in general).
+        # thus we cast here.
+        return cast_to_int(self._xmin)
 
     @xmin.setter
     def xmin(self, value):
@@ -811,14 +786,12 @@ class BoundsI(Bounds):
         )
         self.deltax = value - self.xmin + 1
 
-    # we store ymin internally as a float even though it is an int
-    # so that autodiff works properly (needs floats in general)
     @property
     def ymin(self):
-        if self._isstatic:
-            return self._ymin
-        else:
-            return jnp.astype(self._ymin, int)
+        # for non-static bounds we store ymin internally as a float even
+        # though it is an int so that autodiff works properly (needs floats in general).
+        # thus we cast here.
+        return cast_to_int(self._ymin)
 
     @ymin.setter
     def ymin(self, value):

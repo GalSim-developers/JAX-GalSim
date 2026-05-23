@@ -356,3 +356,126 @@ def test_bounds_jax_int_set_jit():
     assert isinstance(bnds.xmin, int)
     assert isinstance(bnds.ymin, int)
     assert bnds.xmin == 2
+
+
+@jax.vmap
+@jax.jit
+def _make_bounds_int_nodef(xmin, ymin):
+    bnds = jax_galsim.BoundsI(xmin=xmin, ymin=ymin, deltax=0, deltay=0)
+    return bnds, bnds.isDefined()
+
+
+@jax.vmap
+@jax.jit
+def _bounds_includes_bounds_float(bnds):
+    return bnds.includes(jax_galsim.BoundsD(9.5, 9.75, 9.5, 9.75))
+
+
+@jax.vmap
+@jax.jit
+def _bounds_includes_bounds_nodef_float(bnds):
+    return bnds.includes(jax_galsim.BoundsD())
+
+
+@jax.vmap
+@jax.jit
+def _bounds_includes_pos_float(bnds):
+    return bnds.includes(jax_galsim.PositionD(9.5, 9.5))
+
+
+@jax.vmap
+@jax.jit
+def _bounds_includes_xy_float(bnds):
+    return bnds.includes(9.5, 9.5)
+
+
+def test_bounds_jax_vmap_includes_float():
+    xmin = jnp.array([8, 9, 10, 11, 12])
+    xmax = jnp.array([9, 12, 11, 10, 9])
+    ymin = jnp.array([7, 9, 11, 10, 12])
+    ymax = jnp.array([8, 10, 10, 10, 10])
+    bnds, isdef = _make_bounds_float(xmin, ymin, xmax, ymax)
+    np.testing.assert_array_equal(bnds.isDefined(), isdef, strict=True)
+
+    incs = _bounds_includes_bounds_float(bnds)
+    np.testing.assert_array_equal(incs, [False, True, False, False, False], strict=True)
+
+    incs = _bounds_includes_bounds_nodef_float(bnds)
+    np.testing.assert_array_equal(
+        incs, [False, False, False, False, False], strict=True
+    )
+
+    incs = _bounds_includes_pos_float(bnds)
+    np.testing.assert_array_equal(incs, [False, True, False, False, False], strict=True)
+
+    incs = _bounds_includes_xy_float(bnds)
+    np.testing.assert_array_equal(incs, [False, True, False, False, False], strict=True)
+
+
+@jax.vmap
+@jax.jit
+def _bounds_includes_bounds_int(bnds):
+    return bnds.includes(jax_galsim.BoundsI(9, 9, 10, 10))
+
+
+@jax.vmap
+@jax.jit
+def _bounds_includes_bounds_nodef_int(bnds):
+    return bnds.includes(jax_galsim.BoundsI())
+
+
+@jax.vmap
+@jax.jit
+def _bounds_includes_pos_int(bnds):
+    return bnds.includes(jax_galsim.PositionD(9, 10))
+
+
+@jax.vmap
+@jax.jit
+def _bounds_includes_xy_int(bnds):
+    return bnds.includes(9.5, 9.7)
+
+
+def test_bounds_jax_vmap_includes_int():
+    xmin = jnp.array([8, 9, 10, 11, 12])
+    ymin = jnp.array([7, 9, 11, 10, 12])
+
+    bnds, isdef = _make_bounds_int(xmin, ymin)
+    np.testing.assert_array_equal(bnds.isDefined(), isdef)
+
+    incs = _bounds_includes_bounds_int(bnds)
+    np.testing.assert_array_equal(incs, [True, True, False, False, False], strict=True)
+
+    incs = _bounds_includes_bounds_nodef_int(bnds)
+    np.testing.assert_array_equal(
+        incs, [False, False, False, False, False], strict=True
+    )
+
+    incs = _bounds_includes_pos_int(bnds)
+    np.testing.assert_array_equal(incs, [True, True, False, False, False], strict=True)
+
+    incs = _bounds_includes_xy_int(bnds)
+    np.testing.assert_array_equal(incs, [True, True, False, False, False], strict=True)
+
+    bnds, isdef = _make_bounds_int_nodef(xmin, ymin)
+    np.testing.assert_array_equal(bnds.isDefined(), isdef)
+
+    incs = _bounds_includes_bounds_int(bnds)
+    np.testing.assert_array_equal(
+        incs, [False, False, False, False, False], strict=True
+    )
+
+    incs = _bounds_includes_bounds_nodef_int(bnds)
+    np.testing.assert_array_equal(
+        incs, [False, False, False, False, False], strict=True
+    )
+
+    incs = _bounds_includes_pos_int(bnds)
+    np.testing.assert_array_equal(
+        incs, [False, False, False, False, False], strict=True
+    )
+
+    incs = _bounds_includes_xy_int(bnds)
+    np.testing.assert_array_equal(
+        incs, [False, False, False, False, False], strict=True
+    )
