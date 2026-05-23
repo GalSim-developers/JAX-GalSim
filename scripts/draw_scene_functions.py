@@ -216,7 +216,7 @@ def draw_galsim(
     *,
     ilen: int,
     psf: galsim.GSObject,
-    max_n_gals: int,
+    max_n_gals: int | None = None,
     slen: int | None = None,
     fft_size: int | None = None,
     max_slen: int | None = None,
@@ -227,11 +227,12 @@ def draw_galsim(
     image = galsim.Image(ncol=ilen, nrow=ilen, scale=0.2, dtype=np.float64)
     wcs = image.wcs
 
-    assert n_sources <= max_n_gals, (
-        "Number of sources in sample {} exceeds maximum number of sources {}.".format(
-            n_sources, max_n_gals
+    if max_n_gals:
+        assert n_sources <= max_n_gals, (
+            "Number of sources in sample {} exceeds maximum number of sources {}.".format(
+                n_sources, max_n_gals
+            )
         )
-    )
 
     for n in range(n_sources):
         _gal_params = {k: v[n].item() for k, v in galaxy_params.items()}
@@ -406,7 +407,11 @@ def draw_jgs_vmap_stamps(
 
 
 def prepare_catalog(
-    catsim_file: str, max_hlr: float = 2.0, min_mag: float = 20.0, max_mag: float = 27.0
+    catsim_file: str,
+    max_hlr: float = 2.0,
+    min_hlr=0.0,
+    min_mag: float = 20.0,
+    max_mag: float = 27.0,
 ):
     cat = Table.read(catsim_file, format="fits")
 
@@ -415,7 +420,7 @@ def prepare_catalog(
     hlr_d = np.sqrt(cat["a_d"] * cat["b_d"])
     _mask1 = hlr_b < max_hlr
     _mask2 = hlr_d < max_hlr
-    _mask3 = (hlr_b > 0) | (hlr_d > 0)
+    _mask3 = (hlr_b > min_hlr) | (hlr_d > min_hlr)
     _mask4 = (cat["r_ab"] < max_mag) & (cat["r_ab"] > min_mag)
     mask = _mask1 & _mask2 & _mask3 & _mask4
     fcat = cat[mask]
