@@ -61,7 +61,6 @@ def main(
     max_n_gals_bins = _parse_bins_str_input(max_n_gals_bins_str)
 
     assert tuple(sorted(stamp_slen_bins)) == stamp_slen_bins
-    assert tuple(sorted(max_n_gals_bins)) == max_n_gals_bins
     assert scan_or_vmap in ("scan", "vmap")
     assert cpu_or_gpu in ("cpu", "gpu")
 
@@ -88,11 +87,11 @@ def main(
     else:
         raise NotImplementedError("Only 'gaussian' or 'moffat' are supported.")
 
-    out_path = Path(outdir)
-    assert out_path.exists()
+    out_root_path = Path(outdir)
+    assert out_root_path.exists()
 
     # get hash for bins specified
-    bin_hash = _get_bins_hash(out_path, stamp_slen_bins, max_n_gals_bins)
+    bin_hash = _get_bins_hash(out_root_path, stamp_slen_bins, max_n_gals_bins)
 
     # hash for unique folder name
     fix_galsim_str = "fix-galsim-" if fix_galsim_stamp_size else ""
@@ -101,7 +100,7 @@ def main(
         f"hb{bin_hash}-{cpu_or_gpu}-{fix_galsim_str}{extra_suffix}"
     )
 
-    out_folder = out_path / hash_name
+    out_folder = out_root_path / hash_name
     out_folder.mkdir(parents=False, exist_ok=True)
 
     # catalog preparation and masking
@@ -110,7 +109,11 @@ def main(
     )
     n1 = len(cat)
     good_sizes = get_good_sizes_galsim(
-        cat=cat, psf=psf, overwrite=False, out_path=out_path, suffix=f"{psf_type}-07"
+        cat=cat,
+        psf=psf,
+        overwrite=False,
+        out_path=out_root_path,
+        suffix=f"{psf_type}-07",
     )
     cat["good_size"] = good_sizes
     mask_good_size = cat["good_size"] < max_stamp_size - buffer
@@ -144,7 +147,7 @@ def main(
         )
 
     # timing results average over 100 samples
-    pdf_name = Path("out") / f"residuals_{hash_name}.pdf"
+    pdf_name = out_folder / "residuals.pdf"
     n_gals_record = []
     rkeys = random.split(random.PRNGKey(seed), n_samples)
     with PdfPages(pdf_name) as pdf:
@@ -200,7 +203,7 @@ def main(
         pickle.dump(n_gals_record, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
     _save_timing_results(
-        suffix=hash_name, times_galsim=times_galsim, times_jgalsim=times_jgalsim
+        out_folder=out_folder, times_galsim=times_galsim, times_jgalsim=times_jgalsim
     )
 
 
