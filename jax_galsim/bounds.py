@@ -967,3 +967,19 @@ class BoundsI(Bounds):
         ret._isdefined = aux_data["isdefined"]
         ret._isstatic = aux_data["isstatic"]
         return ret
+
+
+@implements(
+    _galsim._BoundsD,
+    lax_description="JAX-GalSim doesn't skip sanity checks for ``_BoundsD``.",
+)
+def _BoundsD(xmin, xmax, ymin, ymax):
+    return BoundsD(xmin, xmax, ymin, ymax)
+
+
+@implements(
+    _galsim._BoundsI,
+    lax_description="JAX-GalSim doesn't skip sanity checks for ``_BoundsI``.",
+)
+def _BoundsI(xmin, xmax, ymin, ymax):
+    return BoundsI(xmin, xmax, ymin, ymax)

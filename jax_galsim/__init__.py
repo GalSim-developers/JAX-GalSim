@@ -33,7 +33,7 @@ from .noise import (
 )
 
 # Basic building blocks
-from .bounds import Bounds, BoundsD, BoundsI
+from .bounds import Bounds, BoundsD, BoundsI, _BoundsD, _BoundsI
 from .gsparams import GSParams
 from .position import Position, PositionD, PositionI
 from .angle import Angle, AngleUnit, _Angle, radians, hours, degrees, arcmin, arcsec
