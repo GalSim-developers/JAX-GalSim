@@ -243,3 +243,19 @@ class PositionI(Position):
         except (TypeError, ValueError):
             pass
         raise TypeError("Can only %s a PositionI by int values" % op)
+
+
+@implements(
+    _galsim._PositionD,
+    lax_description="JAX-GalSim doesn't skip sanity checks for ``_PositionD``.",
+)
+def _PositionD(x, y):
+    return PositionD(x, y)
+
+
+@implements(
+    _galsim._PositionI,
+    lax_description="JAX-GalSim doesn't skip sanity checks for ``_PositionI``.",
+)
+def _PositionI(x, y):
+    return PositionI(x, y)
