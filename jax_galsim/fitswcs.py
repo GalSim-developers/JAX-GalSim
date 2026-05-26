@@ -13,7 +13,6 @@ from jax_galsim.angle import AngleUnit, arcsec, degrees, radians
 from jax_galsim.celestial import CelestialCoord
 from jax_galsim.core.utils import (
     cast_to_float,
-    cast_to_python_float,
     ensure_hashable,
     implements,
 )
@@ -32,6 +31,7 @@ from jax_galsim.wcs import (
     JacobianWCS,
     OffsetWCS,
     PixelScale,
+    _cast_to_python_float,
 )
 
 #########################################################################################
@@ -754,16 +754,16 @@ class GSFitsWCS(CelestialWCS):
         header["GS_WCS"] = ("GSFitsWCS", "GalSim WCS name")
         header["CTYPE1"] = "RA---" + self.wcs_type
         header["CTYPE2"] = "DEC--" + self.wcs_type
-        header["CRPIX1"] = cast_to_python_float(self.crpix[0])
-        header["CRPIX2"] = cast_to_python_float(self.crpix[1])
-        header["CD1_1"] = cast_to_python_float(self.cd[0][0])
-        header["CD1_2"] = cast_to_python_float(self.cd[0][1])
-        header["CD2_1"] = cast_to_python_float(self.cd[1][0])
-        header["CD2_2"] = cast_to_python_float(self.cd[1][1])
+        header["CRPIX1"] = _cast_to_python_float(self.crpix[0])
+        header["CRPIX2"] = _cast_to_python_float(self.crpix[1])
+        header["CD1_1"] = _cast_to_python_float(self.cd[0][0])
+        header["CD1_2"] = _cast_to_python_float(self.cd[0][1])
+        header["CD2_1"] = _cast_to_python_float(self.cd[1][0])
+        header["CD2_2"] = _cast_to_python_float(self.cd[1][1])
         header["CUNIT1"] = "deg"
         header["CUNIT2"] = "deg"
-        header["CRVAL1"] = cast_to_python_float(self.center.ra / degrees)
-        header["CRVAL2"] = cast_to_python_float(self.center.dec / degrees)
+        header["CRVAL1"] = _cast_to_python_float(self.center.ra / degrees)
+        header["CRVAL2"] = _cast_to_python_float(self.center.dec / degrees)
         if self.pv is not None:
             order = len(self.pv[0]) - 1
             k = 0
@@ -771,8 +771,8 @@ class GSFitsWCS(CelestialWCS):
             for n in range(order + 1):
                 for j in range(n + 1):
                     i = n - j
-                    header["PV1_" + str(k)] = cast_to_python_float(self.pv[0, i, j])
-                    header["PV2_" + str(k)] = cast_to_python_float(self.pv[1, j, i])
+                    header["PV1_" + str(k)] = _cast_to_python_float(self.pv[0, i, j])
+                    header["PV2_" + str(k)] = _cast_to_python_float(self.pv[1, j, i])
                     k = k + 1
                     if k in odd_indices:
                         k = k + 1
@@ -785,7 +785,9 @@ class GSFitsWCS(CelestialWCS):
                     if i == 1 and j == 0:
                         aij -= 1  # Turn back into standard form.
                     if aij != 0.0:
-                        header["A_" + str(i) + "_" + str(j)] = cast_to_python_float(aij)
+                        header["A_" + str(i) + "_" + str(j)] = _cast_to_python_float(
+                            aij
+                        )
             header["B_ORDER"] = order
             for i in range(order + 1):
                 for j in range(order + 1):
@@ -793,7 +795,9 @@ class GSFitsWCS(CelestialWCS):
                     if i == 0 and j == 1:
                         bij -= 1
                     if bij != 0.0:
-                        header["B_" + str(i) + "_" + str(j)] = cast_to_python_float(bij)
+                        header["B_" + str(i) + "_" + str(j)] = _cast_to_python_float(
+                            bij
+                        )
         if self.abp is not None:
             order = len(self.abp[0]) - 1
             header["AP_ORDER"] = order
@@ -803,7 +807,7 @@ class GSFitsWCS(CelestialWCS):
                     if i == 1 and j == 0:
                         apij -= 1
                     if apij != 0.0:
-                        header["AP_" + str(i) + "_" + str(j)] = cast_to_python_float(
+                        header["AP_" + str(i) + "_" + str(j)] = _cast_to_python_float(
                             apij
                         )
             header["BP_ORDER"] = order
@@ -813,7 +817,7 @@ class GSFitsWCS(CelestialWCS):
                     if i == 0 and j == 1:
                         bpij -= 1
                     if bpij != 0.0:
-                        header["BP_" + str(i) + "_" + str(j)] = cast_to_python_float(
+                        header["BP_" + str(i) + "_" + str(j)] = _cast_to_python_float(
                             bpij
                         )
         return header

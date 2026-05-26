@@ -61,6 +61,34 @@ does not affect the original.
    # JAX-GalSim — real_part is a copy
    real_part = complex_image.real  # independent array
 
+Scalar Types, Array Types, and Casting
+--------------------------------------
+
+With the use of JAX, there are now many possible types for numeric data. These include
+
+- **Python scalars**: Objects with types that are ``float``, ``int``, or ``complex``.
+- **NumPy scalars**: Objects with types that are subclasses of ``np.floating``, ``np.integer``, etc.
+- **NumPy array scalars**: Objects with a type that is ``np.ndarray`` and have ``np.ndim(...) == 0``.
+- **NumPy arrays**: Objects with a type that is ``np.ndarray`` and have ``np.ndim(...) > 0``.
+- **JAX array scalars**: Objects with a type that is ``jax.numpy.ndarray`` and have ``jax.numpy.ndim(...) == 0``.
+- **JAX arrays**: Objects with a type that is ``jax.numpy.ndarray`` and have ``jax.numpy.ndim(...) > 0``.
+
+**JAX does not have pure scalar types like NumPy. JAX uses array scalars for those instead.**
+
+JAX-GalSim uses the following rules when handling data types and casting.
+
+- If the item is a Python numeric type (i.e., ``int`` or ``float``) or a
+  NumPy scalar type (i.e., ``isinstance(x, np.number)``, ``isinstance(x, np.integer)``, etc.),
+  convert it to a Python type of the appropriate kind.
+- For all other array-like types, cast to the correct type via ``jax.numpy.astype(x, ...)``.
+- For putting data into FITS headers only, JAX-GalSim converts of NumPy/JAX arrays to Python
+  numeric types as long as there is one element in the array (i.e., it is a NumPy scalar type,
+  an array scalar, or a 1D array with one element).
+
+These rules allow JAX-GalSim to transparently handle JAX's tracing operations, but can result in
+the code raising generic ``Exception`` instances instead of more specific ``GalSim`` exceptions in
+some cases.
+
 Random Number Generation
 ------------------------
 
@@ -163,9 +191,6 @@ profile parameters passed into a ``jit``-compiled function):
    def good(sigma):
        return jax.lax.cond(sigma > 1.0, lambda s: s * 2, lambda s: s, sigma)
 
-JAX-GalSim uses an internal ``has_tracers()`` utility to detect tracing and
-avoid problematic control flow in its own implementations.
-
 Fixed output shapes
 ^^^^^^^^^^^^^^^^^^^
 
@@ -197,20 +222,9 @@ The ``__init__`` gotcha
 
 During ``jit`` tracing, JAX calls constructors with **tracer objects** rather
 than concrete Python numbers. Type checks like ``isinstance(sigma, float)`` will
-fail on tracers. JAX-GalSim handles this internally, but if you subclass any
-JAX-GalSim object, be aware that ``__init__`` may receive tracers:
-
-.. code-block:: python
-
-   from jax_galsim.core.utils import has_tracers
-
-   class MyProfile(jax_galsim.GSObject):
-       def __init__(self, sigma, gsparams=None):
-           if not has_tracers(sigma):
-               # Only validate with concrete values
-               if sigma <= 0:
-                   raise ValueError("sigma must be positive")
-           ...
+return ``False`` on tracers, and you cannot check correctness of values (e.g.,
+``if sigma > 0: ...```). JAX-GalSim handles this internally, but if you subclass any
+JAX-GalSim object, be aware that ``__init__`` may receive tracers.
 
 Profile Restrictions
 --------------------
@@ -221,11 +235,8 @@ Some GalSim features are not yet implemented in JAX-GalSim:
 - **ChromaticObject**: All chromatic functionality (wavelength-dependent
   profiles) is not available.
 - **InterpolatedKImage**: Not implemented.
-- **Airy, Kolmogorov, OpticalPSF, RealGalaxy**: See :doc:`api-coverage` for
+- **Airy, Kolmogorov, OpticalPSF, RealGalaxy, etc.**: See :doc:`api-coverage` for
   the full list.
-
-The project currently implements **22.5 %** of the GalSim public API, focused
-on the most commonly used profiles and operations.
 
 Numerical Precision
 -------------------
@@ -249,11 +260,11 @@ These differences are typically at the level of floating-point round-off
 should not affect scientific conclusions.
 
 ⚠️ Additional Sharp Bits
---------------------------
+------------------------
 
 In the :doc:`api/index` you will find **🔪 JAX-GalSim - The Sharp Bits 🔪** blocks highlighting additional important caveats for specific classes and or methods. These could include things like:
 
-- Many classes do not perform some of Galsim's test for correctness during initialization (e.g., :meth:`~jax_galsim.GSObject.drawImage`).
+- Some classes do not perform some of Galsim's test for correctness during initialization (e.g., :meth:`~jax_galsim.InterpolatedImage`).
 - Certain profiles might not be auto-differentiable with respect to some of their parameters (e.g., :class:`~jax_galsim.Spergel`, :class:`~jax_galsim.Moffat`)
 - Limitations regarding what types of inputes are handled (e.g., :meth:`~jax_galsim.Image.calculate_fft` does not accept complex dtypes.)
 
