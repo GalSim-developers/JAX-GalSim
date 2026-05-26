@@ -147,3 +147,6 @@ output*/
 *.DS_Store
 # numpy data
 *.npy
+
+#json data
+*.json
