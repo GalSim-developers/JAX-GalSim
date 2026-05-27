@@ -479,3 +479,11 @@ def test_bounds_jax_vmap_includes_int():
     np.testing.assert_array_equal(
         incs, [False, False, False, False, False], strict=True
     )
+
+
+def test_bounds_jax_init_bounds():
+    assert not jax_galsim.BoundsD().isDefined()
+    assert not jax_galsim.BoundsD(jax_galsim.BoundsD()).isDefined()
+
+    assert not jax_galsim.BoundsI().isDefined()
+    assert not jax_galsim.BoundsI(jax_galsim.BoundsI()).isDefined()

@@ -77,7 +77,7 @@ def cast_to_int(x, accept_strings=False):
     return _cast_to_type(x, int, accept_strings=accept_strings)
 
 
-def is_equal_with_arrays(x, y, currval=None, no_jax=False):
+def is_equal_with_arrays(x, y, no_jax=False):
     """Return True if the data is equal, False otherwise. Handles jax.Array types."""
     if no_jax:
         arr_func = np.array
@@ -86,25 +86,24 @@ def is_equal_with_arrays(x, y, currval=None, no_jax=False):
         arr_func = jnp.array
         arr_eq_func = jnp.array_equal
 
-    if currval is None:
-        currval = arr_func(True)
+    currval = arr_func(True)
 
     if isinstance(x, list):
         if isinstance(y, list) and len(x) == len(y):
             for vx, vy in zip(x, y):
-                currval &= is_equal_with_arrays(vx, vy, currval=currval, no_jax=no_jax)
+                currval &= is_equal_with_arrays(vx, vy, no_jax=no_jax)
         else:
             currval &= arr_func(False)
     elif isinstance(x, tuple):
         if isinstance(y, tuple) and len(x) == len(y):
             for vx, vy in zip(x, y):
-                currval &= is_equal_with_arrays(vx, vy, currval=currval, no_jax=no_jax)
+                currval &= is_equal_with_arrays(vx, vy, no_jax=no_jax)
         else:
             currval &= arr_func(False)
     elif isinstance(x, set):
         if isinstance(y, set) and len(x) == len(y):
             for vx, vy in zip(sorted(x), sorted(y)):
-                currval &= is_equal_with_arrays(vx, vy, currval=currval, no_jax=no_jax)
+                currval &= is_equal_with_arrays(vx, vy, no_jax=no_jax)
         else:
             currval &= arr_func(False)
     elif isinstance(x, dict):
@@ -113,11 +112,9 @@ def is_equal_with_arrays(x, y, currval=None, no_jax=False):
                 if kx not in y:
                     currval &= arr_func(False)
                 else:
-                    currval &= is_equal_with_arrays(
-                        vx, y[kx], currval=currval, no_jax=no_jax
-                    )
+                    currval &= is_equal_with_arrays(vx, y[kx], no_jax=no_jax)
         else:
-            currval &= jnp.array(False)
+            currval &= arr_func(False)
     elif isinstance(x, jax.Array) and jnp.ndim(x) > 0:
         if isinstance(y, jax.Array) and y.shape == x.shape:
             currval &= arr_eq_func(x, y)

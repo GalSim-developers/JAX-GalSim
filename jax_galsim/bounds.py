@@ -29,7 +29,7 @@ from GalSim.
 - If a ``BoundsI`` object is declared with static ``xmin`` and ``ymin`` values, and then one attempts to
   convert them to non-static values via assignment, JAX-GalSim will attempt to convert the assigned values
   back to static values. This operation will raise an error if the code is being traced.
-- ``Bounds`` classes in JAX-GalSim have an etxra method, ``isStatic`` that returns ``True`` if the object
+- ``Bounds`` classes in JAX-GalSim have an extra method, ``isStatic`` that returns ``True`` if the object
   was instantiated with static ``xmin`` and ``ymin`` values. This method always returns ``False`` for
   ``BoundsD`` objects.
 - JAX-GalSim does not support the use of the `&` and `+` operators (i.e., the dunder methods ``__and__``
@@ -79,6 +79,7 @@ class Bounds:
                     self.deltax = args[0].deltax + offset
                     self.ymin = args[0].ymin
                     self.deltay = args[0].deltay + offset
+                    do_isdefined = False
                 elif isinstance(args[0], Position):
                     self.xmin = self.xmax = args[0].x
                     self.ymin = self.ymax = args[0].y
@@ -746,7 +747,7 @@ class BoundsI(Bounds):
         value = check_is_int_then_cast(value, "BoundsI xmin values must be integers")
         if self._isstatic:
             if self._dotypeconversion:
-                # attempt to convert widths to static values
+                # attempt to convert to static values
                 # this will raise if values are being traced
                 # we let that error propagate instead of reraising
                 # our own.
@@ -798,7 +799,7 @@ class BoundsI(Bounds):
         value = check_is_int_then_cast(value, "BoundsI ymin values must be integers")
         if self._isstatic:
             if self._dotypeconversion:
-                # attempt to convert widths to static values
+                # attempt to convert to static values
                 # this will raise if values are being traced
                 # we let that error propagate instead of reraising
                 # our own.
@@ -935,7 +936,10 @@ class BoundsI(Bounds):
     def tree_flatten(self):
         """This function flattens the Bounds into a list of children
         nodes that will be traced by JAX and auxiliary static data."""
-        aux_data = {"isstatic": self._isstatic}
+        aux_data = {
+            "isstatic": self._isstatic,
+            "dotypeconversion:": self._dotypeconversion,
+        }
 
         # Define the children nodes of the PyTree that need tracing
         if self._isstatic:
@@ -966,6 +970,7 @@ class BoundsI(Bounds):
         ret.deltay = aux_data["deltay"]
         ret._isdefined = aux_data["isdefined"]
         ret._isstatic = aux_data["isstatic"]
+        ret._dotypeconversion = aux_data["dotypeconversion"]
         return ret
 
 
