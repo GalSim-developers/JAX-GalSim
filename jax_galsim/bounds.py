@@ -938,7 +938,7 @@ class BoundsI(Bounds):
         nodes that will be traced by JAX and auxiliary static data."""
         aux_data = {
             "isstatic": self._isstatic,
-            "dotypeconversion:": self._dotypeconversion,
+            "dotypeconversion": self._dotypeconversion,
         }
 
         # Define the children nodes of the PyTree that need tracing
