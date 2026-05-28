@@ -106,11 +106,15 @@ class BaseNoise:
         raise NotImplementedError("Cannot call applyTo on a pure BaseNoise object")
 
     def __eq__(self, other):
-        # Quick and dirty.  Just check reprs are equal.
-        return self is other or repr(self) == repr(other)
+        if self is other:
+            return jnp.array(True)
+        elif isinstance(other, BaseNoise):
+            return jnp.array(self._rng == other._rng)
+        else:
+            return jnp.array(False)
 
     def __ne__(self, other):
-        return not self.__eq__(other)
+        return ~self.__eq__(other)
 
     __hash__ = None
 
@@ -172,6 +176,16 @@ class GaussianNoise(BaseNoise):
 
     def __str__(self):
         return "galsim.GaussianNoise(sigma=%s)" % (ensure_hashable(self.sigma),)
+
+    def __eq__(self, other):
+        if self is other:
+            return jnp.array(True)
+        elif isinstance(other, self.__class__):
+            return jnp.array(self._rng == other._rng) & jnp.array_equal(
+                self._sigma, other._sigma
+            )
+        else:
+            return jnp.array(False)
 
     def tree_flatten(self):
         """This function flattens the GaussianNoise into a list of children
@@ -264,6 +278,16 @@ class PoissonNoise(BaseNoise):
 
     def __str__(self):
         return "galsim.PoissonNoise(sky_level=%s)" % (self.sky_level)
+
+    def __eq__(self, other):
+        if self is other:
+            return jnp.array(True)
+        elif isinstance(other, self.__class__):
+            return jnp.array(self._rng == other._rng) & jnp.array_equal(
+                self._sky_level, other._sky_level
+            )
+        else:
+            return jnp.array(False)
 
     def tree_flatten(self):
         """This function flattens the PoissonNoise into a list of children
@@ -429,6 +453,19 @@ class CCDNoise(BaseNoise):
             self.read_noise,
         )
 
+    def __eq__(self, other):
+        if self is other:
+            return jnp.array(True)
+        elif isinstance(other, self.__class__):
+            return (
+                jnp.array(self._rng == other._rng)
+                & jnp.array_equal(self._sky_level, other._sky_level)
+                & jnp.array_equal(self._gain, other._gain)
+                & jnp.array_equal(self._read_noise, other._read_noise)
+            )
+        else:
+            return jnp.array(False)
+
     def tree_flatten(self):
         """This function flattens the CCDNoise into a list of children
         nodes that will be traced by JAX and auxiliary static data."""
@@ -569,6 +606,16 @@ class VariableGaussianNoise(BaseNoise):
 
     def __str__(self):
         return "galsim.VariableGaussianNoise(var_image=%s)" % (self.var_image)
+
+    def __eq__(self, other):
+        if self is other:
+            return jnp.array(True)
+        elif isinstance(other, self.__class__):
+            return jnp.array(self._rng == other._rng) & jnp.array(
+                self._var_image == other._var_image
+            )
+        else:
+            return jnp.array(False)
 
     def tree_flatten(self):
         """This function flattens the VariableGaussianNoise into a list of children
