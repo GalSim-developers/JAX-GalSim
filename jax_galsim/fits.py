@@ -56,18 +56,7 @@ def readCube(*args, **kwargs):
 @contextmanager
 def _image_as_numpy(image):
     if isinstance(image, Image):
-        try:
-            orig_array = image._array
-            # convert to numpy so astropy doesn't complain
-            image._array = np.array(image.array, dtype=orig_array.dtype)
-            # some of these check for Image instances, so we hackily set the class
-            # on the way in
-            old_class = image.__class__
-            image.__class__ = _galsim.Image
-            yield image
-        finally:
-            image.__class__ = old_class
-            image._array = orig_array
+        yield image.to_galsim()
     else:
         try:
             yield np.array(image, dtype=image.dtype)

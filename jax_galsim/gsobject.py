@@ -197,10 +197,15 @@ class GSObject:
         return -1.0 * self
 
     def __eq__(self, other):
-        return (self is other) or (
-            (type(other) is self.__class__)
-            and is_equal_with_arrays(self.tree_flatten(), other.tree_flatten())
-        )
+        if self is other:
+            return jnp.array(True)
+        elif type(other) is self.__class__:
+            return is_equal_with_arrays(self.tree_flatten(), other.tree_flatten())
+        else:
+            return jnp.array(False)
+
+    def __ne__(self, other):
+        return ~self.__eq__(other)
 
     @implements(_galsim.GSObject.xValue)
     def xValue(self, *args, **kwargs):
@@ -1052,12 +1057,12 @@ The JAX-GalSim version of ``drawImage``
                 )
 
         # Can't both recenter a provided image and add to it.
-        if recenter and image.center != PositionI(0, 0) and add_to_image:
-            raise _galsim.GalSimIncompatibleValuesError(
+        if recenter and add_to_image:
+            zp = PositionI(0, 0)
+            zp.x = equinox.error_if(
+                jnp.array(zp.x, dtype=int),
+                image.center != zp,
                 "Cannot use add_to_image=True unless image is centered at (0,0) or recenter=False",
-                recenter=recenter,
-                image=image,
-                add_to_image=add_to_image,
             )
 
         # Set the center to 0,0 if appropriate

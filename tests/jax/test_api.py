@@ -44,9 +44,13 @@ OK_ERRORS = [
 ]
 
 
-def _attempt_init(cls, kwargs):
+def _attempt_init(cls, kwargs, offset=0):
     try:
-        return cls(**kwargs)
+        if "flux" in kwargs:
+            flux = kwargs.pop("flux")
+        else:
+            flux = 1
+        return cls(**kwargs, flux=offset + flux)
     except Exception as e:
         if any(estr in repr(e) for estr in OK_ERRORS):
             pass
@@ -54,7 +58,7 @@ def _attempt_init(cls, kwargs):
             raise e
 
     try:
-        return cls(jnp.array(2.0), **kwargs)
+        return cls(jnp.array(2.0 + offset), **kwargs)
     except Exception as e:
         if any(estr in repr(e) for estr in OK_ERRORS):
             pass
@@ -62,7 +66,7 @@ def _attempt_init(cls, kwargs):
             raise e
 
     try:
-        return cls(jnp.array(2.0), jnp.array(4.0), **kwargs)
+        return cls(jnp.array(2.0 + offset), jnp.array(4.0 + offset), **kwargs)
     except Exception as e:
         if any(estr in repr(e) for estr in OK_ERRORS):
             pass
@@ -71,7 +75,7 @@ def _attempt_init(cls, kwargs):
 
     if cls in [jax_galsim.Convolution, jax_galsim.Deconvolution]:
         try:
-            return cls(jax_galsim.Gaussian(**kwargs))
+            return cls(jax_galsim.Gaussian(**kwargs).withFlux(offset + 1))
         except Exception as e:
             if any(estr in repr(e) for estr in OK_ERRORS):
                 pass
@@ -81,7 +85,7 @@ def _attempt_init(cls, kwargs):
     if cls in [jax_galsim.InterpolatedImage]:
         try:
             return cls(
-                jax_galsim.ImageD(jnp.arange(100).reshape((10, 10))),
+                jax_galsim.ImageD(jnp.arange(100).reshape((10, 10)) + offset),
                 scale=1.3,
                 **kwargs,
             )
@@ -114,7 +118,10 @@ _xgradfun_vmap = jax.jit(jax.vmap(_xgradfun, in_axes=(0, None)))
 _kgradfun_vmap = jax.jit(jax.vmap(_kgradfun, in_axes=(0, None)))
 
 
-def _run_object_checks(obj, cls, kind):
+def _run_object_checks(obj, cls, kind, other_obj=None):
+    if other_obj is not None:
+        assert obj != other_obj
+
     if kind == "pickle-eval-repr":
         from numpy import array  # noqa: F401
 
@@ -126,6 +133,15 @@ def _run_object_checks(obj, cls, kind):
 
         # check that we can hash the object
         hash(obj)
+
+        # check that val jax array
+        if (hasattr(obj, "isStatic") and obj.isStatic()) or isinstance(
+            obj, jax_galsim.Sensor
+        ):
+            assert isinstance(eval(repr(obj)) == obj, bool)
+        else:
+            assert isinstance(eval(repr(obj)) == obj, jnp.ndarray)
+
     elif kind == "to-from-galsim":
         gs_obj = obj.to_galsim()
         jgs_obj = obj.from_galsim(gs_obj)
@@ -141,6 +157,14 @@ def _run_object_checks(obj, cls, kind):
 
         # check that we cannot hash the object
         assert obj.__hash__ is None
+
+        # check that val jax array
+        if (hasattr(obj, "isStatic") and obj.isStatic()) or isinstance(
+            obj, jax_galsim.Sensor
+        ):
+            assert isinstance(eval(repr(obj)) == obj, bool)
+        else:
+            assert isinstance(eval(repr(obj)) == obj, jnp.ndarray)
     elif kind == "pickle-eval-repr-wcs":
         import jax_galsim as galsim  # noqa: F401
 
@@ -152,6 +176,14 @@ def _run_object_checks(obj, cls, kind):
 
         # check that we cannot hash the object
         hash(obj)
+
+        # check that val jax array
+        if (hasattr(obj, "isStatic") and obj.isStatic()) or isinstance(
+            obj, jax_galsim.Sensor
+        ):
+            assert isinstance(eval(repr(obj)) == obj, bool)
+        else:
+            assert isinstance(eval(repr(obj)) == obj, jnp.ndarray)
     elif kind == "jax-compatible":
         # JAX tracing should be an identity
         assert cls.tree_unflatten(*((obj.tree_flatten())[::-1])) == obj
@@ -355,17 +387,22 @@ def _run_object_checks(obj, cls, kind):
                     ):
                         continue
 
+                    # jax-galsim BoundsI classes do not store xmin, ymin
+                    # or deltax/y directly
+                    if issubclass(cls, jax_galsim.BoundsI) and method in [
+                        "xmin",
+                        "ymin",
+                        "deltax",
+                        "deltay",
+                    ]:
+                        continue
+
                     # jax-galsim Bounds classes do not store xmax, ymax
+                    # and have extra method
                     if issubclass(cls, jax_galsim.Bounds) and method in [
                         "xmax",
                         "ymax",
                         "isStatic",
-                    ]:
-                        continue
-
-                    if issubclass(cls, jax_galsim.BoundsI) and method in [
-                        "xmin",
-                        "ymin",
                     ]:
                         continue
 
@@ -431,12 +468,13 @@ def test_api_gsobject(kind):
             else:
                 kwargs = {}
             obj = _attempt_init(cls, kwargs)
+            other_obj = _attempt_init(cls, kwargs, offset=1.5)
 
             if obj is not None and obj.__class__ is not jax_galsim.GSObject:
                 cls_tested.add(cls.__name__)
                 print(obj)
 
-                _run_object_checks(obj, cls, kind)
+                _run_object_checks(obj, cls, kind, other_obj=other_obj)
 
                 if cls.__name__ == "Gaussian":
                     _obj = obj + obj
@@ -470,8 +508,9 @@ def test_api_gsobject(kind):
     ],
 )
 def test_api_shear(obj):
+    other_obj = jax_galsim.Shear(g1=0, g2=0.5)
     _run_object_checks(obj, jax_galsim.Shear, "docs-methods")
-    _run_object_checks(obj, jax_galsim.Shear, "pickle-eval-repr")
+    _run_object_checks(obj, jax_galsim.Shear, "pickle-eval-repr", other_obj=other_obj)
     _run_object_checks(obj, jax_galsim.Shear, "to-from-galsim")
 
     def _reg_sfun(g1):
@@ -517,8 +556,9 @@ def test_api_shear(obj):
     ],
 )
 def test_api_bounds(obj):
+    other_obj = obj.__class__(-1, 1, -1, 1)
     _run_object_checks(obj, obj.__class__, "docs-methods")
-    _run_object_checks(obj, obj.__class__, "pickle-eval-repr")
+    _run_object_checks(obj, obj.__class__, "pickle-eval-repr", other_obj=other_obj)
     _run_object_checks(obj, obj.__class__, "to-from-galsim")
 
     # JAX tracing should be an identity
@@ -571,8 +611,9 @@ def test_api_bounds(obj):
     ],
 )
 def test_api_position(obj):
+    other_obj = obj.__class__(-1, 1)
     _run_object_checks(obj, obj.__class__, "docs-methods")
-    _run_object_checks(obj, obj.__class__, "pickle-eval-repr")
+    _run_object_checks(obj, obj.__class__, "pickle-eval-repr", other_obj=other_obj)
     _run_object_checks(obj, obj.__class__, "to-from-galsim")
 
     # JAX tracing should be an identity
@@ -618,8 +659,9 @@ def test_api_position(obj):
     ],
 )
 def test_api_image(obj):
+    other_obj = obj + 11.0
     _run_object_checks(obj, obj.__class__, "docs-methods")
-    _run_object_checks(obj, obj.__class__, "pickle-eval-repr-img")
+    _run_object_checks(obj, obj.__class__, "pickle-eval-repr-img", other_obj=other_obj)
     _run_object_checks(obj, obj.__class__, "to-from-galsim")
 
     # JAX tracing should be an identity
@@ -666,11 +708,11 @@ OK_ERRORS_WCS = [
 ]
 
 
-def _attempt_init_wcs(cls):
+def _attempt_init_wcs(cls, offset=0):
     obj = None
 
     try:
-        obj = cls(jnp.array(0.4))
+        obj = cls(jnp.array(0.4 + offset))
     except Exception as e:
         if any(estr in repr(e) for estr in OK_ERRORS_WCS):
             pass
@@ -679,7 +721,8 @@ def _attempt_init_wcs(cls):
 
     try:
         obj = cls(
-            jnp.array(0.4), jax_galsim.Shear(g1=jnp.array(0.1), g2=jnp.array(0.2))
+            jnp.array(0.4 + offset),
+            jax_galsim.Shear(g1=jnp.array(0.1), g2=jnp.array(0.2)),
         )
     except Exception as e:
         if any(estr in repr(e) for estr in OK_ERRORS_WCS):
@@ -688,7 +731,12 @@ def _attempt_init_wcs(cls):
             raise e
 
     try:
-        obj = cls(jnp.array(0.45), jnp.array(-0.02), jnp.array(0.04), jnp.array(-0.35))
+        obj = cls(
+            jnp.array(0.45 + offset),
+            jnp.array(-0.02),
+            jnp.array(0.04),
+            jnp.array(-0.35),
+        )
     except Exception as e:
         if any(estr in repr(e) for estr in OK_ERRORS_WCS):
             pass
@@ -701,6 +749,7 @@ def _attempt_init_wcs(cls):
         )
         file_name = "DECam_00158414_01.fits.fz"
         obj = cls(file_name, dir=dr)
+        obj = obj.shiftOrigin(jax_galsim.PositionD(offset, offset))
     except Exception as e:
         if any(estr in repr(e) for estr in OK_ERRORS_WCS):
             pass
@@ -747,11 +796,12 @@ def test_api_wcs():
     tested = set()
     for cls in classes:
         obj = _attempt_init_wcs(cls)
+        other_obj = _attempt_init_wcs(cls, offset=1.5)
         if obj is not None:
             print(obj)
             tested.add(cls.__name__)
             _run_object_checks(obj, cls, "docs-methods")
-            _run_object_checks(obj, cls, "pickle-eval-repr-wcs")
+            _run_object_checks(obj, cls, "pickle-eval-repr-wcs", other_obj=other_obj)
             _run_object_checks(obj, cls, "to-from-galsim")
             if isinstance(obj, jax_galsim.wcs.CelestialWCS):
                 _run_object_checks(obj, cls, "vmap-jit-grad-celestialwcs")
@@ -771,8 +821,9 @@ def test_api_wcs():
 
 def test_api_angleunit():
     obj = jax_galsim.AngleUnit(jnp.array(0.1))
+    other_obj = jax_galsim.AngleUnit(jnp.array(0.5))
     _run_object_checks(obj, obj.__class__, "docs-methods")
-    _run_object_checks(obj, obj.__class__, "pickle-eval-repr")
+    _run_object_checks(obj, obj.__class__, "pickle-eval-repr", other_obj=other_obj)
 
     # JAX tracing should be an identity
     assert obj.__class__.tree_unflatten(*((obj.tree_flatten())[::-1])) == obj
@@ -805,8 +856,9 @@ def test_api_angleunit():
 
 def test_api_angle():
     obj = jax_galsim.Angle(jnp.array(0.1) * jax_galsim.degrees)
+    other_obj = jax_galsim.Angle(jnp.array(0.5) * jax_galsim.degrees)
     _run_object_checks(obj, obj.__class__, "docs-methods")
-    _run_object_checks(obj, obj.__class__, "pickle-eval-repr")
+    _run_object_checks(obj, obj.__class__, "pickle-eval-repr", other_obj=other_obj)
     _run_object_checks(obj, obj.__class__, "to-from-galsim")
 
     # JAX tracing should be an identity
@@ -843,8 +895,11 @@ def test_api_angle():
 
 def test_api_celestial_coord():
     obj = jax_galsim.CelestialCoord(45 * jax_galsim.degrees, -30 * jax_galsim.degrees)
+    other_obj = jax_galsim.CelestialCoord(
+        41 * jax_galsim.degrees, -33 * jax_galsim.degrees
+    )
     _run_object_checks(obj, obj.__class__, "docs-methods")
-    _run_object_checks(obj, obj.__class__, "pickle-eval-repr")
+    _run_object_checks(obj, obj.__class__, "pickle-eval-repr", other_obj=other_obj)
     _run_object_checks(obj, obj.__class__, "to-from-galsim")
 
     # JAX tracing should be an identity
@@ -888,10 +943,11 @@ def test_api_random():
     tested = set()
     for cls in classes:
         obj = cls(seed=42)
+        other_obj = cls(seed=10)
         print(obj)
         tested.add(cls.__name__)
         _run_object_checks(obj, cls, "docs-methods")
-        _run_object_checks(obj, cls, "pickle-eval-repr-img")
+        _run_object_checks(obj, cls, "pickle-eval-repr-img", other_obj=other_obj)
         _run_object_checks(obj, cls, "vmap-jit-grad-random")
 
     assert {
@@ -905,9 +961,9 @@ def test_api_random():
     } <= tested
 
 
-def _init_noise(cls):
+def _init_noise(cls, offset=0):
     try:
-        obj = cls(jax_galsim.random.GaussianDeviate(seed=42))
+        obj = cls(jax_galsim.random.GaussianDeviate(seed=42 + offset))
     except Exception as e:
         if "__init__() missing 1 required positional argument: 'var_image'" in str(e):
             pass
@@ -918,7 +974,7 @@ def _init_noise(cls):
 
     try:
         obj = cls(
-            jax_galsim.random.GaussianDeviate(seed=42),
+            jax_galsim.random.GaussianDeviate(seed=42 + offset),
             jax_galsim.ImageD(jnp.ones((10, 10)) * 2.0),
         )
     except Exception as e:
@@ -941,10 +997,11 @@ def test_api_noise():
     tested = set()
     for cls in classes:
         obj = _init_noise(cls)
+        other_obj = _init_noise(cls, offset=10)
         print(obj)
         tested.add(cls.__name__)
         _run_object_checks(obj, cls, "docs-methods")
-        _run_object_checks(obj, cls, "pickle-eval-repr-img")
+        _run_object_checks(obj, cls, "pickle-eval-repr-img", other_obj=other_obj)
         # _run_object_checks(obj, cls, "vmap-jit-grad-random")
 
     assert {
@@ -1071,9 +1128,10 @@ def test_api_pickling_eval_repr_basic(obj1):
 
 def test_api_photon_array():
     pa = jax_galsim.PhotonArray(101)
+    other_obj = jax_galsim.PhotonArray(102)
 
     _run_object_checks(pa, pa.__class__, "docs-methods")
-    _run_object_checks(pa, pa.__class__, "pickle-eval-repr-nohash")
+    _run_object_checks(pa, pa.__class__, "pickle-eval-repr-nohash", other_obj=other_obj)
     _run_object_checks(pa, pa.__class__, "jax-compatible")
 
 
@@ -1122,3 +1180,9 @@ def test_api_gsparams():
         assert getattr(jgsp, k) == v
         assert getattr(gsp, k) == v
         assert getattr(jjgsp, k) == v
+
+    assert jgsp == jjgsp
+    assert isinstance(jgsp == jjgsp, bool)
+
+    kwargs["minimum_fft_size"] = 126
+    assert jgsp != jax_galsim.GSParams(**kwargs)

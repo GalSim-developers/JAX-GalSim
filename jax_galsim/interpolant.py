@@ -133,7 +133,11 @@ class Interpolant:
     def __eq__(self, other):
         return (self is other) or (
             type(other) is self.__class__
-            and is_equal_with_arrays(self.tree_flatten()[1], other.tree_flatten()[1])
+            and is_equal_with_arrays(
+                self.tree_flatten()[1],
+                other.tree_flatten()[1],
+                no_jax=True,
+            )
         )
 
     def __ne__(self, other):

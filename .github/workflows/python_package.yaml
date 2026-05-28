@@ -21,9 +21,9 @@ jobs:
       fail-fast: false
       matrix:
         python-version: ["3.12"]
-        group: [1, 2, 3, 4]
+        group: [1, 2, 3, 4, 5, 6]
     env:
-      NUM_SPLITS: 4
+      NUM_SPLITS: 6
 
     steps:
       - uses: actions/checkout@v6
@@ -57,24 +57,24 @@ jobs:
             cp .test_durations .test_durations.${{ matrix.group }}
             ls -lah .test_durations*
             echo " "
-            cat .test_durations*
           fi
 
       - name: Test with pytest in float32
         run: |
           pytest \
-            -vv \
+            -v \
             --durations=100 \
             --randomly-seed=42 \
             --splits ${NUM_SPLITS} --group ${{ matrix.group }} \
             --splitting-algorithm least_duration \
             --retries 1 \
-            --test-in-float32
+            --test-in-float32 \
+            -n 4
 
       - name: Test with pytest
         run: |
           pytest \
-            -vv \
+            -v \
             --durations=100 \
             --randomly-seed=42 \
             --splits ${NUM_SPLITS} --group ${{ matrix.group }} \
@@ -83,7 +83,7 @@ jobs:
             --splitting-algorithm least_duration \
             --clean-durations \
             --retries 1 \
-            -n 2
+            -n 4
 
       - name: Upload test durations
         uses: actions/upload-artifact@v7

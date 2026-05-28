@@ -136,3 +136,5 @@ tests/output
 .vscode/settings.json
 
 output/
+
+*.DS_Store

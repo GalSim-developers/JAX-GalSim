@@ -114,14 +114,15 @@ class Position(object):
         )
 
     def __eq__(self, other):
-        return self is other or (
-            isinstance(other, self.__class__)
-            and self.x == other.x
-            and self.y == other.y
-        )
+        if self is other:
+            return jnp.array(True)
+        elif not isinstance(other, self.__class__):
+            return jnp.array(False)
+        else:
+            return jnp.array_equal(self.x, other.x) & jnp.array_equal(self.y, other.y)
 
     def __ne__(self, other):
-        return not self.__eq__(other)
+        return ~self.__eq__(other)
 
     def __hash__(self):
         return hash(
@@ -242,3 +243,19 @@ class PositionI(Position):
         except (TypeError, ValueError):
             pass
         raise TypeError("Can only %s a PositionI by int values" % op)
+
+
+@implements(
+    _galsim._PositionD,
+    lax_description="JAX-GalSim doesn't skip sanity checks for ``_PositionD``.",
+)
+def _PositionD(x, y):
+    return PositionD(x, y)
+
+
+@implements(
+    _galsim._PositionI,
+    lax_description="JAX-GalSim doesn't skip sanity checks for ``_PositionI``.",
+)
+def _PositionI(x, y):
+    return PositionI(x, y)

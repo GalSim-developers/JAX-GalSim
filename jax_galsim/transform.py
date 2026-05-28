@@ -158,15 +158,22 @@ class Transformation(GSObject):
         return self.tree_unflatten(aux, chld)
 
     def __eq__(self, other):
-        return self is other or (
-            isinstance(other, Transformation)
-            and self._original == other._original
-            and jnp.array_equal(self._jac, other._jac)
-            and self._offset == other._params["offset"]
-            and self._flux_ratio == other._flux_ratio
-            and self._gsparams == other._gsparams
-            and self._propagate_gsparams == other._propagate_gsparams
-        )
+        if self is other:
+            return jnp.array(True)
+        elif isinstance(other, Transformation):
+            return (
+                jnp.array(self._original == other._original)
+                & jnp.array_equal(self._jac, other._jac)
+                & jnp.array(self._offset == other._params["offset"])
+                & jnp.array_equal(self._flux_ratio, other._flux_ratio)
+                & jnp.array(self._gsparams == other._gsparams)
+                & jnp.array(self._propagate_gsparams == other._propagate_gsparams)
+            )
+        else:
+            return jnp.array(False)
+
+    def __ne__(self, other):
+        return ~self.__eq__(other)
 
     def __hash__(self):
         return hash(

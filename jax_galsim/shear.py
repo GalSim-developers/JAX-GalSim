@@ -280,10 +280,15 @@ class Shear(object):
         return self + (-other)
 
     def __eq__(self, other):
-        return self is other or (isinstance(other, Shear) and self._g == other._g)
+        if self is other:
+            return jnp.array(True)
+        elif not isinstance(other, Shear):
+            return jnp.array(False)
+        else:
+            return jnp.array_equal(self._g, other._g)
 
     def __ne__(self, other):
-        return not self.__eq__(other)
+        return ~self.__eq__(other)
 
     @implements(_galsim.Shear.getMatrix)
     def getMatrix(self):

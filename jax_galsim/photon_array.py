@@ -847,22 +847,26 @@ class PhotonArray:
     __hash__ = None
 
     def __eq__(self, other):
-        return self is other or (
-            isinstance(other, PhotonArray)
-            and jnp.array_equal(self.x, other.x)
-            and jnp.array_equal(self.y, other.y)
-            and jnp.array_equal(self.flux, other.flux)
-            and jnp.array_equal(self._nokeep, other._nokeep)
-            and jnp.array_equal(self.dxdz, other.dxdz, equal_nan=True)
-            and jnp.array_equal(self.dydz, other.dydz, equal_nan=True)
-            and jnp.array_equal(self.wavelength, other.wavelength, equal_nan=True)
-            and jnp.array_equal(self.pupil_u, other.pupil_u, equal_nan=True)
-            and jnp.array_equal(self.pupil_v, other.pupil_v, equal_nan=True)
-            and jnp.array_equal(self.time, other.time, equal_nan=True)
-        )
+        if self is other:
+            return jnp.array(True)
+        elif isinstance(other, PhotonArray):
+            return (
+                jnp.array_equal(self.x, other.x)
+                & jnp.array_equal(self.y, other.y)
+                & jnp.array_equal(self.flux, other.flux)
+                & jnp.array_equal(self._nokeep, other._nokeep)
+                & jnp.array_equal(self.dxdz, other.dxdz, equal_nan=True)
+                & jnp.array_equal(self.dydz, other.dydz, equal_nan=True)
+                & jnp.array_equal(self.wavelength, other.wavelength, equal_nan=True)
+                & jnp.array_equal(self.pupil_u, other.pupil_u, equal_nan=True)
+                & jnp.array_equal(self.pupil_v, other.pupil_v, equal_nan=True)
+                & jnp.array_equal(self.time, other.time, equal_nan=True)
+            )
+        else:
+            return jnp.array(False)
 
     def __ne__(self, other):
-        return not self == other
+        return ~self.__eq__(other)
 
     @implements(
         _galsim.PhotonArray.addTo,

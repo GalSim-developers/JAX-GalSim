@@ -832,25 +832,39 @@ class GSFitsWCS(CelestialWCS):
         return copy.copy(self)
 
     def __eq__(self, other):
-        return self is other or (
-            isinstance(other, GSFitsWCS)
-            and self.wcs_type == other.wcs_type
-            and jnp.array_equal(self.crpix, other.crpix)
-            and jnp.array_equal(self.cd, other.cd)
-            and self.center == other.center
-            and (
-                (self.pv is None and other.pv is None)
-                or jnp.array_equal(self.pv, other.pv)
+        if self is other:
+            return jnp.array(True)
+        elif isinstance(other, GSFitsWCS):
+            is_eq = (
+                jnp.array(self.wcs_type == other.wcs_type)
+                & jnp.array_equal(self.crpix, other.crpix)
+                & jnp.array_equal(self.cd, other.cd)
+                & jnp.array(self.center == other.center)
             )
-            and (
-                (self.ab is None and other.ab is None)
-                or jnp.array_equal(self.ab, other.ab)
-            )
-            and (
-                (self.abp is None and other.abp is None)
-                or jnp.array_equal(self.abp, other.abp)
-            )
-        )
+            if self.pv is None and other.pv is None:
+                pass
+            elif self.pv is not None and other.pv is not None:
+                is_eq &= jnp.array_equal(self.pv, other.pv)
+            else:
+                is_eq &= jnp.array(False)
+
+            if self.ab is None and other.ab is None:
+                pass
+            elif self.ab is not None and other.ab is not None:
+                is_eq &= jnp.array_equal(self.ab, other.ab)
+            else:
+                is_eq &= jnp.array(False)
+
+            if self.abp is None and other.abp is None:
+                pass
+            elif self.abp is not None and other.abp is not None:
+                is_eq &= jnp.array_equal(self.abp, other.abp)
+            else:
+                is_eq &= jnp.array(False)
+
+            return is_eq
+        else:
+            return jnp.array(False)
 
     def __repr__(self):
         pv_repr = repr(ensure_hashable(self.pv))

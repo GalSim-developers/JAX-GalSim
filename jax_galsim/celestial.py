@@ -839,14 +839,15 @@ class CelestialCoord(object):
         return hash(repr(self))
 
     def __eq__(self, other):
-        return (
-            isinstance(other, CelestialCoord)
-            and jnp.array_equal(self._ra.rad, other._ra.rad)
-            and jnp.array_equal(self._dec.rad, other._dec.rad)
-        )
+        if not isinstance(other, CelestialCoord):
+            return jnp.array(False)
+        else:
+            return jnp.array_equal(self._ra.rad, other._ra.rad) & jnp.array_equal(
+                self._dec.rad, other._dec.rad
+            )
 
     def __ne__(self, other):
-        return not self.__eq__(other)
+        return ~self.__eq__(other)
 
     def tree_flatten(self):
         """This function flattens the CelestialCoord into a list of children
