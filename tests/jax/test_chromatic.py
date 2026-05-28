@@ -45,7 +45,7 @@ def flat_sed(scale=1.0):
 def test_sed_evaluation():
     sed = flat_sed()
     assert float(sed(600.0)) == pytest.approx(1.0, rel=1e-5)
-    assert float(sed(300.0)) == pytest.approx(0.0)   # outside range
+    assert float(sed(300.0)) == pytest.approx(0.0)  # outside range
 
 
 def test_sed_redshift():
@@ -184,6 +184,7 @@ def test_chromatic_grad():
 
 def test_chromatic_jit_recompile():
     """JIT should reuse compiled code when called twice with different flux."""
+
     @jax.jit
     def render(flux):
         sed = jgal.SED(WAVE, flux)
@@ -227,8 +228,7 @@ def test_chromatic_atmosphere_drawImage_flux():
 
 def test_chromatic_atmosphere_moffat():
     psf = ChromaticAtmosphere(
-        fwhm_ref=0.7, lam_ref=700.0, alpha=-0.2,
-        profile="moffat", moffat_beta=4.765
+        fwhm_ref=0.7, lam_ref=700.0, alpha=-0.2, profile="moffat", moffat_beta=4.765
     )
     prof = psf.evaluateAtWavelength(700.0)
     assert isinstance(prof, jgal.Moffat)
@@ -265,9 +265,11 @@ def test_chromatic_convolution_jit():
         sed = jgal.SED(WAVE, flux)
         gal = jgal.Gaussian(half_light_radius=0.5) * sed
         psf = ChromaticAtmosphere(fwhm_ref=0.7, lam_ref=700.0, alpha=-0.2)
-        return ChromaticConvolution([gal, psf]).drawImage(
-            BP, scale=0.2, nx=64, ny=64, n_waves=32
-        ).array.sum()
+        return (
+            ChromaticConvolution([gal, psf])
+            .drawImage(BP, scale=0.2, nx=64, ny=64, n_waves=32)
+            .array.sum()
+        )
 
     result = render(jnp.ones(256))
     assert float(result) == pytest.approx(200.0, rel=5e-2)
@@ -279,9 +281,11 @@ def test_chromatic_convolution_grad():
         sed = jgal.SED(WAVE, flux)
         gal = jgal.Gaussian(half_light_radius=0.5) * sed
         psf = ChromaticAtmosphere(fwhm_ref=0.7, lam_ref=700.0, alpha=-0.2)
-        return ChromaticConvolution([gal, psf]).drawImage(
-            BP, scale=0.2, nx=64, ny=64, n_waves=32
-        ).array.sum()
+        return (
+            ChromaticConvolution([gal, psf])
+            .drawImage(BP, scale=0.2, nx=64, ny=64, n_waves=32)
+            .array.sum()
+        )
 
     grad = jax.grad(render)(jnp.ones(256))
     grad_arr = jnp.asarray(grad)
@@ -303,14 +307,17 @@ def test_chromatic_convolution_grad():
 
 def test_chromatic_convolution_linearity():
     """Doubling SED flux doubles image sum."""
+
     @jax.jit
     def render(flux):
         sed = jgal.SED(WAVE, flux)
         gal = jgal.Gaussian(half_light_radius=0.5) * sed
         psf = ChromaticAtmosphere(fwhm_ref=0.7, lam_ref=700.0, alpha=-0.2)
-        return ChromaticConvolution([gal, psf]).drawImage(
-            BP, scale=0.2, nx=64, ny=64, n_waves=32
-        ).array.sum()
+        return (
+            ChromaticConvolution([gal, psf])
+            .drawImage(BP, scale=0.2, nx=64, ny=64, n_waves=32)
+            .array.sum()
+        )
 
     s1 = float(render(jnp.ones(256)))
     s2 = float(render(jnp.ones(256) * 2.0))
@@ -342,6 +349,7 @@ def test_gsobject_mul_sed():
     sed = flat_sed()
     gal = jgal.Gaussian(half_light_radius=0.5)
     from jax_galsim.chromatic import Chromatic
+
     result = gal * sed
     assert isinstance(result, Chromatic)
 

@@ -28,7 +28,7 @@ def Convolve(*args, **kwargs):
             )
     # else args is already the list of objects
 
-    from jax_galsim.chromatic import ChromaticObject, ChromaticConvolution
+    from jax_galsim.chromatic import ChromaticConvolution, ChromaticObject
 
     if any(isinstance(obj, ChromaticObject) for obj in args):
         return ChromaticConvolution(args, **kwargs)

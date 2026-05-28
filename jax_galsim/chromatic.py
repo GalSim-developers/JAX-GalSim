@@ -253,13 +253,13 @@ class ChromaticObject:
             kcoords = _static_kcoords(kimage, wrap_size, pixel_scale)
 
             # Static k-values (unit flux, no SED scaling).
-            kvals_static = jax.vmap(
-                lambda k: prof_conv._kValue(PositionD(k[0], k[1]))
-            )(kcoords)
+            kvals_static = jax.vmap(lambda k: prof_conv._kValue(PositionD(k[0], k[1])))(
+                kcoords
+            )
 
             # Apply the same -0.5 pixel centering correction that gsobject._adjust_offset
             # uses for even-sized images (avoids 0.5-pixel offset vs non-chromatic draws).
-            img_shape = image.array.shape   # (ny, nx); unchanged by setCenter
+            img_shape = image.array.shape  # (ny, nx); unchanged by setCenter
             dx_corr = -0.5 * pixel_scale * ((img_shape[1] + 1) % 2)
             dy_corr = -0.5 * pixel_scale * ((img_shape[0] + 1) % 2)
             phase_corr = jnp.exp(
@@ -281,9 +281,7 @@ class ChromaticObject:
         # Scale pre-computed k-values by traced total flux
         kvals = kvals_static * total_flux
         karray = kvals.reshape(kshape).astype(kimage.dtype)
-        eff_kimage = Image(
-            array=karray, bounds=kbounds, wcs=kwcs, _check_bounds=False
-        )
+        eff_kimage = Image(array=karray, bounds=kbounds, wcs=kwcs, _check_bounds=False)
         prof_conv.drawFFT_finish(image, eff_kimage, wrap_size, add_to_image=False)
 
         image.shift(original_center)
@@ -341,9 +339,9 @@ class ChromaticObject:
 
             kcoords = _static_kcoords(kimage, wrap_size, pixel_scale)
 
-            pixel_kvals = jax.vmap(
-                lambda k: pixel._kValue(PositionD(k[0], k[1]))
-            )(kcoords)
+            pixel_kvals = jax.vmap(lambda k: pixel._kValue(PositionD(k[0], k[1])))(
+                kcoords
+            )
 
             # Apply the -0.5 pixel centering correction for even-sized images.
             img_shape = image.array.shape
@@ -365,12 +363,10 @@ class ChromaticObject:
 
         def kvals_at_wave(wave):
             prof = self.evaluateAtWavelength(wave)
-            kv = jax.vmap(
-                lambda k: prof._kValue(PositionD(k[0], k[1]))
-            )(kcoords)
+            kv = jax.vmap(lambda k: prof._kValue(PositionD(k[0], k[1])))(kcoords)
             return kv * bandpass(wave)
 
-        all_kvals = jax.vmap(kvals_at_wave)(waves)   # (n_waves, n_k)
+        all_kvals = jax.vmap(kvals_at_wave)(waves)  # (n_waves, n_k)
         eff_kvals = jnp.trapezoid(all_kvals, waves, axis=0)
         eff_kvals = eff_kvals * pixel_kvals
 
@@ -407,7 +403,9 @@ class ChromaticObject:
         if isinstance(other, SED):
             base_obj = getattr(self, "_base_obj", None)
             if base_obj is None:
-                raise TypeError("Only achromatic ChromaticObject wrappers can be multiplied by SED.")
+                raise TypeError(
+                    "Only achromatic ChromaticObject wrappers can be multiplied by SED."
+                )
             return Chromatic(base_obj, other)
         return _ScaledChromaticObject(self, other)
 
@@ -467,8 +465,9 @@ class ChromaticSum(ChromaticObject):
 
     def drawImage(self, bandpass, n_waves=64, **kwargs):
         # Draw each component and sum
-        images = [obj.drawImage(bandpass, n_waves=n_waves, **kwargs)
-                  for obj in self.obj_list]
+        images = [
+            obj.drawImage(bandpass, n_waves=n_waves, **kwargs) for obj in self.obj_list
+        ]
         result = images[0]
         for img in images[1:]:
             result._array = result._array + img._array
@@ -770,7 +769,9 @@ class ChromaticConvolution(ChromaticObject):
                 % kwargs.keys()
             )
         if real_space:
-            raise NotImplementedError("Real-space chromatic convolutions are not implemented")
+            raise NotImplementedError(
+                "Real-space chromatic convolutions are not implemented"
+            )
 
         # Wrap plain GSObjects with a flat SED so they fit the interface
         processed = []
@@ -852,7 +853,8 @@ class ChromaticConvolution(ChromaticObject):
                 # Mixed: sep objects use static profiles; nonsep objects are evaluated
                 # at wave_eff (their shape params must be concrete at this point).
                 fiducial_profs = [
-                    o._static_spatial_profile(wave_eff) if o._separable
+                    o._static_spatial_profile(wave_eff)
+                    if o._separable
                     else o.evaluateAtWavelength(wave_eff)
                     for o in self.obj_list
                 ]
@@ -873,14 +875,14 @@ class ChromaticConvolution(ChromaticObject):
             n_k = kcoords.shape[0]
 
             # Pixel k-values.
-            pixel_kvals = jax.vmap(
-                lambda k: pixel._kValue(PositionD(k[0], k[1]))
-            )(kcoords)
+            pixel_kvals = jax.vmap(lambda k: pixel._kValue(PositionD(k[0], k[1])))(
+                kcoords
+            )
 
             # Match gsobject._adjust_offset: even-sized images need a -0.5 pixel
             # true-center correction before the FFT draw.  Apply it as a k-space
             # phase so chromatic draws align with monochromatic drawImage.
-            img_shape = image.array.shape   # (ny, nx); unchanged by setCenter
+            img_shape = image.array.shape  # (ny, nx); unchanged by setCenter
             dx_corr = -0.5 * pixel_scale * ((img_shape[1] + 1) % 2)
             dy_corr = -0.5 * pixel_scale * ((img_shape[0] + 1) % 2)
             phase_corr = jnp.exp(
@@ -889,9 +891,12 @@ class ChromaticConvolution(ChromaticObject):
 
             if not nonsep_objs:
                 # Pre-compute k-values of the full (spatial+pixel) convolution
-                base_kvals = jax.vmap(
-                    lambda k: grid_prof_conv._kValue(PositionD(k[0], k[1]))
-                )(kcoords) * phase_corr
+                base_kvals = (
+                    jax.vmap(lambda k: grid_prof_conv._kValue(PositionD(k[0], k[1])))(
+                        kcoords
+                    )
+                    * phase_corr
+                )
             else:
                 pixel_kvals = pixel_kvals * phase_corr
 
@@ -933,21 +938,19 @@ class ChromaticConvolution(ChromaticObject):
                 kv = jnp.ones(n_k, dtype=complex)
                 for o in nonsep_objs:
                     prof = o.evaluateAtWavelength(wave)
-                    kv = kv * jax.vmap(
-                        lambda k: prof._kValue(PositionD(k[0], k[1]))
-                    )(kcoords)
+                    kv = kv * jax.vmap(lambda k: prof._kValue(PositionD(k[0], k[1])))(
+                        kcoords
+                    )
                 return kv * sep_weight(wave)
 
-            all_kvals = jax.vmap(kvals_nonsep_at_wave)(waves)   # (n_waves, n_k)
+            all_kvals = jax.vmap(kvals_nonsep_at_wave)(waves)  # (n_waves, n_k)
             eff_kvals = jnp.trapezoid(all_kvals, waves, axis=0)  # (n_k,)
 
             # Multiply by separable spatial k-values and pixel convolution
             kvals = eff_kvals * sep_kvals * pixel_kvals
 
         karray = kvals.reshape(kshape).astype(kimage.dtype)
-        eff_kimage = Image(
-            array=karray, bounds=kbounds, wcs=kwcs, _check_bounds=False
-        )
+        eff_kimage = Image(array=karray, bounds=kbounds, wcs=kwcs, _check_bounds=False)
         grid_prof_conv.drawFFT_finish(image, eff_kimage, wrap_size, add_to_image=False)
 
         image.shift(original_center)
@@ -962,6 +965,7 @@ class ChromaticConvolution(ChromaticObject):
 # ---------------------------------------------------------------------------
 # Monkey-patch GSObject.__mul__ to return Chromatic when multiplied by SED
 # ---------------------------------------------------------------------------
+
 
 def _gsobject_mul_sed(self, other):
     """Allow ``gsobject * sed → Chromatic(gsobject, sed)``."""

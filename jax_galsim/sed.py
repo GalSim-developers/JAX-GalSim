@@ -60,7 +60,7 @@ class SED:
 
     def __init__(self, wave, flux, redshift=0.0):
         self._wave = jnp.asarray(wave, dtype=float)  # static, not traced
-        self._flux = jnp.asarray(flux)               # traced
+        self._flux = jnp.asarray(flux)  # traced
         self._redshift = jnp.asarray(redshift, dtype=float)
 
         if self._wave.ndim != 1 or len(self._wave) < 2:

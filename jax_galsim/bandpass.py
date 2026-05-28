@@ -57,8 +57,12 @@ class Bandpass:
         if len(self._throughput) != len(self._wave):
             raise ValueError("throughput must have the same length as wave.")
 
-        self._blue_limit = float(blue_limit) if blue_limit is not None else float(self._wave[0])
-        self._red_limit = float(red_limit) if red_limit is not None else float(self._wave[-1])
+        self._blue_limit = (
+            float(blue_limit) if blue_limit is not None else float(self._wave[0])
+        )
+        self._red_limit = (
+            float(red_limit) if red_limit is not None else float(self._wave[-1])
+        )
 
         # Precompute effective wavelength at construction time so it is a
         # concrete Python float and can be used as a static value under JIT.
@@ -136,8 +140,9 @@ class Bandpass:
             blue = max(self._blue_limit, other._blue_limit)
             red = min(self._red_limit, other._red_limit)
             return Bandpass(wave, t * t2, blue_limit=blue, red_limit=red)
-        return Bandpass(self._wave, self._throughput * other,
-                        self._blue_limit, self._red_limit)
+        return Bandpass(
+            self._wave, self._throughput * other, self._blue_limit, self._red_limit
+        )
 
     def __rmul__(self, other):
         return self.__mul__(other)
@@ -146,8 +151,7 @@ class Bandpass:
         """Return a new Bandpass with tighter wavelength limits."""
         blue = blue_limit if blue_limit is not None else self._blue_limit
         red = red_limit if red_limit is not None else self._red_limit
-        return Bandpass(self._wave, self._throughput,
-                        blue_limit=blue, red_limit=red)
+        return Bandpass(self._wave, self._throughput, blue_limit=blue, red_limit=red)
 
     # ------------------------------------------------------------------
     # Convenience constructors
