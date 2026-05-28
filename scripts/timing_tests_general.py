@@ -67,7 +67,8 @@ def main(
 
     if fix_galsim_stamp_size:
         # only supported for case when only 1 bin is being used
-        # otherwise galsim is used too inefficiently to be useful
+        # otherwise galsim would be used too inefficiently for this
+        # to be a useful comparison
         assert len(max_n_gals_bins) == len(stamp_slen_bins) == 1
 
     if cpu_or_gpu == "cpu":
@@ -91,16 +92,17 @@ def main(
     out_root_path = Path(outdir)
     assert out_root_path.exists()
 
-    # get hash for bins specified
+    # get hash for specified bin argument
     bin_hash = _get_bins_hash(
         out_root_path, stamp_slen_bins=stamp_slen_bins, max_n_gals_bins=max_n_gals_bins
     )
 
-    # hash for unique folder name
+    # create unique folder name
     fix_galsim_str = "-fix-galsim" if fix_galsim_stamp_size else ""
+    extra_suffix_str = f"-{extra_suffix}" if extra_suffix else ""
     hash_name = (
         f"{image_slen}-{n_samples}-{psf_type}-{fft_size}-{seed}-"
-        f"hb{bin_hash}-{cpu_or_gpu}-{scan_or_vmap}{fix_galsim_str}{extra_suffix}"
+        f"hb{bin_hash}-{cpu_or_gpu}-{scan_or_vmap}{fix_galsim_str}{extra_suffix_str}"
     )
 
     out_folder = out_root_path / hash_name
@@ -124,13 +126,13 @@ def main(
 
     print(
         f"INFO: Catalog prepared with {len(cat)} galaxies after (good size) cut "
-        f"(before this cut {n1}). Percentage included out: {len(cat) / n1 * 100:2f}%"
+        f"(before this cut {n1}). Percentage included is: {len(cat) / n1 * 100:2f}%"
     )
 
     times_galsim = []
     times_jgalsim = []
 
-    # prepare draw_function
+    # prepare draw function for jax_galsim
     draw_fncs = []
     _draw_fnc_raw = (
         draw_jgs_scan_stamps if scan_or_vmap == "scan" else draw_jgs_vmap_stamps
