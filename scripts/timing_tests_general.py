@@ -167,8 +167,10 @@ def main(
             # trigger jit compilation for all draw function
             if ii == 0:
                 for _max_n_gals, _draw_fnc in zip(max_n_gals_bins, draw_fncs):
-                    _new_dict = {p: sample[p][:_max_n_gals] for p in sample}
-                    _draw_fnc(_new_dict).block_until_ready()
+                    _new_dict_jax = device_put(
+                        {p: sample[p][:_max_n_gals] for p in sample}, device=device
+                    )
+                    _draw_fnc(_new_dict_jax).block_until_ready()
 
             # galsim timing
             t1 = time.time()
@@ -249,6 +251,11 @@ def _save_timing_results(*, times_galsim: list, times_jgalsim: list, out_folder:
             f"Median time (per image) for JAX-GalSim: {np.median(times_jgalsim):.3f} seconds",
             file=fp,
         )
+
+
+def setup_draw_jgalsim_size_bins():
+    """Prepare samples that will be used by jax_galsim to avoid transfer guard."""
+    pass
 
 
 def draw_jax_galsim_size_bins(
