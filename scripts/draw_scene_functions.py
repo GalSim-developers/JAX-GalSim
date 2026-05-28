@@ -11,7 +11,7 @@ import jax.numpy as jnp
 import matplotlib.pyplot as plt
 import numpy as np
 from astropy.table import Table
-from jax import jit, random, vmap
+from jax import random, vmap
 from jax.typing import ArrayLike
 from surveycodex.utilities import mag2counts, mean_sky_level
 from tqdm import tqdm
@@ -288,11 +288,11 @@ def _get_bd_jgs(
     return gal_conv
 
 
-@partial(jit, static_argnames=("psf", "slen", "fft_size"))
 def _draw_stamp_jgs(
     galaxy_params: dict,
     image_pos: jgs.PositionD,
     local_wcs: jgs.PixelScale,
+    *,
     psf: jgs.GSObject,
     slen: int,
     fft_size: int,
@@ -305,8 +305,7 @@ def _draw_stamp_jgs(
     return stamp
 
 
-@partial(jax.jit, static_argnames=("psf", "fft_size", "slen"))
-def _draw_stamp_and_add_to_image(carry, x, psf, fft_size, slen):
+def _draw_stamp_and_add_to_image(carry, x, *, psf, fft_size, slen):
     # scan already jits so a bit overkill
     image = carry[0]
     gparams, image_pos, lwcs = x
@@ -322,10 +321,9 @@ def _draw_stamp_and_add_to_image(carry, x, psf, fft_size, slen):
     return (image,), None
 
 
-# TODO: replace with associative scan?
-@partial(jit, static_argnames=("psf", "ilen", "slen", "fft_size", "max_n_gals"))
 def draw_jgs_scan_stamps(
     galaxy_params: dict,
+    *,
     psf: jgs.GSObject,
     ilen: int,
     slen: int,
@@ -348,8 +346,11 @@ def draw_jgs_scan_stamps(
         jnp.pad(image.array, slen), wcs=image.wcs, bounds=image.bounds.withBorder(slen)
     )
 
+    _fnc_to_scan = partial(
+        _draw_stamp_and_add_to_image, psf=psf, fft_size=fft_size, slen=slen
+    )
     final_pad_image = jax.lax.scan(
-        partial(_draw_stamp_and_add_to_image, psf=psf, fft_size=fft_size, slen=slen),
+        _fnc_to_scan,
         (pad_image,),
         xs=(galaxy_params, image_positions, local_wcss),
         length=max_n_gals,
@@ -358,7 +359,6 @@ def draw_jgs_scan_stamps(
     return final_pad_image.array[slen:-slen, slen:-slen]
 
 
-@partial(jit)
 def _add_to_image(carry, x):
     image = carry[0]
     stamp = x
@@ -366,7 +366,6 @@ def _add_to_image(carry, x):
     return (image,), None
 
 
-@partial(jit, static_argnames=("psf", "ilen", "slen", "fft_size", "max_n_gals"))
 def draw_jgs_vmap_stamps(
     galaxy_params: dict,
     psf: jgs.GSObject,
@@ -404,6 +403,10 @@ def draw_jgs_vmap_stamps(
     )[0][0]
 
     return final_pad_image.array[slen:-slen, slen:-slen]
+
+
+################################################
+# Catalog and other utilities below
 
 
 def prepare_catalog(
