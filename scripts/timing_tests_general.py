@@ -31,8 +31,6 @@ from tqdm import tqdm
 
 import jax_galsim as jgs
 
-DEVICE = jax.devices()[0]
-
 # TODO: consider splitting script into galsim/jax-galsim as we probably want to avoid
 # wasting time running galsim in the GPU.
 
@@ -124,7 +122,7 @@ def main(
         psf=psf,
         overwrite=False,
         out_path=out_root_path,
-        suffix=f"{psf_type}-07",
+        suffix=f"{psf_type}-07",  # TODO: need to hash more psf properties just in case (size,beta)
     )
     cat["good_size"] = good_sizes
 
