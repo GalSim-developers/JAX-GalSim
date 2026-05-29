@@ -25,7 +25,7 @@ from draw_scene_functions import (
     get_one_full_sample,
     prepare_catalog,
 )
-from jax import Array, device_put, jit, random
+from jax import device_put, jit, random
 from matplotlib.backends.backend_pdf import PdfPages
 from tqdm import tqdm
 
