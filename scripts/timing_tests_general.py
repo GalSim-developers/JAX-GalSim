@@ -32,7 +32,7 @@ from tqdm import tqdm
 import jax_galsim as jgs
 
 # TODO: consider splitting script into galsim/jax-galsim as we probably want to avoid
-# wasting time running galsim in the GPU.
+# wasting time running galsim in the GPU, and/or running the same images over and over
 
 
 def main(
@@ -201,8 +201,8 @@ def main(
             # timing device transfer for jax-galsim
             t1 = time.time()
             jgs_arr = jnp.zeros((image_slen, image_slen), device=device)
-            sample_jax = device_put(sample, device=DEVICE)
-            gsizes_jax = device_put(gsizes, device=DEVICE)
+            sample_jax = device_put(sample, device=device)
+            gsizes_jax = device_put(gsizes, device=device)
             assert gsizes_jax.shape == sample_jax["flux_b"].shape
 
             # this function allocates some extra memory probably,
