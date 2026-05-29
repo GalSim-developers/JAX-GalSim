@@ -142,7 +142,7 @@ def main(
     times_jgalsim_transfer = []
     n_gals_record = []
 
-    # prepare draw function for jax_galsim
+    # prepare draw function for jax_galsim for each size bin
     draw_fncs = []
     _draw_fnc_raw = (
         draw_jgs_scan_stamps if scan_or_vmap == "scan" else draw_jgs_vmap_stamps
@@ -190,10 +190,10 @@ def main(
 
             # timing device transfer for jax-galsim
             t1 = time.time()
+            jgs_arr = jnp.zeros((image_slen, image_slen), device=device)
             sample_jax = device_put(sample, device=DEVICE)
             gsizes_jax = device_put(gsizes, device=DEVICE)
             assert gsizes_jax.shape == sample_jax["flux_b"].shape
-            jgs_arr = jnp.zeros((image_slen, image_slen), device=device)
 
             # this function allocates some extra memory probably,
             # not sure if it's a concern but could not figure out how to
@@ -314,7 +314,7 @@ def _save_timing_results(
             file=fp,
         )
 
-        print()
+        print(file=fp)
         print(
             f"Average time (per image) for JAX-GalSim: {np.mean(times_jgalsim):.3f} seconds",
             file=fp,
@@ -324,13 +324,13 @@ def _save_timing_results(
             file=fp,
         )
 
-        print()
+        print(file=fp)
         print(
             f"Average JAX transfer time (per image): {np.mean(times_transfer):.3f} seconds",
             file=fp,
         )
         print(
-            f"Median JAX time (per image): {np.median(times_transfer):.3f} seconds",
+            f"Median JAX transfer time (per image): {np.median(times_transfer):.3f} seconds",
             file=fp,
         )
 
