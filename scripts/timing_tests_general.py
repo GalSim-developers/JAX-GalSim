@@ -76,8 +76,10 @@ def main(
 
     if cpu_or_gpu == "cpu":
         device = jax.devices("cpu")[0]
-    else:
+    elif cpu_or_gpu == "gpu":
         device = jax.devices("gpu")[0]
+    else:
+        raise ValueError()
 
     max_stamp_size = max(stamp_slen_bins)
 
