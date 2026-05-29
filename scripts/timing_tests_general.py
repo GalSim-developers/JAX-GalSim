@@ -68,11 +68,13 @@ def main(
     assert scan_or_vmap in ("scan", "vmap")
     assert cpu_or_gpu in ("cpu", "gpu")
 
+    stamp_size_galsim = None
     if fix_galsim_stamp_size:
         # only supported for case when only 1 bin is being used
         # otherwise galsim would be used too inefficiently for this
         # to be a useful comparison
         assert len(max_n_gals_bins) == len(stamp_slen_bins) == 1
+        stamp_size_galsim = stamp_slen_bins[0]
 
     if cpu_or_gpu == "cpu":
         device = jax.devices("cpu")[0]
@@ -183,7 +185,13 @@ def main(
 
             # galsim timing
             t1 = time.time()
-            gs_arr = draw_galsim(sample, n, psf=psf, ilen=image_slen)
+            gs_arr = draw_galsim(
+                sample,
+                n,
+                psf=psf,
+                ilen=image_slen,
+                slen=stamp_size_galsim,
+            )
             t2 = time.time()
             t_galsim = t2 - t1
             times_galsim.append(t_galsim)
