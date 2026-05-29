@@ -80,6 +80,7 @@ def main(
         device = jax.devices("gpu")[0]
 
     max_stamp_size = max(stamp_slen_bins)
+
     if psf_type == "gaussian":
         psf = galsim.Gaussian(half_light_radius=0.7, flux=1.0)
         xpsf = jgs.Gaussian(half_light_radius=0.7, flux=1.0)
@@ -124,6 +125,10 @@ def main(
         suffix=f"{psf_type}-07",
     )
     cat["good_size"] = good_sizes
+
+    # buffer is needed for a few pixel difference that sometimes occurs between estimating
+    # good size on isolated images like in the function above and the stamp size galsim
+    # ultimately uses when drawing stamp onto the big image
     mask_good_size = cat["good_size"] < max_stamp_size - buffer
     cat = cat[mask_good_size]
 
@@ -134,6 +139,8 @@ def main(
 
     times_galsim = []
     times_jgalsim = []
+    times_jgalsim_transfer = []
+    n_gals_record = []
 
     # prepare draw function for jax_galsim
     draw_fncs = []
@@ -154,9 +161,8 @@ def main(
             )
         )
 
-    # timing results average over 100 samples
+    # timing test
     pdf_name = out_folder / "residuals.pdf"
-    n_gals_record = []
     rkeys = random.split(random.PRNGKey(seed), n_samples)
     with PdfPages(pdf_name) as pdf:
         for ii, rkey in tqdm(
@@ -182,8 +188,8 @@ def main(
             t_galsim = t2 - t1
             times_galsim.append(t_galsim)
 
-            # TODO: add timing for device transfer and add to summary
-            # do not measure device transfer
+            # timing device transfer for jax-galsim
+            t1 = time.time()
             sample_jax = device_put(sample, device=DEVICE)
             gsizes_jax = device_put(gsizes, device=DEVICE)
             assert gsizes_jax.shape == sample_jax["flux_b"].shape
@@ -201,6 +207,8 @@ def main(
                 buffer=buffer,
                 device=device,
             )
+            t2 = time.time()
+            times_jgalsim_transfer.append(t2 - t1)
 
             # jax galsim timing
             t1 = time.time()
@@ -228,7 +236,10 @@ def main(
         json.dump(n_gals_record, fp, indent="\t")
 
     _save_timing_results(
-        out_folder=out_folder, times_galsim=times_galsim, times_jgalsim=times_jgalsim
+        out_folder=out_folder,
+        times_galsim=times_galsim,
+        times_jgalsim=times_jgalsim,
+        times_transfer=times_jgalsim_transfer,
     )
 
 
@@ -288,7 +299,9 @@ def _create_record(gsizes, stamp_slen_bins, buffer):
     return _record
 
 
-def _save_timing_results(*, times_galsim: list, times_jgalsim: list, out_folder: Path):
+def _save_timing_results(
+    *, out_folder: Path, times_galsim: list, times_jgalsim: list, times_transfer: list
+):
     # print summary timing results
     summary_fname = out_folder / "summary.txt"
     with open(summary_fname, "w") as fp:
@@ -301,12 +314,23 @@ def _save_timing_results(*, times_galsim: list, times_jgalsim: list, out_folder:
             file=fp,
         )
 
+        print()
         print(
             f"Average time (per image) for JAX-GalSim: {np.mean(times_jgalsim):.3f} seconds",
             file=fp,
         )
         print(
             f"Median time (per image) for JAX-GalSim: {np.median(times_jgalsim):.3f} seconds",
+            file=fp,
+        )
+
+        print()
+        print(
+            f"Average JAX transfer time (per image): {np.mean(times_transfer):.3f} seconds",
+            file=fp,
+        )
+        print(
+            f"Median JAX time (per image): {np.median(times_transfer):.3f} seconds",
             file=fp,
         )
 
