@@ -184,6 +184,7 @@ def main(
                     _draw_fnc(_new_dict_jax).block_until_ready()
 
             # galsim timing
+            # TODO: do we guarantee no stamps are larger? or should we add check flag?
             t1 = time.time()
             gs_arr = draw_galsim(
                 sample,
@@ -191,6 +192,7 @@ def main(
                 psf=psf,
                 ilen=image_slen,
                 slen=stamp_size_galsim,
+                max_slen=stamp_slen_bins[-1],  # sanity only
             )
             t2 = time.time()
             t_galsim = t2 - t1
@@ -343,6 +345,8 @@ def _save_timing_results(
         )
 
 
+# TODO: perhaps we can jit this or replace the first for loop with a scan?
+# could this be made faster? the problem is `_n_iters_needed` is dynamic
 def setup_draw_jgalsim_size_bins(
     *,
     sample_jax,
