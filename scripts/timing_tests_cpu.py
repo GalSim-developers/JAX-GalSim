@@ -28,10 +28,11 @@ import jax_galsim as jgs
 IMAGE_SLEN = 1000
 MAX_N_GALS = 1500
 STAMP_SLEN = 61
-BUFFER = 4  # good image size (of isolated galaxy) and stamp size used in scene by galsim differ
+BUFFER = 3  # good image size (of isolated galaxy) and stamp size used in scene by galsim differ
 BACKGROUND = get_default_lsst_background()  # for residual assessment
 FFT_SIZE = 128
-SUFFIX = f"{IMAGE_SLEN}-{STAMP_SLEN}-scan-cpu-smallsubset"
+SUFFIX = f"{IMAGE_SLEN}-{STAMP_SLEN}-scan-cpu-smallsubset-v1"
+N_SAMPLES = 250
 
 
 def main():
@@ -54,7 +55,6 @@ def main():
     times_jgalsim = []
 
     # jax draw function prepare and jit
-    # it's better to be explicit here even though `draw_jgs_scan_stamps` already has a decorator
     draw_jax_fnc = jit(
         partial(
             draw_jgs_scan_stamps,
@@ -67,8 +67,10 @@ def main():
     )
 
     # timing results average over 100 samples
-    pdf_name = Path("out") / f"residuals_{SUFFIX}.pdf"
-    rkeys = random.split(random.PRNGKey(42), 100)
+    out_folder = Path("scripts") / "output" / SUFFIX
+    out_folder.mkdir(exist_ok=True, parents=False)
+    pdf_name = out_folder / "residuals.pdf"
+    rkeys = random.split(random.PRNGKey(42), N_SAMPLES)
     with PdfPages(pdf_name) as pdf:
         for ii, rkey in tqdm(
             enumerate(rkeys), total=len(rkeys), desc="Timing galsim vs jax-galsim..."
@@ -90,7 +92,6 @@ def main():
                 ilen=IMAGE_SLEN,
                 max_n_gals=MAX_N_GALS,  # just sanity checking
                 max_slen=STAMP_SLEN,  # just sanity checking
-                # good_sizes=gsizes,
             )
             t2 = time.time()
             t_galsim = t2 - t1
@@ -111,7 +112,7 @@ def main():
             add_results_to_pdf(gs_arr, np.array(jgs_arr), t_galsim, t_jgalsim, ii, pdf)
 
     # print summary timing results
-    summary_fname = Path("out") / f"summary_{SUFFIX}.txt"
+    summary_fname = out_folder / "summary.txt"
     with open(summary_fname, "w") as fp:
         print(
             f"Median time (per image) for GalSim: {np.median(times_galsim):.3f} seconds",
