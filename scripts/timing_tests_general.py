@@ -33,6 +33,9 @@ import jax_galsim as jgs
 
 DEVICE = jax.devices()[0]
 
+# TODO: consider splitting script into galsim/jax-galsim as we probably want to avoid
+# wasting time running galsim in the GPU.
+
 
 def main(
     stamp_slen_bins_str: str = typer.Option(),
@@ -179,24 +182,38 @@ def main(
             t_galsim = t2 - t1
             times_galsim.append(t_galsim)
 
-            # do not measure this size
+            # TODO: add timing for device transfer and add to summary
+            # do not measure device transfer
             sample_jax = device_put(sample, device=DEVICE)
             gsizes_jax = device_put(gsizes, device=DEVICE)
             assert gsizes_jax.shape == sample_jax["flux_b"].shape
+            jgs_arr = jnp.zeros((image_slen, image_slen), device=device)
+
+            # this function allocates some extra memory probably,
+            # not sure if it's a concern but could not figure out how to
+            # avoid transfer guard error otherwise
+            samples_split = setup_draw_jgalsim_size_bins(
+                sample_jax=sample_jax,
+                gsizes_jax=gsizes_jax,
+                max_n_gals_bins=max_n_gals_bins,
+                stamp_slen_bins=stamp_slen_bins,
+                max_n_iters=max_n_iters,
+                buffer=buffer,
+                device=device,
+            )
 
             # jax galsim timing
             t1 = time.time()
-            jgs_arr = draw_jax_galsim_size_bins(
-                sample_jax,
-                stamp_slen_bins=stamp_slen_bins,
-                max_n_gals_bins=max_n_gals_bins,
-                draw_fncs=draw_fncs,
-                ilen=image_slen,
-                gsizes_jax=gsizes_jax,
-                device=device,
-                buffer=buffer,
-                max_n_iters=max_n_iters,
-            )
+            with jax.transfer_guard("disallow"):
+                # split into batches using good sizes estimated from galsim
+                for jj, draw_fnc_jj in enumerate(draw_fncs):
+                    n_iters = len(samples_split[jj])
+                    for kk in range(n_iters):
+                        _jgs_arr = draw_fnc_jj(
+                            samples_split[jj][kk]
+                        ).block_until_ready()
+                        jgs_arr += _jgs_arr
+
             t2 = time.time()
             t_jgalsim = t2 - t1
             times_jgalsim.append(t_jgalsim)
@@ -213,112 +230,6 @@ def main(
     _save_timing_results(
         out_folder=out_folder, times_galsim=times_galsim, times_jgalsim=times_jgalsim
     )
-
-
-def _create_record(gsizes, stamp_slen_bins, buffer):
-    _record = []
-    for ii in range(len(stamp_slen_bins)):
-        if ii == 0:
-            s1 = stamp_slen_bins[0]
-            dummy_mask = gsizes > 1
-            _record.append(int(np.sum(dummy_mask & (gsizes <= s1 - buffer))))
-
-        else:
-            s1 = stamp_slen_bins[ii - 1] - buffer
-            s2 = stamp_slen_bins[ii] - buffer
-            _record.append(int(np.sum((gsizes > s1) & (gsizes <= s2))))
-    return _record
-
-
-def _save_timing_results(*, times_galsim: list, times_jgalsim: list, out_folder: Path):
-    # print summary timing results
-    summary_fname = out_folder / "summary.txt"
-    with open(summary_fname, "w") as fp:
-        print(
-            f"Average time (per image) for GalSim: {np.mean(times_galsim):.3f} seconds",
-            file=fp,
-        )
-        print(
-            f"Median time (per image) for GalSim: {np.median(times_galsim):.3f} seconds",
-            file=fp,
-        )
-
-        print(
-            f"Average time (per image) for JAX-GalSim: {np.mean(times_jgalsim):.3f} seconds",
-            file=fp,
-        )
-        print(
-            f"Median time (per image) for JAX-GalSim: {np.median(times_jgalsim):.3f} seconds",
-            file=fp,
-        )
-
-
-def setup_draw_jgalsim_size_bins():
-    """Prepare samples that will be used by jax_galsim to avoid transfer guard."""
-    pass
-
-
-def draw_jax_galsim_size_bins(
-    samples_jax: dict,
-    *,
-    stamp_slen_bins: int,  # should be sorted
-    max_n_gals_bins: int,  # maximum number of galaxies in each bin
-    draw_fncs: int,
-    ilen: int,
-    gsizes_jax: Array,
-    device,
-    max_n_iters: int | None = None,
-    buffer: int,
-):
-    # cannot put inside tranfer guard
-    jgs_arr = jnp.zeros((ilen, ilen), device=device)
-    _drawn = jnp.zeros_like(gsizes_jax, device=device).astype(bool)
-    buffer_jax = device_put(buffer)
-    DUMMY_PARAMS_JAX = device_put(DUMMY_PARAMS, device=device)
-
-    # we mark objects zeroed out as drawn already
-    _drawn = _drawn | jnp.less_equal(gsizes_jax, 1)
-
-    with jax.transfer_guard("allow"):
-        # split into batches using good sizes estimated from galsim
-        for _draw_fnc, _max_n_gals, _sslen in zip(
-            draw_fncs, max_n_gals_bins, stamp_slen_bins
-        ):
-            _mask1 = ~_drawn
-            _sslen_jax = device_put(_sslen, device=device)
-            _mask2 = jnp.less_equal(gsizes_jax, _sslen_jax - buffer_jax)
-            _mask = _mask1 & _mask2
-
-            # no objects to draw in this bin
-            if _mask.sum() == device_put(0, device=device):
-                continue
-
-            n_gals = int(_mask.sum().item())
-            _n_iters_needed = math.ceil(n_gals / _max_n_gals)
-
-            if max_n_iters:
-                assert _n_iters_needed <= max_n_iters, (
-                    f"Consider increasing max_n_gals (n_gals: {n_gals}, max_n_gals:{_max_n_gals}) in bin {_sslen}, niters: {_n_iters_needed}"
-                )
-
-            for kk in range(_n_iters_needed):
-                idx1 = kk * _max_n_gals
-                idx2 = (kk + 1) * _max_n_gals
-                _sample_kk = {k: v[_mask][idx1:idx2] for k, v in samples_jax.items()}
-                _n_gals_kk = len(_sample_kk["flux_b"])
-
-                # add zeroed out sources if necessary
-                for _ in range(_n_gals_kk, _max_n_gals, 1):
-                    for p in _sample_kk:
-                        _sample_kk[p] = np.append(_sample_kk[p], DUMMY_PARAMS_JAX[p])
-                assert len(_sample_kk["flux_b"]) == _max_n_gals
-
-                _jgs_arr = _draw_fnc(_sample_kk).block_until_ready()
-                jgs_arr += _jgs_arr
-            _drawn = _drawn.at[_mask].set(True)
-
-    assert _drawn.all(), "Not all real galaxies were drawn."
-    return jgs_arr
 
 
 def _get_bins_hash(out_path: Path, *, stamp_slen_bins, max_n_gals_bins) -> int:
@@ -360,6 +271,99 @@ def _parse_bins_str_input(bins_str: str):
             assert int(x) == x
         the_bins = [int(x) for x in the_bins]
         return tuple(the_bins)
+
+
+def _create_record(gsizes, stamp_slen_bins, buffer):
+    _record = []
+    for ii in range(len(stamp_slen_bins)):
+        if ii == 0:
+            s1 = stamp_slen_bins[0]
+            dummy_mask = gsizes > 1
+            _record.append(int(np.sum(dummy_mask & (gsizes <= s1 - buffer))))
+
+        else:
+            s1 = stamp_slen_bins[ii - 1] - buffer
+            s2 = stamp_slen_bins[ii] - buffer
+            _record.append(int(np.sum((gsizes > s1) & (gsizes <= s2))))
+    return _record
+
+
+def _save_timing_results(*, times_galsim: list, times_jgalsim: list, out_folder: Path):
+    # print summary timing results
+    summary_fname = out_folder / "summary.txt"
+    with open(summary_fname, "w") as fp:
+        print(
+            f"Average time (per image) for GalSim: {np.mean(times_galsim):.3f} seconds",
+            file=fp,
+        )
+        print(
+            f"Median time (per image) for GalSim: {np.median(times_galsim):.3f} seconds",
+            file=fp,
+        )
+
+        print(
+            f"Average time (per image) for JAX-GalSim: {np.mean(times_jgalsim):.3f} seconds",
+            file=fp,
+        )
+        print(
+            f"Median time (per image) for JAX-GalSim: {np.median(times_jgalsim):.3f} seconds",
+            file=fp,
+        )
+
+
+def setup_draw_jgalsim_size_bins(
+    *,
+    sample_jax,
+    gsizes_jax,
+    max_n_gals_bins,
+    stamp_slen_bins,
+    buffer: int,
+    max_n_iters: int,
+    device,
+):
+    """Prepare samples that will be used by jax_galsim to avoid transfer guard."""
+    # we mark objects zeroed out as drawn already
+
+    _drawn = jnp.zeros_like(gsizes_jax, device=device).astype(bool)
+    _drawn |= jnp.less_equal(gsizes_jax, 1)
+    _dummy_jax = device_put(DUMMY_PARAMS, device=device)
+
+    samples_out = []
+
+    for jj, (_max_n_gals, _sslen) in enumerate(zip(max_n_gals_bins, stamp_slen_bins)):
+        samples_out.append([])
+        _mask1 = ~_drawn
+        _sslen_jax = device_put(_sslen, device=device)
+        _mask2 = jnp.less_equal(gsizes_jax, _sslen_jax - buffer)
+        _mask = _mask1 & _mask2
+
+        # no objects to draw in this bin
+        if _mask.sum() == device_put(0, device=device):
+            continue
+
+        n_gals = int(_mask.sum().item())
+        _n_iters_needed = math.ceil(n_gals / _max_n_gals)
+
+        if max_n_iters:
+            assert _n_iters_needed <= max_n_iters, (
+                f"Consider increasing max_n_gals (n_gals: {n_gals}, max_n_gals:{_max_n_gals}) in bin {_sslen}, niters: {_n_iters_needed}"
+            )
+
+        for kk in range(_n_iters_needed):
+            idx1 = kk * _max_n_gals
+            idx2 = (kk + 1) * _max_n_gals
+            _sample_kk = {k: v[_mask][idx1:idx2] for k, v in sample_jax.items()}
+            _n_gals_kk = len(_sample_kk["flux_b"])
+
+            # add zeroed out sources if necessary
+            for _ in range(_n_gals_kk, _max_n_gals, 1):
+                for p in _sample_kk:
+                    _sample_kk[p] = np.append(_sample_kk[p], _dummy_jax[p])
+            assert len(_sample_kk["flux_b"]) == _max_n_gals
+            samples_out[jj].append(_sample_kk)
+        _drawn = _drawn.at[_mask].set(True)
+    assert jnp.all(_drawn)
+    return device_put(samples_out, device=device)
 
 
 if __name__ == "__main__":
