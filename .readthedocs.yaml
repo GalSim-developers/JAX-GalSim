@@ -12,6 +12,7 @@ build:
     - git fetch --all --tags || true
     - if [ "${READTHEDOCS_VERSION_TYPE}" = "tag" ]; then git checkout ${READTHEDOCS_GIT_IDENTIFIER}; fi
     - if [ "${READTHEDOCS_VERSION_TYPE}" = "branch" ]; then git checkout ${READTHEDOCS_GIT_IDENTIFIER}; fi
+    - pip install --no-deps .
     - pip install uv
     - uv sync --extra docs
     - uv run sphinx-build -b html docs $READTHEDOCS_OUTPUT/html      
