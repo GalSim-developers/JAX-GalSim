@@ -8,6 +8,7 @@ build:
   tools:
     python: "3.12"
   commands:
+    - git fetch --unshallow || true
     - git fetch --all --tags || true
     - pip install uv
     - uv sync --extra docs
