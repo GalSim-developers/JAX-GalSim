@@ -72,8 +72,8 @@ def add_noise(rng_key, *, x: ArrayLike, bg: float, n: int = 1):
 def format_column_to_dict(row):
     # ignore AGN component
     a_b = row["a_b"].item()
-    a_d = row["a_d"].item()
     b_b = row["b_b"].item()
+    a_d = row["a_d"].item()
     b_d = row["b_d"].item()
     i_ab = row["i_ab"].item()
 
@@ -90,7 +90,7 @@ def format_column_to_dict(row):
 
     # sanity
     if fluxnorm_bulge > 0 and fluxnorm_disk > 0:
-        assert pa_bulge == pa_disk
+        assert np.isclose(pa_bulge, pa_disk)
 
     # get flux
     flux_tot = mag2counts(i_ab, survey="LSST", filter="i").to_value("electron")
@@ -265,7 +265,7 @@ def draw_galsim(
     return image.array
 
 
-def _get_bd_jgs(
+def get_bd_jgs(
     flux_d,
     flux_b,
     hlr_b,
@@ -298,7 +298,7 @@ def _draw_stamp_jgs(
     fft_size: int,
 ) -> jax.Array:
     gsparams = jgs.GSParams(minimum_fft_size=fft_size, maximum_fft_size=fft_size)
-    convolved_object = _get_bd_jgs(**galaxy_params, psf=psf).withGSParams(gsparams)
+    convolved_object = get_bd_jgs(**galaxy_params, psf=psf).withGSParams(gsparams)
     stamp = convolved_object.drawImage(
         nx=slen, ny=slen, center=image_pos, wcs=local_wcs, dtype=jnp.float64
     )
@@ -457,10 +457,10 @@ def add_results_to_pdf(gs_arr, jgs_np_arr, t_galsim, t_jgalsim, ii, pdf):
     vmin = min(gs_arr.min(), jgs_np_arr.min())
     vmax = max(gs_arr.max(), jgs_np_arr.max())
 
-    residual = gs_arr - jgs_np_arr
     # make sure colorbar for residual is symmetric
-    res_vmin = -max(abs(residual.min()), abs(residual.max()))
+    residual = gs_arr - jgs_np_arr
     res_vmax = max(abs(residual.min()), abs(residual.max()))
+    res_vmin = -res_vmax
 
     fig, axes = plt.subplots(1, 3, figsize=(18, 6))
     fig.suptitle(
