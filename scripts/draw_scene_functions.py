@@ -335,9 +335,11 @@ def draw_jgs_scan_stamps(
     # create big image
     image = jgs.ImageD(ncol=ilen, nrow=ilen, scale=0.2)
     wcs = image.wcs
+    _galaxy_params = {**galaxy_params}  # copy dict to avoid changing original
+    assert _galaxy_params["flux_d"].shape[0] == max_n_gals
 
-    x = galaxy_params.pop("x")
-    y = galaxy_params.pop("y")
+    x = _galaxy_params.pop("x")
+    y = _galaxy_params.pop("y")
 
     image_positions = vmap(lambda x, y: jgs.PositionD(x=x, y=y))(x, y)
     local_wcss = vmap(lambda x: wcs.local(image_pos=x))(image_positions)
@@ -352,7 +354,7 @@ def draw_jgs_scan_stamps(
     final_pad_image = jax.lax.scan(
         _fnc_to_scan,
         (pad_image,),
-        xs=(galaxy_params, image_positions, local_wcss),
+        xs=(_galaxy_params, image_positions, local_wcss),
         length=max_n_gals,
     )[0][0]
 
@@ -368,19 +370,22 @@ def _add_to_image(carry, x):
 
 def draw_jgs_vmap_stamps(
     galaxy_params: dict,
+    *,
     psf: jgs.GSObject,
     ilen: int,
     slen: int,
     fft_size: int,
-    max_n_gals: int,  # TODO: need to force this to always be maximum parameters used.
+    max_n_gals: int,
 ):
 
     # create big image
     image = jgs.ImageD(ncol=ilen, nrow=ilen, scale=0.2)
     wcs = image.wcs
+    _galaxy_params = {**galaxy_params}
+    assert _galaxy_params["flux_d"].shape[0] == max_n_gals
 
-    x = galaxy_params.pop("x")
-    y = galaxy_params.pop("y")
+    x = _galaxy_params.pop("x")
+    y = _galaxy_params.pop("y")
 
     image_positions = jax.vmap(lambda x, y: jgs.PositionD(x=x, y=y))(x, y)
     local_wcss = jax.vmap(lambda x: wcs.local(image_pos=x))(image_positions)
@@ -388,7 +393,7 @@ def draw_jgs_vmap_stamps(
     _draw_stamps_vmapped = vmap(
         partial(_draw_stamp_jgs, psf=psf, slen=slen, fft_size=fft_size)
     )
-    stamps = _draw_stamps_vmapped(galaxy_params, image_positions, local_wcss)
+    stamps = _draw_stamps_vmapped(_galaxy_params, image_positions, local_wcss)
     assert stamps.array.shape[0] == max_n_gals
 
     pad_image = jgs.ImageD(
