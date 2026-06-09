@@ -185,6 +185,8 @@ def main(
 
             # galsim timing
             # TODO: do we guarantee no stamps are larger? or should we add check flag?
+            # we just have to run it once with a given seed and image size and then should remove
+            # it (in CPU)
             t1 = time.time()
             gs_arr = draw_galsim(
                 sample,
@@ -282,11 +284,8 @@ def _parse_bins_str_input(bins_str: str):
     if "," not in bins_str:
         # try to cast as a single number
         return (int(bins_str),)
-    elif bins_str.count(",") == 1:
-        # something like '60,' was passed in, remove comma and try to cast
-        return (int(bins_str[:-1]),)
     else:
-        the_bins = [float(x) for x in bins_str.split(",")]
+        the_bins = [float(x) for x in bins_str.split(",")]  # fail on "60," and "60,80,"
         # they need to be integers
         for x in the_bins:
             assert int(x) == x
@@ -394,7 +393,7 @@ def setup_draw_jgalsim_size_bins(
             # add zeroed out sources if necessary
             for _ in range(_n_gals_kk, _max_n_gals, 1):
                 for p in _sample_kk:
-                    _sample_kk[p] = np.append(_sample_kk[p], _dummy_jax[p])
+                    _sample_kk[p] = jnp.append(_sample_kk[p], _dummy_jax[p])
             assert len(_sample_kk["flux_b"]) == _max_n_gals
             samples_out[jj].append(_sample_kk)
         _drawn = _drawn.at[_mask].set(True)
