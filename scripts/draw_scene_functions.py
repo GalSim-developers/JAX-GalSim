@@ -28,12 +28,11 @@ PARAM_NAMES = [
     "beta",
 ]
 
-DUMMY = 0.2  # not too small,
 DUMMY_PARAMS = {
     "flux_b": 0.0,
     "flux_d": 0.0,
-    "hlr_b": DUMMY,
-    "hlr_d": DUMMY,
+    "hlr_b": 0.2,
+    "hlr_d": 0.2,
     "q_d": 1.0,  # circle
     "q_b": 1.0,  # circle
     "beta": 0.0,
@@ -103,8 +102,8 @@ def format_column_to_dict(row):
     return {
         "flux_b": flux_b,
         "flux_d": flux_d,
-        "hlr_b": np.sqrt(a_b * b_b) if fluxnorm_bulge > 0 else 0.3,
-        "hlr_d": np.sqrt(a_d * b_d) if fluxnorm_disk > 0 else 0.3,
+        "hlr_b": np.sqrt(a_b * b_b) if fluxnorm_bulge > 0 else 0.2,
+        "hlr_d": np.sqrt(a_d * b_d) if fluxnorm_disk > 0 else 0.2,
         "q_d": b_d / a_d if fluxnorm_disk > 0 else 1.0,  # circle
         "q_b": b_b / a_b if fluxnorm_bulge > 0 else 1.0,  # circle
         "beta": theta,
