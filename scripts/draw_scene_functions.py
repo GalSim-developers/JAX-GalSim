@@ -28,7 +28,7 @@ PARAM_NAMES = [
     "beta",
 ]
 
-DUMMY = 0.1  # not too small,
+DUMMY = 0.2  # not too small,
 DUMMY_PARAMS = {
     "flux_b": 0.0,
     "flux_d": 0.0,
@@ -81,7 +81,9 @@ def format_column_to_dict(row):
     fluxnorm_disk = row["fluxnorm_disk"].item()
     total_fluxnorm = fluxnorm_disk + fluxnorm_bulge
 
-    assert fluxnorm_bulge > 0 or fluxnorm_disk > 0
+    assert fluxnorm_bulge > 0 or fluxnorm_disk > 0, (
+        "This should never happen in the catalog."
+    )
 
     pa_bulge = row["pa_bulge"].item()
     pa_disk = row["pa_disk"].item()
@@ -101,28 +103,23 @@ def format_column_to_dict(row):
     return {
         "flux_b": flux_b,
         "flux_d": flux_d,
-        "hlr_b": np.sqrt(a_b * b_b) if fluxnorm_bulge > 0 else DUMMY,
-        "hlr_d": np.sqrt(a_d * b_d) if fluxnorm_disk > 0 else DUMMY,
-        "q_d": b_d / a_d if fluxnorm_disk > 0 else DUMMY,
-        "q_b": b_b / a_b if fluxnorm_bulge > 0 else DUMMY,  # dummy values
+        "hlr_b": np.sqrt(a_b * b_b) if fluxnorm_bulge > 0 else 0.3,
+        "hlr_d": np.sqrt(a_d * b_d) if fluxnorm_disk > 0 else 0.3,
+        "q_d": b_d / a_d if fluxnorm_disk > 0 else 1.0,  # circle
+        "q_b": b_b / a_b if fluxnorm_bulge > 0 else 1.0,  # circle
         "beta": theta,
     }
 
 
 def format_column_to_dict_extra(row):
     out = format_column_to_dict(row)
-
     out["good_size"] = row["good_size"]
     return out
 
 
 # use jax random here, which I think will make reproducibility easier
-def sample_cat(key, *, n_sources: int, max_n_gals: int, cat):
-    assert n_sources <= max_n_gals, (
-        "Number of sources in sample {} exceeds maximum number of sources {}.".format(
-            n_sources, max_n_gals
-        )
-    )
+def sample_cat(key, *, n_sources: int, cat):
+
     indices = random.choice(key, jnp.arange(len(cat)), shape=(n_sources,), replace=True)
     indices_np = np.array(indices)
     rows = cat[indices_np]
@@ -136,15 +133,9 @@ def sample_cat(key, *, n_sources: int, max_n_gals: int, cat):
         out = []
         for n in range(n_sources):
             out.append(sample_params[n][p])
-
         all_params[p] = np.array(out)
 
-    # add dummy values so that shape of parameter arrays is always the same
-    for p in PARAM_NAMES + ["good_size"]:
-        for n in range(n_sources, max_n_gals):
-            all_params[p] = np.append(all_params[p], DUMMY_PARAMS[p])
-
-    assert all_params["flux_b"].shape[0] == max_n_gals
+    assert all_params["flux_b"].shape[0] == n_sources
     return all_params
 
 
@@ -156,29 +147,27 @@ def get_one_full_sample(
 
     k, k1 = random.split(key)
     n_sources = random.poisson(k1, lam=mean_sources, shape=())
+
+    k, k2 = random.split(k)
+    k, k3 = random.split(k)
+    x = np.array(random.uniform(k2, minval=0, maxval=ilen, shape=(n_sources,)))
+    y = np.array(random.uniform(k3, minval=0, maxval=ilen, shape=(n_sources,)))
+
+    # get galaxy properties
+    _, k4 = random.split(k)
+    galaxy_props = sample_cat(k4, n_sources=n_sources, cat=cat)
+    good_sizes = galaxy_props.pop("good_size")
+    all_props = {**galaxy_props, "x": x, "y": y}
+
     assert n_sources <= max_n_gals, (
         "Number of sources in sample {} exceeds maximum number of sources {}.".format(
             n_sources, max_n_gals
         )
     )
-
-    k, k2 = random.split(k)
-    k, k3 = random.split(k)
-    x = np.array(random.uniform(k2, minval=0, maxval=ilen, shape=(max_n_gals,)))
-    y = np.array(random.uniform(k3, minval=0, maxval=ilen, shape=(max_n_gals,)))
-
-    x[n_sources:] = 0.0
-    y[n_sources:] = 0.0
-
-    # get galaxy properties
-    _, k4 = random.split(k)
-    galaxy_props = sample_cat(k4, n_sources=n_sources, max_n_gals=max_n_gals, cat=cat)
-    good_sizes = galaxy_props.pop("good_size")
-    all_props = {**galaxy_props, "x": x, "y": y}
-
-    assert all_props["x"].shape == (max_n_gals,)
-    assert all_props["flux_b"].shape == (max_n_gals,)
-    assert good_sizes.shape == (max_n_gals,)
+    assert all_props["x"].shape == (n_sources,)
+    assert all_props["flux_b"].shape == (n_sources,)
+    assert good_sizes.shape == (n_sources,)
+    assert np.all(good_sizes > 1)  # unphysical?
 
     return all_props, n_sources.item(), good_sizes
 
@@ -216,23 +205,15 @@ def draw_galsim(
     *,
     ilen: int,
     psf: galsim.GSObject,
-    max_n_gals: int | None = None,
+    max_slen: int | None = None,
     slen: int | None = None,
     fft_size: int | None = None,
-    max_slen: int | None = None,
     good_sizes=None,
 ):
 
     # create big image
     image = galsim.Image(ncol=ilen, nrow=ilen, scale=0.2, dtype=np.float64)
     wcs = image.wcs
-
-    if max_n_gals:
-        assert n_sources <= max_n_gals, (
-            "Number of sources in sample {} exceeds maximum number of sources {}.".format(
-                n_sources, max_n_gals
-            )
-        )
 
     for n in range(n_sources):
         _gal_params = {k: v[n].item() for k, v in galaxy_params.items()}
@@ -305,19 +286,36 @@ def _draw_stamp_jgs(
     return stamp
 
 
-def _draw_stamp_and_add_to_image(carry, x, *, psf, fft_size, slen):
-    # scan already jits so a bit overkill
-    image = carry[0]
-    gparams, image_pos, lwcs = x
+def _always_draw_and_add(image, gparams, image_pos, local_wcs, psf, slen, fft_size):
     stamp = _draw_stamp_jgs(
         galaxy_params=gparams,
+        image_pos=image_pos,
+        local_wcs=local_wcs,
+        psf=psf,
+        slen=slen,
+        fft_size=fft_size,
+    )
+    image[stamp.bounds] += stamp
+    return image
+
+
+def _draw_stamp_and_add_to_image(carry, x, *, psf, fft_size, slen):
+    image = carry[0]
+    gparams, image_pos, lwcs = x
+    total_flux = gparams["flux_d"] + gparams["flux_b"]
+    _body_fnc = partial(
+        _always_draw_and_add,
+        image=image,
+        gparams=gparams,
         image_pos=image_pos,
         local_wcs=lwcs,
         psf=psf,
         slen=slen,
         fft_size=fft_size,
     )
-    image[stamp.bounds] += stamp
+    # skips all computation if flux is 0.0, but only with scan not vmap
+    image = jax.lax.cond(total_flux == 0.0, lambda: image, _body_fnc)
+
     return (image,), None
 
 
@@ -335,11 +333,11 @@ def draw_jgs_scan_stamps(
     # create big image
     image = jgs.ImageD(ncol=ilen, nrow=ilen, scale=0.2)
     wcs = image.wcs
-    _galaxy_params = {**galaxy_params}  # copy dict to avoid changing original
-    assert _galaxy_params["flux_d"].shape[0] == max_n_gals
+    gparams = {**galaxy_params}  # copy dict to avoid changing original
+    assert gparams["flux_d"].shape[0] == max_n_gals
 
-    x = _galaxy_params.pop("x")
-    y = _galaxy_params.pop("y")
+    x = gparams.pop("x")
+    y = gparams.pop("y")
 
     image_positions = vmap(lambda x, y: jgs.PositionD(x=x, y=y))(x, y)
     local_wcss = vmap(lambda x: wcs.local(image_pos=x))(image_positions)
@@ -354,7 +352,7 @@ def draw_jgs_scan_stamps(
     final_pad_image = jax.lax.scan(
         _fnc_to_scan,
         (pad_image,),
-        xs=(_galaxy_params, image_positions, local_wcss),
+        xs=(gparams, image_positions, local_wcss),
         length=max_n_gals,
     )[0][0]
 
@@ -381,11 +379,11 @@ def draw_jgs_vmap_stamps(
     # create big image
     image = jgs.ImageD(ncol=ilen, nrow=ilen, scale=0.2)
     wcs = image.wcs
-    _galaxy_params = {**galaxy_params}
-    assert _galaxy_params["flux_d"].shape[0] == max_n_gals
+    gparams = {**galaxy_params}
+    assert gparams["flux_d"].shape[0] == max_n_gals
 
-    x = _galaxy_params.pop("x")
-    y = _galaxy_params.pop("y")
+    x = gparams.pop("x")
+    y = gparams.pop("y")
 
     image_positions = jax.vmap(lambda x, y: jgs.PositionD(x=x, y=y))(x, y)
     local_wcss = jax.vmap(lambda x: wcs.local(image_pos=x))(image_positions)
@@ -393,7 +391,7 @@ def draw_jgs_vmap_stamps(
     _draw_stamps_vmapped = vmap(
         partial(_draw_stamp_jgs, psf=psf, slen=slen, fft_size=fft_size)
     )
-    stamps = _draw_stamps_vmapped(_galaxy_params, image_positions, local_wcss)
+    stamps = _draw_stamps_vmapped(gparams, image_positions, local_wcss)
     assert stamps.array.shape[0] == max_n_gals
 
     pad_image = jgs.ImageD(
