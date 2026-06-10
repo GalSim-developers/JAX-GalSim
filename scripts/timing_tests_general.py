@@ -388,11 +388,10 @@ def _prepare_per_bin_samples(
             f"Number of iterations in size bin {jj} is {n_iters_jj} which is larger than max_n_iters:{max_n_iters}"
         )
 
-        n_pad = max_n_iters * max_n_gals_jj - n_gals
-
         # here we want static shapes (small memory overheard with parameters)
         # but in the drawing function will explicitly skip in while loop these extra ones
         # based on n_iters_per_bin ==> especially useful for vmap
+        n_pad = max_n_iters * max_n_gals_jj - n_gals
         for p in sample_jj:
             _padding = np.full(n_pad, fill_value=DUMMY_PARAMS[p])
             sample_jj[p] = np.concatenate([sample_jj[p], _padding])
