@@ -175,6 +175,7 @@ def main(
             ilen=image_slen,
             draw_fncs=draw_fncs,
             device=device,
+            n_bins=n_bins,
         )
     )
 
@@ -410,9 +411,9 @@ def draw_all_bins_jgs(
     *,
     ilen: int,
     draw_fncs: tuple,
+    n_bins: int,
     device,
 ):
-    n_bins = len(n_iters_per_bin)
     param_names = tuple(samples_per_bin_jax[0].keys())
     jgs_arr = jnp.zeros((ilen, ilen), device=device, dtype=jnp.float64)
 
