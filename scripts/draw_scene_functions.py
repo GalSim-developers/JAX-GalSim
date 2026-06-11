@@ -454,7 +454,7 @@ def get_good_sizes_galsim(
     return _good_sizes
 
 
-def add_results_to_pdf(gs_arr, jgs_np_arr, t_galsim, t_jgalsim, ii, pdf):
+def add_results_to_pdf(ii, pdf, *, gs_arr, jgs_np_arr, t_galsim, t_jgalsim):
 
     vmin = min(gs_arr.min(), jgs_np_arr.min())
     vmax = max(gs_arr.max(), jgs_np_arr.max())
@@ -466,7 +466,7 @@ def add_results_to_pdf(gs_arr, jgs_np_arr, t_galsim, t_jgalsim, ii, pdf):
 
     fig, axes = plt.subplots(1, 3, figsize=(18, 6))
     fig.suptitle(
-        f"Sample {ii}  |  GalSim: {t_galsim:.3f}s  |  JAX-GalSim: {t_jgalsim:.3f}s",
+        f"Sample {ii}  |  GalSim: {t_galsim:.4f}s  |  JAX-GalSim: {t_jgalsim:.4f}s",
         fontsize=13,
     )
 
