@@ -150,3 +150,6 @@ output*/
 
 #json data
 *.json
+
+# lock
+uv.lock
