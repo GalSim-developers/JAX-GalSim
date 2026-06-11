@@ -57,6 +57,7 @@ def main(
     max_hlr: float = typer.Option(default=2.0),  # arcsecs
     extra_suffix: str = typer.Option(default=""),
     fix_galsim_stamp_size: bool = False,  # fixed to largest in stamp_slen_bins
+    progress_bar: bool = True,
 ):
     # does not support multi-threading or multiprocessing
     # need to parse as str as typer does not support lists
@@ -113,6 +114,7 @@ def main(
         f"{image_slen}-{n_samples}-{psf_type}-{fft_size}-{seed}-"
         f"hb{bin_hash}-{cpu_or_gpu}-{scan_or_vmap}{fix_galsim_str}{extra_suffix_str}"
     )
+    print(f"INFO: Running timing results and saving to folder '{hash_name}'")
 
     out_folder = out_root_path / hash_name
     out_folder.mkdir(parents=False, exist_ok=True)
@@ -184,7 +186,10 @@ def main(
     rkeys = random.split(random.PRNGKey(seed), n_samples)
     with PdfPages(pdf_name) as pdf:
         for ii, rkey in tqdm(
-            enumerate(rkeys), total=n_samples, desc="Timing galsim vs jax-galsim..."
+            enumerate(rkeys),
+            total=n_samples,
+            desc="Timing GalSim vs JAX-GalSim",
+            disable=not progress_bar,
         ):
             # sample in numpy
             sample, n, gsizes = get_one_full_sample(
@@ -267,6 +272,7 @@ def main(
             # free memory as appropriate
             del gs_arr, jgs_arr, samples_per_bin_jax, n_iters_per_bin_jax
 
+    print("INFO: Done running! Now saving timing results...")
     _save_timing_results(
         out_folder=out_folder,
         times_galsim=times_galsim,
