@@ -179,14 +179,12 @@ def main(
         )
     )
 
-    # setup function (that can be jitted) that draws all bins
-
-    # timing test
+    # timing start
     pdf_name = out_folder / "residuals.pdf"
     rkeys = random.split(random.PRNGKey(seed), n_samples)
     with PdfPages(pdf_name) as pdf:
         for ii, rkey in tqdm(
-            enumerate(rkeys), total=len(rkeys), desc="Timing galsim vs jax-galsim..."
+            enumerate(rkeys), total=n_samples, desc="Timing galsim vs jax-galsim..."
         ):
             # sample in numpy
             sample, n, gsizes = get_one_full_sample(
@@ -197,9 +195,6 @@ def main(
             assert np.all(gsizes > 1)
 
             # galsim timing
-            # TODO: do we guarantee no stamps are larger? or should we add check flag?
-            # we just have to run it once with a given seed and image size and then should remove
-            # it (in CPU)
             t1 = time.time()
             gs_arr = draw_galsim(
                 sample,
@@ -207,7 +202,7 @@ def main(
                 psf=psf,
                 ilen=image_slen,
                 slen=stamp_size_galsim,
-                max_slen=stamp_slen_bins[-1],  # sanity only
+                max_slen=stamp_slen_bins[-1],  # sanity
             )
             t2 = time.time()
             t_galsim = t2 - t1
@@ -234,6 +229,7 @@ def main(
             t2 = time.time()
             times_transfer.append(t2 - t1)
             assert n_bins == len(samples_per_bin) == len(n_iters_per_bin)
+            del samples_per_bin, n_iters_per_bin  # numpy versions no longer needed
 
             # compilation (not timed)
             if ii == 0:
@@ -251,14 +247,25 @@ def main(
             t_jgalsim = t2 - t1
             times_jgalsim.append(t_jgalsim)
 
-            # write down record for potential refinement
-            n_gals_record.append(_create_record(gsizes, stamp_slen_bins, buffer))
-
             # save residual images to a multipage pdf for inspection
-            add_results_to_pdf(gs_arr, np.array(jgs_arr), t_galsim, t_jgalsim, ii, pdf)
+            add_results_to_pdf(
+                ii,
+                pdf,
+                gs_arr=gs_arr,
+                jgs_np_arr=np.array(jgs_arr),
+                t_galsim=t_galsim,
+                t_jgalsim=t_jgalsim,
+            )
 
-    with open(out_folder / "record.json", "w") as fp:
-        json.dump(n_gals_record, fp, indent="\t")
+            # write down record for potential refinement of bins (only on CPU)
+            if cpu_or_gpu == "cpu":
+                n_gals_record.append(_create_record(gsizes, stamp_slen_bins, buffer))
+                if ii == n_samples - 1:
+                    with open(out_folder / "record.json", "w") as fp:
+                        json.dump(n_gals_record, fp, indent="\t")
+
+            # free memory as appropriate
+            del gs_arr, jgs_arr, samples_per_bin_jax, n_iters_per_bin_jax
 
     _save_timing_results(
         out_folder=out_folder,
@@ -328,31 +335,31 @@ def _save_timing_results(
     summary_fname = out_folder / "summary.txt"
     with open(summary_fname, "w") as fp:
         print(
-            f"Average time (per image) for GalSim: {np.mean(times_galsim):.3f} seconds",
+            f"Average time (per image) for GalSim: {np.mean(times_galsim):.4f} seconds",
             file=fp,
         )
         print(
-            f"Median time (per image) for GalSim: {np.median(times_galsim):.3f} seconds",
-            file=fp,
-        )
-
-        print(file=fp)
-        print(
-            f"Average time (per image) for JAX-GalSim: {np.mean(times_jgalsim):.3f} seconds",
-            file=fp,
-        )
-        print(
-            f"Median time (per image) for JAX-GalSim: {np.median(times_jgalsim):.3f} seconds",
+            f"Median time (per image) for GalSim: {np.median(times_galsim):.4f} seconds",
             file=fp,
         )
 
         print(file=fp)
         print(
-            f"Average JAX transfer time (per image): {np.mean(times_transfer):.3f} seconds",
+            f"Average time (per image) for JAX-GalSim: {np.mean(times_jgalsim):.4f} seconds",
             file=fp,
         )
         print(
-            f"Median JAX transfer time (per image): {np.median(times_transfer):.3f} seconds",
+            f"Median time (per image) for JAX-GalSim: {np.median(times_jgalsim):.4f} seconds",
+            file=fp,
+        )
+
+        print(file=fp)
+        print(
+            f"Average JAX transfer time (per image): {np.mean(times_transfer):.4f} seconds",
+            file=fp,
+        )
+        print(
+            f"Median JAX transfer time (per image): {np.median(times_transfer):.4f} seconds",
             file=fp,
         )
 
