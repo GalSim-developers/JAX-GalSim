@@ -1,162 +1,99 @@
-"""Spectral Energy Distribution (SED) for chromatic profiles.
+import os
 
-Designed for JAX compatibility: the flux array is a traced parameter,
-so gradients flow through SED values (e.g. from DSPS outputs).
-"""
-
+import galsim as _galsim
 import jax.numpy as jnp
 from jax.tree_util import register_pytree_node_class
 
+from jax_galsim.core.utils import ensure_hashable, implements
 
+
+@implements(
+    _galsim.SED,
+    lax_description="""\
+JAX-GalSim supports array-backed SEDs only.  The wavelength grid is static
+and the flux array may be traced.  File input, string expressions, units,
+LookupTable metadata, thinning, and magnitude/zeropoint helpers are not
+implemented.
+""",
+)
 @register_pytree_node_class
 class SED:
-    """Spectral Energy Distribution.
-
-    Represents flux density as a function of wavelength, designed for
-    full JAX compatibility. The ``flux`` array is a JAX-traced parameter,
-    enabling gradients through SED parameters (e.g. outputs of DSPS).
-
-    The wavelength grid (``wave``) is treated as static auxiliary data:
-    it defines the interpolation structure and is not differentiated.
-
-    Parameters
-    ----------
-    wave : array_like
-        Wavelength array **in nanometers**. Must be strictly increasing.
-        Treated as static (not traced by JAX).
-    flux : array_like
-        Flux density at each wavelength. Treated as a JAX-traced parameter.
-        Units are arbitrary but must be consistent across the simulation
-        (typically photons / nm / cm² / s for spectral SEDs, or
-        dimensionless for shape-only profiles).
-    redshift : float, optional
-        Cosmological redshift applied to the SED.  The observed wavelength
-        grid is shifted to ``wave_obs = wave_rest * (1 + redshift)``.
-        Default 0.
-
-    Examples
-    --------
-    Basic construction from arrays::
-
-        >>> import jax.numpy as jnp
-        >>> from jax_galsim.sed import SED
-        >>> wave = jnp.linspace(300, 1100, 512)   # nm
-        >>> flux = jnp.ones(512)
-        >>> sed = SED(wave, flux)
-        >>> float(sed(550.0))
-        1.0
-
-    DSPS workflow — flux is a traced JAX array::
-
-        >>> flux = dsps_model(params)             # JAX array
-        >>> sed = SED(dsps_wave_nm, flux)
-        >>> image = chromatic_galaxy.drawImage(bandpass)  # differentiable
-
-    Redshifted SED::
-
-        >>> sed_z = SED(wave, flux, redshift=0.5)
-        >>> sed_z(825.0)   # queries rest-frame 550 nm
-    """
-
     def __init__(self, wave, flux, redshift=0.0):
+        if isinstance(wave, (str, bytes, os.PathLike)) or isinstance(
+            flux, (str, bytes, os.PathLike)
+        ):
+            raise NotImplementedError(
+                "JAX-GalSim SED supports array-backed SEDs only; file input, "
+                "string expressions, and flux-type strings are not implemented."
+            )
+
         self._wave = jnp.asarray(wave, dtype=float)  # static, not traced
         self._flux = jnp.asarray(flux)  # traced
         self._redshift = jnp.asarray(redshift, dtype=float)
 
         if self._wave.ndim != 1 or len(self._wave) < 2:
             raise ValueError("wave must be a 1-D array with at least 2 elements.")
-        if len(self._flux) != len(self._wave):
-            raise ValueError("flux must have the same length as wave.")
-
-    # ------------------------------------------------------------------
-    # Properties
-    # ------------------------------------------------------------------
+        if self._flux.shape != self._wave.shape:
+            raise ValueError("flux must have the same shape as wave.")
 
     @property
+    @implements(
+        None,
+        lax_description="JAX-GalSim-specific static wavelength grid for array-backed SEDs.",
+    )
     def wave(self):
-        """Rest-frame wavelength grid in nm (JAX array, static)."""
         return self._wave
 
     @property
+    @implements(
+        None,
+        lax_description="JAX-GalSim-specific traced flux array for array-backed SEDs.",
+    )
     def flux(self):
-        """Flux density array (JAX array, traced)."""
         return self._flux
 
     @property
+    @implements(
+        None,
+        lax_description="JAX-GalSim-specific traced redshift scalar for array-backed SEDs.",
+    )
     def redshift(self):
-        """Redshift (JAX scalar)."""
         return self._redshift
 
     @property
+    @implements(
+        None,
+        lax_description="JAX-GalSim-specific observed blue wavelength limit.",
+    )
     def blue_limit(self):
-        """Shortest observed wavelength in nm."""
         return float(self._wave[0]) * (1.0 + float(self._redshift))
 
     @property
+    @implements(
+        None,
+        lax_description="JAX-GalSim-specific observed red wavelength limit.",
+    )
     def red_limit(self):
-        """Longest observed wavelength in nm."""
         return float(self._wave[-1]) * (1.0 + float(self._redshift))
 
-    # ------------------------------------------------------------------
-    # Evaluation
-    # ------------------------------------------------------------------
-
+    @implements(_galsim.SED.__call__)
     def __call__(self, wave):
-        """Evaluate flux density at observed wavelength(s) in nm.
-
-        Uses linear interpolation; returns 0 outside the defined range.
-
-        Parameters
-        ----------
-        wave : float or array_like
-            Observed wavelength(s) in nm.
-
-        Returns
-        -------
-        jnp.ndarray
-            Flux density at the requested wavelengths.
-        """
         wave = jnp.asarray(wave, dtype=float)
         # Convert observed wavelength to rest-frame before interpolating
         wave_rest = wave / (1.0 + self._redshift)
         return jnp.interp(wave_rest, self._wave, self._flux, left=0.0, right=0.0)
 
-    # ------------------------------------------------------------------
-    # Flux through a bandpass
-    # ------------------------------------------------------------------
-
+    @implements(_galsim.SED.calculateFlux)
     def calculateFlux(self, bandpass, n_waves=512):
-        """Integrate SED through a bandpass: ``∫ SED(λ) × BP(λ) dλ``.
-
-        Parameters
-        ----------
-        bandpass : Bandpass
-            Observing bandpass.
-        n_waves : int, optional
-            Number of quadrature points. Default 512.
-
-        Returns
-        -------
-        jnp.ndarray
-            Scalar flux value.
-        """
         waves = jnp.linspace(bandpass.blue_limit, bandpass.red_limit, n_waves)
         return jnp.trapezoid(self(waves) * bandpass(waves), waves)
 
-    # ------------------------------------------------------------------
-    # Arithmetic
-    # ------------------------------------------------------------------
-
-    def withRedshift(self, redshift):
-        """Return a copy of this SED at a new redshift."""
+    @implements(_galsim.SED.atRedshift)
+    def atRedshift(self, redshift):
         return SED(self._wave, self._flux, redshift)
 
+    @implements(_galsim.SED.__mul__)
     def __mul__(self, other):
-        """Multiply SED by a scalar or another SED.
-
-        SED × scalar scales all flux values.
-        SED × SED multiplies flux densities (both evaluated on ``self``'s grid).
-        """
         if isinstance(other, SED):
             # Evaluate other SED on self's rest-frame grid and multiply
             other_flux = jnp.interp(
@@ -170,21 +107,24 @@ class SED:
         from jax_galsim.gsobject import GSObject
 
         if isinstance(other, GSObject):
-            from jax_galsim.chromatic import Chromatic
+            from jax_galsim.chromatic import SimpleChromaticTransformation
 
-            return Chromatic(other, self)
+            return SimpleChromaticTransformation(other, self)
         from jax_galsim.chromatic import ChromaticObject
 
         if isinstance(other, ChromaticObject):
             return other * self
         return SED(self._wave, self._flux * other, self._redshift)
 
+    @implements(getattr(_galsim.SED, "__rmul__", None))
     def __rmul__(self, other):
         return self.__mul__(other)
 
+    @implements(getattr(_galsim.SED, "__truediv__", None))
     def __truediv__(self, other):
         return SED(self._wave, self._flux / other, self._redshift)
 
+    @implements(_galsim.SED.__add__)
     def __add__(self, other):
         if isinstance(other, SED):
             other_flux = jnp.interp(
@@ -235,6 +175,16 @@ class SED:
             return False
         return (
             jnp.array_equal(self._wave, other._wave)
-            and jnp.array_equal(self._flux, other._flux)
-            and jnp.array_equal(self._redshift, other._redshift)
+            & jnp.array_equal(self._flux, other._flux)
+            & jnp.array_equal(self._redshift, other._redshift)
+        )
+
+    def __hash__(self):
+        return hash(
+            (
+                "galsim.SED",
+                ensure_hashable(self._wave),
+                ensure_hashable(self._flux),
+                ensure_hashable(self._redshift),
+            )
         )
