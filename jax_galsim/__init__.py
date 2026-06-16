@@ -111,7 +111,7 @@ from .sed import SED
 from .bandpass import Bandpass
 from .chromatic import (
     ChromaticObject,
-    Chromatic,
+    SimpleChromaticTransformation,
     ChromaticAtmosphere,
     ChromaticConvolution,
     ChromaticSum,

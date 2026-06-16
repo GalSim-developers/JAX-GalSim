@@ -1,5 +1,5 @@
-Chromatic Profiles
-==================
+Wavelength-dependent Profiles
+=============================
 
 .. currentmodule:: jax_galsim
 
@@ -49,7 +49,7 @@ Chromatic objects
    :members:
    :show-inheritance:
 
-.. autoclass:: Chromatic
+.. autoclass:: SimpleChromaticTransformation
    :members:
    :show-inheritance:
 
