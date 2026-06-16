@@ -157,7 +157,6 @@ class Bandpass:
         ),
     )
     def tophat(cls, blue_limit, red_limit, n_wave=100):
-        """Uniform throughput = 1 between blue_limit and red_limit."""
         wave = jnp.linspace(blue_limit, red_limit, n_wave)
         return cls(wave, jnp.ones(n_wave))
 

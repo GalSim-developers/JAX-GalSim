@@ -150,13 +150,6 @@ are not implemented.
 """,
 )
 class ChromaticObject:
-    """Base class for wavelength-dependent profiles.
-
-    Subclasses must override :meth:`evaluateAtWavelength`.  The default
-    :meth:`drawImage` uses a k-space trapezoid integration that works for
-    any subclass; separable subclasses override it with a faster path.
-    """
-
     #: Set True in separable subclasses.
     _separable: bool = False
 
@@ -171,9 +164,11 @@ class ChromaticObject:
         self._separable = True
 
     @property
-    @implements(getattr(_galsim.ChromaticObject, "separable", None))
+    @implements(
+        getattr(_galsim.ChromaticObject, "separable", None),
+        lax_description="JAX-GalSim-specific separability flag for chromatic drawing.",
+    )
     def separable(self):
-        """True if the profile factors as g(x,y) × h(λ)."""
         return self._separable
 
     @property
@@ -190,21 +185,6 @@ class ChromaticObject:
 
     @implements(_galsim.ChromaticObject.evaluateAtWavelength)
     def evaluateAtWavelength(self, wave):
-        """Return the monochromatic GSObject at wavelength *wave* (nm).
-
-        This method must be JAX-traceable: all internal computations
-        should use ``jax.numpy``, and the returned GSObject's parameters
-        may be abstract JAX tracers.
-
-        Parameters
-        ----------
-        wave : float or jax scalar
-            Wavelength in nm.
-
-        Returns
-        -------
-        GSObject
-        """
         if getattr(self, "_base_obj", None) is not None:
             return self._base_obj
         raise NotImplementedError(
@@ -242,23 +222,6 @@ class ChromaticObject:
         lax_description="JAX-GalSim supports FFT drawing through array-backed Bandpass objects.",
     )
     def drawImage(self, bandpass, n_waves=64, **kwargs):
-        """Draw the bandpass-integrated image.
-
-        Parameters
-        ----------
-        bandpass : Bandpass
-            Observing bandpass.
-        n_waves : int
-            Number of wavelength samples for numerical integration.
-            Must be a **static** integer (fixed at JIT compile time).
-        **kwargs
-            Forwarded to the underlying ``GSObject.drawImage`` calls.
-            Typical keys: ``nx``, ``ny``, ``scale``, ``method``, etc.
-
-        Returns
-        -------
-        Image
-        """
         if self._separable:
             return self._drawImage_separable(bandpass, n_waves, **kwargs)
         return self._drawImage_nonseparable(bandpass, n_waves, **kwargs)
@@ -495,16 +458,6 @@ class _ScaledChromaticObject(ChromaticObject):
     lax_description="JAX-GalSim treats ChromaticSum as non-separable, matching GalSim semantics.",
 )
 class ChromaticSum(ChromaticObject):
-    """Sum of two or more chromatic profiles.
-
-    The combined SED is the sum of all component SEDs.  Drawing
-    evaluates each component at every wavelength and sums.
-
-    Parameters
-    ----------
-    obj_list : list of ChromaticObject
-    """
-
     _separable = False
 
     def __init__(self, *args):
@@ -565,41 +518,6 @@ chromatic affine transformations are not implemented.
 )
 @register_pytree_node_class
 class SimpleChromaticTransformation(ChromaticObject):
-    """Separable chromatic profile: a GSObject multiplied by an SED.
-
-    The spatial profile is fixed; wavelength dependence enters only
-    through the SED flux scaling.
-
-    ``I(x, y, λ) = g(x, y) × SED(λ)``
-
-    Drawing a ``SimpleChromaticTransformation`` through a bandpass reduces to a single
-    monochromatic draw at the effective wavelength with total flux
-    ``∫ SED(λ) × BP(λ) dλ``.
-
-    Parameters
-    ----------
-    obj : GSObject
-        Normalised spatial profile (flux = 1 by convention, though
-        any flux is allowed and will be multiplied by the SED).
-    sed : SED
-        Spectral energy distribution.
-
-    Examples
-    --------
-    ::
-
-        >>> from jax_galsim import Gaussian
-        >>> from jax_galsim.sed import SED
-        >>> from jax_galsim.bandpass import Bandpass
-        >>> import jax.numpy as jnp
-
-        >>> wave = jnp.linspace(500, 900, 256)
-        >>> sed = SED(wave, jnp.ones(256))
-        >>> bp  = Bandpass.tophat(550, 750)
-        >>> gal = Gaussian(half_light_radius=0.5) * sed
-        >>> img = gal.drawImage(bp, scale=0.2, nx=64, ny=64)
-    """
-
     _separable = True
 
     def __init__(self, obj, sed):
@@ -622,7 +540,6 @@ class SimpleChromaticTransformation(ChromaticObject):
 
     @implements(_galsim.SimpleChromaticTransformation.evaluateAtWavelength)
     def evaluateAtWavelength(self, wave):
-        """Return the GSObject scaled to SED(wave)."""
         return self.obj.withScaledFlux(self.sed(wave))
 
     def _sed_value(self, wave):
@@ -667,43 +584,6 @@ implemented.
 """,
 )
 class ChromaticAtmosphere(ChromaticObject):
-    """Atmospheric PSF with a power-law wavelength-dependent FWHM.
-
-    The PSF profile at wavelength λ is a Gaussian (or Moffat) with:
-
-        FWHM(λ) = fwhm_ref × (λ / lam_ref)^alpha
-
-    For Kolmogorov turbulence, the expected scaling is α ≈ −0.2.
-
-    This profile carries a **flat (dimensionless) SED**: ``SED(λ) = 1``.
-    The physical SED is typically attached to the galaxy component via
-    :class:`SimpleChromaticTransformation`, and passed to
-    :class:`ChromaticConvolution`.
-
-    Parameters
-    ----------
-    fwhm_ref : float
-        FWHM in arcseconds at the reference wavelength.
-    lam_ref : float
-        Reference wavelength in nm.
-    alpha : float, optional
-        Power-law index.  Default −0.2 (Kolmogorov).
-    profile : {'gaussian', 'moffat'}
-        Profile type.  Default ``'gaussian'``.
-    moffat_beta : float, optional
-        Moffat β parameter (only used when ``profile='moffat'``).
-        Default 4.765 (typical for atmospheric seeing).
-    gsparams : GSParams, optional
-
-    Examples
-    --------
-    ::
-
-        >>> from jax_galsim.chromatic import ChromaticAtmosphere
-        >>> psf = ChromaticAtmosphere(fwhm_ref=0.7, lam_ref=700.0, alpha=-0.2)
-        >>> prof = psf.evaluateAtWavelength(550.0)   # Gaussian at 550 nm
-    """
-
     _separable = False
 
     def __init__(
@@ -781,11 +661,6 @@ class ChromaticAtmosphere(ChromaticObject):
 
     @implements(_galsim.ChromaticAtmosphere.evaluateAtWavelength)
     def evaluateAtWavelength(self, wave):
-        """Return the PSF profile (unit flux) at wavelength *wave* (nm).
-
-        FWHM is scaled as ``fwhm_ref × (wave / lam_ref)^alpha``.
-        When *wave* is a JAX tracer (inside vmap/jit), fwhm is also traced.
-        """
         fwhm = self._fwhm_ref * (wave / self._lam_ref) ** self._alpha
 
         if self._profile == "gaussian":
@@ -858,48 +733,6 @@ transformations are not implemented.
 """,
 )
 class ChromaticConvolution(ChromaticObject):
-    """Convolution of multiple chromatic profiles.
-
-    Computes the bandpass-integrated image of the convolution:
-
-        K_eff(k) = ∫ ∏_i K_i(k, λ) × BP(λ) dλ
-
-    where each ``K_i(k, λ)`` is the k-space value of the i-th component
-    at wavelength λ.
-
-    **Optimised case**: when all components except one are separable
-    (e.g. galaxy × SED convolved with a chromatic PSF), the separable
-    profiles are extracted and convolved with the wavelength-integrated
-    effective PSF.  This avoids multiplying the same galaxy k-image at
-    every wavelength sample.
-
-    Parameters
-    ----------
-    obj_list : list of ChromaticObject or GSObject
-        Components to convolve.  Plain ``GSObject`` instances are wrapped
-        automatically in a flat-SED :class:`SimpleChromaticTransformation`.
-
-    Examples
-    --------
-    ::
-
-        >>> from jax_galsim import Gaussian, Convolve
-        >>> from jax_galsim.chromatic import ChromaticAtmosphere, ChromaticConvolution
-        >>> from jax_galsim.sed import SED
-        >>> from jax_galsim.bandpass import Bandpass
-        >>> import jax.numpy as jnp
-
-        >>> wave = jnp.linspace(300, 1100, 512)
-        >>> flux = jnp.exp(-0.5 * ((wave - 700) / 150) ** 2)  # Gaussian SED
-        >>> sed = SED(wave, flux)
-        >>> bp  = Bandpass.tophat(550, 800)
-
-        >>> gal = Gaussian(half_light_radius=0.5) * sed
-        >>> psf = ChromaticAtmosphere(fwhm_ref=0.7, lam_ref=700.0, alpha=-0.2)
-        >>> final = ChromaticConvolution([gal, psf])
-        >>> img = final.drawImage(bp, scale=0.2, nx=64, ny=64)
-    """
-
     _separable = False
 
     def __init__(self, *args, **kwargs):
@@ -960,7 +793,6 @@ class ChromaticConvolution(ChromaticObject):
 
     @implements(_galsim.ChromaticConvolution.evaluateAtWavelength)
     def evaluateAtWavelength(self, wave):
-        """Return the convolved monochromatic profile at *wave* (nm)."""
         # Keep this local to avoid a circular import with jax_galsim.convolve.
         from jax_galsim.convolve import Convolve
 
@@ -975,22 +807,6 @@ class ChromaticConvolution(ChromaticObject):
         lax_description="JAX-GalSim supports FFT drawing with static wavelength grid size.",
     )
     def drawImage(self, bandpass, n_waves=64, **kwargs):
-        """Draw the integrated image, exploiting separability where possible.
-
-        Algorithm:
-
-        1. Separate components into *separable* (galaxy × SED) and
-           *non-separable* (chromatic PSF).
-        2. Build the combined weight function:
-           ``w(λ) = ∏_sep SED_i(λ) × BP(λ)``
-        3. In k-space, integrate non-separable components:
-           ``K_nonsep_eff(k) = ∫ ∏_nonsep K_i(k,λ) × w(λ) dλ``
-        4. Multiply by separable component k-values (λ-independent after
-           extracting their SED into the weight).
-        5. Include pixel convolution, IFFT to real space.
-
-        All-separable case falls back to a single monochromatic draw.
-        """
         # Keep this local to avoid a circular import with jax_galsim.convolve.
         from jax_galsim.convolve import Convolve
 
@@ -1135,7 +951,6 @@ class ChromaticConvolution(ChromaticObject):
     lax_description="Also accepts array-backed JAX-GalSim SED objects and returns a SimpleChromaticTransformation.",
 )
 def _gsobject_mul_sed(self, other):
-    """Allow ``gsobject * sed``."""
     if isinstance(other, SED):
         return SimpleChromaticTransformation(self, other)
     # Fall through to original implementation (flux scaling)
