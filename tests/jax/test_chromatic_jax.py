@@ -22,7 +22,6 @@ from jax_galsim.chromatic import (
     SimpleChromaticTransformation,
 )
 
-
 WAVE = jnp.linspace(400.0, 900.0, 256)
 BP = jgs.Bandpass.tophat(550.0, 750.0)
 
