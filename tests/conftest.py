@@ -98,7 +98,12 @@ def pytest_collection_modifyitems(config, items):
         ):
             item.add_marker(skip)
 
-        if any([t in item.nodeid for t in test_config["skipped_tests"]["coord"]]):
+        skipped_tests = test_config["skipped_tests"].get("galsim", []) + test_config[
+            "skipped_tests"
+        ].get("coord", [])
+        if any(
+            [item.nodeid == t or item.nodeid.startswith(t + "[") for t in skipped_tests]
+        ):
             item.add_marker(skip)
 
 

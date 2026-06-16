@@ -1,269 +1,107 @@
-"""Tests for jax_galsim chromatic PSF support.
+"""JAX-specific chromatic tests.
 
-Verifies:
-- SED and Bandpass construction and evaluation
-- Chromatic (separable) drawImage correctness
-- ChromaticAtmosphere (non-separable) drawImage correctness
-- ChromaticConvolution (galaxy × SED ⊗ PSF) correctness
-- jax.jit compatibility for all paths
-- jax.grad compatibility for SED-flux differentiation
-- Pytree round-trip (tree_flatten / tree_unflatten)
-- Numerical agreement with analytic expectations
+The behavioral GalSim coverage for SED, Bandpass, and chromatic profiles comes
+from tests/GalSim/tests through the conftest.py harness, which imports
+jax_galsim as galsim.  This file is intentionally limited to JAX behavior and
+local regressions that the upstream GalSim tests cannot express directly:
+
+- jit and grad support for traced SED and Bandpass arrays
+- pytree round-trips for chromatic objects
+- the ChromaticSum non-separability regression
+- the local GSObject * SED monkey patch
 """
-
-# ruff: noqa: E402,I001
 
 import jax
 import jax.numpy as jnp
 import pytest
 
-# Enable float64 for accuracy
-jax.config.update("jax_enable_x64", True)
+import jax_galsim as jgs
+from jax_galsim.chromatic import (
+    ChromaticAtmosphere,
+    ChromaticConvolution,
+    SimpleChromaticTransformation,
+)
 
-import jax_galsim as jgal
-from jax_galsim.chromatic import ChromaticAtmosphere, ChromaticConvolution
 
-
-# ---------------------------------------------------------------------------
-# Fixtures
-# ---------------------------------------------------------------------------
-
-WAVE = jnp.linspace(400.0, 900.0, 256)  # nm
-BP = jgal.Bandpass.tophat(550.0, 750.0)  # 200 nm wide, throughput = 1
-BP_NARROW = jgal.Bandpass.tophat(600.0, 700.0)  # 100 nm wide
+WAVE = jnp.linspace(400.0, 900.0, 256)
+BP = jgs.Bandpass.tophat(550.0, 750.0)
 
 
 def flat_sed(scale=1.0):
-    return jgal.SED(WAVE, jnp.ones(256) * scale)
+    return jgs.SED(WAVE, jnp.ones_like(WAVE) * scale)
 
 
-# ---------------------------------------------------------------------------
-# SED tests
-# ---------------------------------------------------------------------------
-
-
-def test_sed_evaluation():
-    sed = flat_sed()
-    assert float(sed(600.0)) == pytest.approx(1.0, rel=1e-5)
-    assert float(sed(300.0)) == pytest.approx(0.0)  # outside range
-
-
-def test_sed_redshift():
-    sed = jgal.SED(WAVE, jnp.ones(256), redshift=1.0)
-    # observed 800 nm → rest-frame 400 nm → flux = 1.0
-    assert float(sed(800.0)) == pytest.approx(1.0, rel=1e-4)
-    # observed 400 nm → rest-frame 200 nm → outside range → 0
-    assert float(sed(400.0)) == pytest.approx(0.0, abs=1e-6)
-
-
-def test_sed_calculate_flux():
-    sed = flat_sed()
-    flux = float(sed.calculateFlux(BP))
-    # ∫_550^750 1 dλ = 200 nm
-    assert flux == pytest.approx(200.0, rel=1e-3)
-
-
-def test_sed_pytree_roundtrip():
+def test_sed_bandpass_chromatic_pytree_roundtrips():
     sed = flat_sed(2.0)
-    leaves, treedef = jax.tree_util.tree_flatten(sed)
-    sed2 = jax.tree_util.tree_unflatten(treedef, leaves)
-    assert float(sed2(600.0)) == pytest.approx(2.0, rel=1e-5)
+    bandpass = jgs.Bandpass.tophat(550.0, 750.0)
+    gal = jgs.Gaussian(half_light_radius=0.5) * sed
+    psf = ChromaticAtmosphere(fwhm_ref=0.7, lam_ref=700.0, alpha=-0.2)
+
+    for obj in [sed, bandpass, gal, psf]:
+        leaves, treedef = jax.tree_util.tree_flatten(obj)
+        rebuilt = jax.tree_util.tree_unflatten(treedef, leaves)
+        assert isinstance(rebuilt, obj.__class__)
+
+    sed_leaves, sed_treedef = jax.tree_util.tree_flatten(sed)
+    rebuilt_sed = jax.tree_util.tree_unflatten(sed_treedef, sed_leaves)
+    assert float(rebuilt_sed(600.0)) == pytest.approx(2.0, rel=1e-5)
 
 
-def test_sed_arithmetic():
-    sed1 = flat_sed(2.0)
-    sed2 = sed1 * 3.0
-    assert float(sed2(600.0)) == pytest.approx(6.0, rel=1e-5)
+def test_bandpass_call_jit_grad_throughput():
+    wave = jnp.linspace(500.0, 800.0, 32)
+    throughput = jnp.exp(-0.5 * ((wave - 650.0) / 45.0) ** 2)
 
-    sed3 = sed1 + flat_sed(1.0)
-    assert float(sed3(600.0)) == pytest.approx(3.0, rel=1e-5)
+    @jax.jit
+    def sample(tp):
+        return jgs.Bandpass(wave, tp)(650.0)
 
+    value = sample(throughput)
+    grad = jax.grad(sample)(throughput)
 
-# ---------------------------------------------------------------------------
-# Bandpass tests
-# ---------------------------------------------------------------------------
-
-
-def test_bandpass_evaluation():
-    bp = jgal.Bandpass.tophat(550.0, 750.0)
-    assert float(bp(625.0)) == pytest.approx(1.0)
-    assert float(bp(500.0)) == pytest.approx(0.0)
-    assert float(bp(800.0)) == pytest.approx(0.0)
+    assert float(value) == pytest.approx(1.0, rel=5e-3)
+    assert bool(jnp.all(jnp.isfinite(grad)))
+    assert float(jnp.max(jnp.abs(grad))) > 0.0
 
 
-def test_bandpass_effective_wavelength():
-    bp = jgal.Bandpass.tophat(550.0, 750.0)
-    lam_eff = bp.effective_wavelength
-    assert isinstance(lam_eff, float)
-    assert lam_eff == pytest.approx(650.0, rel=1e-4)
+def test_bandpass_effective_wavelength_jit_grad_throughput():
+    wave = jnp.linspace(500.0, 800.0, 32)
+    throughput = jnp.exp(-0.5 * ((wave - 660.0) / 50.0) ** 2)
+
+    @jax.jit
+    def eff(tp):
+        return jgs.Bandpass(wave, tp).effective_wavelength
+
+    value = eff(throughput)
+    grad = jax.grad(eff)(throughput)
+
+    assert float(value) == pytest.approx(660.0, rel=2e-2)
+    assert bool(jnp.all(jnp.isfinite(grad)))
+    assert float(jnp.max(jnp.abs(grad))) > 0.0
 
 
-def test_bandpass_effective_wavelength_concrete():
-    """effective_wavelength must be a concrete Python float (safe under JIT)."""
-    bp = jgal.Bandpass.tophat(550.0, 750.0)
-    lam_eff = bp.effective_wavelength
-    # If this were a JAX tracer, float() would raise ConcretizationTypeError
-    assert isinstance(lam_eff, float)
-
-
-def test_bandpass_mul():
-    bp1 = jgal.Bandpass.tophat(500.0, 700.0)
-    bp2 = jgal.Bandpass.tophat(600.0, 800.0)
-    bp = bp1 * bp2
-    assert float(bp(650.0)) == pytest.approx(1.0)
-    assert float(bp(550.0)) == pytest.approx(0.0)
-    assert float(bp(750.0)) == pytest.approx(0.0)
-
-
-def test_bandpass_pytree_roundtrip():
-    bp = jgal.Bandpass.tophat(550.0, 750.0)
-    leaves, treedef = jax.tree_util.tree_flatten(bp)
-    bp2 = jax.tree_util.tree_unflatten(treedef, leaves)
-    assert float(bp2(625.0)) == pytest.approx(1.0)
-    assert bp2.effective_wavelength == pytest.approx(650.0, rel=1e-4)
-
-
-# ---------------------------------------------------------------------------
-# Chromatic (separable) tests
-# ---------------------------------------------------------------------------
-
-
-def test_chromatic_construction():
-    sed = flat_sed()
-    gal = jgal.Gaussian(half_light_radius=0.5) * sed
-    assert gal._separable
-
-
-def test_chromatic_drawImage_flux():
-    """Image pixel sum should equal ∫ SED(λ) × BP(λ) dλ."""
-    sed = flat_sed()
-    gal = jgal.Gaussian(half_light_radius=0.5) * sed
-    img = gal.drawImage(BP, scale=0.2, nx=32, ny=32)
-    # ∫_550^750 1 dλ = 200
-    assert float(img.array.sum()) == pytest.approx(200.0, rel=5e-3)
-
-
-def test_chromatic_drawImage_narrow_bandpass():
-    """Narrower bandpass → smaller total flux."""
-    sed = flat_sed()
-    gal = jgal.Gaussian(half_light_radius=0.5) * sed
-    img = gal.drawImage(BP_NARROW, scale=0.2, nx=32, ny=32)
-    assert float(img.array.sum()) == pytest.approx(100.0, rel=5e-3)
-
-
-def test_chromatic_jit():
+def test_separable_chromatic_draw_jit_grad_sed_flux():
     @jax.jit
     def render(flux):
-        sed = jgal.SED(WAVE, flux)
-        gal = jgal.Gaussian(half_light_radius=0.5) * sed
+        sed = jgs.SED(WAVE, flux)
+        gal = jgs.Gaussian(half_light_radius=0.5) * sed
         return gal.drawImage(BP, scale=0.2, nx=32, ny=32).array.sum()
 
-    result = render(jnp.ones(256))
+    flux = jnp.ones_like(WAVE)
+    result = render(flux)
+    grad = jax.grad(render)(flux)
+    mask_in = (WAVE >= 550.0) & (WAVE <= 750.0)
+
     assert float(result) == pytest.approx(200.0, rel=5e-3)
-
-
-def test_chromatic_grad():
-    @jax.jit
-    def render(flux):
-        sed = jgal.SED(WAVE, flux)
-        gal = jgal.Gaussian(half_light_radius=0.5) * sed
-        return gal.drawImage(BP, scale=0.2, nx=32, ny=32).array.sum()
-
-    grad = jax.grad(render)(jnp.ones(256))
-    grad_arr = jnp.asarray(grad)
-
-    # Gradient sums to total bandpass flux ≈ 200
     assert float(grad.sum()) == pytest.approx(200.0, rel=5e-2)
-    # Outside bandpass → zero gradient
-    idx_out = int((420 - 400) / (900 - 400) * 255)
-    assert float(grad[idx_out]) == pytest.approx(0.0, abs=1e-8)
-    # Inside bandpass region has positive total contribution
-    mask_in = (WAVE >= 550) & (WAVE <= 750)
-    assert float(grad_arr[mask_in].sum()) > 0.0
+    assert float(grad[10]) == pytest.approx(0.0, abs=1e-8)
+    assert float(jnp.asarray(grad)[mask_in].sum()) > 0.0
 
 
-def test_chromatic_jit_recompile():
-    """JIT should reuse compiled code when called twice with different flux."""
-
+def test_chromatic_convolution_draw_jit_grad_sed_flux():
     @jax.jit
     def render(flux):
-        sed = jgal.SED(WAVE, flux)
-        gal = jgal.Gaussian(half_light_radius=0.5) * sed
-        return gal.drawImage(BP, scale=0.2, nx=32, ny=32).array.sum()
-
-    r1 = float(render(jnp.ones(256)))
-    r2 = float(render(jnp.ones(256) * 2.0))
-    assert r2 == pytest.approx(r1 * 2.0, rel=1e-4)
-
-
-# ---------------------------------------------------------------------------
-# ChromaticAtmosphere tests
-# ---------------------------------------------------------------------------
-
-
-def test_chromatic_atmosphere_evaluate():
-    psf = ChromaticAtmosphere(fwhm_ref=0.7, lam_ref=700.0, alpha=-0.2)
-    prof = psf.evaluateAtWavelength(700.0)
-    # At reference wavelength, FWHM should be exactly fwhm_ref
-    # jax_galsim Gaussian exposes sigma; FWHM = sigma * fwhm_factor
-    assert isinstance(prof, jgal.Gaussian)
-    fwhm = float(prof.sigma) * jgal.Gaussian._fwhm_factor
-    assert fwhm == pytest.approx(0.7, rel=1e-4)
-
-
-def test_chromatic_atmosphere_scaling():
-    psf = ChromaticAtmosphere(fwhm_ref=0.7, lam_ref=700.0, alpha=-0.2)
-    prof_blue = psf.evaluateAtWavelength(350.0)
-    prof_red = psf.evaluateAtWavelength(700.0)
-    # FWHM ∝ λ^alpha = λ^(-0.2) → bluer is wider (alpha < 0)
-    assert float(prof_blue.sigma) > float(prof_red.sigma)
-
-
-def test_chromatic_atmosphere_drawImage_flux():
-    """Total flux = ∫ BP(λ) × 1 dλ = 200 (flat SED, unit PSF flux)."""
-    psf = ChromaticAtmosphere(fwhm_ref=0.7, lam_ref=700.0, alpha=-0.2)
-    img = psf.drawImage(BP, scale=0.2, nx=32, ny=32)
-    assert float(img.array.sum()) == pytest.approx(200.0, rel=5e-3)
-
-
-def test_chromatic_atmosphere_moffat():
-    psf = ChromaticAtmosphere(
-        fwhm_ref=0.7, lam_ref=700.0, alpha=-0.2, profile="moffat", moffat_beta=4.765
-    )
-    prof = psf.evaluateAtWavelength(700.0)
-    assert isinstance(prof, jgal.Moffat)
-    img = psf.drawImage(BP, scale=0.2, nx=32, ny=32)
-    assert float(img.array.sum()) == pytest.approx(200.0, rel=5e-2)
-
-
-def test_chromatic_atmosphere_pytree():
-    psf = ChromaticAtmosphere(fwhm_ref=0.7, lam_ref=700.0, alpha=-0.2)
-    leaves, treedef = jax.tree_util.tree_flatten(psf)
-    psf2 = jax.tree_util.tree_unflatten(treedef, leaves)
-    assert psf2._fwhm_ref == pytest.approx(0.7)
-    assert psf2._alpha == pytest.approx(-0.2)
-
-
-# ---------------------------------------------------------------------------
-# ChromaticConvolution tests
-# ---------------------------------------------------------------------------
-
-
-def test_chromatic_convolution_flux():
-    """Galaxy × SED ⊗ ChromaticAtmosphere: flux = ∫ SED(λ) × BP(λ) dλ."""
-    sed = flat_sed()
-    gal = jgal.Gaussian(half_light_radius=0.5) * sed
-    psf = ChromaticAtmosphere(fwhm_ref=0.7, lam_ref=700.0, alpha=-0.2)
-    final = ChromaticConvolution([gal, psf])
-    img = final.drawImage(BP, scale=0.2, nx=64, ny=64, n_waves=32)
-    assert float(img.array.sum()) == pytest.approx(200.0, rel=5e-2)
-
-
-def test_chromatic_convolution_jit():
-    @jax.jit
-    def render(flux):
-        sed = jgal.SED(WAVE, flux)
-        gal = jgal.Gaussian(half_light_radius=0.5) * sed
+        sed = jgs.SED(WAVE, flux)
+        gal = jgs.Gaussian(half_light_radius=0.5) * sed
         psf = ChromaticAtmosphere(fwhm_ref=0.7, lam_ref=700.0, alpha=-0.2)
         return (
             ChromaticConvolution([gal, psf])
@@ -271,141 +109,60 @@ def test_chromatic_convolution_jit():
             .array.sum()
         )
 
-    result = render(jnp.ones(256))
+    flux = jnp.ones_like(WAVE)
+    result = render(flux)
+    grad = jax.grad(render)(flux)
+    mask_in = (WAVE >= 550.0) & (WAVE <= 750.0)
+
     assert float(result) == pytest.approx(200.0, rel=5e-2)
-
-
-def test_chromatic_convolution_grad():
-    @jax.jit
-    def render(flux):
-        sed = jgal.SED(WAVE, flux)
-        gal = jgal.Gaussian(half_light_radius=0.5) * sed
-        psf = ChromaticAtmosphere(fwhm_ref=0.7, lam_ref=700.0, alpha=-0.2)
-        return (
-            ChromaticConvolution([gal, psf])
-            .drawImage(BP, scale=0.2, nx=64, ny=64, n_waves=32)
-            .array.sum()
-        )
-
-    grad = jax.grad(render)(jnp.ones(256))
-    grad_arr = jnp.asarray(grad)
-
-    # Gradient is nonzero only at wavelengths that fall inside the bandpass
-    # (the 32 quadrature points lie in [550, 750] nm).
-    # - sum of all gradients ≈ total bandpass flux = 200
     assert float(grad.sum()) == pytest.approx(200.0, rel=5e-2)
-    # - max gradient is positive
     assert float(grad.max()) > 0.0
-    # - indices corresponding to wavelengths outside bandpass have zero gradient
-    #   ~420 nm → outside [550, 750] bandpass
-    idx_out = int((420 - 400) / (900 - 400) * 255)
-    assert float(grad[idx_out]) == pytest.approx(0.0, abs=1e-8)
-    # - indices well inside bandpass region have nonzero total contribution
-    mask_in = (WAVE >= 550) & (WAVE <= 750)
-    assert float(grad_arr[mask_in].sum()) > 0.0
+    assert float(grad[10]) == pytest.approx(0.0, abs=1e-8)
+    assert float(jnp.asarray(grad)[mask_in].sum()) > 0.0
 
 
-def test_chromatic_convolution_linearity():
-    """Doubling SED flux doubles image sum."""
+def test_chromatic_sum_not_generically_separable():
+    sed_disk = jgs.SED(WAVE, 1.0 + 0.2 * (WAVE - 650.0) / 250.0)
+    sed_bulge = jgs.SED(WAVE, 1.0 - 0.1 * (WAVE - 650.0) / 250.0)
+    disk = jgs.Gaussian(half_light_radius=0.7) * sed_disk
+    bulge = jgs.Gaussian(half_light_radius=0.3) * sed_bulge
 
-    @jax.jit
-    def render(flux):
-        sed = jgal.SED(WAVE, flux)
-        gal = jgal.Gaussian(half_light_radius=0.5) * sed
-        psf = ChromaticAtmosphere(fwhm_ref=0.7, lam_ref=700.0, alpha=-0.2)
-        return (
-            ChromaticConvolution([gal, psf])
-            .drawImage(BP, scale=0.2, nx=64, ny=64, n_waves=32)
-            .array.sum()
-        )
+    source = disk + bulge
 
-    s1 = float(render(jnp.ones(256)))
-    s2 = float(render(jnp.ones(256) * 2.0))
-    assert s2 == pytest.approx(s1 * 2.0, rel=1e-4)
+    assert not source._separable
 
 
-# ---------------------------------------------------------------------------
-# ChromaticSum tests
-# ---------------------------------------------------------------------------
+def test_chromatic_sum_convolution_matches_split_components():
+    sed_disk = jgs.SED(WAVE, 1.0 + 0.2 * (WAVE - 650.0) / 250.0)
+    sed_bulge = jgs.SED(WAVE, 1.0 - 0.1 * (WAVE - 650.0) / 250.0)
+    disk = jgs.Gaussian(half_light_radius=0.7) * sed_disk
+    bulge = jgs.Gaussian(half_light_radius=0.3) * sed_bulge
+    psf = ChromaticAtmosphere(fwhm_ref=0.7, lam_ref=700.0, alpha=-0.2)
+
+    combined = ChromaticConvolution([disk + bulge, psf]).drawImage(
+        BP, scale=0.2, nx=32, ny=32, n_waves=16
+    )
+    split_disk = ChromaticConvolution([disk, psf]).drawImage(
+        BP, scale=0.2, nx=32, ny=32, n_waves=16
+    )
+    split_bulge = ChromaticConvolution([bulge, psf]).drawImage(
+        BP, scale=0.2, nx=32, ny=32, n_waves=16
+    )
+    split = split_disk.array + split_bulge.array
+
+    assert float(jnp.max(jnp.abs(combined.array - split))) == pytest.approx(
+        0.0, abs=5e-4
+    )
 
 
-def test_chromatic_sum_flux():
-    sed1 = flat_sed(1.0)
-    sed2 = flat_sed(2.0)
-    gal1 = jgal.Gaussian(half_light_radius=0.3) * sed1
-    gal2 = jgal.Gaussian(half_light_radius=0.8) * sed2
-    combined = gal1 + gal2
-    img = combined.drawImage(BP, scale=0.2, nx=32, ny=32)
-    # Total flux = (1 + 2) × 200 = 600
-    assert float(img.array.sum()) == pytest.approx(600.0, rel=1e-2)
+def test_gsobject_mul_sed_returns_chromatic_transformation():
+    result = jgs.Gaussian(half_light_radius=0.5) * flat_sed()
+
+    assert isinstance(result, SimpleChromaticTransformation)
 
 
-# ---------------------------------------------------------------------------
-# Monkey-patch (GSObject * SED) tests
-# ---------------------------------------------------------------------------
-
-
-def test_gsobject_mul_sed():
-    sed = flat_sed()
-    gal = jgal.Gaussian(half_light_radius=0.5)
-    from jax_galsim.chromatic import Chromatic
-
-    result = gal * sed
-    assert isinstance(result, Chromatic)
-
-
-def test_gsobject_mul_scalar():
-    gal = jgal.Gaussian(half_light_radius=0.5, flux=1.0)
+def test_gsobject_mul_scalar_still_scales_flux():
+    gal = jgs.Gaussian(half_light_radius=0.5, flux=1.0)
     scaled = gal * 5.0
+
     assert float(scaled.flux) == pytest.approx(5.0)
-
-
-if __name__ == "__main__":
-    # Run all tests inline for quick check
-    import sys
-
-    tests = [
-        test_sed_evaluation,
-        test_sed_redshift,
-        test_sed_calculate_flux,
-        test_sed_pytree_roundtrip,
-        test_sed_arithmetic,
-        test_bandpass_evaluation,
-        test_bandpass_effective_wavelength,
-        test_bandpass_effective_wavelength_concrete,
-        test_bandpass_mul,
-        test_bandpass_pytree_roundtrip,
-        test_chromatic_construction,
-        test_chromatic_drawImage_flux,
-        test_chromatic_drawImage_narrow_bandpass,
-        test_chromatic_jit,
-        test_chromatic_grad,
-        test_chromatic_jit_recompile,
-        test_chromatic_atmosphere_evaluate,
-        test_chromatic_atmosphere_scaling,
-        test_chromatic_atmosphere_drawImage_flux,
-        test_chromatic_atmosphere_moffat,
-        test_chromatic_atmosphere_pytree,
-        test_chromatic_convolution_flux,
-        test_chromatic_convolution_jit,
-        test_chromatic_convolution_grad,
-        test_chromatic_convolution_linearity,
-        test_chromatic_sum_flux,
-        test_gsobject_mul_sed,
-        test_gsobject_mul_scalar,
-    ]
-
-    failed = []
-    for t in tests:
-        try:
-            t()
-            print(f"  PASS  {t.__name__}")
-        except Exception as e:
-            print(f"  FAIL  {t.__name__}: {e}")
-            failed.append(t.__name__)
-
-    print()
-    print(f"{len(tests) - len(failed)}/{len(tests)} passed")
-    if failed:
-        print("Failed:", failed)
-        sys.exit(1)

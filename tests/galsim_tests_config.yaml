@@ -34,6 +34,18 @@ enabled_tests:
 # tests to explicitly skip
 # applied on top of the enabled set above
 skipped_tests:
+  galsim:
+    # JAX-GalSim's chromatic subset is array-backed and does not implement
+    # GalSim spectral file/string expression parsing, zeropoints, DCR moment
+    # helpers, chromatic affine transforms, or photon shooting.
+    - "tests/GalSim/tests/test_sed.py::test_SED_withFlux"
+    - "tests/GalSim/tests/test_sed.py::test_SED_calculateDCRMomentShifts"
+    - "tests/GalSim/tests/test_sed.py::test_SED_calculateSeeingMomentRatio"
+    - "tests/GalSim/tests/test_sed.py::test_broadcast"
+    - "tests/GalSim/tests/test_bandpass.py::test_zp"
+    - "tests/GalSim/tests/test_bandpass.py::test_truncate_inputs"
+    - "tests/GalSim/tests/test_chromatic.py::test_ChromaticObject_compound_affine_transformation"
+    - "tests/GalSim/tests/test_chromatic.py::test_shoot_transformation"
   coord:
     - "tests/Coord/tests/test_celestial.py::test_xyz_raises"
     - "tests/Coord/tests/test_celestial.py::test_greatcircle_raises"
@@ -114,8 +126,6 @@ allowed_failures:
   - "SED.__init__() got an unexpected keyword argument 'spec'"
   - "SED.__init__() got an unexpected keyword argument 'wave_type'"
   - "Bandpass.__init__() got an unexpected keyword argument 'wave_type'"
-  - "could not convert string to float"
-  - "is not a valid JAX array type"
   - "'ChromaticObject' object has no attribute 'dilate'"
   - "module 'jax_galsim' has no attribute 'getCOSMOSNoise'"
   - "GSParams.__init__() got an unexpected keyword argument 'allowed_flux_variation'"
