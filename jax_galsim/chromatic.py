@@ -50,9 +50,16 @@ import jax
 import jax.numpy as jnp
 from jax.tree_util import register_pytree_node_class
 
+from jax_galsim.box import Pixel
 from jax_galsim.core.utils import cast_to_float, implements
+from jax_galsim.gaussian import Gaussian
+from jax_galsim.gsobject import GSObject
 from jax_galsim.gsparams import GSParams
+from jax_galsim.image import Image
+from jax_galsim.moffat import Moffat
 from jax_galsim.position import PositionD
+from jax_galsim.sed import SED
+from jax_galsim.sum import Sum
 
 
 def _pixel_scale_from_kwargs(kwargs):
@@ -80,8 +87,6 @@ def _setup_wavelength_from_bandpass(bandpass):
 
 def _make_setup_image(profile, kwargs):
     """Build draw target without running full ``drawImage`` setup when size is fixed."""
-    from jax_galsim.image import Image
-
     image = kwargs.get("image", None)
     if image is not None:
         return Image(image=image)
@@ -105,30 +110,30 @@ def _make_setup_image(profile, kwargs):
     return profile.drawImage(setup_only=True, **kwargs)
 
 
-def _next_pow2(n):
-    n = int(n)
-    out = 1
-    while out < n:
-        out *= 2
-    return out
+def _next_pow2(number):
+    number = int(number)
+    power = 1
+    while power < number:
+        power *= 2
+    return power
 
 
 def _fix_fft_size_for_image(profile, image):
     """Pin FFT size for JIT-safe setup when output bounds are already fixed."""
-    nrow, ncol = image.array.shape
-    n = max(128, _next_pow2(2 * max(nrow, ncol)))
-    n = min(n, profile.gsparams.maximum_fft_size)
-    return profile.withGSParams(minimum_fft_size=n, maximum_fft_size=n)
+    row_count, column_count = image.array.shape
+    fft_size = max(128, _next_pow2(2 * max(row_count, column_count)))
+    fft_size = min(fft_size, profile.gsparams.maximum_fft_size)
+    return profile.withGSParams(minimum_fft_size=fft_size, maximum_fft_size=fft_size)
 
 
 def _static_kcoords(kimage, wrap_size, pixel_scale):
     """Return k-space pixel centers as a JAX array with static shape."""
-    nrow, ncol = kimage.array.shape
-    x = jnp.arange(ncol, dtype=float)
-    y = jnp.arange(nrow, dtype=float) - wrap_size // 2
-    kx, ky = jnp.meshgrid(x, y)
-    dk = 2.0 * jnp.pi / (wrap_size * pixel_scale)
-    return jnp.stack([kx.ravel(), ky.ravel()], axis=-1) * dk
+    row_count, column_count = kimage.array.shape
+    x_index = jnp.arange(column_count, dtype=float)
+    y_index = jnp.arange(row_count, dtype=float) - wrap_size // 2
+    kx_grid, ky_grid = jnp.meshgrid(x_index, y_index)
+    delta_k = 2.0 * jnp.pi / (wrap_size * pixel_scale)
+    return jnp.stack([kx_grid.ravel(), ky_grid.ravel()], axis=-1) * delta_k
 
 
 # ---------------------------------------------------------------------------
@@ -159,8 +164,6 @@ class ChromaticObject:
         if obj is None:
             self._base_obj = None
             return
-
-        from jax_galsim.gsobject import GSObject
 
         if not isinstance(obj, GSObject):
             raise TypeError("ChromaticObject requires a GSObject.")
@@ -279,9 +282,8 @@ class ChromaticObject:
         Compute total_flux = ∫ SED(λ)×BP(λ) dλ (may be a JAX traced
         value, e.g. DSPS output), multiply into k-values, IFFT.
         """
-        from jax_galsim.box import Pixel
+        # Keep this local to avoid a circular import with jax_galsim.convolve.
         from jax_galsim.convolve import Convolve
-        from jax_galsim.image import Image
 
         wave_eff = _setup_wavelength_from_bandpass(bandpass)
         pixel_scale = _pixel_scale_from_kwargs(kwargs)
@@ -367,9 +369,8 @@ class ChromaticObject:
         Mirrors the drawFFT pipeline of GSObject.drawImage exactly, split
         into a concrete setup phase and a traced computation phase.
         """
-        from jax_galsim.box import Pixel
+        # Keep this local to avoid a circular import with jax_galsim.convolve.
         from jax_galsim.convolve import Convolve
-        from jax_galsim.image import Image
 
         wave_eff = _setup_wavelength_from_bandpass(bandpass)
         pixel_scale = _pixel_scale_from_kwargs(kwargs)
@@ -452,8 +453,6 @@ class ChromaticObject:
 
     @implements(_galsim.ChromaticObject.__mul__)
     def __mul__(self, other):
-        from jax_galsim.sed import SED
-
         if isinstance(other, SED):
             base_obj = getattr(self, "_base_obj", None)
             if base_obj is None:
@@ -533,8 +532,6 @@ class ChromaticSum(ChromaticObject):
 
     @implements(_galsim.ChromaticSum.evaluateAtWavelength)
     def evaluateAtWavelength(self, wave):
-        from jax_galsim.sum import Sum
-
         return Sum([o.evaluateAtWavelength(wave) for o in self.obj_list])
 
     @implements(
@@ -792,13 +789,9 @@ class ChromaticAtmosphere(ChromaticObject):
         fwhm = self._fwhm_ref * (wave / self._lam_ref) ** self._alpha
 
         if self._profile == "gaussian":
-            from jax_galsim.gaussian import Gaussian
-
             return Gaussian(fwhm=fwhm, flux=1.0, gsparams=self._gsparams)
 
         elif self._profile == "moffat":
-            from jax_galsim.moffat import Moffat
-
             return Moffat(
                 fwhm=fwhm,
                 beta=self._moffat_beta,
@@ -910,8 +903,6 @@ class ChromaticConvolution(ChromaticObject):
     _separable = False
 
     def __init__(self, *args, **kwargs):
-        from jax_galsim.gsobject import GSObject
-
         if len(args) == 0:
             raise TypeError("At least one object must be provided.")
         if len(args) == 1 and isinstance(args[0], (list, tuple)):
@@ -939,8 +930,6 @@ class ChromaticConvolution(ChromaticObject):
                 processed.extend(obj.obj_list)
                 continue
             if isinstance(obj, GSObject):
-                from jax_galsim.sed import SED
-
                 wave_stub = jnp.array([100.0, 2000.0])
                 flat_sed = SED(wave_stub, jnp.ones(2))
                 processed.append(SimpleChromaticTransformation(obj, flat_sed))
@@ -972,6 +961,7 @@ class ChromaticConvolution(ChromaticObject):
     @implements(_galsim.ChromaticConvolution.evaluateAtWavelength)
     def evaluateAtWavelength(self, wave):
         """Return the convolved monochromatic profile at *wave* (nm)."""
+        # Keep this local to avoid a circular import with jax_galsim.convolve.
         from jax_galsim.convolve import Convolve
 
         return Convolve([o.evaluateAtWavelength(wave) for o in self.obj_list])
@@ -1001,9 +991,8 @@ class ChromaticConvolution(ChromaticObject):
 
         All-separable case falls back to a single monochromatic draw.
         """
-        from jax_galsim.box import Pixel
+        # Keep this local to avoid a circular import with jax_galsim.convolve.
         from jax_galsim.convolve import Convolve
-        from jax_galsim.image import Image
 
         sep_objs = [o for o in self.obj_list if o._separable]
         nonsep_objs = [o for o in self.obj_list if not o._separable]
@@ -1147,8 +1136,6 @@ class ChromaticConvolution(ChromaticObject):
 )
 def _gsobject_mul_sed(self, other):
     """Allow ``gsobject * sed``."""
-    from jax_galsim.sed import SED
-
     if isinstance(other, SED):
         return SimpleChromaticTransformation(self, other)
     # Fall through to original implementation (flux scaling)
@@ -1165,8 +1152,6 @@ def _gsobject_rmul_sed(self, other):
 
 # Apply the patch once at import time
 def _patch_gsobject():
-    from jax_galsim.gsobject import GSObject
-
     GSObject.__mul__ = _gsobject_mul_sed
     GSObject.__rmul__ = _gsobject_rmul_sed
 
