@@ -320,8 +320,8 @@ def _draw_stamp_and_add_to_image(carry, x, *, psf, fft_size, slen):
 
 def draw_jgs_scan_stamps(
     galaxy_params: dict,
-    *,
     psf: jgs.GSObject,
+    *,
     ilen: int,
     slen: int,
     fft_size: int,
@@ -367,8 +367,8 @@ def _add_to_image(carry, x):
 
 def draw_jgs_vmap_stamps(
     galaxy_params: dict,
-    *,
     psf: jgs.GSObject,
+    *,
     ilen: int,
     slen: int,
     fft_size: int,
