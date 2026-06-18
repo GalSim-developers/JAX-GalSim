@@ -32,8 +32,10 @@ from tqdm import tqdm
 
 import jax_galsim as jgs
 
-# TODO: consider splitting script into galsim/jax-galsim as we probably want to avoid
-# wasting time running galsim in the GPU, and/or running the same images over and over
+BETA_PSF = 5.0
+HLR_PSF = 0.7
+MIN_HLR_PSF = 0.5
+MAX_HLR_PSF = 1.0
 
 
 def main(
@@ -87,18 +89,6 @@ def main(
 
     max_stamp_size = max(stamp_slen_bins)
 
-    if psf_type == "gaussian":
-        psf = galsim.Gaussian(half_light_radius=0.7, flux=1.0)
-        xpsf = jgs.Gaussian(half_light_radius=0.7, flux=1.0)
-
-    elif psf_type == "moffat":
-        # beta from galsim tutorial 2
-        psf = galsim.Moffat(half_light_radius=0.7, beta=5.0, flux=1.0)
-        xpsf = jgs.Moffat(half_light_radius=0.7, beta=5.0, flux=1.0)
-
-    else:
-        raise NotImplementedError("Only 'gaussian' or 'moffat' are supported.")
-
     out_root_path = Path(outdir)
     assert out_root_path.exists()
 
@@ -119,6 +109,9 @@ def main(
     out_folder = out_root_path / hash_name
     out_folder.mkdir(parents=False, exist_ok=True)
 
+    # prepare psf
+    get_galsim_psf, get_jgs_psf, ref_galsim_psf = _prepare_psf_functions(psf_type)
+
     # catalog preparation and masking
     cat = prepare_catalog(
         catsim_fpath, min_hlr=min_hlr, max_hlr=max_hlr, min_mag=min_mag, max_mag=max_mag
@@ -126,10 +119,10 @@ def main(
     n1 = len(cat)
     good_sizes = get_good_sizes_galsim(
         cat=cat,
-        psf=psf,
+        psf=ref_galsim_psf,
         overwrite=False,
         out_path=out_root_path,
-        suffix=f"{psf_type}-07",  # TODO: need to hash more psf properties just in case (size,beta)
+        suffix=psf_type,
     )
     cat["good_size"] = good_sizes
 
@@ -161,7 +154,6 @@ def main(
             jit(
                 partial(
                     draw_fnc_raw,
-                    psf=xpsf,
                     ilen=image_slen,
                     fft_size=fft_size,
                     max_n_gals=_max_n_gals,
@@ -191,9 +183,15 @@ def main(
             desc="Timing GalSim vs JAX-GalSim",
             disable=not progress_bar,
         ):
+            k1, k2 = random.split(rkey)
+
+            # get psf for this image
+            _psf = get_galsim_psf(k1)
+            _xpsf = get_jgs_psf(k1)
+
             # sample in numpy
             sample, n, gsizes = get_one_full_sample(
-                rkey, cat=cat, ilen=image_slen, max_n_gals=max_n_gals_global
+                k2, cat=cat, ilen=image_slen, max_n_gals=max_n_gals_global
             )
             assert sample["flux_b"].shape == (n,)
             assert gsizes.shape == (n,)
@@ -204,7 +202,7 @@ def main(
             gs_arr = draw_galsim(
                 sample,
                 n,
-                psf=psf,
+                psf=_psf,
                 ilen=image_slen,
                 slen=stamp_size_galsim,
                 max_slen=stamp_slen_bins[-1],  # sanity
@@ -231,6 +229,7 @@ def main(
             n_iters_per_bin_jax = block_until_ready(
                 device_put(n_iters_per_bin, device=device)
             )
+            _xpsf = block_until_ready(device_put(_xpsf, device=device))
             t2 = time.time()
             times_transfer.append(t2 - t1)
             assert n_bins == len(samples_per_bin) == len(n_iters_per_bin)
@@ -239,14 +238,14 @@ def main(
             # compilation (not timed)
             if ii == 0:
                 _ = block_until_ready(
-                    all_draw_fnc(samples_per_bin_jax, n_iters_per_bin_jax)
+                    all_draw_fnc(samples_per_bin_jax, n_iters_per_bin_jax, _xpsf)
                 )
 
             # jax galsim timing
             t1 = time.time()
             with jax.transfer_guard("disallow"):
                 jgs_arr = block_until_ready(
-                    all_draw_fnc(samples_per_bin_jax, n_iters_per_bin_jax)
+                    all_draw_fnc(samples_per_bin_jax, n_iters_per_bin_jax, _xpsf)
                 )
             t2 = time.time()
             t_jgalsim = t2 - t1
@@ -370,6 +369,54 @@ def _save_timing_results(
         )
 
 
+def _prepare_psf_functions(psf_type: str):
+    if psf_type == "gaussian":
+
+        def _get_galsim_psf(key):
+            return galsim.Gaussian(half_light_radius=HLR_PSF, flux=1.0)
+
+        def _get_jgs_psf(key):
+            return jgs.Gaussian(half_light_radius=HLR_PSF, flux=1.0)
+
+        _ref_galsim_psf = galsim.Gaussian(half_light_radius=HLR_PSF, flux=1.0)
+
+    elif psf_type == "moffat":
+        # beta value from galsim tutorial 2
+        def _get_galsim_psf(key):
+            return galsim.Moffat(half_light_radius=HLR_PSF, beta=BETA_PSF, flux=1.0)
+
+        def _get_jgs_psf(key):
+            return jgs.Moffat(half_light_radius=HLR_PSF, beta=BETA_PSF, flux=1.0)
+
+        _ref_galsim_psf = galsim.Moffat(
+            half_light_radius=HLR_PSF, beta=BETA_PSF, flux=1.0
+        )
+
+    elif psf_type == "vary-moffat":
+
+        def _get_galsim_psf(key):
+            _hlr = random.uniform(key, minval=MIN_HLR_PSF, maxval=MAX_HLR_PSF, shape=())
+            _hlr = _hlr.item()
+            return galsim.Moffat(half_light_radius=_hlr, beta=BETA_PSF, flux=1.0)
+
+        def _get_jgs_psf(key):
+            _hlr = random.uniform(key, minval=MIN_HLR_PSF, maxval=MAX_HLR_PSF, shape=())
+            _hlr = _hlr.item()
+            return jgs.Moffat(half_light_radius=_hlr, beta=BETA_PSF, flux=1.0)
+
+        # biggest size PSF for computing good sizes
+        _ref_galsim_psf = galsim.Moffat(
+            half_light_radius=MAX_HLR_PSF, beta=BETA_PSF, flux=1.0
+        )
+
+    else:
+        raise NotImplementedError(
+            "Only ('gaussian', 'moffat', or 'vary-moffat') options are supported for `psf-type`."
+        )
+
+    return _get_galsim_psf, _get_jgs_psf, _ref_galsim_psf
+
+
 def _prepare_per_bin_samples(
     sample: np.ndarray,
     gsizes: np.ndarray,
@@ -421,6 +468,7 @@ def _prepare_per_bin_samples(
 def draw_all_bins_jgs(
     samples_per_bin_jax,
     n_iters_per_bin,
+    psf: jgs.GSObject,
     *,
     ilen: int,
     draw_fncs: tuple,
@@ -437,7 +485,7 @@ def draw_all_bins_jgs(
 
         def _body_fnc(kk, arr):
             _batch = {p: samples_per_bin_jj[p][kk] for p in param_names}
-            return arr + draw_fnc_jj(_batch)
+            return arr + draw_fnc_jj(_batch, psf)
 
         jgs_arr = fori_loop(0, n_iters_jj, _body_fnc, jgs_arr)
 
