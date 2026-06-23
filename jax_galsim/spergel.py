@@ -6,7 +6,7 @@ from jax.tree_util import register_pytree_node_class
 
 from jax_galsim.bessel import kv
 from jax_galsim.core.draw import draw_by_kValue, draw_by_xValue
-from jax_galsim.core.utils import bisect_for_root, ensure_hashable, implements
+from jax_galsim.core.utils import ensure_hashable, implements
 from jax_galsim.gsobject import GSObject
 from jax_galsim.random import UniformDeviate
 
@@ -35,134 +35,56 @@ def _gammap1(nu):
 
 
 @jax.jit
-def z2lz(z):
-    """return z^2 * log(z)"""
-    return jnp.where(z <= 1e-40, 0.0, z * z * jnp.log(z))
-
-
-@jax.jit
-def f0(z):
-    """K_0[z] with z -> 0  O(z^4)"""
-    z2 = z * z
-    z4 = z2 * z2
-    c0 = 0.11593151565841244881
-    c1 = 0.27898287891460311220
-    c2 = 0.025248929932162694513
-    return c0 + c1 * z2 + c2 * z4 - jnp.power(1.0 + 0.125 * z2, 2.0) * jnp.log(z)
-
-
-@jax.jit
-def f1(z):
-    """z^1 K_1[z] with z -> 0  O(z^4)"""
-    z2 = z * z
-    z4 = z2 * z2
-    c0 = z2lz(z)  # z^2 log(z)
-    c1 = 0.30796575782920622441
-    c2 = 0.08537071972865077805
-    return 1.0 - c1 * z2 - c2 * z4 + c0 * (0.5 + 0.0625 * z2)
-
-
-@jax.jit
-def f2(z):
-    """z^2 K_2[z] with z -> 0  O(z^4)"""
-    c1 = 0.10824143945730155610
-    z2 = z * z
-    z4 = z2 * z2
-    c0 = z2lz(z) * z2  # z^4*log(z)
-    return 2.0 - 0.5 * z2 + c1 * z4 - 0.125 * c0
-
-
-@jax.jit
-def f3(z):
-    """z^3 K_3[z] with z -> 0  O(z^4)"""
-    z2 = z * z
-    z4 = z2 * z2
-    return 8.0 - z2 + 0.125 * z4
-
-
-@jax.jit
-def f4(z):
-    """z^4 K_4[z] with z -> 0 O(z^4)"""
-    z2 = z * z
-    z4 = z2 * z2
-    return 48.0 - 4 * z2 + 0.25 * z4
-
-
-@jax.jit
-def f5(z):
-    """z^5 K_5[z] with z -> 0 O(z^4)"""
-    z2 = z * z
-    z4 = z2 * z2
-    return 384.0 - 24.0 * z2 + z4
-
-
-@jax.jit
-def fsmallz_nu(z, nu):
-    def fnu(z, nu):
-        """z^nu K_nu[z] with z -> 0 O(z^4) z > 0"""
-        nu += 1.0e-10  # to garanty that nu is not an integer
-        z2 = z * z
-        z4 = z2 * z2
-        c1 = jnp.power(2.0, -6.0 - nu)
-        c2 = _gamma(-2.0 - nu)
-        c3 = _gamma(-2.0 + nu)
-        c4 = jnp.power(z, 2.0 * nu)
-        c5 = z4 * 8.0 * z2 * (2.0 + nu) + 32.0 * (1.0 + nu) * (2.0 + nu)
-        c6 = z2 * (16.0 + z2 - 8.0 * nu) * c3
-        return c1 * (c4 * c5 * c2 + jnp.power(4.0, nu) * (c6 + 32.0 * _gamma(nu)))
-
-    return jnp.select(
-        [nu == 0, nu == 1, nu == 2, nu == 3, nu == 4],
-        [f0(z), f1(z), f2(z), f3(z), f4(z)],
-        default=fnu(z, nu),
-    )
-
-
-@jax.jit
-def fz_nu(z, nu):
+def fz_nu(nu, z):
     """z^nu K_nu[z] with z > 0"""
-    return jnp.where(z <= 1.0e-10, fsmallz_nu(z, nu), jnp.power(z, nu) * kv(nu, z))
-
-
-@jax.jit
-def fsmallz_nup1(z, nu):
-    def fnu(z, nu):
-        """z^(nu+1) K_(nu+1)[z] with  z -> 0"""
-        z2 = z * z
-        z4 = z2 * z2
-        c1 = -jnp.power(2.0, -4.0 - nu)
-        c2 = _gamma(-2.0 - nu)
-        c3 = c1 * c2 * (8.0 + 4.0 * nu + z2) * jnp.power(z, 2.0 * (1.0 + nu))
-        c4 = jnp.power(2.0, nu)
-        c5 = _gammap1(nu)
-        c6 = c4 * c5 * (1.0 - 0.25 * z2 / nu + z4 * 0.03125 / (nu * (nu - 1.0)))
-        return c3 + c6
-
-    return jnp.select(
-        [nu == 0, nu == 1, nu == 2, nu == 3, nu == 4],
-        [f1(z), f2(z), f3(z), f4(z), f5(z)],
-        default=fnu(z, nu),
-    )
-
-
-@jax.jit
-def fz_nup1(z, nu):
-    """z^(nu+1) K_{nu+1}(z)"""
-    return jnp.where(
-        z <= 1.0e-10, fsmallz_nup1(z, nu), jnp.power(z, nu + 1.0) * kv(nu + 1.0, z)
-    )
+    return jnp.power(z, nu) * kv(nu, z)
 
 
 @jax.jit
 def fluxfractionFunc(z, nu, alpha):
     """1 - z^(nu+1) K_{nu+1}(z) / (2^nu Gamma(nu+1)) - alpha"""
-    return 1.0 - fz_nup1(z, nu) / (jnp.power(2.0, nu) * _gammap1(nu)) - alpha
+    return 1.0 - fz_nu(nu + 1.0, z) / (jnp.power(2.0, nu) * _gammap1(nu)) - alpha
 
 
 @jax.jit
 def reducedfluxfractionFunc(z, nu, norm):
     """(1 - z^(nu+1) K_{nu+1}(z) / (2^nu Gamma(nu+1)))/norm"""
     return fluxfractionFunc(z, nu, alpha=0.0) / norm
+
+
+# code here is from JAX osurce for testing custom_root
+# used under license:
+# Copyright 2022 The JAX Authors.
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#     https://www.apache.org/licenses/LICENSE-2.0
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+def _binary_search(func, x0, low=0.0, high=40.0):
+    del x0  # unused
+
+    def cond(state):
+        low, high = state
+        midpoint = 0.5 * (low + high)
+        return (low < midpoint) & (midpoint < high)
+
+    def body(state):
+        low, high = state
+        midpoint = 0.5 * (low + high)
+        update_upper = func(midpoint) > 0
+        low = jnp.where(update_upper, low, midpoint)
+        high = jnp.where(update_upper, midpoint, high)
+        return (low, high)
+
+    solution, _ = jax.lax.while_loop(cond, body, (low, high))
+    return solution
+
+
+# end of code from jax source
 
 
 @jax.jit
@@ -184,11 +106,11 @@ def calculateFluxRadius(alpha, nu, zmin=0.0, zmax=40.0):
 
      nb. it is supposed that nu is in [-0.85, 4.0] checked in the Spergel class init
     """
-    return bisect_for_root(
+    return jax.lax.custom_root(
         partial(fluxfractionFunc, nu=nu, alpha=alpha),
-        zmin,
-        zmax,
-        niter=75,
+        20.0,
+        _binary_search,
+        lambda f, y: y / f(1.0),
     )
 
 
@@ -240,6 +162,18 @@ def _spergel_hlr_pade(x):
     return pm / qm
 
 
+@jax.jit
+def _spergel_hlr_binary_search_plus_pade_init(nu):
+    """Return radius R enclosing flux fraction 0.5 in unit of the scale radius r0"""
+    z = _spergel_hlr_pade(nu)
+    return jax.lax.custom_root(
+        partial(fluxfractionFunc, nu=nu, alpha=0.5),
+        z,
+        _binary_search,
+        lambda f, y: y / f(1.0),
+    )
+
+
 LAX_SPERGEL_DESCRIPTION = r"""
 The fully normalized Spergel profile (used in both standard GalSim and JAX-GalSim) is
 
@@ -288,7 +222,8 @@ class Spergel(GSObject):
             else:
                 super().__init__(
                     nu=nu,
-                    scale_radius=half_light_radius / _spergel_hlr_pade(nu),
+                    scale_radius=half_light_radius
+                    / _spergel_hlr_binary_search_plus_pade_init(nu),
                     flux=flux,
                     gsparams=gsparams,
                 )
@@ -413,8 +348,9 @@ class Spergel(GSObject):
     @jax.jit
     def _xValue(self, pos):
         r = jnp.sqrt(pos.x**2 + pos.y**2) * self._inv_r0
-        res = jnp.where(r == 0, self._xnorm0, fz_nu(r, jax.lax.stop_gradient(self.nu)))
-        return self._xnorm * res
+        res = jnp.where(r == 0, self._xnorm0, fz_nu(jax.lax.stop_gradient(self.nu), r))
+        res = self._xnorm * res
+        return res
 
     @jax.jit
     def _kValue(self, kpos):
@@ -478,7 +414,7 @@ class Spergel(GSObject):
         )
         flux_target = self.gsparams.shoot_accuracy
         shoot_rmin = calculateFluxRadius(flux_target, self.nu)
-        knur = fz_nu(shoot_rmin, self.nu)
+        knur = fz_nu(self.nu, shoot_rmin)
 
         corrFact = self._shootxnorm  # this is the correct normalisation
         b = knur - flux_target / (jnp.pi * shoot_rmin * shoot_rmin * corrFact)
@@ -487,11 +423,11 @@ class Spergel(GSObject):
 
         def cumulflux(z, a, b, zmin, nu, norm=1.0):
             flux_min = a / 3.0 * zmin * zmin * zmin + b / 2.0 * zmin * zmin
-            c1 = fz_nup1(zmin, nu)
+            c1 = fz_nu(nu + 1.0, zmin)
             res = jnp.where(
                 z <= zmin,
                 a / 3.0 * z * z * z + b / 2.0 * z * z,
-                flux_min + c1 - fz_nup1(z, nu),
+                flux_min + c1 - fz_nu(nu + 1.0, z),
             )
             return res / norm
 
