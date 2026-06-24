@@ -6,16 +6,11 @@ from jax.tree_util import register_pytree_node_class
 
 from jax_galsim.bessel import kv
 from jax_galsim.core.draw import draw_by_kValue, draw_by_xValue
+from jax_galsim.core.interpolate import akima_interp, akima_interp_coeffs
+from jax_galsim.core.math import safe_sqrt
 from jax_galsim.core.utils import cast_to_float, ensure_hashable, implements
 from jax_galsim.gsobject import GSObject
 from jax_galsim.random import UniformDeviate
-
-
-@jax.jit
-def gamma(x):
-    """Gamma(x)"""
-    x = x * 1.0
-    return jnp.exp(jax.lax.lgamma(x))
 
 
 @jax.jit
@@ -24,18 +19,12 @@ def _gamma(nu):
     return jnp.select(
         [nu == 0, nu == 1, nu == 2, nu == 3, nu == 4, nu == 5],
         [jnp.inf, 1.0, 1.0, 2.0, 6.0, 24.0],
-        default=gamma(nu),
+        default=jnp.exp(jax.lax.lgamma(nu * 1.0)),
     )
 
 
 @jax.jit
-def _gammap1(nu):
-    """Gamma(nu+1)"""
-    return _gamma(nu + 1.0)
-
-
-@jax.jit
-def fz_nu(nu, z):
+def _fz_nu(nu, z):
     """z^nu K_nu[z] with z > 0"""
     return jnp.power(z, nu) * kv(nu, z)
 
@@ -43,7 +32,7 @@ def fz_nu(nu, z):
 @jax.jit
 def fluxfractionFunc(z, nu, alpha):
     """1 - z^(nu+1) K_{nu+1}(z) / (2^nu Gamma(nu+1)) - alpha"""
-    return 1.0 - fz_nu(nu + 1.0, z) / (jnp.power(2.0, nu) * _gammap1(nu)) - alpha
+    return 1.0 - _fz_nu(nu + 1.0, z) / (jnp.power(2.0, nu) * _gamma(nu + 1.0)) - alpha
 
 
 @jax.jit
@@ -283,12 +272,20 @@ class Spergel(GSObject):
     @property
     @implements(_galsim.spergel.Spergel.half_light_radius)
     def half_light_radius(self):
-        return self._r0 * _spergel_hlr_pade(self.nu)
+        # for python floats, we can use galsim on the CPU-side to do this
+        # quickly as long as we ensure it is done at compile time.
+        if isinstance(self.nu, float):
+            with jax.ensure_compile_time_eval():
+                hlr = _galsim.Spergel(self.nu, scale_radius=1).half_light_radius
+        else:
+            hlr = _spergel_hlr_binary_search_plus_pade_init(self.nu)
+
+        return self._r0 * hlr
 
     @property
     def _shootxnorm(self):
         """Normalization for photon shooting"""
-        return 1.0 / (2.0 * jnp.pi * jnp.power(2.0, self.nu) * _gammap1(self.nu))
+        return 1.0 / (2.0 * jnp.pi * jnp.power(2.0, self.nu) * _gamma(self.nu + 1.0))
 
     @property
     def _xnorm(self):
@@ -304,7 +301,16 @@ class Spergel(GSObject):
 
     @implements(_galsim.spergel.Spergel.calculateFluxRadius)
     def calculateFluxRadius(self, f):
-        return self._r0 * calculateFluxRadius(f, self.nu)
+        f = cast_to_float(f)
+        # for python floats, we can use galsim on the CPU-side to do this
+        # quickly as long as we ensure it is done at compile time.
+        if isinstance(self.nu, float) and isinstance(f, float):
+            with jax.ensure_compile_time_eval():
+                fac = _galsim.Spergel(self.nu, scale_radius=1).calculateFluxRadius(f)
+        else:
+            fac = calculateFluxRadius(f, self.nu)
+
+        return self._r0 * fac
 
     @implements(_galsim.spergel.Spergel.calculateIntegratedFlux)
     def calculateIntegratedFlux(self, r):
@@ -358,12 +364,71 @@ class Spergel(GSObject):
         # from SBSpergelImpl.h
         return jnp.abs(self._xnorm) * self._xnorm0
 
+    @staticmethod
+    @jax.jit
+    def _xValue_exact_func(nu, r, xnorm, xnorm0):
+        msk = r > 0
+        r_msk = jnp.where(msk, r, 1.0)
+        return xnorm * jnp.where(
+            msk,
+            _fz_nu(jax.lax.stop_gradient(nu), r_msk),
+            xnorm0,
+        )
+
+    @staticmethod
+    @jax.jit
+    def _xValue_asymp_func(nu, r, xnorm):
+        return xnorm * jnp.power(r, nu) * jnp.exp(-r) * jnp.sqrt(jnp.pi / 2 / r)
+
+    def _xValue_interp_coeffs(self):
+        # MRB: this number of points gets the tests to pass
+        # I did not investigate further.
+        n_pts = 1000
+        r_min = 0
+        r_max = jnp.pi / self._stepk
+        jax.debug.print("r max={r_max}", r_max=r_max)
+        r = jnp.linspace(r_min, r_max, n_pts)
+
+        nu = jax.lax.stop_gradient(self.nu)
+        vals = self._xValue_exact_func(
+            nu,
+            r / self._r0,
+            self._xnorm,
+            self._xnorm0,
+        )
+
+        # slope to match the interpolant onto an asymptotic expansion of kv
+        # that is kv(x) ~ sqrt(pi/2/x) * exp(-x) * (1 + slp/x)
+        aval = self._xValue_asymp_func(nu, r[-1] / self._r0, self._xnorm)
+        slp = (vals[-1] / aval - 1) * (r[-1] / self._r0)
+
+        return r, vals, akima_interp_coeffs(r, vals), slp
+
     @jax.jit
     def _xValue(self, pos):
-        r = jnp.sqrt(pos.x**2 + pos.y**2) * self._inv_r0
-        res = jnp.where(r == 0, self._xnorm0, fz_nu(jax.lax.stop_gradient(self.nu), r))
-        res = self._xnorm * res
-        return res
+        # we cannot compute gradients with respect to nu
+        nu = jax.lax.stop_gradient(self.nu)
+
+        r = safe_sqrt(pos.x**2 + pos.y**2)
+
+        out_shape = jnp.shape(r)
+        r = jnp.atleast_1d(r)
+
+        r_, vals_, coeffs, slp = self._xValue_interp_coeffs()
+        res = akima_interp(r, r_, vals_, coeffs, fixed_spacing=True)
+        r_msk = jnp.where(r > 0, r, r_[1])
+        res = jnp.where(
+            r > r_[-1],
+            self._xValue_asymp_func(
+                nu,
+                r_msk / self._r0,
+                self._xnorm,
+            )
+            * (1.0 + slp / r_msk * self._r0),
+            res,
+        )
+
+        return res.reshape(out_shape)
 
     @jax.jit
     def _kValue(self, kpos):
@@ -427,7 +492,7 @@ class Spergel(GSObject):
         )
         flux_target = self.gsparams.shoot_accuracy
         shoot_rmin = calculateFluxRadius(flux_target, self.nu)
-        knur = fz_nu(self.nu, shoot_rmin)
+        knur = _fz_nu(self.nu, shoot_rmin)
 
         corrFact = self._shootxnorm  # this is the correct normalisation
         b = knur - flux_target / (jnp.pi * shoot_rmin * shoot_rmin * corrFact)
@@ -436,11 +501,11 @@ class Spergel(GSObject):
 
         def cumulflux(z, a, b, zmin, nu, norm=1.0):
             flux_min = a / 3.0 * zmin * zmin * zmin + b / 2.0 * zmin * zmin
-            c1 = fz_nu(nu + 1.0, zmin)
+            c1 = _fz_nu(nu + 1.0, zmin)
             res = jnp.where(
                 z <= zmin,
                 a / 3.0 * z * z * z + b / 2.0 * z * z,
-                flux_min + c1 - fz_nu(nu + 1.0, z),
+                flux_min + c1 - _fz_nu(nu + 1.0, z),
             )
             return res / norm
 
