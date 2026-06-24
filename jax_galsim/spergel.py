@@ -166,10 +166,14 @@ def _spergel_hlr_pade(x):
 def _spergel_hlr_binary_search_plus_pade_init(nu):
     """Return radius R enclosing flux fraction 0.5 in unit of the scale radius r0"""
     z = _spergel_hlr_pade(nu)
+
+    def _hlr_bs(f, x0):
+        return _binary_search(f, x0, low=x0 - 1, high=x0 + 1)
+
     return jax.lax.custom_root(
         partial(fluxfractionFunc, nu=nu, alpha=0.5),
         z,
-        _binary_search,
+        _hlr_bs,
         lambda f, y: y / f(1.0),
     )
 
