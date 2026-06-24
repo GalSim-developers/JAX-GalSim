@@ -6,7 +6,7 @@ from jax.tree_util import register_pytree_node_class
 
 from jax_galsim.bessel import kv
 from jax_galsim.core.draw import draw_by_kValue, draw_by_xValue
-from jax_galsim.core.utils import ensure_hashable, implements
+from jax_galsim.core.utils import cast_to_float, ensure_hashable, implements
 from jax_galsim.gsobject import GSObject
 from jax_galsim.random import UniformDeviate
 
@@ -215,6 +215,8 @@ class Spergel(GSObject):
         flux=1.0,
         gsparams=None,
     ):
+        nu = cast_to_float(nu)
+
         # Parse the radius options
         if half_light_radius is not None:
             if scale_radius is not None:
@@ -224,10 +226,17 @@ class Spergel(GSObject):
                     scale_radius=scale_radius,
                 )
             else:
+                # for python floats, we can use galsim on the CPU-side to do this
+                # quickly as long as we ensure it is done at compile time.
+                if isinstance(nu, float):
+                    with jax.ensure_compile_time_eval():
+                        hlr = _galsim.Spergel(nu, scale_radius=1).half_light_radius
+                else:
+                    hlr = _spergel_hlr_binary_search_plus_pade_init(nu)
+
                 super().__init__(
                     nu=nu,
-                    scale_radius=half_light_radius
-                    / _spergel_hlr_binary_search_plus_pade_init(nu),
+                    scale_radius=half_light_radius / hlr,
                     flux=flux,
                     gsparams=gsparams,
                 )
