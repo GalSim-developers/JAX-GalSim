@@ -6,7 +6,6 @@ from jax.tree_util import register_pytree_node_class
 
 from jax_galsim.bessel import kv
 from jax_galsim.core.draw import draw_by_kValue, draw_by_xValue
-from jax_galsim.core.interpolate import akima_interp, akima_interp_coeffs
 from jax_galsim.core.math import safe_sqrt
 from jax_galsim.core.utils import cast_to_float, ensure_hashable, implements
 from jax_galsim.gsobject import GSObject
@@ -364,75 +363,16 @@ class Spergel(GSObject):
         # from SBSpergelImpl.h
         return jnp.abs(self._xnorm) * self._xnorm0
 
-    @staticmethod
-    @jax.jit
-    def _xValue_exact_func(nu, r, xnorm, xnorm0):
-        msk = r > 0
-        r_msk = jnp.where(msk, r, 1.0)
-        return xnorm * jnp.where(
-            msk,
-            _fz_nu(jax.lax.stop_gradient(nu), r_msk),
-            xnorm0,
-        )
-
-    @staticmethod
-    @jax.jit
-    def _xValue_asymp_func(nu, r, xnorm):
-        return xnorm * jnp.power(r, nu) * jnp.exp(-r) * jnp.sqrt(jnp.pi / 2 / r)
-
-    def _xValue_interp_coeffs(self):
-        # MRB: this number of points gets the tests to pass
-        # I did not investigate further.
-        n_pts = 2500
-        r_min = 0
-        r_max = jnp.pi / self._stepk
-        r = jnp.linspace(r_min, r_max, n_pts)
-
-        nu = jax.lax.stop_gradient(self.nu)
-        vals = self._xValue_exact_func(
-            nu,
-            r / self._r0,
-            self._xnorm,
-            self._xnorm0,
-        )
-
-        # slope to match the interpolant onto an asymptotic expansion of kv
-        # that is kv(x) ~ sqrt(pi/2/x) * exp(-x) * (1 + slp/x)
-        aval = self._xValue_asymp_func(nu, r[-1] / self._r0, self._xnorm)
-        slp = (vals[-1] / aval - 1) * (r[-1] / self._r0)
-
-        return r, vals, akima_interp_coeffs(r, vals), slp
-
     @jax.jit
     def _xValue(self, pos):
-        # we cannot compute gradients with respect to nu
-        nu = jax.lax.stop_gradient(self.nu)
-
-        r = safe_sqrt(pos.x**2 + pos.y**2)
-
-        out_shape = jnp.shape(r)
-        r = jnp.atleast_1d(r)
-
-        r_, vals_, coeffs, slp = self._xValue_interp_coeffs()
+        r = safe_sqrt(pos.x**2 + pos.y**2) * self._inv_r0
         msk = r > 0
-        r_msk = jnp.where(msk, r, r_[1])
-        res = jnp.where(
+        r_msk = jnp.where(msk, r, 1.0)
+        return self._xnorm * jnp.where(
             msk,
-            akima_interp(r_msk, r_, vals_, coeffs, fixed_spacing=True),
-            self._xnorm0 * self._xnorm,
+            _fz_nu(jax.lax.stop_gradient(self.nu), r_msk),
+            self._xnorm0,
         )
-        res = jnp.where(
-            r > r_[-1],
-            self._xValue_asymp_func(
-                nu,
-                r_msk / self._r0,
-                self._xnorm,
-            )
-            * (1.0 + slp / r_msk * self._r0),
-            res,
-        )
-
-        return res.reshape(out_shape)
 
     @jax.jit
     def _kValue(self, kpos):
