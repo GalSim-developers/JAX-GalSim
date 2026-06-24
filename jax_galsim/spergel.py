@@ -1,11 +1,13 @@
 import galsim as _galsim
 import jax
 import jax.numpy as jnp
+import jax.scipy as jsp
 from jax.tree_util import Partial as partial
 from jax.tree_util import register_pytree_node_class
 
 from jax_galsim.bessel import kv
 from jax_galsim.core.draw import draw_by_kValue, draw_by_xValue
+from jax_galsim.core.interpolate import akima_interp, akima_interp_coeffs
 from jax_galsim.core.math import safe_sqrt
 from jax_galsim.core.utils import cast_to_float, ensure_hashable, implements
 from jax_galsim.gsobject import GSObject
@@ -18,7 +20,91 @@ def _gamma(nu):
     return jnp.select(
         [nu == 0, nu == 1, nu == 2, nu == 3, nu == 4, nu == 5],
         [jnp.inf, 1.0, 1.0, 2.0, 6.0, 24.0],
-        default=jnp.exp(jax.lax.lgamma(nu * 1.0)),
+        default=jsp.special.gamma(nu),
+    )
+
+
+@jax.jit
+def z2lz(z):
+    """return z^2 * log(z)"""
+    return jnp.where(z <= 1e-40, 0.0, z * z * jnp.log(z))
+
+
+@jax.jit
+def f0(z):
+    """K_0[z] with z -> 0  O(z^4)"""
+    z2 = z * z
+    z4 = z2 * z2
+    c0 = 0.11593151565841244881
+    c1 = 0.27898287891460311220
+    c2 = 0.025248929932162694513
+    return c0 + c1 * z2 + c2 * z4 - jnp.power(1.0 + 0.125 * z2, 2.0) * jnp.log(z)
+
+
+@jax.jit
+def f1(z):
+    """z^1 K_1[z] with z -> 0  O(z^4)"""
+    z2 = z * z
+    z4 = z2 * z2
+    c0 = z2lz(z)  # z^2 log(z)
+    c1 = 0.30796575782920622441
+    c2 = 0.08537071972865077805
+    return 1.0 - c1 * z2 - c2 * z4 + c0 * (0.5 + 0.0625 * z2)
+
+
+@jax.jit
+def f2(z):
+    """z^2 K_2[z] with z -> 0  O(z^4)"""
+    c1 = 0.10824143945730155610
+    z2 = z * z
+    z4 = z2 * z2
+    c0 = z2lz(z) * z2  # z^4*log(z)
+    return 2.0 - 0.5 * z2 + c1 * z4 - 0.125 * c0
+
+
+@jax.jit
+def f3(z):
+    """z^3 K_3[z] with z -> 0  O(z^4)"""
+    z2 = z * z
+    z4 = z2 * z2
+    return 8.0 - z2 + 0.125 * z4
+
+
+@jax.jit
+def f4(z):
+    """z^4 K_4[z] with z -> 0 O(z^4)"""
+    z2 = z * z
+    z4 = z2 * z2
+    return 48.0 - 4 * z2 + 0.25 * z4
+
+
+@jax.jit
+def f5(z):
+    """z^5 K_5[z] with z -> 0 O(z^4)"""
+    z2 = z * z
+    z4 = z2 * z2
+    return 384.0 - 24.0 * z2 + z4
+
+
+@jax.jit
+def fsmallz_nu(nu, z):
+    def fnu(nu, z):
+        """z^nu K_nu[z] with z -> 0 O(z^4) z > 0"""
+        nu += 1.0e-32  # ensure nu is not an integer
+        z2 = z * z
+        z4 = z2 * z2
+        c1 = jnp.power(2.0, -6.0 - nu)
+        c2 = _gamma(-2.0 - nu)
+        c3 = _gamma(-2.0 + nu)
+        c4 = jnp.power(z, 2.0 * nu)
+        c5 = z4 * 8.0 * z2 * (2.0 + nu) + 32.0 * (1.0 + nu) * (2.0 + nu)
+        c6 = z2 * (16.0 + z2 - 8.0 * nu) * c3
+        return c1 * (c4 * c5 * c2 + jnp.power(4.0, nu) * (c6 + 32.0 * _gamma(nu)))
+
+    return jnp.select(
+        [nu == 0, nu == 1, nu == 2, nu == 3, nu == 4],
+        [f0(z), f1(z), f2(z), f3(z), f4(z)],
+        default=fnu(nu, z),
     )
 
 
@@ -363,16 +449,82 @@ class Spergel(GSObject):
         # from SBSpergelImpl.h
         return jnp.abs(self._xnorm) * self._xnorm0
 
+    @staticmethod
     @jax.jit
-    def _xValue(self, pos):
-        r = safe_sqrt(pos.x**2 + pos.y**2) * self._inv_r0
+    def _xValue_exact_func(nu, r, xnorm, xnorm0):
         msk = r > 0
         r_msk = jnp.where(msk, r, 1.0)
-        return self._xnorm * jnp.where(
+        return xnorm * jnp.where(
             msk,
-            _fz_nu(jax.lax.stop_gradient(self.nu), r_msk),
+            _fz_nu(jax.lax.stop_gradient(nu), r_msk),
+            xnorm0,
+        )
+
+    @staticmethod
+    @jax.jit
+    def _xValue_asymp_func(nu, r, xnorm):
+        return xnorm * jnp.power(r, nu) * jnp.exp(-r) * jnp.sqrt(jnp.pi / 2 / r)
+
+    def _xValue_interp_coeffs(self):
+        # MRB: this number of points gets the tests to pass
+        # I did not investigate further.
+        n_pts = 700
+        r_min = jnp.pi / self._maxk / 10
+        r_max = jnp.pi / self._stepk
+        r = jnp.logspace(jnp.log10(r_min), jnp.log10(r_max), n_pts)
+
+        nu = jax.lax.stop_gradient(self.nu)
+        vals = self._xValue_exact_func(
+            nu,
+            r / self._r0,
+            self._xnorm,
             self._xnorm0,
         )
+
+        # slope to match the interpolant onto an asymptotic expansion of kv
+        # that is kv(x) ~ sqrt(pi/2/x) * exp(-x) * (1 + slp/x)
+        aval = self._xValue_asymp_func(nu, r[-1] / self._r0, self._xnorm)
+        slp = (vals[-1] / aval - 1) * (r[-1] / self._r0)
+
+        return r, vals, akima_interp_coeffs(jnp.log(r), vals), slp
+
+    @jax.jit
+    def _xValue(self, pos):
+        # we cannot compute gradients with respect to nu
+        nu = jax.lax.stop_gradient(self.nu)
+
+        r = safe_sqrt(pos.x**2 + pos.y**2)
+
+        out_shape = jnp.shape(r)
+        r = jnp.atleast_1d(r)
+
+        r_, vals_, coeffs, slp = self._xValue_interp_coeffs()
+
+        msk_nz = r > 0
+        r_msk_nz = jnp.where(msk_nz, r, r_[0])
+        msk_asymp = r > r_[-1]
+        msk_small = r < r_[0]
+        msk_interp = (~msk_small) & (~msk_asymp)
+        msk_small = msk_small & msk_nz
+
+        res_asymp = self._xValue_asymp_func(
+            nu,
+            r_msk_nz / self._r0,
+            self._xnorm,
+        ) * (1.0 + slp / r_msk_nz * self._r0)
+        res_interp = akima_interp(
+            jnp.log(r_msk_nz), jnp.log(r_), vals_, coeffs, fixed_spacing=True
+        )
+        res_small = self._xnorm * fsmallz_nu(nu, r_msk_nz * self._inv_r0)
+        res_z = self._xnorm0 * self._xnorm
+
+        res = jnp.where(
+            msk_asymp,
+            res_asymp,
+            jnp.where(msk_interp, res_interp, jnp.where(msk_small, res_small, res_z)),
+        )
+
+        return res.reshape(out_shape)
 
     @jax.jit
     def _kValue(self, kpos):
