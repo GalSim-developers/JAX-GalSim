@@ -386,7 +386,6 @@ class Spergel(GSObject):
         n_pts = 1000
         r_min = 0
         r_max = jnp.pi / self._stepk
-        jax.debug.print("r max={r_max}", r_max=r_max)
         r = jnp.linspace(r_min, r_max, n_pts)
 
         nu = jax.lax.stop_gradient(self.nu)
