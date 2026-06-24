@@ -88,9 +88,19 @@ def f5(z):
 
 @jax.jit
 def fsmallz_nu(nu, z):
+    msk0 = nu == 0
+    msk1 = nu == 1
+    msk2 = nu == 2
+    msk3 = nu == 3
+    msk4 = nu == 4
+    nu_safe = jnp.where(
+        msk0 | msk1 | msk2 | msk3 | msk4,
+        nu + 1e-10,
+        nu,
+    )
+
     def fnu(nu, z):
         """z^nu K_nu[z] with z -> 0 O(z^4) z > 0"""
-        nu += 1.0e-32  # ensure nu is not an integer
         z2 = z * z
         z4 = z2 * z2
         c1 = jnp.power(2.0, -6.0 - nu)
@@ -102,9 +112,9 @@ def fsmallz_nu(nu, z):
         return c1 * (c4 * c5 * c2 + jnp.power(4.0, nu) * (c6 + 32.0 * _gamma(nu)))
 
     return jnp.select(
-        [nu == 0, nu == 1, nu == 2, nu == 3, nu == 4],
+        [msk0, msk1, msk2, msk3, msk4],
         [f0(z), f1(z), f2(z), f3(z), f4(z)],
-        default=fnu(nu, z),
+        default=fnu(nu_safe, z),
     )
 
 
