@@ -383,7 +383,7 @@ class Spergel(GSObject):
     def _xValue_interp_coeffs(self):
         # MRB: this number of points gets the tests to pass
         # I did not investigate further.
-        n_pts = 1000
+        n_pts = 2500
         r_min = 0
         r_max = jnp.pi / self._stepk
         r = jnp.linspace(r_min, r_max, n_pts)
@@ -414,8 +414,13 @@ class Spergel(GSObject):
         r = jnp.atleast_1d(r)
 
         r_, vals_, coeffs, slp = self._xValue_interp_coeffs()
-        res = akima_interp(r, r_, vals_, coeffs, fixed_spacing=True)
-        r_msk = jnp.where(r > 0, r, r_[1])
+        msk = r > 0
+        r_msk = jnp.where(msk, r, r_[1])
+        res = jnp.where(
+            msk,
+            akima_interp(r_msk, r_, vals_, coeffs, fixed_spacing=True),
+            self._xnorm0 * self._xnorm,
+        )
         res = jnp.where(
             r > r_[-1],
             self._xValue_asymp_func(
