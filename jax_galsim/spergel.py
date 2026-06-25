@@ -136,7 +136,7 @@ def reducedfluxfractionFunc(z, nu, norm):
     return fluxfractionFunc(z, nu, alpha=0.0) / norm
 
 
-# code here is from JAX osurce for testing custom_root
+# code here is from JAX source for testing custom_root
 # used under license:
 # Copyright 2022 The JAX Authors.
 # Licensed under the Apache License, Version 2.0 (the "License");
