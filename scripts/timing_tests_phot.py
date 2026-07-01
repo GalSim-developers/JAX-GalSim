@@ -9,15 +9,27 @@ import time
 from functools import partial
 
 import galsim as _galsim
+import jax
 import jax.random as jrng
 import numpy as np
+import typer
 from jax import block_until_ready, device_put, jit, transfer_guard, vmap
 
 import jax_galsim as jgs
 from jax_galsim.photon_array import fixed_photon_array_size
 
 
-def main():
+def main(
+    cpu_or_gpu: str = typer.Option(default="cpu"),
+):
+
+    if cpu_or_gpu == "cpu":
+        device = jax.devices("cpu")[0]
+    elif cpu_or_gpu == "gpu":
+        device = jax.devices("gpu")[0]
+    else:
+        raise ValueError()
+
     rng_key = jrng.key(42)
     n_obj = 1000
     k1, k2 = jrng.split(rng_key)
@@ -42,7 +54,7 @@ def main():
 
     # time jax-galsim
     # compilation and transfer
-    params_jax = device_put(params)
+    params_jax = device_put(params, device=device)
     _ = block_until_ready(_draw_fnc(skeys, params_jax))
 
     # timing
@@ -128,4 +140,4 @@ def _generate_image_phot_galsim(params, psf, n_obj):
 
 
 if __name__ == "__main__":
-    main()
+    typer.run(main)
