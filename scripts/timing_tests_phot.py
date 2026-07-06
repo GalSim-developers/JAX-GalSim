@@ -25,8 +25,10 @@ def main(
 
     if cpu_or_gpu == "cpu":
         device = jax.devices("cpu")[0]
+        print("INFO: Using CPU...")
     elif cpu_or_gpu == "gpu":
         device = jax.devices("gpu")[0]
+        print("INFO: Using GPU...")
     else:
         raise ValueError()
 
