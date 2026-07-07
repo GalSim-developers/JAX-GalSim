@@ -26,7 +26,7 @@ jobs:
       NUM_SPLITS: 6
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
           submodules: recursive
@@ -43,7 +43,7 @@ jobs:
           python -m pip install .[dev]
 
       - name: Restore test durations
-        uses: actions/cache/restore@cdf6c1fa76f9f475f3d7449005a359c84ca0f306  # v5.0.3
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9  # v6.1.0
         with:
           path: .test_durations
           key: test-durations-${{ github.ref }}-${{ github.sha }}
@@ -108,7 +108,7 @@ jobs:
           jq 'reduce inputs as $i (.; . + $i)' test-durations-*/.test_durations.* > .test_durations
 
       - name: Save test durations
-        uses: actions/cache/save@v5
+        uses: actions/cache/save@v6
         with:
           path: .test_durations
           key: test-durations-${{ github.ref }}-${{ github.sha }}
