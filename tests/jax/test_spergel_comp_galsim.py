@@ -150,3 +150,54 @@ def test_spergel_comp_galsim_perf_xvalue(kind):
         lambda: _run_spergel_bench_xvalue(_galsim),
     )
     print(f"    galsim time: {dt:0.4g} ms")
+
+
+@pytest.mark.parametrize("use_same_fft_size", [False, True])
+@pytest.mark.parametrize("slen", [51, 52, 101, 202])
+def test_spergel_comp_galsim_image(slen, use_same_fft_size):
+    params = {
+        "flux_b": 1,
+        "hlr_b": 0.4,
+        "q_b": 1.0,
+        "beta": 0.0,
+    }
+    nu = -0.6
+    psf = gs.Gaussian(half_light_radius=0.7, flux=1.0)
+    xpsf = jgs.Gaussian(half_light_radius=0.7, flux=1.0)
+    fft_size = 256  # checked that increasing this does not change residual
+
+    # galsim
+    gsparams = gs.GSParams(minimum_fft_size=fft_size, maximum_fft_size=fft_size)
+    bulge_ns = gs.Spergel(
+        nu=nu, flux=params["flux_b"], half_light_radius=params["hlr_b"]
+    )
+    bulge = bulge_ns.shear(q=params["q_b"], beta=params["beta"] * gs.degrees)
+    if use_same_fft_size:
+        gal = gs.Convolve([bulge, psf]).withGSParams(gsparams)
+    else:
+        gal = gs.Convolve([bulge, psf])
+    arr_galsim = gal.drawImage(nx=slen, ny=slen, scale=0.2, dtype=np.float64).array
+    # print(gal.getGoodImageSize(0.2)) ==> result is less than 101
+
+    # jax galsim
+    gsparams = jgs.GSParams(minimum_fft_size=fft_size, maximum_fft_size=fft_size)
+    xbulge_ns = jgs.Spergel(
+        nu=nu, flux=params["flux_b"], half_light_radius=params["hlr_b"]
+    )
+    xbulge = xbulge_ns.shear(q=params["q_b"], beta=params["beta"] * jgs.degrees)
+    gal = jgs.Convolve([xbulge, xpsf]).withGSParams(gsparams)
+    arr_jgs = gal.drawImage(nx=slen, ny=slen, scale=0.2, dtype=np.float64).array
+
+    print("maxk:", xbulge.maxk, bulge.maxk, xbulge.maxk - bulge.maxk)
+    print("stepk:", xbulge.stepk, bulge.stepk, xbulge.stepk - bulge.stepk)
+    print(
+        "scale_radius:",
+        xbulge_ns.scale_radius,
+        bulge_ns.scale_radius,
+        xbulge_ns.scale_radius - bulge_ns.scale_radius,
+    )
+
+    # comparison
+    print("dtypes:", arr_galsim.dtype, arr_jgs.dtype)
+    print("max abs dev:", np.max(np.abs(arr_galsim - arr_jgs)))
+    np.testing.assert_allclose(arr_galsim, arr_jgs, atol=1e-16, rtol=0)
