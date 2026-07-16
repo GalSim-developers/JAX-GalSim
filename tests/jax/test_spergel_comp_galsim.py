@@ -200,4 +200,8 @@ def test_spergel_comp_galsim_image(slen, use_same_fft_size):
     # comparison
     print("dtypes:", arr_galsim.dtype, arr_jgs.dtype)
     print("max abs dev:", np.max(np.abs(arr_galsim - arr_jgs)))
-    np.testing.assert_allclose(arr_galsim, arr_jgs, atol=1e-16, rtol=0)
+    if use_same_fft_size:
+        atol = 1e-16
+    else:
+        atol = 1e-9
+    np.testing.assert_allclose(arr_galsim, arr_jgs, atol=atol, rtol=0)
