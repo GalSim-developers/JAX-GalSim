@@ -511,50 +511,39 @@ class Spergel(GSObject):
 
         r = safe_sqrt(pos.x**2 + pos.y**2)
 
-        if False:
-            msk = r > 0
-            r_msk = jnp.where(msk, r, 1.0)
-            return jnp.where(
-                msk,
-                self._xValue_exact_func(nu, r_msk * self._inv_r0, self._xnorm),
-                self._xnorm * self._xnorm0,
-            )
-        else:
-            out_shape = jnp.shape(r)
-            r = jnp.atleast_1d(r)
+        out_shape = jnp.shape(r)
+        r = jnp.atleast_1d(r)
 
-            r_, vals_, coeffs, slp_asymp, slp_smallz = self._xValue_interp_coeffs()
+        r_, vals_, coeffs, slp_asymp, slp_smallz = self._xValue_interp_coeffs()
 
-            msk_nz = r > 0
-            r_msk_nz = jnp.where(msk_nz, r, r_[0])
-            r_msk_nz_inv_r0 = r_msk_nz * self._inv_r0
-            msk_asymp = r > r_[-1]
-            msk_smallz = r < r_[0]
-            msk_interp = (~msk_smallz) & (~msk_asymp)
-            msk_smallz = msk_smallz & msk_nz
+        msk_nz = r > 0
+        r_msk_nz = jnp.where(msk_nz, r, r_[0])
+        r_msk_nz_inv_r0 = r_msk_nz * self._inv_r0
+        msk_asymp = r > r_[-1]
+        msk_smallz = r < r_[0]
+        msk_interp = (~msk_smallz) & (~msk_asymp)
+        msk_smallz = msk_smallz & msk_nz
 
-            res_asymp = self._xValue_asymp_func(
-                nu,
-                r_msk_nz_inv_r0,
-                self._xnorm,
-            ) * (1.0 + slp_asymp / r_msk_nz_inv_r0)
-            res_interp = akima_interp(
-                jnp.log(r_msk_nz), jnp.log(r_), vals_, coeffs, fixed_spacing=True
-            )
-            res_smallz = self._xValue_smallz_func(nu, r_msk_nz_inv_r0, self._xnorm) * (
-                1.0 + slp_smallz * jnp.power(r_msk_nz_inv_r0, 4)
-            )
-            res_z = self._xnorm0 * self._xnorm
+        res_asymp = self._xValue_asymp_func(
+            nu,
+            r_msk_nz_inv_r0,
+            self._xnorm,
+        ) * (1.0 + slp_asymp / r_msk_nz_inv_r0)
+        res_interp = akima_interp(
+            jnp.log(r_msk_nz), jnp.log(r_), vals_, coeffs, fixed_spacing=True
+        )
+        res_smallz = self._xValue_smallz_func(nu, r_msk_nz_inv_r0, self._xnorm) * (
+            1.0 + slp_smallz * jnp.power(r_msk_nz_inv_r0, 4)
+        )
+        res_z = self._xnorm0 * self._xnorm
 
-            res = jnp.where(
-                msk_asymp,
-                res_asymp,
-                jnp.where(
-                    msk_interp, res_interp, jnp.where(msk_smallz, res_smallz, res_z)
-                ),
-            )
+        res = jnp.where(
+            msk_asymp,
+            res_asymp,
+            jnp.where(msk_interp, res_interp, jnp.where(msk_smallz, res_smallz, res_z)),
+        )
 
-            return res.reshape(out_shape)
+        return res.reshape(out_shape)
 
     @jax.jit
     def _kValue(self, kpos):
