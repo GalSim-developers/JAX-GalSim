@@ -511,11 +511,19 @@ class Spergel(GSObject):
 
         r = safe_sqrt(pos.x**2 + pos.y**2)
 
+        # we work with a 1D array and reshape it back at the end
         out_shape = jnp.shape(r)
-        r = jnp.atleast_1d(r)
+        r = jnp.atleast_1d(r).ravel()
 
+        # the computation here uses 4 parts
+        # - a value at r = 0
+        # - a taylor expansion at small r
+        # - an interpolant
+        # - an asymptotic expansion at large r
+        # the interpolant is matched onto the taylor and asymptotic via two slopes
         r_, vals_, coeffs, slp_asymp, slp_smallz = self._xValue_interp_coeffs()
 
+        # define masks for each range
         msk_nz = r > 0
         r_msk_nz = jnp.where(msk_nz, r, r_[0])
         r_msk_nz_inv_r0 = r_msk_nz * self._inv_r0
@@ -524,25 +532,27 @@ class Spergel(GSObject):
         msk_interp = (~msk_smallz) & (~msk_asymp)
         msk_smallz = msk_smallz & msk_nz
 
+        # compute values for each range
+        res_z = self._xnorm0 * self._xnorm
+        res_smallz = self._xValue_smallz_func(nu, r_msk_nz_inv_r0, self._xnorm) * (
+            1.0 + slp_smallz * jnp.power(r_msk_nz_inv_r0, 4)
+        )
+        res_interp = akima_interp(
+            jnp.log(r_msk_nz), jnp.log(r_), vals_, coeffs, fixed_spacing=True
+        )
         res_asymp = self._xValue_asymp_func(
             nu,
             r_msk_nz_inv_r0,
             self._xnorm,
         ) * (1.0 + slp_asymp / r_msk_nz_inv_r0)
-        res_interp = akima_interp(
-            jnp.log(r_msk_nz), jnp.log(r_), vals_, coeffs, fixed_spacing=True
-        )
-        res_smallz = self._xValue_smallz_func(nu, r_msk_nz_inv_r0, self._xnorm) * (
-            1.0 + slp_smallz * jnp.power(r_msk_nz_inv_r0, 4)
-        )
-        res_z = self._xnorm0 * self._xnorm
 
-        res = jnp.where(
-            msk_asymp,
-            res_asymp,
-            jnp.where(msk_interp, res_interp, jnp.where(msk_smallz, res_smallz, res_z)),
+        # pick the right value
+        res = jnp.select(
+            [~msk_nz, msk_smallz, msk_interp, msk_asymp],
+            [res_z, res_smallz, res_interp, res_asymp],
         )
 
+        # reshape to final output
         return res.reshape(out_shape)
 
     @jax.jit
