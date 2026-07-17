@@ -172,7 +172,7 @@ def _binary_search(func, x0, low=0.0, high=40.0):
 
 
 @jax.jit
-def calculateFluxRadius(alpha, nu):
+def calculateFluxRadius(alpha, nu, zmin=0, zmax=40):
     """Return radius R enclosing flux fraction alpha in unit of the scale radius r0
 
     Method: Solve  F(R/r0=z)/Flux - alpha = 0 using bisection algorithm
@@ -193,7 +193,7 @@ def calculateFluxRadius(alpha, nu):
     return jax.lax.custom_root(
         partial(fluxfractionFunc, nu=nu, alpha=alpha),
         20.0,
-        _binary_search,
+        partial(_binary_search, low=zmin, high=zmax),
         lambda f, y: y / f(1.0),
     )
 
@@ -494,19 +494,19 @@ class Spergel(GSObject):
         vals = self._xValue_exact_func(
             nu,
             r / self._r0,
-            self._xnorm,
+            jnp.abs(self._xnorm),
         )
 
         # slope to match the interpolant onto an asymptotic expansion of kv
         # that is kv(x) ~ sqrt(pi/2/x) * exp(-x) * (1 + slp/x)
         xval = r[-1] / self._r0
-        aval = self._xValue_asymp_func(nu, xval, self._xnorm)
+        aval = self._xValue_asymp_func(nu, xval, jnp.abs(self._xnorm))
         slp_asymp = (vals[-1] / aval - 1) * xval
 
         # slope to match the interpolant onto a taylor expansion to z^4
         # via kv(x) ~ kv_smallz(x) * (1 + slp * x**4)
         xval = r[0] / self._r0
-        aval = self._xValue_smallz_func(nu, xval, self._xnorm)
+        aval = self._xValue_smallz_func(nu, xval, jnp.abs(self._xnorm))
         slp_smallz = (vals[0] / aval - 1) / jnp.power(xval, 4)
 
         return (
@@ -554,7 +554,7 @@ class Spergel(GSObject):
             akima_interp(
                 jnp.log(r_msk_nz), jnp.log(r_), vals_, coeffs, fixed_spacing=True
             )
-        )
+        ) * jnp.sign(self._xnorm)
         res_asymp = self._xValue_asymp_func(
             nu,
             r_msk_nz_inv_r0,
