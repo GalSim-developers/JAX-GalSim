@@ -485,7 +485,7 @@ class Spergel(GSObject):
     def _xValue_interp_coeffs(self):
         # MRB: this number of points gets the tests to pass
         # I did not investigate further.
-        n_pts = 1000
+        n_pts = 2000
         r_min = jnp.minimum(jnp.pi / self.maxk, 1e-6)
         r_max = jnp.pi / self.stepk
         r = jnp.logspace(jnp.log10(r_min), jnp.log10(r_max), n_pts)
@@ -509,7 +509,13 @@ class Spergel(GSObject):
         aval = self._xValue_smallz_func(nu, xval, self._xnorm)
         slp_smallz = (vals[0] / aval - 1) / jnp.power(xval, 4)
 
-        return r, vals, akima_interp_coeffs(jnp.log(r), vals), slp_asymp, slp_smallz
+        return (
+            r,
+            jnp.log(vals),
+            akima_interp_coeffs(jnp.log(r), jnp.log(vals)),
+            slp_asymp,
+            slp_smallz,
+        )
 
     @jax.jit
     def _xValue(self, pos):
@@ -544,8 +550,10 @@ class Spergel(GSObject):
         res_smallz = self._xValue_smallz_func(nu, r_msk_nz_inv_r0, self._xnorm) * (
             1.0 + slp_smallz * jnp.power(r_msk_nz_inv_r0, 4)
         )
-        res_interp = akima_interp(
-            jnp.log(r_msk_nz), jnp.log(r_), vals_, coeffs, fixed_spacing=True
+        res_interp = jnp.exp(
+            akima_interp(
+                jnp.log(r_msk_nz), jnp.log(r_), vals_, coeffs, fixed_spacing=True
+            )
         )
         res_asymp = self._xValue_asymp_func(
             nu,

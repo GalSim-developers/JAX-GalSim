@@ -208,10 +208,10 @@ def test_spergel_comp_galsim_image(slen, use_same_fft_size):
     np.testing.assert_allclose(arr_galsim, arr_jgs, atol=atol, rtol=0)
 
 
+@pytest.mark.parametrize("nu", [-0.6, 0.0, 0.5, 0.8])
 @pytest.mark.parametrize("method", ["xValue", "kValue"])
-def test_spergel_comp_galsim_value(method):
-    nu = 0.5
-    hlr = 1
+def test_spergel_comp_galsim_value(method, nu):
+    hlr = 0.75
 
     js = jgs.Spergel(nu=nu, half_light_radius=hlr)
     s = gs.Spergel(nu=nu, half_light_radius=hlr)
@@ -222,10 +222,10 @@ def test_spergel_comp_galsim_value(method):
     if method == "kValue":
         diff = [js.kValue(0, kv) - s.kValue(0, kv) for kv in k]
         mabs = np.max(np.abs(diff))
-        assert mabs < 5e-16
+        assert mabs < 5e-16, k[np.argmax(np.abs(diff))]
     elif method == "xValue":
         diff = [js.xValue(x=0, y=kv) - s.xValue(x=0, y=kv) for kv in k]
         mabs = np.max(np.abs(diff))
-        assert mabs < 5e-8
+        assert mabs < 5e-8, k[np.argmax(np.abs(diff))]
     else:
         assert method in ["xValue", "kValue"]
