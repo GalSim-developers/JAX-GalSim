@@ -1,6 +1,7 @@
 import galsim as _galsim
 import galsim as gs
 import jax
+import jax.numpy as jnp
 import numpy as np
 import pytest
 from test_benchmarks import (
@@ -205,3 +206,26 @@ def test_spergel_comp_galsim_image(slen, use_same_fft_size):
     else:
         atol = 1e-9
     np.testing.assert_allclose(arr_galsim, arr_jgs, atol=atol, rtol=0)
+
+
+@pytest.mark.parametrize("method", ["xValue", "kValue"])
+def test_spergel_comp_galsim_value(method):
+    nu = 0.5
+    hlr = 1
+
+    js = jgs.Spergel(nu=nu, half_light_radius=hlr)
+    s = gs.Spergel(nu=nu, half_light_radius=hlr)
+    kmin = np.log10(np.pi / s.maxk) - 4
+    kmax = np.log10(np.pi / s.stepk) + 2
+    k = jnp.logspace(kmin, kmax, 1000)
+
+    if method == "kValue":
+        diff = [js.kValue(0, kv) - s.kValue(0, kv) for kv in k]
+        mabs = np.max(np.abs(diff))
+        assert mabs < 5e-16
+    elif method == "xValue":
+        diff = [js.xValue(x=0, y=kv) - s.xValue(x=0, y=kv) for kv in k]
+        mabs = np.max(np.abs(diff))
+        assert mabs < 5e-8
+    else:
+        assert method in ["xValue", "kValue"]
