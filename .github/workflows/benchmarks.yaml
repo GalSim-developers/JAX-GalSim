@@ -40,6 +40,7 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install .[dev]
 
+      # the glibc debug symbols are needed by the benchmark tooling from codspeed
       - name: Install glibc debug symbols
         env:
           DEBIAN_FRONTEND: noninteractive

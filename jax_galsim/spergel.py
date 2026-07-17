@@ -172,7 +172,7 @@ def _binary_search(func, x0, low=0.0, high=40.0):
 
 
 @jax.jit
-def calculateFluxRadius(alpha, nu, zmin=0.0, zmax=40.0):
+def calculateFluxRadius(alpha, nu):
     """Return radius R enclosing flux fraction alpha in unit of the scale radius r0
 
     Method: Solve  F(R/r0=z)/Flux - alpha = 0 using bisection algorithm
@@ -250,6 +250,8 @@ def _spergel_hlr_pade(x):
 def _spergel_hlr_binary_search_plus_pade_init(nu):
     """Return radius R enclosing flux fraction 0.5 in unit of the scale radius r0"""
     z = _spergel_hlr_pade(nu)
+    # this parameter sets the window around the initial guess from the pade approximation
+    # it should be bigger than the maximum absolute error of the approximation
     eps = 1e-6
 
     def _hlr_bs(f, x0):
@@ -278,6 +280,11 @@ where :math:`r_0` is the ``scale_radius``, and :math:`\nu` mandatory to be in [-
 
 The JAX-GalSim implementation does not support autodiff with respect to :math:`\nu` for
 real-space evaluations.
+
+When the profile is initialized using the half-light radius, if :math:`\nu` is a Python float,
+then GalSim is used to convert to the scale radius :math:`r_0`. Otherwise, JAX-GalSim does the
+conversion on-the-fly using a combination of an approximate guess and a binary search. Similar
+logic is used for the ``calculateFluxRadius`` method.
 """
 
 
