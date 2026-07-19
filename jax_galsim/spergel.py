@@ -1,21 +1,17 @@
 import galsim as _galsim
 import jax
 import jax.numpy as jnp
+import jax.scipy as jsp
 from jax.tree_util import Partial as partial
 from jax.tree_util import register_pytree_node_class
 
 from jax_galsim.bessel import kv
 from jax_galsim.core.draw import draw_by_kValue, draw_by_xValue
-from jax_galsim.core.utils import bisect_for_root, ensure_hashable, implements
+from jax_galsim.core.interpolate import akima_interp, akima_interp_coeffs
+from jax_galsim.core.math import safe_sqrt
+from jax_galsim.core.utils import cast_to_float, ensure_hashable, implements
 from jax_galsim.gsobject import GSObject
 from jax_galsim.random import UniformDeviate
-
-
-@jax.jit
-def gamma(x):
-    """Gamma(x)"""
-    x = x * 1.0
-    return jnp.exp(jax.lax.lgamma(x))
 
 
 @jax.jit
@@ -24,14 +20,8 @@ def _gamma(nu):
     return jnp.select(
         [nu == 0, nu == 1, nu == 2, nu == 3, nu == 4, nu == 5],
         [jnp.inf, 1.0, 1.0, 2.0, 6.0, 24.0],
-        default=gamma(nu),
+        default=jsp.special.gamma(nu),
     )
-
-
-@jax.jit
-def _gammap1(nu):
-    """Gamma(nu+1)"""
-    return _gamma(nu + 1.0)
 
 
 @jax.jit
@@ -97,10 +87,20 @@ def f5(z):
 
 
 @jax.jit
-def fsmallz_nu(z, nu):
-    def fnu(z, nu):
+def fsmallz_nu(nu, z):
+    msk0 = nu == 0
+    msk1 = nu == 1
+    msk2 = nu == 2
+    msk3 = nu == 3
+    msk4 = nu == 4
+    nu_safe = jnp.where(
+        msk0 | msk1 | msk2 | msk3 | msk4,
+        nu + 1e-10,
+        nu,
+    )
+
+    def fnu(nu, z):
         """z^nu K_nu[z] with z -> 0 O(z^4) z > 0"""
-        nu += 1.0e-10  # to garanty that nu is not an integer
         z2 = z * z
         z4 = z2 * z2
         c1 = jnp.power(2.0, -6.0 - nu)
@@ -112,51 +112,22 @@ def fsmallz_nu(z, nu):
         return c1 * (c4 * c5 * c2 + jnp.power(4.0, nu) * (c6 + 32.0 * _gamma(nu)))
 
     return jnp.select(
-        [nu == 0, nu == 1, nu == 2, nu == 3, nu == 4],
+        [msk0, msk1, msk2, msk3, msk4],
         [f0(z), f1(z), f2(z), f3(z), f4(z)],
-        default=fnu(z, nu),
+        default=fnu(nu_safe, z),
     )
 
 
 @jax.jit
-def fz_nu(z, nu):
+def _fz_nu(nu, z):
     """z^nu K_nu[z] with z > 0"""
-    return jnp.where(z <= 1.0e-10, fsmallz_nu(z, nu), jnp.power(z, nu) * kv(nu, z))
-
-
-@jax.jit
-def fsmallz_nup1(z, nu):
-    def fnu(z, nu):
-        """z^(nu+1) K_(nu+1)[z] with  z -> 0"""
-        z2 = z * z
-        z4 = z2 * z2
-        c1 = -jnp.power(2.0, -4.0 - nu)
-        c2 = _gamma(-2.0 - nu)
-        c3 = c1 * c2 * (8.0 + 4.0 * nu + z2) * jnp.power(z, 2.0 * (1.0 + nu))
-        c4 = jnp.power(2.0, nu)
-        c5 = _gammap1(nu)
-        c6 = c4 * c5 * (1.0 - 0.25 * z2 / nu + z4 * 0.03125 / (nu * (nu - 1.0)))
-        return c3 + c6
-
-    return jnp.select(
-        [nu == 0, nu == 1, nu == 2, nu == 3, nu == 4],
-        [f1(z), f2(z), f3(z), f4(z), f5(z)],
-        default=fnu(z, nu),
-    )
-
-
-@jax.jit
-def fz_nup1(z, nu):
-    """z^(nu+1) K_{nu+1}(z)"""
-    return jnp.where(
-        z <= 1.0e-10, fsmallz_nup1(z, nu), jnp.power(z, nu + 1.0) * kv(nu + 1.0, z)
-    )
+    return jnp.power(z, nu) * kv(nu, z)
 
 
 @jax.jit
 def fluxfractionFunc(z, nu, alpha):
     """1 - z^(nu+1) K_{nu+1}(z) / (2^nu Gamma(nu+1)) - alpha"""
-    return 1.0 - fz_nup1(z, nu) / (jnp.power(2.0, nu) * _gammap1(nu)) - alpha
+    return 1.0 - _fz_nu(nu + 1.0, z) / (jnp.power(2.0, nu) * _gamma(nu + 1.0)) - alpha
 
 
 @jax.jit
@@ -165,8 +136,43 @@ def reducedfluxfractionFunc(z, nu, norm):
     return fluxfractionFunc(z, nu, alpha=0.0) / norm
 
 
+# code here is from JAX source for testing custom_root
+# used under license:
+# Copyright 2022 The JAX Authors.
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#     https://www.apache.org/licenses/LICENSE-2.0
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+def _binary_search(func, x0, low=0.0, high=40.0):
+    del x0  # unused
+
+    def cond(state):
+        low, high = state
+        midpoint = 0.5 * (low + high)
+        return (low < midpoint) & (midpoint < high)
+
+    def body(state):
+        low, high = state
+        midpoint = 0.5 * (low + high)
+        update_upper = func(midpoint) > 0
+        low = jnp.where(update_upper, low, midpoint)
+        high = jnp.where(update_upper, midpoint, high)
+        return (low, high)
+
+    solution, _ = jax.lax.while_loop(cond, body, (low, high))
+    return solution
+
+
+# end of code from jax source
+
+
 @jax.jit
-def calculateFluxRadius(alpha, nu, zmin=0.0, zmax=40.0):
+def calculateFluxRadius(alpha, nu, zmin=0, zmax=40):
     """Return radius R enclosing flux fraction alpha in unit of the scale radius r0
 
     Method: Solve  F(R/r0=z)/Flux - alpha = 0 using bisection algorithm
@@ -184,11 +190,11 @@ def calculateFluxRadius(alpha, nu, zmin=0.0, zmax=40.0):
 
      nb. it is supposed that nu is in [-0.85, 4.0] checked in the Spergel class init
     """
-    return bisect_for_root(
+    return jax.lax.custom_root(
         partial(fluxfractionFunc, nu=nu, alpha=alpha),
-        zmin,
-        zmax,
-        niter=75,
+        20.0,
+        partial(_binary_search, low=zmin, high=zmax),
+        lambda f, y: y / f(1.0),
     )
 
 
@@ -240,6 +246,25 @@ def _spergel_hlr_pade(x):
     return pm / qm
 
 
+@jax.jit
+def _spergel_hlr_binary_search_plus_pade_init(nu):
+    """Return radius R enclosing flux fraction 0.5 in unit of the scale radius r0"""
+    z = _spergel_hlr_pade(nu)
+    # this parameter sets the window around the initial guess from the pade approximation
+    # it should be bigger than the maximum absolute error of the approximation
+    eps = 1e-6
+
+    def _hlr_bs(f, x0):
+        return _binary_search(f, x0, low=x0 - eps, high=x0 + eps)
+
+    return jax.lax.custom_root(
+        partial(fluxfractionFunc, nu=nu, alpha=0.5),
+        z,
+        _hlr_bs,
+        lambda f, y: y / f(1.0),
+    )
+
+
 LAX_SPERGEL_DESCRIPTION = r"""
 The fully normalized Spergel profile (used in both standard GalSim and JAX-GalSim) is
 
@@ -255,6 +280,11 @@ where :math:`r_0` is the ``scale_radius``, and :math:`\nu` mandatory to be in [-
 
 The JAX-GalSim implementation does not support autodiff with respect to :math:`\nu` for
 real-space evaluations.
+
+When the profile is initialized using the half-light radius, if :math:`\nu` is a Python float,
+then GalSim is used to convert to the scale radius :math:`r_0`. Otherwise, JAX-GalSim does the
+conversion on-the-fly using a combination of an approximate guess and a binary search. Similar
+logic is used for the ``calculateFluxRadius`` method.
 """
 
 
@@ -277,6 +307,8 @@ class Spergel(GSObject):
         flux=1.0,
         gsparams=None,
     ):
+        nu = cast_to_float(nu)
+
         # Parse the radius options
         if half_light_radius is not None:
             if scale_radius is not None:
@@ -286,9 +318,17 @@ class Spergel(GSObject):
                     scale_radius=scale_radius,
                 )
             else:
+                # for python floats, we can use galsim on the CPU-side to do this
+                # quickly as long as we ensure it is done at compile time.
+                if isinstance(nu, float):
+                    with jax.ensure_compile_time_eval():
+                        hlr = _galsim.Spergel(nu, scale_radius=1).half_light_radius
+                else:
+                    hlr = _spergel_hlr_binary_search_plus_pade_init(nu)
+
                 super().__init__(
                     nu=nu,
-                    scale_radius=half_light_radius / _spergel_hlr_pade(nu),
+                    scale_radius=half_light_radius / hlr,
                     flux=flux,
                     gsparams=gsparams,
                 )
@@ -335,12 +375,20 @@ class Spergel(GSObject):
     @property
     @implements(_galsim.spergel.Spergel.half_light_radius)
     def half_light_radius(self):
-        return self._r0 * _spergel_hlr_pade(self.nu)
+        # for python floats, we can use galsim on the CPU-side to do this
+        # quickly as long as we ensure it is done at compile time.
+        if isinstance(self.nu, float):
+            with jax.ensure_compile_time_eval():
+                hlr = _galsim.Spergel(self.nu, scale_radius=1).half_light_radius
+        else:
+            hlr = _spergel_hlr_binary_search_plus_pade_init(self.nu)
+
+        return self._r0 * hlr
 
     @property
     def _shootxnorm(self):
         """Normalization for photon shooting"""
-        return 1.0 / (2.0 * jnp.pi * jnp.power(2.0, self.nu) * _gammap1(self.nu))
+        return 1.0 / (2.0 * jnp.pi * jnp.power(2.0, self.nu) * _gamma(self.nu + 1.0))
 
     @property
     def _xnorm(self):
@@ -356,7 +404,16 @@ class Spergel(GSObject):
 
     @implements(_galsim.spergel.Spergel.calculateFluxRadius)
     def calculateFluxRadius(self, f):
-        return self._r0 * calculateFluxRadius(f, self.nu)
+        f = cast_to_float(f)
+        # for python floats, we can use galsim on the CPU-side to do this
+        # quickly as long as we ensure it is done at compile time.
+        if isinstance(self.nu, float) and isinstance(f, float):
+            with jax.ensure_compile_time_eval():
+                fac = _galsim.Spergel(self.nu, scale_radius=1).calculateFluxRadius(f)
+        else:
+            fac = calculateFluxRadius(f, self.nu)
+
+        return self._r0 * fac
 
     @implements(_galsim.spergel.Spergel.calculateIntegratedFlux)
     def calculateIntegratedFlux(self, r):
@@ -410,11 +467,108 @@ class Spergel(GSObject):
         # from SBSpergelImpl.h
         return jnp.abs(self._xnorm) * self._xnorm0
 
+    @staticmethod
+    @jax.jit
+    def _xValue_exact_func(nu, r, xnorm):
+        return xnorm * _fz_nu(nu, r)
+
+    @staticmethod
+    @jax.jit
+    def _xValue_asymp_func(nu, r, xnorm):
+        return xnorm * jnp.power(r, nu) * jnp.exp(-r) * jnp.sqrt(jnp.pi / 2 / r)
+
+    @staticmethod
+    @jax.jit
+    def _xValue_smallz_func(nu, r, xnorm):
+        return xnorm * fsmallz_nu(nu, r)
+
+    def _xValue_interp_coeffs(self):
+        # MRB: this number of points gets the tests to pass
+        # I did not investigate further.
+        n_pts = 2000
+        r_min = jnp.minimum(jnp.pi / self.maxk, 1e-6)
+        r_max = jnp.pi / self.stepk
+        r = jnp.logspace(jnp.log10(r_min), jnp.log10(r_max), n_pts)
+
+        nu = jax.lax.stop_gradient(self.nu)
+        vals = self._xValue_exact_func(
+            nu,
+            r / self._r0,
+            jnp.abs(self._xnorm),
+        )
+
+        # slope to match the interpolant onto an asymptotic expansion of kv
+        # that is kv(x) ~ sqrt(pi/2/x) * exp(-x) * (1 + slp/x)
+        xval = r[-1] / self._r0
+        aval = self._xValue_asymp_func(nu, xval, jnp.abs(self._xnorm))
+        slp_asymp = (vals[-1] / aval - 1) * xval
+
+        # slope to match the interpolant onto a taylor expansion to z^4
+        # via kv(x) ~ kv_smallz(x) * (1 + slp * x**4)
+        xval = r[0] / self._r0
+        aval = self._xValue_smallz_func(nu, xval, jnp.abs(self._xnorm))
+        slp_smallz = (vals[0] / aval - 1) / jnp.power(xval, 4)
+
+        return (
+            r,
+            jnp.log(vals),
+            akima_interp_coeffs(jnp.log(r), jnp.log(vals)),
+            slp_asymp,
+            slp_smallz,
+        )
+
     @jax.jit
     def _xValue(self, pos):
-        r = jnp.sqrt(pos.x**2 + pos.y**2) * self._inv_r0
-        res = jnp.where(r == 0, self._xnorm0, fz_nu(r, jax.lax.stop_gradient(self.nu)))
-        return self._xnorm * res
+        # we cannot compute gradients with respect to nu
+        nu = jax.lax.stop_gradient(self.nu)
+
+        r = safe_sqrt(pos.x**2 + pos.y**2)
+
+        # we work with a 1D array and reshape it back at the end
+        out_shape = jnp.shape(r)
+        r = jnp.atleast_1d(r).ravel()
+
+        # the computation here uses 4 parts
+        # - a value at r = 0
+        # - a taylor expansion at small r
+        # - an interpolant
+        # - an asymptotic expansion at large r
+        # the interpolant is matched onto the taylor and asymptotic via two slopes
+        r_, vals_, coeffs, slp_asymp, slp_smallz = self._xValue_interp_coeffs()
+
+        # define masks for each range
+        msk_nz = r > 0
+        r_msk_nz = jnp.where(msk_nz, r, r_[0])
+        r_msk_nz_inv_r0 = r_msk_nz * self._inv_r0
+        msk_asymp = r > r_[-1]
+        msk_smallz = r < r_[0]
+        msk_interp = (~msk_smallz) & (~msk_asymp)
+        msk_smallz = msk_smallz & msk_nz
+
+        # compute values for each range
+        res_z = self._xnorm0 * self._xnorm
+        res_smallz = self._xValue_smallz_func(nu, r_msk_nz_inv_r0, self._xnorm) * (
+            1.0 + slp_smallz * jnp.power(r_msk_nz_inv_r0, 4)
+        )
+        res_interp = jnp.exp(
+            akima_interp(
+                jnp.log(r_msk_nz), jnp.log(r_), vals_, coeffs, fixed_spacing=True
+            )
+        ) * jnp.sign(self._xnorm)
+        res_asymp = self._xValue_asymp_func(
+            nu,
+            r_msk_nz_inv_r0,
+            self._xnorm,
+        ) * (1.0 + slp_asymp / r_msk_nz_inv_r0)
+
+        # pick the right value
+        res = jnp.select(
+            [~msk_nz, msk_smallz, msk_interp, msk_asymp],
+            [res_z, res_smallz, res_interp, res_asymp],
+        )
+
+        # reshape to final output
+        return res.reshape(out_shape)
 
     @jax.jit
     def _kValue(self, kpos):
@@ -478,7 +632,7 @@ class Spergel(GSObject):
         )
         flux_target = self.gsparams.shoot_accuracy
         shoot_rmin = calculateFluxRadius(flux_target, self.nu)
-        knur = fz_nu(shoot_rmin, self.nu)
+        knur = _fz_nu(self.nu, shoot_rmin)
 
         corrFact = self._shootxnorm  # this is the correct normalisation
         b = knur - flux_target / (jnp.pi * shoot_rmin * shoot_rmin * corrFact)
@@ -487,11 +641,11 @@ class Spergel(GSObject):
 
         def cumulflux(z, a, b, zmin, nu, norm=1.0):
             flux_min = a / 3.0 * zmin * zmin * zmin + b / 2.0 * zmin * zmin
-            c1 = fz_nup1(zmin, nu)
+            c1 = _fz_nu(nu + 1.0, zmin)
             res = jnp.where(
                 z <= zmin,
                 a / 3.0 * z * z * z + b / 2.0 * z * z,
-                flux_min + c1 - fz_nup1(z, nu),
+                flux_min + c1 - _fz_nu(nu + 1.0, z),
             )
             return res / norm
 
