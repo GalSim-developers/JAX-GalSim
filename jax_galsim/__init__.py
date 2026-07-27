@@ -102,6 +102,7 @@ from .sensor import Sensor
 from . import bessel
 from . import fits
 from . import integ
+from . import des
 
 # this one is specific to jax_galsim
 from . import core
