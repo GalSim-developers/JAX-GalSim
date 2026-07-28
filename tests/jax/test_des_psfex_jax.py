@@ -68,6 +68,34 @@ def test_des_psfex_getPSF_drawn_image_vs_galsim():
 
 @requires_des_data
 @timer
+def test_des_psfex_pytree_roundtrip_and_traced_arg():
+    """DES_PSFEx is a registered PyTree: it round-trips through flatten/
+    unflatten (without re-reading the file) and can be passed as an argument to
+    a transformed function, including two distinct-but-equal instances."""
+    jgs = galsim.des.DES_PSFEx(PSFEX_FILE, dir=DES_DATA_DIR)
+
+    leaves, treedef = jax.tree_util.tree_flatten(jgs)
+    rebuilt = jax.tree_util.tree_unflatten(treedef, leaves)
+    np.testing.assert_array_equal(np.asarray(rebuilt.basis), np.asarray(jgs.basis))
+    for x, y in POSITIONS:
+        np.testing.assert_allclose(
+            np.asarray(rebuilt.getPSFArray(galsim.PositionD(x, y))),
+            np.asarray(jgs.getPSFArray(galsim.PositionD(x, y))),
+            rtol=0,
+            atol=1e-6,
+        )
+
+    # Pass the object itself as a jitted argument. Using two distinct instances
+    # exercises the hashability of the (auxiliary) PSFEx data in the treedef.
+    f = jax.jit(lambda obj, x, y: obj.getPSFArray(galsim.PositionD(x, y)))
+    jgs2 = galsim.des.DES_PSFEx(PSFEX_FILE, dir=DES_DATA_DIR)
+    a1 = f(jgs, 456.0, 789.0)
+    a2 = f(jgs2, 456.0, 789.0)
+    np.testing.assert_allclose(np.asarray(a1), np.asarray(a2), rtol=0, atol=1e-6)
+
+
+@requires_des_data
+@timer
 def test_des_psfex_is_jittable_vmappable_differentiable():
     """getPSFArray should support jit, vmap, and grad over the image position."""
     jgs = galsim.des.DES_PSFEx(PSFEX_FILE, dir=DES_DATA_DIR)
@@ -95,5 +123,6 @@ def test_des_psfex_is_jittable_vmappable_differentiable():
 if __name__ == "__main__":
     test_des_psfex_getPSFArray_vs_galsim()
     test_des_psfex_getPSF_drawn_image_vs_galsim()
+    test_des_psfex_pytree_roundtrip_and_traced_arg()
     test_des_psfex_is_jittable_vmappable_differentiable()
     print("all DES_PSFEx tests passed")
