@@ -51,7 +51,7 @@ def main(
     cpu_or_gpu: str = typer.Option(default="cpu"),
     psf_type: str = typer.Option(default="gaussian"),
     buffer: int = typer.Option(default=3),
-    fft_size: int = typer.Option(default=256),
+    fft_size: int = typer.Option(default=128),
     seed: int = typer.Option(default=42),
     min_mag: float = typer.Option(default=20.0),
     max_n_iters: int = typer.Option(default=2),
@@ -81,6 +81,7 @@ def main(
         # to be a useful comparison
         assert len(max_n_gals_bins) == len(stamp_slen_bins) == 1
         stamp_size_galsim = stamp_slen_bins[0]
+
     fft_size_galsim = None
     if fix_galsim_fft_size:
         fft_size_galsim = fft_size
