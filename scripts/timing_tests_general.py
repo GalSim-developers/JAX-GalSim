@@ -104,9 +104,9 @@ def main(
     # create unique folder name
     fix_str = ""
     if fix_galsim_stamp_size:
-        fix_str += "_fix-stamp"
+        fix_str += "-fix-stamp"
     if fix_galsim_fft_size:
-        fix_str += "_fix-fft_size"
+        fix_str += "-fix-fft-size"
     extra_suffix_str = f"-{extra_suffix}" if extra_suffix else ""
     hash_name = (
         f"{image_slen}-{n_samples}-{psf_type}-{fft_size}-{seed}-"
