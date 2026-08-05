@@ -446,7 +446,7 @@ def _prepare_per_bin_samples(
         n_gals = _mask.sum().item()
         n_iters_jj = math.ceil(n_gals / max_n_gals_jj)
         assert n_iters_jj <= max_n_iters, (
-            f"Number of iterations in size bin {jj} is {n_iters_jj} which is larger than max_n_iters:{max_n_iters}"
+            f"Number of iterations in size bin index {jj} is {n_iters_jj} which is larger than max_n_iters:{max_n_iters}"
         )
 
         # here we want static shapes (small memory overheard with parameters)
