@@ -59,6 +59,7 @@ def main(
     max_hlr: float = typer.Option(default=2.0),  # arcsecs
     extra_suffix: str = typer.Option(default=""),
     fix_galsim_stamp_size: bool = False,  # fixed to largest in stamp_slen_bins
+    fix_galsim_fft_size: bool = False,
     progress_bar: bool = True,
 ):
     # does not support multi-threading or multiprocessing
@@ -79,6 +80,9 @@ def main(
         # to be a useful comparison
         assert len(max_n_gals_bins) == len(stamp_slen_bins) == 1
         stamp_size_galsim = stamp_slen_bins[0]
+    fft_size_galsim = None
+    if fix_galsim_fft_size:
+        fft_size_galsim = fft_size
 
     if cpu_or_gpu == "cpu":
         device = jax.devices("cpu")[0]
@@ -98,11 +102,15 @@ def main(
     )
 
     # create unique folder name
-    fix_galsim_str = "-fix-galsim" if fix_galsim_stamp_size else ""
+    fix_str = ""
+    if fix_galsim_stamp_size:
+        fix_str += "_fix-stamp"
+    if fix_galsim_fft_size:
+        fix_str += "_fix-fft_size"
     extra_suffix_str = f"-{extra_suffix}" if extra_suffix else ""
     hash_name = (
         f"{image_slen}-{n_samples}-{psf_type}-{fft_size}-{seed}-"
-        f"hb{bin_hash}-{cpu_or_gpu}-{scan_or_vmap}{fix_galsim_str}{extra_suffix_str}"
+        f"hb{bin_hash}-{cpu_or_gpu}-{scan_or_vmap}{fix_str}{extra_suffix_str}"
     )
     print(f"INFO: Running timing results and saving to folder '{hash_name}'")
 
@@ -205,6 +213,7 @@ def main(
                 psf=_psf,
                 ilen=image_slen,
                 slen=stamp_size_galsim,
+                fft_size=fft_size_galsim,
                 max_slen=stamp_slen_bins[-1],  # sanity
             )
             t2 = time.time()
