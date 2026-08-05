@@ -32,10 +32,11 @@ from tqdm import tqdm
 
 import jax_galsim as jgs
 
-BETA_PSF = 5.0
-HLR_PSF = 0.7
-MIN_HLR_PSF = 0.5
-MAX_HLR_PSF = 1.0
+# metadetect lsst paper
+BETA_PSF = 2.5
+FWHM_PSF = 0.8
+MIN_FWHM_PSF = 0.6  # somewhat arbitrary
+MAX_FWHM_PSF = 1.0
 
 
 def main(
@@ -382,41 +383,41 @@ def _prepare_psf_functions(psf_type: str):
     if psf_type == "gaussian":
 
         def _get_galsim_psf(key):
-            return galsim.Gaussian(half_light_radius=HLR_PSF, flux=1.0)
+            return galsim.Gaussian(fwhm=FWHM_PSF, flux=1.0)
 
         def _get_jgs_psf(key):
-            return jgs.Gaussian(half_light_radius=HLR_PSF, flux=1.0)
+            return jgs.Gaussian(fwhm=FWHM_PSF, flux=1.0)
 
-        _ref_galsim_psf = galsim.Gaussian(half_light_radius=HLR_PSF, flux=1.0)
+        _ref_galsim_psf = galsim.Gaussian(fwhm=FWHM_PSF, flux=1.0)
 
     elif psf_type == "moffat":
         # beta value from galsim tutorial 2
         def _get_galsim_psf(key):
-            return galsim.Moffat(half_light_radius=HLR_PSF, beta=BETA_PSF, flux=1.0)
+            return galsim.Moffat(fwhm=FWHM_PSF, beta=BETA_PSF, flux=1.0)
 
         def _get_jgs_psf(key):
-            return jgs.Moffat(half_light_radius=HLR_PSF, beta=BETA_PSF, flux=1.0)
+            return jgs.Moffat(fwhm=FWHM_PSF, beta=BETA_PSF, flux=1.0)
 
-        _ref_galsim_psf = galsim.Moffat(
-            half_light_radius=HLR_PSF, beta=BETA_PSF, flux=1.0
-        )
+        _ref_galsim_psf = galsim.Moffat(fwhm=FWHM_PSF, beta=BETA_PSF, flux=1.0)
 
     elif psf_type == "vary-moffat":
 
         def _get_galsim_psf(key):
-            _hlr = random.uniform(key, minval=MIN_HLR_PSF, maxval=MAX_HLR_PSF, shape=())
-            _hlr = _hlr.item()
-            return galsim.Moffat(half_light_radius=_hlr, beta=BETA_PSF, flux=1.0)
+            _fwhm = random.uniform(
+                key, minval=MIN_FWHM_PSF, maxval=MAX_FWHM_PSF, shape=()
+            )
+            _fwhm = _fwhm.item()
+            return galsim.Moffat(fwhm=_fwhm, beta=BETA_PSF, flux=1.0)
 
         def _get_jgs_psf(key):
-            _hlr = random.uniform(key, minval=MIN_HLR_PSF, maxval=MAX_HLR_PSF, shape=())
-            _hlr = _hlr.item()
-            return jgs.Moffat(half_light_radius=_hlr, beta=BETA_PSF, flux=1.0)
+            _fwhm = random.uniform(
+                key, minval=MIN_FWHM_PSF, maxval=MAX_FWHM_PSF, shape=()
+            )
+            _fwhm = _fwhm.item()
+            return jgs.Moffat(fwhm=_fwhm, beta=BETA_PSF, flux=1.0)
 
         # biggest size PSF for computing good sizes
-        _ref_galsim_psf = galsim.Moffat(
-            half_light_radius=MAX_HLR_PSF, beta=BETA_PSF, flux=1.0
-        )
+        _ref_galsim_psf = galsim.Moffat(fwhm=MAX_FWHM_PSF, beta=BETA_PSF, flux=1.0)
 
     else:
         raise NotImplementedError(
