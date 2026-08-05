@@ -18,6 +18,9 @@ from tqdm import tqdm
 
 import jax_galsim as jgs
 
+# be super careful with ffts
+galsim.errors.raise_fft_size_error = True
+
 PARAM_NAMES = [
     "flux_b",
     "flux_d",
@@ -223,6 +226,7 @@ def draw_galsim(
         gal = get_bd_galsim(**_gal_params, psf=psf)
         if fft_size is not None:
             gal = gal.withGSParams(minimum_fft_size=fft_size, maximum_fft_size=fft_size)
+
         stamp = gal.drawImage(
             center=image_pos, wcs=local_wcs, dtype=image.dtype, nx=slen, ny=slen
         )
