@@ -35,8 +35,8 @@ import jax_galsim as jgs
 # metadetect lsst paper
 BETA_PSF = 2.5
 FWHM_PSF = 0.8
-MIN_FWHM_PSF = 0.6  # somewhat arbitrary
-MAX_FWHM_PSF = 1.0
+MIN_FWHM_PSF = 0.7  # somewhat arbitrary but within LSST range
+MAX_FWHM_PSF = 0.9
 
 
 def main(
@@ -51,7 +51,7 @@ def main(
     cpu_or_gpu: str = typer.Option(default="cpu"),
     psf_type: str = typer.Option(default="gaussian"),
     buffer: int = typer.Option(default=3),
-    fft_size: int = typer.Option(default=128),
+    fft_size: int = typer.Option(default=256),
     seed: int = typer.Option(default=42),
     min_mag: float = typer.Option(default=20.0),
     max_n_iters: int = typer.Option(default=2),
