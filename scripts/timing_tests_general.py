@@ -34,8 +34,8 @@ import jax_galsim as jgs
 
 # metadetect lsst paper
 BETA_PSF = 2.5
-FWHM_PSF = 0.8
-MIN_FWHM_PSF = 0.7  # somewhat arbitrary but within LSST range
+FWHM_PSF = 0.8  # probably was the requirement (Axel)
+MIN_FWHM_PSF = 0.7  # somewhat arbitrary but within LSST range; consider +-0.2
 MAX_FWHM_PSF = 0.9
 
 
@@ -120,7 +120,7 @@ def main(
     out_folder.mkdir(parents=False, exist_ok=True)
 
     # prepare psf
-    get_galsim_psf, get_jgs_psf, ref_galsim_psf = _prepare_psf_functions(psf_type)
+    get_galsim_psf, get_jgs_psf, ref_galsim_psf = _prepare_psf_functions_hlr(psf_type)
 
     # catalog preparation and masking
     cat = prepare_catalog(
