@@ -200,7 +200,9 @@ def main(
     # timing start
     pdf_name = out_folder / "residuals.pdf"
     rkeys = random.split(random.PRNGKey(seed), n_samples)
-    with PdfPages(pdf_name) as pdf:
+
+    _keep_empty = True if cpu_or_gpu == "gpu" else False
+    with PdfPages(pdf_name, keep_empty=_keep_empty) as pdf:
         for ii, rkey in tqdm(
             enumerate(rkeys),
             total=n_samples,
@@ -289,15 +291,16 @@ def main(
                     )
                     print(_res[mask].ravel())
 
-            # save residual images to a multipage pdf for inspection
-            add_results_to_pdf(
-                ii,
-                pdf,
-                gs_arr=gs_arr,
-                jgs_np_arr=np.array(jgs_arr),
-                t_galsim=t_galsim,
-                t_jgalsim=t_jgalsim,
-            )
+            if cpu_or_gpu == "cpu":
+                # save residual images to a multipage pdf for inspection
+                add_results_to_pdf(
+                    ii,
+                    pdf,
+                    gs_arr=gs_arr,
+                    jgs_np_arr=np.array(jgs_arr),
+                    t_galsim=t_galsim,
+                    t_jgalsim=t_jgalsim,
+                )
 
             # write down record for potential refinement of bins (only on CPU)
             if cpu_or_gpu == "cpu":
