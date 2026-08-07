@@ -35,8 +35,13 @@ import jax_galsim as jgs
 # metadetect lsst paper
 BETA_PSF = 2.5
 FWHM_PSF = 0.8  # probably was the requirement (Axel)
-MIN_FWHM_PSF = 0.7  # somewhat arbitrary but within LSST range; consider +-0.2
-MAX_FWHM_PSF = 0.9
+MIN_FWHM_PSF = 0.7
+MAX_FWHM_PSF = 1.0
+
+# tolerance for how positive residual (gs-jgs) can be for a given image (lower => more strict)
+# some elements of the residual will be positive due to numerics even if stamp sizes from JGS
+# are not wrong it seems
+POS_RESIDUAL_THRESHOLD = 1
 
 
 def main(
@@ -50,7 +55,7 @@ def main(
     scan_or_vmap: str = typer.Option(default="scan"),
     cpu_or_gpu: str = typer.Option(default="cpu"),
     psf_type: str = typer.Option(default="gaussian"),
-    buffer: int = typer.Option(default=3),
+    buffer: int = typer.Option(default=4),
     fft_size: int = typer.Option(default=128),
     seed: int = typer.Option(default=42),
     min_mag: float = typer.Option(default=20.0),
@@ -61,6 +66,7 @@ def main(
     extra_suffix: str = typer.Option(default=""),
     fix_galsim_stamp_size: bool = False,  # fixed to largest in stamp_slen_bins
     fix_galsim_fft_size: bool = False,
+    check_stamp_sizes: bool = False,
     progress_bar: bool = True,
 ):
     # does not support multi-threading or multiprocessing
@@ -96,7 +102,7 @@ def main(
     max_stamp_size = max(stamp_slen_bins)
 
     out_root_path = Path(outdir)
-    assert out_root_path.exists()
+    assert out_root_path.exists(), "Need to create root output directory."
 
     # get hash for specified bin argument
     bin_hash = _get_bins_hash(
@@ -120,7 +126,7 @@ def main(
     out_folder.mkdir(parents=False, exist_ok=True)
 
     # prepare psf
-    get_galsim_psf, get_jgs_psf, ref_galsim_psf = _prepare_psf_functions_hlr(psf_type)
+    get_galsim_psf, get_jgs_psf, ref_galsim_psf = _prepare_psf_functions(psf_type)
 
     # catalog preparation and masking
     cat = prepare_catalog(
@@ -138,7 +144,10 @@ def main(
 
     # buffer is needed for a few pixel difference that sometimes occurs between estimating
     # good size on isolated images like in the function above and the stamp size galsim
-    # ultimately uses when drawing stamp onto the big image
+    # ultimately uses when drawing stamp onto the big image.
+    # this prevents us from EVER drawing a smaller stamp than needed in jax-galsim otherwise we
+    # crash when 'check-stamp-sizes' flag is active.
+    # this combined with the max_slen argument in the `draw_galsim` function SHOULD be all we need.
     mask_good_size = cat["good_size"] < max_stamp_size - buffer
     cat = cat[mask_good_size]
 
@@ -146,6 +155,8 @@ def main(
         f"INFO: Catalog prepared with {len(cat)} galaxies after (good size) cut "
         f"(before this cut {n1}). Percentage included is: {len(cat) / n1 * 100:2f}%"
     )
+    if check_stamp_sizes:
+        print("INFO: Stamp sizes are being checked by GalSim (not a production run).")
 
     times_galsim = []
     times_jgalsim = []
@@ -216,7 +227,11 @@ def main(
                 ilen=image_slen,
                 slen=stamp_size_galsim,
                 fft_size=fft_size_galsim,
-                max_slen=stamp_slen_bins[-1],  # sanity
+                check_stamp_sizes=check_stamp_sizes,
+                max_slen=stamp_slen_bins[-1] if check_stamp_sizes else None,
+                good_sizes=gsizes if check_stamp_sizes else None,
+                buffer=buffer if check_stamp_sizes else None,
+                size_bins=stamp_slen_bins if check_stamp_sizes else None,
             )
             t2 = time.time()
             t_galsim = t2 - t1
@@ -261,6 +276,15 @@ def main(
             t2 = time.time()
             t_jgalsim = t2 - t1
             times_jgalsim.append(t_jgalsim)
+
+            if check_stamp_sizes:
+                _res = gs_arr - np.array(jgs_arr)
+                if np.any(_res > POS_RESIDUAL_THRESHOLD):
+                    mask = _res > POS_RESIDUAL_THRESHOLD
+                    print(
+                        f"WARNING: Positive residual above threshold found for image index '{ii}'. Consider taking a look at the PDF. Likely one very bright galaxy if there was no assertion error. Values above threshold printed below."
+                    )
+                    print(_res[mask].ravel())
 
             # save residual images to a multipage pdf for inspection
             add_results_to_pdf(
