@@ -171,7 +171,7 @@ def get_one_full_sample(
     assert all_props["x"].shape == (n_sources,)
     assert all_props["flux_b"].shape == (n_sources,)
     assert good_sizes.shape == (n_sources,)
-    assert np.all(good_sizes > 1)  # unphysical?
+    assert np.all(good_sizes > 1), "Unphysical good size found"  # unphysical?
 
     return all_props, n_sources.item(), good_sizes
 
