@@ -433,7 +433,6 @@ def draw_jgs_vmap_stamps(
 
 def prepare_catalog(
     catsim_file: str,
-    max_hlr: float = 2.0,
     min_hlr=0.0,
     max_mag: float = 27.0,
 ):
@@ -442,11 +441,9 @@ def prepare_catalog(
     # avoid objects that are too bright, too dim, or too big
     hlr_b = np.sqrt(cat["a_b"] * cat["b_b"])
     hlr_d = np.sqrt(cat["a_d"] * cat["b_d"])
-    _mask1 = hlr_b < max_hlr
-    _mask2 = hlr_d < max_hlr
-    _mask3 = (hlr_b > min_hlr) | (hlr_d > min_hlr)
-    _mask4 = cat["r_ab"] < max_mag
-    mask = _mask1 & _mask2 & _mask3 & _mask4
+    _mask1 = (hlr_b > min_hlr) | (hlr_d > min_hlr)
+    _mask2 = cat["r_ab"] < max_mag
+    mask = _mask1 & _mask2
     fcat = cat[mask]
     return fcat
 
