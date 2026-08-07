@@ -435,7 +435,6 @@ def prepare_catalog(
     catsim_file: str,
     max_hlr: float = 2.0,
     min_hlr=0.0,
-    min_mag: float = 20.0,
     max_mag: float = 27.0,
 ):
     cat = Table.read(catsim_file, format="fits")
@@ -446,7 +445,7 @@ def prepare_catalog(
     _mask1 = hlr_b < max_hlr
     _mask2 = hlr_d < max_hlr
     _mask3 = (hlr_b > min_hlr) | (hlr_d > min_hlr)
-    _mask4 = (cat["r_ab"] < max_mag) & (cat["r_ab"] > min_mag)
+    _mask4 = cat["r_ab"] < max_mag
     mask = _mask1 & _mask2 & _mask3 & _mask4
     fcat = cat[mask]
     return fcat
