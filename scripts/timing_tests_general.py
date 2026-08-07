@@ -90,7 +90,10 @@ def main(
 
     fft_size_galsim = None
     if fix_galsim_fft_size:
+        print("INFO: Fixing FFT Size for GalSim (not a production run)")
         fft_size_galsim = fft_size
+    if check_stamp_sizes:
+        print("INFO: Stamp sizes are being checked by GalSim (not a production run).")
 
     if cpu_or_gpu == "cpu":
         device = jax.devices("cpu")[0]
@@ -115,6 +118,8 @@ def main(
         fix_str += "-fix-stamp"
     if fix_galsim_fft_size:
         fix_str += "-fix-fft-size"
+    if check_stamp_sizes:
+        fix_str += "-check-sizes"
     extra_suffix_str = f"-{extra_suffix}" if extra_suffix else ""
     hash_name = (
         f"{image_slen}-{n_samples}-{psf_type}-{fft_size}-{seed}-"
@@ -155,8 +160,6 @@ def main(
         f"INFO: Catalog prepared with {len(cat)} galaxies after (good size) cut "
         f"(before this cut {n1}). Percentage included is: {len(cat) / n1 * 100:2f}%"
     )
-    if check_stamp_sizes:
-        print("INFO: Stamp sizes are being checked by GalSim (not a production run).")
 
     times_galsim = []
     times_jgalsim = []
