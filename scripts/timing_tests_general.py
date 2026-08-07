@@ -39,8 +39,8 @@ MIN_FWHM_PSF = 0.7
 MAX_FWHM_PSF = 1.0
 
 # tolerance for how positive residual (gs-jgs) can be for a given image (lower => more strict)
-# some elements of the residual will be positive due to numerics even if stamp sizes from JGS
-# are not wrong it seems
+# some elements of the residual will be positive due to numerics and can be above threshold for
+# very bright objects so this does not necessarily indicate an issue
 POS_RESIDUAL_THRESHOLD = 1
 
 
@@ -58,15 +58,15 @@ def main(
     buffer: int = typer.Option(default=4),
     fft_size: int = typer.Option(default=128),
     seed: int = typer.Option(default=42),
-    min_mag: float = typer.Option(default=20.0),
-    max_n_iters: int = typer.Option(default=2),
-    max_mag: float = typer.Option(default=27.0),
-    min_hlr: float = typer.Option(default=0.0),
-    max_hlr: float = typer.Option(default=2.0),  # arcsecs
+    max_n_iters: int = typer.Option(default=5),
+    max_mag: float = typer.Option(default=27.0),  # minimal cuts
+    min_hlr: float = typer.Option(default=0.0),  # minimal cuts
     extra_suffix: str = typer.Option(default=""),
     fix_galsim_stamp_size: bool = False,  # fixed to largest in stamp_slen_bins
     fix_galsim_fft_size: bool = False,
     check_stamp_sizes: bool = False,
+    include_outliers: bool = False,
+    outlier_fraction: float = 1e-3,
     progress_bar: bool = True,
 ):
     # does not support multi-threading or multiprocessing
@@ -102,8 +102,6 @@ def main(
     else:
         raise ValueError()
 
-    max_stamp_size = max(stamp_slen_bins)
-
     out_root_path = Path(outdir)
     assert out_root_path.exists(), "Need to create root output directory."
 
@@ -134,10 +132,7 @@ def main(
     get_galsim_psf, get_jgs_psf, ref_galsim_psf = _prepare_psf_functions(psf_type)
 
     # catalog preparation and masking
-    cat = prepare_catalog(
-        catsim_fpath, min_hlr=min_hlr, max_hlr=max_hlr, min_mag=min_mag, max_mag=max_mag
-    )
-    n1 = len(cat)
+    cat = prepare_catalog(catsim_fpath, min_hlr=min_hlr, max_mag=max_mag)
     good_sizes = get_good_sizes_galsim(
         cat=cat,
         psf=ref_galsim_psf,
@@ -147,18 +142,34 @@ def main(
     )
     cat["good_size"] = good_sizes
 
-    # buffer is needed for a few pixel difference that sometimes occurs between estimating
-    # good size on isolated images like in the function above and the stamp size galsim
-    # ultimately uses when drawing stamp onto the big image.
-    # this prevents us from EVER drawing a smaller stamp than needed in jax-galsim otherwise we
-    # crash when 'check-stamp-sizes' flag is active.
-    # this combined with the max_slen argument in the `draw_galsim` function SHOULD be all we need.
-    mask_good_size = cat["good_size"] < max_stamp_size - buffer
-    cat = cat[mask_good_size]
-
+    # remove galaxies that require an image size larger than the full image itself (w/ buffer)
+    # we should never draw these galaxies
+    _mask = cat["good_size"] + buffer <= image_slen
+    cat = cat[_mask]
     print(
-        f"INFO: Catalog prepared with {len(cat)} galaxies after (good size) cut "
-        f"(before this cut {n1}). Percentage included is: {len(cat) / n1 * 100:2f}%"
+        f"INFO: Number of galaxies with good size larger than image size (with buffer): {sum(_mask)}"
+    )
+
+    # remove outliers if requested, as defined by `outlier_fraction` of the catalog (with buffer)
+    if not include_outliers:
+        # buffer is needed for a few pixel difference that sometimes occurs between estimating
+        # good size on isolated images like in the function above and the stamp size galsim
+        # ultimately uses when drawing stamp onto the big image.
+        # this prevents us from EVER drawing a smaller stamp than needed in jax-galsim otherwise we
+        # crash when 'check-stamp-sizes' flag is active.
+        # this combined with the `max_slen` argument in the `draw_galsim` function
+        # SHOULD cover all bases in terms of using a too small stamp size or missing galaxies to draw.
+        _outlier_good_size = np.percentile(cat["good_size"], 1 - outlier_fraction)
+        _mask = cat["good_size"] < _outlier_good_size
+        cat = cat[_mask]
+        print(
+            f"INFO: Removing outliers of maximum good size ({outlier_fraction * 100:.2g}%): {_outlier_good_size} (pixels)"
+        )
+        print(f"INFO: Number of galaxies that are outliers: {sum(~_mask)}")
+
+    # one more check if we can draw all of the galaxies in the catalog given our size bins
+    assert max(stamp_slen_bins) >= max(cat["good_size"]) + buffer, (
+        "Some very large galaxies will not be assigned to any bin."
     )
 
     times_galsim = []
@@ -221,7 +232,7 @@ def main(
             )
             assert sample["flux_b"].shape == (n,)
             assert gsizes.shape == (n,)
-            assert np.all(gsizes > 1)
+            assert np.all(gsizes > 1), "There should be no dummies in this array."
 
             # galsim timing
             t1 = time.time()
@@ -409,6 +420,15 @@ def _save_timing_results(
             file=fp,
         )
 
+    # save timing arrays to numpy files npz format
+    time_array_file = out_folder / "time_array_results.npz"
+    np.savez(
+        time_array_file,
+        t_galsim=np.array(times_galsim),
+        t_jgalsim=np.array(times_jgalsim),
+        t_transfer=np.array(times_transfer),
+    )
+
 
 def _prepare_psf_functions(psf_type: str):
     if psf_type == "gaussian":
@@ -480,7 +500,7 @@ def _prepare_per_bin_samples(
         max_n_gals_jj = max_n_gals_bins[jj]
 
         _mask1 = ~_already_assigned
-        _mask2 = np.less_equal(gsizes, stamp_slen_jj - buffer)
+        _mask2 = np.less_equal(gsizes + buffer, stamp_slen_jj)
         _mask = _mask1 & _mask2
         sample_jj = {k: v[_mask] for k, v in sample.items()}
 
@@ -503,6 +523,10 @@ def _prepare_per_bin_samples(
         n_iters_per_bin.append(n_iters_jj)
         _already_assigned[_mask] = True
 
+    assert np.all(_already_assigned), (
+        "Not all galaxies in sampled were assigned. "
+        "Probably some galaxy needs too large of a stamp size."
+    )
     return samples_per_bin, np.array(n_iters_per_bin)
 
 
