@@ -1,5 +1,7 @@
 import os
 
+import galsim.errors
+
 os.environ["JAX_ENABLE_X64"] = "True"
 
 from functools import partial
@@ -207,10 +209,13 @@ def draw_galsim(
     *,
     ilen: int,
     psf: galsim.GSObject,
-    max_slen: int | None = None,
     slen: int | None = None,
     fft_size: int | None = None,
+    check_stamp_sizes: bool = False,
+    max_slen: int | None = None,
     good_sizes=None,
+    buffer: int = None,
+    size_bins=None,
 ):
 
     # create big image
@@ -231,16 +236,27 @@ def draw_galsim(
             center=image_pos, wcs=local_wcs, dtype=image.dtype, nx=slen, ny=slen
         )
 
-        if max_slen:
+        if check_stamp_sizes:
+            assert max_slen is not None
+            assert good_sizes is not None
+            assert size_bins is not None
+            assert buffer is not None
+
+            # check no galaxy stamp size exceeds maximum one (we will miss one)
             assert max(stamp.array.shape) <= max_slen, (
-                f"Stamp size {stamp.array.shape} exceeds maximum stamp size. Consider increasing max_slen."
+                f"Stamp size {stamp.array.shape} exceeds maximum stamp size. "
+                "Consider increasing largest stamp size bin."
             )
-            if good_sizes is not None:
-                assert good_sizes[n] == stamp.array.shape[0], (
-                    "Good size and stamp size in GalSim differ {} vs {}".format(
-                        good_sizes[n], stamp.array.shape[0]
-                    )
-                )
+
+            # first determine what bin is actually used for this galaxy
+            gsize = good_sizes[n]
+            ss_bin_idx = np.searchsorted(size_bins, gsize + buffer)
+            jgs_ss = size_bins[ss_bin_idx]
+
+            # the check is whether that bin is larger than what galsim uses
+            assert jgs_ss >= max(stamp.array.shape), (
+                f"The stamp size used by JAX GalSim is smaller than what GalSim uses for this galaxy: {jgs_ss} vs {max(stamp.array.shape)}."
+            )
 
         b = stamp.bounds & image.bounds
         if b.isDefined():
