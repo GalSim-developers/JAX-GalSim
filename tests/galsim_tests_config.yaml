@@ -114,6 +114,11 @@ allowed_failures:
   - "module 'jax_galsim' has no attribute 'RandomWalk'"
   - "module 'jax_galsim' has no attribute 'hsm'"
   - "module 'jax_galsim' has no attribute 'des'"
+  # jax_galsim.des implements DES_PSFEx only; the MEDS and shapelet parts of
+  # the GalSim des module are not ported.
+  - "module 'jax_galsim.des' has no attribute 'MultiExposureObject'"
+  - "module 'jax_galsim.des' has no attribute 'WriteMEDS'"
+  - "module 'jax_galsim.des' has no attribute 'DES_Shapelet'"
   - "'Image' object has no attribute 'applyNonlinearity'"
   - "'Image' object has no attribute 'addReciprocityFailure'"
   - "'Image' object has no attribute 'quantize'"
