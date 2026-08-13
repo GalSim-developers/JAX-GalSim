@@ -39,14 +39,15 @@ MIN_FWHM_PSF = 0.7
 MAX_FWHM_PSF = 1.0
 
 # tolerance for how positive residual (gs-jgs) can be for a given image (lower => more strict)
-# some elements of the residual will be positive due to numerics and can be above threshold for
-# very bright objects so this does not necessarily indicate an issue
+# some elements of the residual will be positive due to numerics and can be above threshold esp.
+# for very bright objects so this does not necessarily indicate an issue.
 POS_RESIDUAL_THRESHOLD = 1
 
 
 def main(
     stamp_slen_bins_str: str = typer.Option(),
-    max_n_gals_bins_str=typer.Option(),
+    max_n_gals_bins_str: str = typer.Option(),
+    fft_size_bins_str: str = typer.Option(),
     image_slen: int = typer.Option(),
     max_n_gals_global: int = typer.Option(),
     n_samples: int = typer.Option(help="How many big images do you want?"),
@@ -56,7 +57,6 @@ def main(
     cpu_or_gpu: str = typer.Option(default="cpu"),
     psf_type: str = typer.Option(default="gaussian"),
     buffer: int = typer.Option(default=4),
-    fft_size: int = typer.Option(default=128),
     seed: int = typer.Option(default=42),
     max_n_iters: int = typer.Option(default=5),
     max_mag: float = typer.Option(default=27.0),  # minimal cuts
@@ -73,10 +73,13 @@ def main(
     # need to parse as str as typer does not support lists
     stamp_slen_bins = _parse_bins_str_input(stamp_slen_bins_str)
     max_n_gals_bins = _parse_bins_str_input(max_n_gals_bins_str)
+    fft_size_bins = _parse_bins_str_input(fft_size_bins_str)
 
     n_bins = len(stamp_slen_bins)
-    assert n_bins == len(max_n_gals_bins)
+    assert n_bins == len(max_n_gals_bins) == len(fft_size_bins)
     assert tuple(sorted(stamp_slen_bins)) == stamp_slen_bins
+    assert tuple(sorted(fft_size_bins)) == fft_size_bins
+    assert tuple(sorted(max_n_gals_bins, reverse=True)) == max_n_gals_bins
     assert scan_or_vmap in ("scan", "vmap")
     assert cpu_or_gpu in ("cpu", "gpu")
 
@@ -85,13 +88,16 @@ def main(
         # only supported for case when only 1 bin is being used
         # otherwise galsim would be used too inefficiently for this
         # to be a useful comparison
+        print("INFO: Fixing Stamp Size for GalSim (not a production run)")
         assert len(max_n_gals_bins) == len(stamp_slen_bins) == 1
         stamp_size_galsim = stamp_slen_bins[0]
 
     fft_size_galsim = None
     if fix_galsim_fft_size:
         print("INFO: Fixing FFT Size for GalSim (not a production run)")
-        fft_size_galsim = fft_size
+        assert len(fft_size_bins) == 1
+        fft_size_galsim = fft_size_bins[-1]
+
     if check_stamp_sizes:
         print("INFO: Stamp sizes are being checked by GalSim (not a production run).")
 
@@ -120,7 +126,7 @@ def main(
         fix_str += "-check-sizes"
     extra_suffix_str = f"-{extra_suffix}" if extra_suffix else ""
     hash_name = (
-        f"{image_slen}-{n_samples}-{psf_type}-{fft_size}-{seed}-"
+        f"{image_slen}-{n_samples}-{psf_type}-{seed}-"
         f"hb{bin_hash}-{cpu_or_gpu}-{scan_or_vmap}{fix_str}{extra_suffix_str}"
     )
     print(f"INFO: Running timing results and saving to folder '{hash_name}'")
@@ -133,7 +139,7 @@ def main(
 
     # catalog preparation and masking
     cat = prepare_catalog(catsim_fpath, min_hlr=min_hlr, max_mag=max_mag)
-    good_sizes = get_good_sizes_galsim(
+    good_sizes, good_fft_sizes = get_good_sizes_galsim(
         cat=cat,
         psf=ref_galsim_psf,
         overwrite=False,
@@ -147,7 +153,8 @@ def main(
     _mask = cat["good_size"] + buffer <= image_slen
     cat = cat[_mask]
     print(
-        f"INFO: Number of galaxies with good size larger than image size (with buffer): {sum(_mask)}"
+        "INFO: Number of galaxies with 'good size' larger than image size (with buffer):",
+        sum(~_mask),
     )
 
     # remove outliers if requested, as defined by `outlier_fraction` of the catalog (with buffer)
@@ -158,12 +165,12 @@ def main(
         # this prevents us from EVER drawing a smaller stamp than needed in jax-galsim otherwise we
         # crash when 'check-stamp-sizes' flag is active.
         # this combined with the `max_slen` argument in the `draw_galsim` function
-        # SHOULD cover all bases in terms of using a too small stamp size or missing galaxies to draw.
-        _outlier_good_size = np.percentile(cat["good_size"], 1 - outlier_fraction)
+        # SHOULD cover all bases in terms of using a too small stamp size or missing galaxies
+        _outlier_good_size = np.quantile(cat["good_size"], 1 - outlier_fraction)
         _mask = cat["good_size"] < _outlier_good_size
         cat = cat[_mask]
         print(
-            f"INFO: Removing outliers of maximum good size ({outlier_fraction * 100:.2g}%): {_outlier_good_size} (pixels)"
+            f"INFO: Removing outliers of maximum good size ({outlier_fraction * 100:.2g}%): {_outlier_good_size:.0f} (pixels)"
         )
         print(f"INFO: Number of galaxies that are outliers: {sum(~_mask)}")
 
@@ -171,6 +178,16 @@ def main(
     assert max(stamp_slen_bins) >= max(cat["good_size"]) + buffer, (
         "Some very large galaxies will not be assigned to any bin."
     )
+
+    # sanity check fft size bins chosen
+    print(
+        "INFO: Sanity checking the fft size bins that were chosen for each stamp size bin"
+    )
+    for ii in range(n_bins):
+        _stamp_slen = stamp_slen_bins[ii]
+        _fft_size = fft_size_bins[ii]
+        _mask = cat["good_size"] <= _stamp_slen
+        assert np.all(good_fft_sizes[_mask] <= _fft_size)
 
     times_galsim = []
     times_jgalsim = []
@@ -185,12 +202,13 @@ def main(
     for ii in range(n_bins):
         _max_n_gals = max_n_gals_bins[ii]
         _stamp_slen = stamp_slen_bins[ii]
+        _fft_size = fft_size_bins[ii]
         draw_fncs.append(
             jit(
                 partial(
                     draw_fnc_raw,
                     ilen=image_slen,
-                    fft_size=fft_size,
+                    fft_size=_fft_size,
                     max_n_gals=_max_n_gals,
                     slen=_stamp_slen,
                 )
@@ -212,8 +230,7 @@ def main(
     pdf_name = out_folder / "residuals.pdf"
     rkeys = random.split(random.PRNGKey(seed), n_samples)
 
-    _keep_empty = True if cpu_or_gpu == "gpu" else False
-    with PdfPages(pdf_name, keep_empty=_keep_empty) as pdf:
+    with PdfPages(pdf_name) as pdf:
         for ii, rkey in tqdm(
             enumerate(rkeys),
             total=n_samples,
@@ -332,11 +349,13 @@ def main(
     )
 
 
-def _get_bins_hash(out_path: Path, *, stamp_slen_bins, max_n_gals_bins) -> int:
+def _get_bins_hash(
+    out_path: Path, *, stamp_slen_bins, max_n_gals_bins, fft_size_bins
+) -> int:
     # very simple, just save these bins with an "id" if never has been used before
     # otherwise assign next one available
     hash_json = out_path / "bin_hash.json"
-    _key = (*stamp_slen_bins, *max_n_gals_bins)  # just unpack tuple
+    _key = (*stamp_slen_bins, *max_n_gals_bins, *fft_size_bins)
     _key = "-".join([str(x) for x in _key])
 
     h = {}  # will be overwritten if exists
