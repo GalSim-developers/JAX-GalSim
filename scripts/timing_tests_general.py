@@ -180,7 +180,7 @@ def main(
         )
         print(f"INFO: Number of galaxies that are outliers: {sum(~_mask)}")
     else:
-        print("INFO: Good size outliers are being kept")
+        print("INFO: Good size outliers are being kept.")
 
     # one more check if we can draw all of the galaxies in the catalog given our size bins
     assert max(stamp_slen_bins) >= max(cat["good_size"]) + buffer, (
