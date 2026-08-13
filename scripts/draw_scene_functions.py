@@ -4,6 +4,8 @@ import galsim.errors
 
 os.environ["JAX_ENABLE_X64"] = "True"
 
+
+import math
 from functools import partial
 from pathlib import Path
 
@@ -133,7 +135,7 @@ def sample_cat(key, *, n_sources: int, cat):
         sample_params.append(format_column_to_dict_extra(row))
 
     all_params = {}
-    for p in PARAM_NAMES + ["good_size"]:
+    for p in PARAM_NAMES + ["good_size", "good_fft_sizes"]:
         out = []
         for n in range(n_sources):
             out.append(sample_params[n][p])
@@ -451,23 +453,29 @@ def prepare_catalog(
 def get_good_sizes_galsim(
     *, cat, psf, suffix: str, out_path: Path, overwrite: bool = False
 ):
-    cache_fpath = out_path / f"good_sizes-{suffix}.npy"
+    cache_fpath = out_path / f"good_sizes-{suffix}.npz"
     if Path(cache_fpath).exists() and not overwrite:
         print(f"INFO: Loading good sizes from file: {cache_fpath}")
-        _good_sizes = np.load(cache_fpath)
+        dt = np.load(cache_fpath)
+        _good_size = dt["good_sizes"]
+        _good_fft_sizes = dt["good_fft_sizes"]
     else:
         print("INFO: Computing good sizes for catalog")
-        # takes < 1 min
         _good_sizes = []
+        _good_fft_sizes = []
         for ii in tqdm(range(len(cat)), desc="Getting good sizes for cut..."):
             gal = get_bd_galsim(**format_column_to_dict(cat[ii]), psf=psf)
             _good_size = gal.getGoodImageSize(0.2)
             _good_sizes.append(_good_size)
 
-        _good_sizes = np.array(_good_sizes)
-        np.save(cache_fpath, _good_sizes)
+            _, _good_fft_size = calculate_fft_size(gal, pixel_scale=0.2)
+            _good_fft_sizes.append(_good_fft_size)
 
-    return _good_sizes
+        _good_sizes = np.array(_good_sizes)
+        _good_fft_sizes = np.array(_good_fft_sizes)
+        np.savez(cache_fpath, good_sizes=_good_sizes, good_fft_sizes=_good_fft_sizes)
+
+    return _good_sizes, _good_fft_sizes
 
 
 def add_results_to_pdf(ii, pdf, *, gs_arr, jgs_np_arr, t_galsim, t_jgalsim):
@@ -505,3 +513,56 @@ def add_results_to_pdf(ii, pdf, *, gs_arr, jgs_np_arr, t_galsim, t_jgalsim):
     fig.tight_layout()
     pdf.savefig(fig)
     plt.close(fig)
+
+
+def calculate_fft_size(obj, pixel_scale, nx=None, ny=None):
+    """Calculate the FFT size(s) GalSim would use to draw ``obj`` via ``drawImage(method='fft')``,
+    following the same logic as ``galsim.GSObject.drawFFT_makeKImage``.
+
+    Parameters:
+        obj:            The profile (a `GSObject`) that would be drawn in Fourier space.
+        pixel_scale:    The pixel scale of the image the profile would be drawn onto.
+        nx:             The x-direction size (in pixels) of the target image, if already known.
+                        [default: None]
+        ny:             The y-direction size (in pixels) of the target image, if already known.
+                        [default: None]
+
+    Returns:
+        A tuple ``(N, Nk)`` where ``N`` is the size of the real-space image used for the final
+        (possibly wrapped) inverse FFT, and ``Nk`` is the size of the k-space image over which
+        ``obj``'s ``kValue`` gets evaluated. ``Nk >= N``, with equality unless the k-space image
+        would need to be larger to avoid aliasing, in which case it gets wrapped down to ``N``
+        before the inverse FFT.
+    """
+    from galsim.errors import galsim_warn_fft
+
+    from jax_galsim.image import Image
+
+    # Start with what this profile thinks a good size would be given the pixel scale.
+    N = int(obj.getGoodImageSize(pixel_scale))
+
+    # We must make something big enough to cover the target image size, if given.
+    if nx is not None and ny is not None:
+        N = max(N, nx, ny)
+    elif nx is not None or ny is not None:
+        raise ValueError("Must provide both nx and ny, or neither.")
+
+    # Round up to a good size for making FFTs:
+    N = Image.good_fft_size(N)
+
+    # Make sure we hit the minimum size specified in the gsparams.
+    N = max(N, obj.gsparams.minimum_fft_size)
+
+    dk = 2.0 * math.pi / (N * pixel_scale)
+
+    maxk = float(obj.maxk)
+    if N * dk / 2 > maxk:
+        Nk = N
+    else:
+        # There will be aliasing.  Make a larger image and then wrap it.
+        Nk = int(math.ceil(maxk / dk)) * 2
+
+    if Nk > obj.gsparams.maximum_fft_size:
+        galsim_warn_fft("drawFFT requires a very large FFT.", Nk)
+
+    return N, Nk
