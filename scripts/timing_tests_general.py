@@ -113,7 +113,10 @@ def main(
 
     # get hash for specified bin argument
     bin_hash = _get_bins_hash(
-        out_root_path, stamp_slen_bins=stamp_slen_bins, max_n_gals_bins=max_n_gals_bins
+        out_root_path,
+        stamp_slen_bins=stamp_slen_bins,
+        max_n_gals_bins=max_n_gals_bins,
+        fft_size_bins=fft_size_bins,
     )
 
     # create unique folder name
@@ -147,6 +150,7 @@ def main(
         suffix=psf_type,
     )
     cat["good_size"] = good_sizes
+    cat["good_fft_size"] = good_fft_sizes
 
     # remove galaxies that require an image size larger than the full image itself (w/ buffer)
     # we should never draw these galaxies
@@ -187,7 +191,7 @@ def main(
         _stamp_slen = stamp_slen_bins[ii]
         _fft_size = fft_size_bins[ii]
         _mask = cat["good_size"] <= _stamp_slen
-        assert np.all(good_fft_sizes[_mask] <= _fft_size)
+        assert np.all(cat[_mask]["good_fft_size"] <= _fft_size)
 
     times_galsim = []
     times_jgalsim = []
