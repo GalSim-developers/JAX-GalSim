@@ -61,13 +61,13 @@ def main(
     max_n_iters: int = typer.Option(default=5),
     max_mag: float = typer.Option(default=27.0),  # minimal cuts
     min_hlr: float = typer.Option(default=0.0),  # minimal cuts
-    extra_suffix: str = typer.Option(default=""),
     fix_galsim_stamp_size: bool = False,  # fixed to largest in stamp_slen_bins
     fix_galsim_fft_size: bool = False,
     check_stamp_sizes: bool = False,
     include_outliers: bool = False,
     outlier_fraction: float = 1e-3,
     progress_bar: bool = True,
+    verbose: bool = False,
 ):
     # does not support multi-threading or multiprocessing
     # need to parse as str as typer does not support lists
@@ -127,10 +127,12 @@ def main(
         fix_str += "-fix-fft-size"
     if check_stamp_sizes:
         fix_str += "-check-sizes"
-    extra_suffix_str = f"-{extra_suffix}" if extra_suffix else ""
+    outliers_str = ""
+    if include_outliers:
+        outliers_str = "-outliers"
     hash_name = (
         f"{image_slen}-{n_samples}-{psf_type}-{seed}-"
-        f"hb{bin_hash}-{cpu_or_gpu}-{scan_or_vmap}{fix_str}{extra_suffix_str}"
+        f"hb{bin_hash}-{cpu_or_gpu}-{scan_or_vmap}{fix_str}{outliers_str}"
     )
     print(f"INFO: Running timing results and saving to folder '{hash_name}'")
 
@@ -191,7 +193,9 @@ def main(
         _stamp_slen = stamp_slen_bins[ii]
         _fft_size = fft_size_bins[ii]
         _mask = cat["good_size"] <= _stamp_slen
-        assert np.all(cat[_mask]["good_fft_size"] <= _fft_size)
+        assert np.all(cat[_mask]["good_fft_size"] <= _fft_size), (
+            "FFT that will be used for some galaxy in JAX-GalSim is smaller than the Galsim chosen FFT Size."
+        )
 
     times_galsim = []
     times_jgalsim = []
@@ -314,12 +318,12 @@ def main(
             t_jgalsim = t2 - t1
             times_jgalsim.append(t_jgalsim)
 
-            if check_stamp_sizes:
+            if check_stamp_sizes and verbose:
                 _res = gs_arr - np.array(jgs_arr)
                 if np.any(_res > POS_RESIDUAL_THRESHOLD):
                     mask = _res > POS_RESIDUAL_THRESHOLD
                     print(
-                        f"WARNING: Positive residual above threshold found for image index '{ii}'. Consider taking a look at the PDF. Likely one very bright galaxy if there was no assertion error. Values above threshold printed below."
+                        f"WARNING: Positive residual above threshold found for image index '{ii}'. Consider taking a look at the PDF. Likely caused by a very bright galaxy if there was no assertion error. Values above threshold printed below."
                     )
                     print(_res[mask].ravel())
 
