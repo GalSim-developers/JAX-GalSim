@@ -135,7 +135,7 @@ def sample_cat(key, *, n_sources: int, cat):
         sample_params.append(format_column_to_dict_extra(row))
 
     all_params = {}
-    for p in PARAM_NAMES + ["good_size", "good_fft_sizes"]:
+    for p in PARAM_NAMES + ["good_size"]:
         out = []
         for n in range(n_sources):
             out.append(sample_params[n][p])
