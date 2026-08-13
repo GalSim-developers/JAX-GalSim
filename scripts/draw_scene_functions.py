@@ -457,7 +457,7 @@ def get_good_sizes_galsim(
     if Path(cache_fpath).exists() and not overwrite:
         print(f"INFO: Loading good sizes from file: {cache_fpath}")
         dt = np.load(cache_fpath)
-        _good_size = dt["good_sizes"]
+        _good_sizes = dt["good_sizes"]
         _good_fft_sizes = dt["good_fft_sizes"]
     else:
         print("INFO: Computing good sizes for catalog")
