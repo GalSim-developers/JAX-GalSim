@@ -160,7 +160,7 @@ def main(
     _mask = cat["good_size"] + buffer <= image_slen
     cat = cat[_mask]
     print(
-        "INFO: Number of galaxies with 'good size' larger than image size (with buffer):",
+        "INFO: Number of galaxies with 'good size' larger than image size (with buffer) that will be excluded:",
         sum(~_mask),
     )
 
