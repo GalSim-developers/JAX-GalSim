@@ -453,9 +453,9 @@ def _save_timing_results(
     # save histogram of each in png format
     hist_times_file = out_folder / "time_histograms.png"
     fig, ax = plt.subplots(1, 1, figsize=(8, 8))
-    ax.hist(times_galsim, bins=21, histtype="step", label="GalSim")
-    ax.hist(times_jgalsim, bins=21, histtype="step", label="JAX-GalSim")
-    ax.hist(times_transfer, bins=21, histtype="step", label="Transfer")
+    ax.hist(times_galsim, bins=25, histtype="step", label="GalSim")
+    ax.hist(times_jgalsim, bins=25, histtype="step", label="JAX-GalSim")
+    ax.hist(times_transfer, bins=25, histtype="step", label="Transfer")
     fig.savefig(hist_times_file, dpi=500, format="png", bbox_inches="tight")
     plt.legend()
 
