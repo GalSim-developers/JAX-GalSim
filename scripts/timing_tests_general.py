@@ -13,6 +13,7 @@ from pathlib import Path
 import galsim
 import jax
 import jax.numpy as jnp
+import matplotlib.pyplot as plt
 import numpy as np
 import typer
 from draw_scene_functions import (
@@ -448,6 +449,14 @@ def _save_timing_results(
             f"Median JAX transfer time (per image): {np.median(times_transfer):.4f} seconds",
             file=fp,
         )
+
+    # save histogram of each in png format
+    hist_times_file = out_folder / "time_histograms.png"
+    fig, ax = plt.subplots(1, 1, figsize=(8, 8))
+    ax.hist(times_galsim, bins=21, histtype="step", label="GalSim")
+    ax.hist(times_jgalsim, bins=21, histtype="step", label="JAX-GalSim")
+    ax.hist(times_transfer, bins=21, histtype="step", label="Transfer")
+    fig.savefig(hist_times_file, dpi=500, format="png", bbox_inches="tight")
 
     # save timing arrays to numpy files npz format
     time_array_file = out_folder / "time_array_results.npz"
