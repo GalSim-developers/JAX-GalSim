@@ -1,4 +1,6 @@
 import os
+import shutil
+import tempfile
 
 import galsim as _galsim
 import jax
@@ -85,8 +87,11 @@ def test_des_psfex_pytree_roundtrip_and_traced_arg():
             atol=1e-6,
         )
 
-    # Pass the object itself as a jitted argument. Using two distinct instances
-    # exercises the hashability of the (auxiliary) PSFEx data in the treedef.
+    # file_name is not carried through the tree, so a rebuilt instance loses it
+    assert rebuilt.file_name is None
+
+    # Pass the object itself as an argument to a jitted function. Two separate
+    # instances share a tree structure, so the second call reuses the trace.
     f = jax.jit(lambda obj, x, y: obj.getPSFArray(galsim.PositionD(x, y)))
     jgs2 = galsim.des.DES_PSFEx(PSFEX_FILE, dir=DES_DATA_DIR)
     a1 = f(jgs, 456.0, 789.0)
@@ -120,9 +125,62 @@ def test_des_psfex_is_jittable_vmappable_differentiable():
     assert np.isfinite(float(gx))
 
 
+@requires_des_data
+@timer
+def test_des_psfex_vmap_over_multiple_psf_models():
+    """A batch of *different* PSFEx models can be evaluated in one jit/vmap.
+
+    The PSFEx data is traced, so several models -- including ones read from
+    different files -- stack into a single PyTree and are evaluated by one
+    compiled kernel. This is the case where a simulation draws galaxies whose
+    PSFs come from different exposures. Note that ``fit_order``/``fit_size``
+    are static, so a batch must share a polynomial degree.
+    """
+    with tempfile.TemporaryDirectory() as tmpdir:
+        # A second file on disk, so the two models genuinely differ by file
+        # name (which must not be part of the tree for this to work).
+        other_name = "other_psfcat.psf"
+        shutil.copyfile(
+            os.path.join(DES_DATA_DIR, PSFEX_FILE), os.path.join(tmpdir, other_name)
+        )
+
+        psf_a = galsim.des.DES_PSFEx(PSFEX_FILE, dir=DES_DATA_DIR)
+        psf_b = galsim.des.DES_PSFEx(other_name, dir=tmpdir)
+        # Only one PSFEx file ships with the test data, so perturb the second
+        # model's basis to stand in for a different exposure's solution.
+        psf_b.basis = psf_b.basis * 1.05
+
+        # Stacking would raise if any per-model data were static auxiliary data.
+        batch = jax.tree_util.tree_map(lambda *xs: jnp.stack(xs), psf_a, psf_b)
+
+        xs = jnp.array([456.0, 1024.0])
+        ys = jnp.array([789.0, 2048.0])
+        out = jax.jit(
+            jax.vmap(lambda model, x, y: model.getPSFArray(galsim.PositionD(x, y)))
+        )(batch, xs, ys)
+
+        assert out.shape[0] == 2
+
+        # Each batch element matches that model evaluated on its own.
+        for i, (model, x, y) in enumerate(
+            ((psf_a, 456.0, 789.0), (psf_b, 1024.0, 2048.0))
+        ):
+            np.testing.assert_allclose(
+                np.asarray(out[i]),
+                np.asarray(model.getPSFArray(galsim.PositionD(x, y))),
+                rtol=0,
+                atol=1e-6,
+            )
+
+        # The two models must give different answers, i.e. the basis really is
+        # batched over rather than baked in as a constant.
+        assert not np.allclose(np.asarray(out[0]), np.asarray(out[1]))
+
+
 if __name__ == "__main__":
     test_des_psfex_getPSFArray_vs_galsim()
     test_des_psfex_getPSF_drawn_image_vs_galsim()
     test_des_psfex_pytree_roundtrip_and_traced_arg()
     test_des_psfex_is_jittable_vmappable_differentiable()
+    test_des_psfex_vmap_over_multiple_psf_models()
     print("all DES_PSFEx tests passed")

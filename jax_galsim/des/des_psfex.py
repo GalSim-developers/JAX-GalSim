@@ -7,11 +7,14 @@ import os
 import galsim as _galsim
 import galsim.des  # noqa: F401  (populates _galsim.des for @implements below)
 import jax.numpy as jnp
-import numpy as np
 from jax.tree_util import register_pytree_node_class
 
 from jax_galsim._pyfits import pyfits
-from jax_galsim.core.utils import ensure_hashable, implements
+from jax_galsim.core.utils import (
+    cast_numpy_array_to_native_byte_order,
+    cast_to_float,
+    implements,
+)
 from jax_galsim.errors import GalSimIncompatibleValuesError
 from jax_galsim.fits import FitsHeader
 from jax_galsim.image import Image
@@ -24,11 +27,17 @@ The JAX-GalSim version of ``DES_PSFEx`` does not register itself with the
 GalSim config framework (the ``des_psfex`` input type and ``DES_PSFEx`` object
 type are not available), since JAX-GalSim does not implement config processing.
 
-As a PyTree, all of the data read from the PSFEx file (the PCA basis and the
-polynomial fit parameters) is static auxiliary data stored as NumPy arrays,
-and only the ``wcs`` is traced. Autodiff is therefore supported with respect
-to the ``image_pos`` argument (via ``getPSFArray``) and the ``wcs``, but not
-with respect to the fixed PSFEx calibration data.
+As a PyTree, the data read from the PSFEx file (the PCA basis and the
+polynomial zero points and scales) together with the ``wcs`` are traced
+children, so a batch of PSFEx models can be stacked and evaluated in a single
+``jit``/``vmap`` call. Only ``fit_order`` and ``fit_size`` are static
+auxiliary data, since they set the number of polynomial terms and hence the
+shapes of the traced arrays; batching therefore applies to models sharing a
+polynomial degree, which is the usual case within one instrument and reduction.
+
+``file_name`` is deliberately *not* part of the PyTree, so that models read
+from different files share a tree structure and can be batched together. An
+instance rebuilt by ``tree_unflatten`` has ``file_name`` set to ``None``.
 """
 
 
@@ -112,18 +121,20 @@ class DES_PSFEx:
         except AssertionError as e:
             raise OSError("PSFEx file %s is not as expected.\n%r" % (self.file_name, e))
 
-        # All data read from the PSFEx file is fixed calibration and is kept as
-        # static NumPy (it becomes auxiliary PyTree data, not traced leaves).
-        # PSFEx stores the cube as big-endian float32; cast to native float32
-        # (galsim casts the combined array to float32 anyway).
-        self.basis = np.ascontiguousarray(basis, dtype=np.float32)
+        # The basis and the polynomial zero points/scales are traced children,
+        # so that models from different files can be batched together. PSFEx
+        # stores the cube big-endian, which JAX will not accept, so convert to
+        # the native byte order first.
+        self.basis = jnp.asarray(cast_numpy_array_to_native_byte_order(basis))
+        # fit_order/fit_size stay static: they set the number of polynomial
+        # terms and hence the shapes of the traced arrays.
         self.fit_order = int(pol_deg)
         self.fit_size = int(psf_axis3)
-        self.x_zero = pol_zero1
-        self.y_zero = pol_zero2
-        self.x_scale = pol_scal1
-        self.y_scale = pol_scal2
-        self.sample_scale = psf_samp
+        self.x_zero = cast_to_float(pol_zero1)
+        self.y_zero = cast_to_float(pol_zero2)
+        self.x_scale = cast_to_float(pol_scal1)
+        self.y_scale = cast_to_float(pol_scal2)
+        self.sample_scale = cast_to_float(psf_samp)
 
     @implements(_galsim.des.DES_PSFEx.getSampleScale)
     def getSampleScale(self):
@@ -164,16 +175,18 @@ class DES_PSFEx:
                 for nx in range(order + 1 - ny)
             ]
         )
-        # basis is static NumPy; jnp folds it in as a compile-time constant.
-        return jnp.tensordot(P, jnp.asarray(self.basis), (0, 0)).astype(jnp.float32)
+        return jnp.tensordot(P, self.basis, (0, 0)).astype(jnp.float32)
 
     def _powers(self, x):
         # JAX-safe replacement for galsim's ``np.empty`` + in-place loop: build
         # [1, x, x**2, ..., x**order] via a cumulative product (same recurrence
-        # as galsim, but without an in-place update, which JAX forbids).
+        # as galsim, but without an in-place update, which JAX forbids). The
+        # leading 1 takes x's dtype so the concatenation cannot silently promote
+        # the result to a wider type than the input position.
+        x = jnp.asarray(x)
         return jnp.concatenate(
             [
-                jnp.ones((1,), dtype=jnp.result_type(float)),
+                jnp.ones((1,), dtype=x.dtype),
                 jnp.cumprod(jnp.full((self.fit_order,), x)),
             ]
         )
@@ -181,24 +194,24 @@ class DES_PSFEx:
     def tree_flatten(self):
         """Flatten into traced children and static auxiliary data.
 
-        Only ``wcs`` is traced. All of the data read from the PSFEx file is
-        auxiliary; the basis array is passed through ``ensure_hashable`` so the
-        PyTree metadata stays hashable when instances are used as arguments to
-        transformed functions.
+        The PSFEx data (basis, polynomial zero points and scales) and the
+        ``wcs`` are traced children, so that models read from different files
+        can be stacked and evaluated in one ``jit``/``vmap`` call. Only
+        ``fit_order``/``fit_size`` are auxiliary, since they fix the number of
+        polynomial terms and hence the shapes of the traced arrays.
+        ``file_name`` is not part of the tree, so that models from different
+        files share a tree structure.
         """
-        children = (self.wcs,)
-        aux_data = {
-            "file_name": self.file_name,
-            "basis": ensure_hashable(jnp.asarray(self.basis)),
-            "basis_shape": self.basis.shape,
-            "fit_order": self.fit_order,
-            "fit_size": self.fit_size,
-            "x_zero": ensure_hashable(self.x_zero),
-            "y_zero": ensure_hashable(self.y_zero),
-            "x_scale": ensure_hashable(self.x_scale),
-            "y_scale": ensure_hashable(self.y_scale),
-            "sample_scale": ensure_hashable(self.sample_scale),
-        }
+        children = (
+            self.wcs,
+            self.basis,
+            self.x_zero,
+            self.y_zero,
+            self.x_scale,
+            self.y_scale,
+            self.sample_scale,
+        )
+        aux_data = {"fit_order": self.fit_order, "fit_size": self.fit_size}
         return children, aux_data
 
     @classmethod
@@ -207,19 +220,20 @@ class DES_PSFEx:
 
         ``__init__`` opens the PSFEx file, so (following ``CelestialCoord`` /
         ``Image``) we construct via ``object.__new__`` and restore attributes
-        directly from the flattened representation.
+        directly from the flattened representation. ``file_name`` is not
+        carried through the tree and is set to ``None``.
         """
         obj = object.__new__(cls)
-        (obj.wcs,) = children
-        obj.file_name = aux_data["file_name"]
-        obj.basis = np.asarray(aux_data["basis"], dtype=np.float32).reshape(
-            aux_data["basis_shape"]
-        )
+        (
+            obj.wcs,
+            obj.basis,
+            obj.x_zero,
+            obj.y_zero,
+            obj.x_scale,
+            obj.y_scale,
+            obj.sample_scale,
+        ) = children
         obj.fit_order = aux_data["fit_order"]
         obj.fit_size = aux_data["fit_size"]
-        obj.x_zero = aux_data["x_zero"]
-        obj.y_zero = aux_data["y_zero"]
-        obj.x_scale = aux_data["x_scale"]
-        obj.y_scale = aux_data["y_scale"]
-        obj.sample_scale = aux_data["sample_scale"]
+        obj.file_name = None
         return obj
