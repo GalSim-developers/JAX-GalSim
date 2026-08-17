@@ -16,6 +16,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from astropy.table import Table
 from jax import random, vmap
+from jax.lax import fori_loop
 from jax.typing import ArrayLike
 from surveycodex.utilities import mag2counts, mean_sky_level
 from tqdm import tqdm
@@ -569,3 +570,82 @@ def calculate_fft_size(obj, pixel_scale, nx=None, ny=None):
         galsim_warn_fft("drawFFT requires a very large FFT.", Nk)
 
     return N, Nk
+
+
+def draw_all_bins_jgs(
+    samples_per_bin_jax,
+    n_iters_per_bin,
+    psf: jgs.GSObject,
+    *,
+    ilen: int,
+    draw_fncs: tuple,
+    n_bins: int,
+    device,
+):
+    param_names = tuple(samples_per_bin_jax[0].keys())
+    jgs_arr = jnp.zeros((ilen, ilen), device=device, dtype=jnp.float64)
+
+    for jj in range(n_bins):  # unrolled at traced time, could vmap?
+        draw_fnc_jj = draw_fncs[jj]
+        n_iters_jj = n_iters_per_bin[jj]
+        samples_per_bin_jj = samples_per_bin_jax[jj]
+
+        def _body_fnc(kk, arr):
+            _batch = {p: samples_per_bin_jj[p][kk] for p in param_names}
+            return arr + draw_fnc_jj(_batch, psf)
+
+        jgs_arr = fori_loop(0, n_iters_jj, _body_fnc, jgs_arr)
+
+    return jgs_arr
+
+
+def prepare_per_bin_samples(
+    sample: np.ndarray,
+    gsizes: np.ndarray,
+    *,
+    stamp_slen_bins: tuple,
+    max_n_gals_bins: tuple,
+    max_n_iters: int,
+    buffer: int,
+):
+
+    samples_per_bin = []
+    n_iters_per_bin = []
+    n_bins = len(stamp_slen_bins)
+
+    # keep track of already assigned galaxies
+    # ignore ones that are dummies in sample
+    _already_assigned = np.zeros_like(gsizes).astype(bool)
+    for jj in range(n_bins):
+        stamp_slen_jj = stamp_slen_bins[jj]
+        max_n_gals_jj = max_n_gals_bins[jj]
+
+        _mask1 = ~_already_assigned
+        _mask2 = np.less_equal(gsizes + buffer, stamp_slen_jj)
+        _mask = _mask1 & _mask2
+        sample_jj = {k: v[_mask] for k, v in sample.items()}
+
+        n_gals = _mask.sum().item()
+        n_iters_jj = math.ceil(n_gals / max_n_gals_jj)
+        assert n_iters_jj <= max_n_iters, (
+            f"Number of iterations in size bin index {jj} is {n_iters_jj} which is larger than max_n_iters:{max_n_iters}"
+        )
+
+        # here we want static shapes (small memory overheard with parameters)
+        # but in the drawing function will explicitly skip in while loop these extra ones
+        # based on n_iters_per_bin ==> especially useful for vmap
+        n_pad = max_n_iters * max_n_gals_jj - n_gals
+        for p in sample_jj:
+            _padding = np.full(n_pad, fill_value=DUMMY_PARAMS[p])
+            sample_jj[p] = np.concatenate([sample_jj[p], _padding])
+            sample_jj[p] = sample_jj[p].reshape(max_n_iters, max_n_gals_jj)
+
+        samples_per_bin.append(sample_jj)
+        n_iters_per_bin.append(n_iters_jj)
+        _already_assigned[_mask] = True
+
+    assert np.all(_already_assigned), (
+        "Not all galaxies in sampled were assigned. "
+        "Probably some galaxy needs too large of a stamp size."
+    )
+    return samples_per_bin, np.array(n_iters_per_bin)
