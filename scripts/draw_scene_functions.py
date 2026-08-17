@@ -483,10 +483,13 @@ def add_results_to_pdf(ii, pdf, *, gs_arr, jgs_np_arr, t_galsim, t_jgalsim):
     vmin = min(gs_arr.min(), jgs_np_arr.min())
     vmax = max(gs_arr.max(), jgs_np_arr.max())
 
-    # make sure colorbar for residual is symmetric
-    residual = gs_arr - jgs_np_arr
-    res_vmax = max(abs(residual.min()), abs(residual.max()))
+    # residual with symmetric colormap
+    res = gs_arr - jgs_np_arr
+    res_vmax = max(abs(res.min()), abs(res.max()))
     res_vmin = -res_vmax
+    # mask = gs_arr > 0  # galsim flux can only be positive or 0
+    # res = np.zeros_like(residual)
+    # res[mask] = residual[mask] / gs_arr[mask]
 
     fig, axes = plt.subplots(1, 3, figsize=(18, 6))
     fig.suptitle(
@@ -505,7 +508,7 @@ def add_results_to_pdf(ii, pdf, *, gs_arr, jgs_np_arr, t_galsim, t_jgalsim):
     fig.colorbar(im1, ax=axes[1])
 
     im2 = axes[2].imshow(
-        residual, origin="lower", cmap="RdBu_r", vmin=res_vmin, vmax=res_vmax
+        res, origin="lower", cmap="RdBu_r", vmin=res_vmin, vmax=res_vmax
     )
     axes[2].set_title("Residual (GalSim - JAX-GalSim)")
     fig.colorbar(im2, ax=axes[2])
