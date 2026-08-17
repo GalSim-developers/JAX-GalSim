@@ -456,8 +456,8 @@ def _save_timing_results(
     ax.hist(times_galsim, bins=25, histtype="step", label="GalSim")
     ax.hist(times_jgalsim, bins=25, histtype="step", label="JAX-GalSim")
     ax.hist(times_transfer, bins=25, histtype="step", label="Transfer")
+    ax.legend()
     fig.savefig(hist_times_file, dpi=500, format="png", bbox_inches="tight")
-    plt.legend()
 
     # save timing arrays to numpy files npz format
     time_array_file = out_folder / "time_array_results.npz"
