@@ -299,23 +299,24 @@ def main(
             n_iters_per_bin_jax = block_until_ready(
                 device_put(n_iters_per_bin, device=device)
             )
-            _xpsf = block_until_ready(device_put(_xpsf, device=device))
+            xpsf_gpu = block_until_ready(device_put(_xpsf, device=device))
             t2 = time.time()
             times_transfer.append(t2 - t1)
             assert n_bins == len(samples_per_bin) == len(n_iters_per_bin)
-            del samples_per_bin, n_iters_per_bin  # numpy versions no longer needed
+            del (samples_per_bin, n_iters_per_bin, _xpsf)
+            # cpu versions no longer needed
 
             # compilation (not timed)
             if ii == 0:
                 _ = block_until_ready(
-                    all_draw_fnc(samples_per_bin_jax, n_iters_per_bin_jax, _xpsf)
+                    all_draw_fnc(samples_per_bin_jax, n_iters_per_bin_jax, xpsf_gpu)
                 )
 
             # jax galsim timing
             t1 = time.time()
             with jax.transfer_guard("disallow"):
                 jgs_arr = block_until_ready(
-                    all_draw_fnc(samples_per_bin_jax, n_iters_per_bin_jax, _xpsf)
+                    all_draw_fnc(samples_per_bin_jax, n_iters_per_bin_jax, xpsf_gpu)
                 )
             t2 = time.time()
             t_jgalsim = t2 - t1
