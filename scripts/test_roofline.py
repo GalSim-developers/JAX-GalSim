@@ -3,6 +3,7 @@ import os
 os.environ["JAX_ENABLE_X64"] = "True"
 
 from functools import partial
+from pathlib import Path
 
 import galsim
 import jax
@@ -21,6 +22,7 @@ SEED = 42
 IMAGE_SLEN = 250
 MAX_N_GALS_GLOBAL = 150
 SLEN = 61
+FFT_SIZE = 128
 
 
 def main():
@@ -32,19 +34,17 @@ def main():
     xpsf = jgs.Moffat(beta=2.5, fwhm=0.8, flux=1.0)
 
     # prepare catalog
-    cat = prepare_catalog(
-        "../../../Downloads/catsim/OneDegSq.fits", min_hlr=0, max_mag=27
-    )
+    cat = prepare_catalog("../OneDegSq.fits", min_hlr=0, max_mag=27)
     good_sizes, good_fft_sizes = get_good_sizes_galsim(
         cat=cat,
         psf=psf,
         overwrite=False,
-        out_path="scripts/output6",
+        out_path=Path("scripts/output_roofline"),
         suffix="moffat",
     )
 
     # cut all galaxies below SLEN
-    mask = (good_sizes < SLEN) & (good_fft_sizes < 128)
+    mask = (good_sizes < SLEN) & (good_fft_sizes < FFT_SIZE)
     cat = cat[mask]
     print(f"INFO: Number of galaxies in catalog is {len(cat)}")
 
@@ -57,7 +57,9 @@ def main():
 
     draw_func = jit(
         partial(
-            draw_jgs_vmap_stamps(ilen=IMAGE_SLEN, slen=SLEN, fft_size=128, max_n_gals=n)
+            draw_jgs_vmap_stamps(
+                ilen=IMAGE_SLEN, slen=SLEN, fft_size=FFT_SIZE, max_n_gals=n
+            )
         )
     )
 
