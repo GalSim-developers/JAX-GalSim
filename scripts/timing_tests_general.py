@@ -127,7 +127,7 @@ def main(
         fix_str += "-fix-fft-size"
     if check_stamp_sizes:
         fix_str += "-check-sizes"
-    outliers_str = ""
+    outliers_str = "-no-outliers"
     if include_outliers:
         outliers_str = "-outliers"
     hash_name = (
@@ -142,8 +142,10 @@ def main(
     # prepare psf
     get_galsim_psf, get_jgs_psf, ref_galsim_psf = _prepare_psf_functions(psf_type)
 
-    # catalog preparation and masking
+    # catalog preparation with minimal cuts
     cat = prepare_catalog(catsim_fpath, min_hlr=min_hlr, max_mag=max_mag)
+
+    # estimate good sizes for outlier masking below
     good_sizes, good_fft_sizes = get_good_sizes_galsim(
         cat=cat,
         psf=ref_galsim_psf,
