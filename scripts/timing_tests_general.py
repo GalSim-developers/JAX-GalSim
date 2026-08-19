@@ -65,7 +65,7 @@ def main(
     fix_galsim_fft_size: bool = False,
     check_stamp_sizes: bool = False,
     include_outliers: bool = False,
-    outlier_fraction: float = 1e-3,
+    outlier_fraction: float = 1e-2,
     progress_bar: bool = True,
     verbose: bool = False,
 ):
