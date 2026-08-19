@@ -8,6 +8,7 @@ if "--test-in-float32" not in sys.argv:
 
 import inspect  # noqa: E402
 import os  # noqa: E402
+import types  # noqa: E402
 from functools import lru_cache, partial  # noqa: E402
 from unittest.mock import patch  # noqa: E402
 
@@ -155,6 +156,24 @@ def pytest_pycollect_makemodule(module_path, path, parent):
         "tests/GalSim/tests/test_interpolatedimage.py"
     ) and hasattr(module.obj, "setup"):
         module.obj.setup()
+
+    if str(module_path).endswith("tests/GalSim/tests/test_des.py"):
+        # test_psf reads an optional example catalog inside a
+        # ``try: ... except OSError:`` block, falling back to hard-coded
+        # reference values when that (not required) example data is absent.
+        # jax_galsim does not implement ``Catalog``, so the lookup raises
+        # AttributeError instead of OSError and aborts the test before it
+        # reaches the DES_PSFEx checks. Give this module its own namespace in
+        # which ``Catalog`` triggers the upstream fallback, so the PSFEx model
+        # is actually exercised. The real jax_galsim module is left untouched.
+        _test_des_galsim = types.ModuleType("jax_galsim_for_test_des")
+        _test_des_galsim.__dict__.update(__import__("jax_galsim").__dict__)
+
+        def _catalog_not_implemented(*args, **kwargs):
+            raise OSError("jax_galsim does not implement galsim.Catalog")
+
+        _test_des_galsim.Catalog = _catalog_not_implemented
+        module.obj.galsim = _test_des_galsim
 
     # Overwrites galsim in the galsim_test_helpers module
     for k, v in module.obj.__dict__.items():
