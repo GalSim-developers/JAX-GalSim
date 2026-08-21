@@ -51,7 +51,7 @@ def main(
     image_slen: int = typer.Option(),
     max_n_gals_global: int = typer.Option(),
     n_samples: int = typer.Option(help="How many big images do you want?"),
-    catsim_fpath: str = "../../Downloads/catsim/OneDegSq.fits",
+    catsim_fpath: str = "~/Sync/catsim/OneDegSq.fits",
     outdir: str = typer.Option(),
     scan_or_vmap: str = typer.Option(default="scan"),
     cpu_or_gpu: str = typer.Option(default="cpu"),
