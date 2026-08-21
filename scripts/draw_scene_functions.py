@@ -488,9 +488,14 @@ def add_results_to_pdf(ii, pdf, *, gs_arr, jgs_np_arr, t_galsim, t_jgalsim):
     res = gs_arr - jgs_np_arr
     res_vmax = max(abs(res.min()), abs(res.max()))
     res_vmin = -res_vmax
-    # mask = gs_arr > 0  # galsim flux can only be positive or 0
+
+    # fractional?
+    # residual = gs_arr - jgs_np_arr
+    # mask = gs_arr > 1e-6  # set a threshold for very small numerical artifacts
     # res = np.zeros_like(residual)
     # res[mask] = residual[mask] / gs_arr[mask]
+    # res_vmax = max(abs(res.min()), abs(res.max()))
+    # res_vmin = -res_vmax
 
     fig, axes = plt.subplots(1, 3, figsize=(18, 6))
     fig.suptitle(
