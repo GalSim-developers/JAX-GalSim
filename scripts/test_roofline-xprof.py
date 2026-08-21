@@ -70,7 +70,7 @@ def main():
     _ = block_until_ready(draw_func(sample_jax, xpsf_gpu))
 
     # roofline plot
-    with jax.profiler.trace("/tmp/jax-trace"):
+    with jax.profiler.trace("tmp/jax-trace"):
         with jax.transfer_guard("disallow"):
             _ = block_until_ready(draw_func(sample_jax, xpsf_gpu))
 
