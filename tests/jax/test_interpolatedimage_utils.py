@@ -6,12 +6,13 @@ import numpy as np
 import pytest
 
 import jax_galsim
-from jax_galsim.interpolant import (  # SincInterpolant,
+from jax_galsim.interpolant import (
     Cubic,
     Lanczos,
     Linear,
     Nearest,
     Quintic,
+    SincInterpolant,
 )
 from jax_galsim.interpolatedimage import (
     _draw_with_interpolant_kval,
@@ -66,8 +67,7 @@ def test_interpolatedimage_utils_draw_with_interpolant_xval(interp):
     [
         Nearest(),
         Linear(),
-        # this is really slow right now and I am not sure why will fix later
-        # SincInterpolant(),
+        SincInterpolant(),
         Linear(),
         Cubic(),
         Quintic(),

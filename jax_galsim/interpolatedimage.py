@@ -1095,12 +1095,24 @@ def _kValue_arr(
     return jnp.where(msk, val * xint_val * pfac, 0.0)
 
 
+def _kval_offsets(ixrange, n):
+    """The stencil offsets for one axis of a k-space image of period ``n``.
+
+    Interpolants wider than the period are summed over their aliases by
+    ``_xval_wrapped_noraise``, so the stencil need never exceed one period.
+    """
+    if ixrange < n:
+        irange = ixrange // 2
+        return jnp.arange(-irange, irange + 1)
+    return jnp.arange(n) - n // 2
+
+
 @partial(jax.vmap, in_axes=(0, None, None, None, None, None))
-@partial(jax.jit, static_argnames=("interp",))
+@partial(jax.jit, static_argnames=("nkx", "interp"))
 def _interp_weight_1d_kval(ioff, kxi, kxp, kx, nkx, interp):
     kxind = (kxi + ioff) % nkx
     _kx = kx - (kxp + ioff)
-    wkx = interp._xval_noraise(_kx)
+    wkx = interp._xval_wrapped_noraise(_kx, nkx)
     return wkx, kxind.astype(jnp.int32)
 
 
@@ -1131,11 +1143,8 @@ def _draw_with_interpolant_kval(kx, ky, kxmin, kymin, zp, interp):
     kyp = kyi + kymin
     nky = zp.shape[0]
 
-    irange = interp.ixrange // 2
-    iinds = jnp.arange(-irange, irange + 1)
-
     wkx, kxind = _interp_weight_1d_kval(
-        iinds,
+        _kval_offsets(interp.ixrange, nkx),
         kxi,
         kxp,
         kx,
@@ -1144,7 +1153,7 @@ def _draw_with_interpolant_kval(kx, ky, kxmin, kymin, zp, interp):
     )
 
     wky, kyind = _interp_weight_1d_kval(
-        iinds,
+        _kval_offsets(interp.ixrange, nky),
         kyi,
         kyp,
         ky,
