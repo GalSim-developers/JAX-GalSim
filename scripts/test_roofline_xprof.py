@@ -7,6 +7,7 @@ from pathlib import Path
 
 import galsim
 import jax
+import typer
 from draw_scene_functions import (
     draw_jgs_vmap_stamps,
     get_good_sizes_galsim,
@@ -17,16 +18,17 @@ from jax import block_until_ready, device_put, jit
 
 import jax_galsim as jgs
 
-SEED = 42
-IMAGE_SLEN = 250
-MAX_N_GALS_GLOBAL = 150
-SLEN = 61
-FFT_SIZE = 128
 
-
-def main():
+def main(
+    seed: int = typer.Option(default=42),
+    image_slen: int = typer.Option(),
+    max_n_gals_global: int = typer.Option(),
+    stamp_slen: int = typer.Option(default=61),
+    fft_size: int = typer.Option(default=128),
+    out_dir: str = ".",
+):
     # let's just measure utilization on simplest case with one small size stamp bin??
-    k = jax.random.key(SEED)
+    k = jax.random.key(seed)
     device = jax.devices("gpu")[0]
 
     psf = galsim.Moffat(beta=2.5, fwhm=0.8, flux=1.0)
@@ -34,7 +36,6 @@ def main():
 
     # prepare catalog
     cat = prepare_catalog("../OneDegSq.fits", min_hlr=0, max_mag=27)
-    # cat = prepare_catalog("../../Downloads/catsim/OneDegSq.fits", min_hlr=0, max_mag=27)
     good_sizes, good_fft_sizes = get_good_sizes_galsim(
         cat=cat,
         psf=psf,
@@ -45,12 +46,12 @@ def main():
     cat["good_size"] = good_sizes
 
     # cut all galaxies below SLEN
-    mask = (good_sizes <= SLEN) & (good_fft_sizes <= FFT_SIZE)
+    mask = (good_sizes <= stamp_slen) & (good_fft_sizes <= fft_size)
     cat = cat[mask]
     print(f"INFO: Number of galaxies in catalog is {len(cat)}")
 
     sample, n, _ = get_one_full_sample(
-        k, cat=cat, ilen=IMAGE_SLEN, max_n_gals=MAX_N_GALS_GLOBAL
+        k, cat=cat, ilen=image_slen, max_n_gals=max_n_gals_global
     )
 
     sample_jax = block_until_ready(device_put(sample, device=device))
@@ -59,9 +60,9 @@ def main():
     draw_func = jit(
         partial(
             draw_jgs_vmap_stamps,
-            ilen=IMAGE_SLEN,
-            slen=SLEN,
-            fft_size=FFT_SIZE,
+            ilen=image_slen,
+            slen=stamp_slen,
+            fft_size=fft_size,
             max_n_gals=n,
         )
     )
@@ -70,7 +71,7 @@ def main():
     _ = block_until_ready(draw_func(sample_jax, xpsf_gpu))
 
     # roofline plot
-    with jax.profiler.trace("tmp/jax-trace"):
+    with jax.profiler.trace(Path(out_dir) / "jax-trace-{seed}-{image_slen}"):
         with jax.transfer_guard("disallow"):
             _ = block_until_ready(draw_func(sample_jax, xpsf_gpu))
 
