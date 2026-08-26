@@ -25,8 +25,10 @@ def main(
     max_n_gals_global: int = typer.Option(),
     stamp_slen: int = typer.Option(default=61),
     fft_size: int = typer.Option(default=128),
-    out_dir: str = ".",
+    out_dir: str = "./scripts/output_roofline",
 ):
+    assert Path(out_dir).exists()
+
     # let's just measure utilization on simplest case with one small size stamp bin??
     k = jax.random.key(seed)
     device = jax.devices("gpu")[0]
