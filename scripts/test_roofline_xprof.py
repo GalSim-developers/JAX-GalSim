@@ -27,7 +27,7 @@ def main(
     fft_size: int = typer.Option(default=128),
     out_dir: str = "./scripts/output_roofline",
 ):
-    assert Path(out_dir).exists()
+    assert Path(out_dir).exists(), "Output directory does not exist."
 
     # let's just measure utilization on simplest case with one small size stamp bin??
     k = jax.random.key(seed)
