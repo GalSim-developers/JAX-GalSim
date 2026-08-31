@@ -239,7 +239,7 @@ def main(
 
     # timing start
     pdf_name = out_folder / "residuals.pdf"
-    rkeys = random.split(random.PRNGKey(seed), n_samples)
+    rkeys = random.split(random.key(seed), n_samples)
 
     with PdfPages(pdf_name) as pdf:
         for ii, rkey in tqdm(
