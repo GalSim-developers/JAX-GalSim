@@ -18,3 +18,5 @@ unset LD_LIBRARY_PATH
 python3 scripts/test_roofline_xprof.py --seed 42 --image-slen 250 --max-n-gals-global 150 --stamp-slen 61 --fft-size 128 
 
 python3 scripts/test_roofline_xprof.py --seed 52 --image-slen 1000 --max-n-gals-global 2000 --stamp-slen 61 --fft-size 128
+
+python3 scripts/test_roofline_xprof.py --seed 62 --image-slen 2000 --max-n-gals-global 8000 --stamp-slen 61 --fft-size 128

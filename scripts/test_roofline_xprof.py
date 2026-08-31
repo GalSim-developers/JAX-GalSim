@@ -70,9 +70,11 @@ def main(
     )
 
     # compilation
+    print("INFO: Running compilation...")
     _ = block_until_ready(draw_func(sample_jax, xpsf_gpu))
 
     # roofline plot
+    print("INFO: Running final image drawing with tracing...")
     with jax.profiler.trace(Path(out_dir) / f"jax-trace-{seed}-{image_slen}"):
         with jax.transfer_guard("disallow"):
             _ = block_until_ready(draw_func(sample_jax, xpsf_gpu))
