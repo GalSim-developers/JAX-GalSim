@@ -8,10 +8,11 @@
 #SBATCH --mail-user=ismael@umd.edu
 #SBATCH --mail-type=BEGIN,END
 
-module purge
-unset LD_LIBRARY_PATH
 source /home/ismael/scratch/JAX-GalSim/.venv/bin/activate
+
+module purge
 module load cuda cudnn
+unset LD_LIBRARY_PATH
 
 
 python3 scripts/test_roofline_xprof.py --seed 42 --image-slen 250 --max-n-gals-global 150 --stamp-slen 61 --fft-size 128 

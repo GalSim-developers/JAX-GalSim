@@ -9,6 +9,7 @@
 #SBATCH --mail-type=BEGIN,END
 
 module purge
+module load cuda cudnn
 unset LD_LIBRARY_PATH
 source /home/ismael/scratch/JAX-GalSim/.venv/bin/activate
 
