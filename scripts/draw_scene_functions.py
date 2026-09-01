@@ -18,6 +18,7 @@ from astropy.table import Table
 from jax import random, vmap
 from jax.lax import fori_loop
 from jax.typing import ArrayLike
+from numpy import ndarray
 from surveycodex.utilities import mag2counts, mean_sky_level
 from tqdm import tqdm
 
@@ -479,28 +480,42 @@ def get_good_sizes_galsim(
     return _good_sizes, _good_fft_sizes
 
 
-def add_results_to_pdf(ii, pdf, *, gs_arr, jgs_np_arr, t_galsim, t_jgalsim):
+def add_results_to_pdf(
+    ii,
+    pdf,
+    *,
+    gs_arr: ndarray,
+    jgs_np_arr: ndarray,
+    t_galsim,
+    t_jgalsim,
+    ftol: float = 1e-5,
+):
+    assert np.all(gs_arr) >= 0 and np.all(jgs_np_arr) >= 0
 
     vmin = min(gs_arr.min(), jgs_np_arr.min())
     vmax = max(gs_arr.max(), jgs_np_arr.max())
 
     # residual with symmetric colormap
-    res = gs_arr - jgs_np_arr
-    res_vmax = max(abs(res.min()), abs(res.max()))
+    residual = gs_arr - jgs_np_arr
+    residual_vmax = max(abs(residual.min()), abs(residual.max()))
+    residual_vmin = -residual_vmax
+
+    # fractional residual
+    # get peak value across both images
+    peak_flux = max(gs_arr.max(), jgs_np_arr.max())
+    norm_gs_arr = gs_arr / peak_flux
+    norm_jgs_arr = jgs_np_arr / peak_flux
+    res = np.zeros_like(norm_gs_arr)
+    mask = (norm_jgs_arr > ftol) & (norm_gs_arr > ftol)
+    res[mask] = (norm_gs_arr[mask] - norm_jgs_arr[mask]) / norm_gs_arr[mask]
+    res_vmax = np.max(np.abs(res))
     res_vmin = -res_vmax
 
-    # fractional?
-    # residual = gs_arr - jgs_np_arr
-    # mask = gs_arr > 1e-6  # set a threshold for very small numerical artifacts
-    # res = np.zeros_like(residual)
-    # res[mask] = residual[mask] / gs_arr[mask]
-    # res_vmax = max(abs(res.min()), abs(res.max()))
-    # res_vmin = -res_vmax
-
-    fig, axes = plt.subplots(1, 3, figsize=(18, 6))
+    fig, axes = plt.subplots(2, 2, figsize=(12, 12))
+    axes = axes.ravel()
     fig.suptitle(
         f"Sample {ii}  |  GalSim: {t_galsim:.4f}s  |  JAX-GalSim: {t_jgalsim:.4f}s",
-        fontsize=13,
+        fontsize=14,
     )
 
     im0 = axes[0].imshow(gs_arr, origin="lower", cmap="viridis", vmin=vmin, vmax=vmax)
@@ -514,10 +529,16 @@ def add_results_to_pdf(ii, pdf, *, gs_arr, jgs_np_arr, t_galsim, t_jgalsim):
     fig.colorbar(im1, ax=axes[1])
 
     im2 = axes[2].imshow(
-        res, origin="lower", cmap="RdBu_r", vmin=res_vmin, vmax=res_vmax
+        residual, origin="lower", cmap="RdBu_r", vmin=residual_vmin, vmax=residual_vmax
     )
     axes[2].set_title("Residual (GalSim - JAX-GalSim)")
     fig.colorbar(im2, ax=axes[2])
+
+    im3 = axes[3].imshow(
+        residual, origin="lower", cmap="RdBu_r", vmin=res_vmin, vmax=res_vmax
+    )
+    axes[3].set_title("Fractional Residual")
+    fig.colorbar(im3, ax=axes[3])
 
     fig.tight_layout()
     pdf.savefig(fig)
