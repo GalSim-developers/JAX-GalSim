@@ -11,7 +11,7 @@ from jax_galsim.photon_array import PhotonArray
 
 @implements(
     _galsim.Convolve,
-    lax_description="""Does not support ChromaticConvolutions""",
+    lax_description="""Supports ChromaticConvolutions for FFT drawing only.""",
 )
 def Convolve(*args, **kwargs):
     if len(args) == 0:
@@ -27,6 +27,11 @@ def Convolve(*args, **kwargs):
                 + "or a (possibly mixed) list of them."
             )
     # else args is already the list of objects
+
+    from jax_galsim.chromatic import ChromaticConvolution, ChromaticObject
+
+    if any(isinstance(obj, ChromaticObject) for obj in args):
+        return ChromaticConvolution(args, **kwargs)
 
     return Convolution(*args, **kwargs)
 
