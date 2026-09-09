@@ -1,4 +1,5 @@
 import os
+import warnings
 
 import galsim.errors
 
@@ -269,6 +270,52 @@ def draw_galsim(
     return image.array
 
 
+def draw_all_galsim_stratified(
+    sample: dict,
+    *,
+    ilen: int,
+    psf: galsim.GSObject,
+    gsizes: np.ndarray,
+    stamp_slen_bins: tuple,
+    fft_size_bins: tuple,
+    buffer: int,
+):
+    n_bins = len(stamp_slen_bins)
+
+    im = np.zeros((ilen, ilen), dtype=np.float64)
+
+    # keep track of already assigned galaxies
+    # ignore ones that are dummies in sample
+    _already_assigned = np.zeros_like(gsizes).astype(bool)
+    for jj in range(n_bins):
+        stamp_slen_jj = stamp_slen_bins[jj]
+        fft_size_jj = fft_size_bins[jj]
+
+        _mask1 = ~_already_assigned
+        _mask2 = np.less_equal(gsizes + buffer, stamp_slen_jj)
+        _mask = _mask1 & _mask2
+        sample_jj = {k: v[_mask] for k, v in sample.items()}
+        n_gals_jj = _mask.sum().item()
+        if n_gals_jj > 0:
+            im += draw_galsim(
+                sample_jj,
+                n_gals_jj,
+                ilen=ilen,
+                psf=psf,
+                slen=stamp_slen_jj,
+                fft_size=fft_size_jj,
+                check_stamp_sizes=False,
+            )
+
+        _already_assigned[_mask] = True
+
+    assert np.all(_already_assigned), (
+        "Not all galaxies in sampled were assigned. "
+        "Perhaps some galaxy needed large stamp size than available."
+    )
+    return im
+
+
 def get_bd_jgs(
     flux_d,
     flux_b,
@@ -336,7 +383,7 @@ def _draw_stamp_and_add_to_image(carry, x, *, psf, fft_size, slen):
         slen=slen,
         fft_size=fft_size,
     )
-    # skips all computation if flux is 0.0, but only with scan not vmap
+    # skips all computation if flux is 0.0, but vmap will still do both branches
     image = jax.lax.cond(total_flux == 0.0, lambda: image, _body_fnc)
 
     return (image,), None
@@ -431,173 +478,6 @@ def draw_jgs_vmap_stamps(
     return final_pad_image.array[slen:-slen, slen:-slen]
 
 
-################################################
-# Catalog and other utilities below
-
-
-def prepare_catalog(
-    catsim_file: str,
-    min_hlr=0.0,
-    max_mag: float = 27.0,
-):
-    cat = Table.read(catsim_file, format="fits")
-
-    # avoid objects that are too bright, too dim, or too big
-    hlr_b = np.sqrt(cat["a_b"] * cat["b_b"])
-    hlr_d = np.sqrt(cat["a_d"] * cat["b_d"])
-    _mask1 = (hlr_b > min_hlr) | (hlr_d > min_hlr)
-    _mask2 = cat["r_ab"] < max_mag
-    mask = _mask1 & _mask2
-    fcat = cat[mask]
-    return fcat
-
-
-def get_good_sizes_galsim(
-    *, cat, psf, suffix: str, out_path: Path, overwrite: bool = False
-):
-    cache_fpath = out_path / f"good_sizes-{suffix}.npz"
-    if Path(cache_fpath).exists() and not overwrite:
-        print(f"INFO: Loading good sizes from file: {cache_fpath}")
-        dt = np.load(cache_fpath)
-        _good_sizes = dt["good_sizes"]
-        _good_fft_sizes = dt["good_fft_sizes"]
-    else:
-        print("INFO: Computing good sizes for catalog")
-        _good_sizes = []
-        _good_fft_sizes = []
-        for ii in tqdm(range(len(cat)), desc="Getting good sizes for cut..."):
-            gal = get_bd_galsim(**format_column_to_dict(cat[ii]), psf=psf)
-            _good_size = gal.getGoodImageSize(0.2)
-            _good_sizes.append(_good_size)
-
-            _, _good_fft_size = calculate_fft_size(gal, pixel_scale=0.2)
-            _good_fft_sizes.append(_good_fft_size)
-
-        _good_sizes = np.array(_good_sizes)
-        _good_fft_sizes = np.array(_good_fft_sizes)
-        np.savez(cache_fpath, good_sizes=_good_sizes, good_fft_sizes=_good_fft_sizes)
-
-    return _good_sizes, _good_fft_sizes
-
-
-def add_results_to_pdf(
-    ii,
-    pdf,
-    *,
-    gs_arr: ndarray,
-    jgs_np_arr: ndarray,
-    t_galsim,
-    t_jgalsim,
-    ftol: float = 1e-5,
-):
-    assert np.all(gs_arr) >= 0 and np.all(jgs_np_arr) >= 0
-
-    vmin = min(gs_arr.min(), jgs_np_arr.min())
-    vmax = max(gs_arr.max(), jgs_np_arr.max())
-
-    # residual with symmetric colormap
-    residual = gs_arr - jgs_np_arr
-    residual_vmax = max(abs(residual.min()), abs(residual.max()))
-    residual_vmin = -residual_vmax
-
-    # fractional residual
-    # get peak value across both images
-    peak_flux = max(gs_arr.max(), jgs_np_arr.max())
-    norm_gs_arr = gs_arr / peak_flux
-    norm_jgs_arr = jgs_np_arr / peak_flux
-    res = np.zeros_like(norm_gs_arr)
-    mask = (norm_jgs_arr > ftol) & (norm_gs_arr > ftol)
-    res[mask] = (norm_gs_arr[mask] - norm_jgs_arr[mask]) / norm_gs_arr[mask]
-    res_vmax = np.max(np.abs(res))
-    res_vmin = -res_vmax
-
-    fig, axes = plt.subplots(2, 2, figsize=(12, 12))
-    axes = axes.ravel()
-    fig.suptitle(
-        f"Sample {ii}  |  GalSim: {t_galsim:.4f}s  |  JAX-GalSim: {t_jgalsim:.4f}s",
-        fontsize=14,
-    )
-
-    im0 = axes[0].imshow(gs_arr, origin="lower", cmap="viridis", vmin=vmin, vmax=vmax)
-    axes[0].set_title("GalSim")
-    fig.colorbar(im0, ax=axes[0])
-
-    im1 = axes[1].imshow(
-        jgs_np_arr, origin="lower", cmap="viridis", vmin=vmin, vmax=vmax
-    )
-    axes[1].set_title("JAX-GalSim")
-    fig.colorbar(im1, ax=axes[1])
-
-    im2 = axes[2].imshow(
-        residual, origin="lower", cmap="RdBu_r", vmin=residual_vmin, vmax=residual_vmax
-    )
-    axes[2].set_title("Residual (GalSim - JAX-GalSim)")
-    fig.colorbar(im2, ax=axes[2])
-
-    im3 = axes[3].imshow(
-        residual, origin="lower", cmap="RdBu_r", vmin=res_vmin, vmax=res_vmax
-    )
-    axes[3].set_title("Fractional Residual")
-    fig.colorbar(im3, ax=axes[3])
-
-    fig.tight_layout()
-    pdf.savefig(fig)
-    plt.close(fig)
-
-
-def calculate_fft_size(obj, pixel_scale, nx=None, ny=None):
-    """Calculate the FFT size(s) GalSim would use to draw ``obj`` via ``drawImage(method='fft')``,
-    following the same logic as ``galsim.GSObject.drawFFT_makeKImage``.
-
-    Parameters:
-        obj:            The profile (a `GSObject`) that would be drawn in Fourier space.
-        pixel_scale:    The pixel scale of the image the profile would be drawn onto.
-        nx:             The x-direction size (in pixels) of the target image, if already known.
-                        [default: None]
-        ny:             The y-direction size (in pixels) of the target image, if already known.
-                        [default: None]
-
-    Returns:
-        A tuple ``(N, Nk)`` where ``N`` is the size of the real-space image used for the final
-        (possibly wrapped) inverse FFT, and ``Nk`` is the size of the k-space image over which
-        ``obj``'s ``kValue`` gets evaluated. ``Nk >= N``, with equality unless the k-space image
-        would need to be larger to avoid aliasing, in which case it gets wrapped down to ``N``
-        before the inverse FFT.
-    """
-    from galsim.errors import galsim_warn_fft
-
-    from jax_galsim.image import Image
-
-    # Start with what this profile thinks a good size would be given the pixel scale.
-    N = int(obj.getGoodImageSize(pixel_scale))
-
-    # We must make something big enough to cover the target image size, if given.
-    if nx is not None and ny is not None:
-        N = max(N, nx, ny)
-    elif nx is not None or ny is not None:
-        raise ValueError("Must provide both nx and ny, or neither.")
-
-    # Round up to a good size for making FFTs:
-    N = Image.good_fft_size(N)
-
-    # Make sure we hit the minimum size specified in the gsparams.
-    N = max(N, obj.gsparams.minimum_fft_size)
-
-    dk = 2.0 * math.pi / (N * pixel_scale)
-
-    maxk = float(obj.maxk)
-    if N * dk / 2 > maxk:
-        Nk = N
-    else:
-        # There will be aliasing.  Make a larger image and then wrap it.
-        Nk = int(math.ceil(maxk / dk)) * 2
-
-    if Nk > obj.gsparams.maximum_fft_size:
-        galsim_warn_fft("drawFFT requires a very large FFT.", Nk)
-
-    return N, Nk
-
-
 def draw_all_bins_jgs(
     samples_per_bin_jax,
     n_iters_per_bin,
@@ -657,7 +537,7 @@ def prepare_per_bin_samples(
             f"Number of iterations in size bin index {jj} is {n_iters_jj} which is larger than max_n_iters:{max_n_iters}"
         )
 
-        # here we want static shapes (small memory overheard with parameters)
+        # here we want static shapes (small memory overheard with extra parameters)
         # but in the drawing function will explicitly skip in while loop these extra ones
         # based on n_iters_per_bin ==> especially useful for vmap
         n_pad = max_n_iters * max_n_gals_jj - n_gals
@@ -672,6 +552,170 @@ def prepare_per_bin_samples(
 
     assert np.all(_already_assigned), (
         "Not all galaxies in sampled were assigned. "
-        "Probably some galaxy needs too large of a stamp size."
+        "Perhaps some galaxy needed large stamp size than available."
     )
     return samples_per_bin, np.array(n_iters_per_bin)
+
+
+################################################
+# Catalog and other utilities below
+
+
+def prepare_catalog(
+    catsim_file: str,
+    min_hlr=0.0,
+    max_mag: float = 27.0,
+):
+    cat = Table.read(catsim_file, format="fits")
+
+    # avoid objects that are too bright, too dim, or too big
+    hlr_b = np.sqrt(cat["a_b"] * cat["b_b"])
+    hlr_d = np.sqrt(cat["a_d"] * cat["b_d"])
+    _mask1 = (hlr_b > min_hlr) | (hlr_d > min_hlr)
+    _mask2 = cat["r_ab"] < max_mag
+    mask = _mask1 & _mask2
+    fcat = cat[mask]
+    return fcat
+
+
+def get_good_sizes_galsim(
+    *, cat, psf, suffix: str, out_path: Path, overwrite: bool = False
+):
+    cache_fpath = out_path / f"good_sizes-{suffix}.npz"
+    if Path(cache_fpath).exists() and not overwrite:
+        print(f"INFO: Loading good sizes from file: {cache_fpath}")
+        dt = np.load(cache_fpath)
+        _good_sizes = dt["good_sizes"]
+        _good_fft_sizes = dt["good_fft_sizes"]
+    else:
+        print("INFO: Computing good sizes for catalog")
+        _good_sizes = []
+        _good_fft_sizes = []
+        for ii in tqdm(range(len(cat)), desc="Getting good sizes for cut..."):
+            gal = get_bd_galsim(**format_column_to_dict(cat[ii]), psf=psf)
+            _good_size = gal.getGoodImageSize(0.2)
+            _good_sizes.append(_good_size)
+
+            _, _good_fft_size = calculate_fft_size(gal, pixel_scale=0.2)
+            _good_fft_sizes.append(_good_fft_size)
+
+        _good_sizes = np.array(_good_sizes)
+        _good_fft_sizes = np.array(_good_fft_sizes)
+        np.savez(cache_fpath, good_sizes=_good_sizes, good_fft_sizes=_good_fft_sizes)
+
+    return _good_sizes, _good_fft_sizes
+
+
+def add_results_to_pdf(
+    ii,
+    pdf,
+    *,
+    gs_arr: ndarray,
+    jgs_np_arr: ndarray,
+    t_galsim: float | None = None,
+    t_jgalsim: float | None = None,
+):
+    assert np.all(gs_arr) >= 0 and np.all(jgs_np_arr) >= 0
+
+    vmin = min(gs_arr.min(), jgs_np_arr.min())
+    vmax = max(gs_arr.max(), jgs_np_arr.max())
+
+    # residual with symmetric colormap
+    residual = gs_arr - jgs_np_arr
+    residual_vmax = max(abs(residual.min()), abs(residual.max()))
+    residual_vmin = -residual_vmax
+
+    fig, axes = plt.subplots(1, 3, figsize=(18, 8))
+    axes = axes.ravel()
+
+    if t_galsim is not None and t_jgalsim is not None:
+        fig.suptitle(
+            f"Sample {ii}  |  GalSim: {t_galsim:.4f}s  |  JAX-GalSim: {t_jgalsim:.4f}s",
+            fontsize=14,
+        )
+    else:
+        fig.suptitle(f"Sample {ii}", fontsize=14)
+
+    im0 = axes[0].imshow(gs_arr, origin="lower", cmap="viridis", vmin=vmin, vmax=vmax)
+    axes[0].set_title("GalSim")
+    fig.colorbar(im0, ax=axes[0])
+
+    im1 = axes[1].imshow(
+        jgs_np_arr, origin="lower", cmap="viridis", vmin=vmin, vmax=vmax
+    )
+    axes[1].set_title("JAX-GalSim")
+    fig.colorbar(im1, ax=axes[1])
+
+    im2 = axes[2].imshow(
+        residual, origin="lower", cmap="RdBu_r", vmin=residual_vmin, vmax=residual_vmax
+    )
+    axes[2].set_title("Residual (GalSim - JAX-GalSim)")
+    fig.colorbar(im2, ax=axes[2])
+
+    fig.tight_layout()
+    pdf.savefig(fig)
+    plt.close(fig)
+
+
+# fractional residual attempt for posterity
+# # fractional residual
+# # get peak value across both images ===> MB: Consider using "total" value not "peak" value.
+# # this corresponds physically to additional flux "wrapped" around when FFT differs.
+# peak_flux = max(gs_arr.max(), jgs_np_arr.max())
+# norm_gs_arr = gs_arr / peak_flux
+# norm_jgs_arr = jgs_np_arr / peak_flux
+# res = np.zeros_like(norm_gs_arr)
+# mask = (norm_jgs_arr > ftol) & (norm_gs_arr > ftol)
+# res[mask] = (norm_gs_arr[mask] - norm_jgs_arr[mask]) / norm_gs_arr[mask]
+# res_vmax = np.max(np.abs(res))
+# res_vmin = -res_vmax
+
+
+def calculate_fft_size(obj, pixel_scale, nx=None, ny=None):
+    """Calculate the FFT size(s) GalSim would use to draw ``obj`` via ``drawImage(method='fft')``,
+    following the same logic as ``galsim.GSObject.drawFFT_makeKImage``.
+
+    Parameters:
+        obj:            The profile (a `GSObject`) that would be drawn in Fourier space.
+        pixel_scale:    The pixel scale of the image the profile would be drawn onto.
+        nx:             The x-direction size (in pixels) of the target image, if already known.
+                        [default: None]
+        ny:             The y-direction size (in pixels) of the target image, if already known.
+                        [default: None]
+
+    Returns:
+        A tuple ``(N, Nk)`` where ``N`` is the size of the real-space image used for the final
+        (possibly wrapped) inverse FFT, and ``Nk`` is the size of the k-space image over which
+        ``obj``'s ``kValue`` gets evaluated. ``Nk >= N``, with equality unless the k-space image
+        would need to be larger to avoid aliasing, in which case it gets wrapped down to ``N``
+        before the inverse FFT.
+    """
+
+    # Start with what this profile thinks a good size would be given the pixel scale.
+    N = int(obj.getGoodImageSize(pixel_scale))
+
+    # We must make something big enough to cover the target image size, if given.
+    if nx is not None and ny is not None:
+        N = max(N, nx, ny)
+    elif nx is not None or ny is not None:
+        raise ValueError("Must provide both nx and ny, or neither.")
+
+    # Round up to a good size for making FFTs:
+    N = galsim.Image.good_fft_size(N)
+
+    # Make sure we hit the minimum size specified in the gsparams.
+    N = max(N, obj.gsparams.minimum_fft_size)
+
+    dk = 2.0 * math.pi / (N * pixel_scale)
+
+    maxk = float(obj.maxk)
+    if N * dk / 2 > maxk:
+        Nk = N
+    else:
+        # There will be aliasing.  Make a larger image and then wrap it.
+        Nk = int(math.ceil(maxk / dk)) * 2
+
+    if Nk > obj.gsparams.maximum_fft_size:
+        warnings.warn(f"drawFFT requires a very large FFT: {Nk}")
+
+    return N, Nk
