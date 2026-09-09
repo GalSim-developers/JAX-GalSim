@@ -408,8 +408,8 @@ def draw_jgs_vmap_stamps(
     x = gparams.pop("x")
     y = gparams.pop("y")
 
-    image_positions = jax.vmap(lambda x, y: jgs.PositionD(x=x, y=y))(x, y)
-    local_wcss = jax.vmap(lambda x: wcs.local(image_pos=x))(image_positions)
+    image_positions = vmap(lambda x, y: jgs.PositionD(x=x, y=y))(x, y)
+    local_wcss = vmap(lambda x: wcs.local(image_pos=x))(image_positions)
 
     _draw_stamps_vmapped = vmap(
         partial(_draw_stamp_jgs, psf=psf, slen=slen, fft_size=fft_size)
