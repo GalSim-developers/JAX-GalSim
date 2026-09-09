@@ -17,6 +17,7 @@ import typer
 from draw_scene_functions import (
     add_results_to_pdf,
     draw_all_bins_jgs,
+    draw_all_galsim_stratified,
     draw_galsim,
     draw_jgs_scan_stamps,
     draw_jgs_vmap_stamps,
@@ -64,6 +65,7 @@ def main(
     fix_galsim_fft_size: bool = False,
     check_stamp_sizes: bool = False,
     include_outliers: bool = False,
+    compute_strat_residual: bool = False,
     outlier_fraction: float = 1e-2,
     progress_bar: bool = True,
     verbose: bool = False,
@@ -88,13 +90,17 @@ def main(
         # otherwise galsim would be used too inefficiently for this
         # to be a useful comparison
         print("INFO: Fixing Stamp Size for GalSim (not a production run)")
-        assert len(max_n_gals_bins) == len(stamp_slen_bins) == 1
+        assert len(max_n_gals_bins) == len(stamp_slen_bins) == 1, (
+            "Can only fix stamp size for GalSim when a single stamp size is used."
+        )
         stamp_size_galsim = stamp_slen_bins[0]
 
     fft_size_galsim = None
     if fix_galsim_fft_size:
         print("INFO: Fixing FFT Size for GalSim (not a production run)")
-        assert len(fft_size_bins) == 1
+        assert len(fft_size_bins) == 1, (
+            "Can only fit FFT Size when a single FFT Size bin is used."
+        )
         fft_size_galsim = fft_size_bins[-1]
 
     if check_stamp_sizes:
@@ -197,7 +203,7 @@ def main(
         _fft_size = fft_size_bins[ii]
         _mask = cat["good_size"] <= _stamp_slen
         assert np.all(cat[_mask]["good_fft_size"] <= _fft_size), (
-            "FFT that will be used for some galaxy in JAX-GalSim is smaller than the Galsim chosen FFT Size."
+            "FFT Size that will be used for some galaxy in JAX-GalSim is smaller than Galsim chosen FFT Size."
         )
 
     times_galsim = []
@@ -238,119 +244,149 @@ def main(
     )
 
     # timing start
-    pdf_name = out_folder / "residuals.pdf"
     rkeys = random.split(random.key(seed), n_samples)
 
-    with PdfPages(pdf_name) as pdf:
-        for ii, rkey in tqdm(
-            enumerate(rkeys),
-            total=n_samples,
-            desc="Timing GalSim vs JAX-GalSim",
-            disable=not progress_bar,
-        ):
-            k1, k2 = random.split(rkey)
+    # optional PDFs
+    if cpu_or_gpu == "cpu":
+        pdf_name1 = out_folder / "residuals_raw.pdf"
+        pdf1 = PdfPages(pdf_name1)
 
-            # get psf for this image
-            _psf = get_galsim_psf(k1)
-            _xpsf = get_jgs_psf(k1)
+    if cpu_or_gpu == "cpu" and compute_strat_residual:
+        pdf_name2 = out_folder / "residuals_strat.pdf"
+        pdf2 = PdfPages(pdf_name2)
 
-            # sample in numpy
-            sample, n, gsizes = get_one_full_sample(
-                k2, cat=cat, ilen=image_slen, max_n_gals=max_n_gals_global
+    for ii, rkey in tqdm(
+        enumerate(rkeys),
+        total=n_samples,
+        desc="Timing GalSim vs JAX-GalSim",
+        disable=not progress_bar,
+    ):
+        k1, k2 = random.split(rkey)
+
+        # get psf for this image
+        _psf = get_galsim_psf(k1)
+        _xpsf = get_jgs_psf(k1)
+
+        # sample in numpy
+        sample, n, gsizes = get_one_full_sample(
+            k2, cat=cat, ilen=image_slen, max_n_gals=max_n_gals_global
+        )
+        assert sample["flux_b"].shape == (n,)
+        assert gsizes.shape == (n,)
+        assert np.all(gsizes > 1), "There should be no dummies in this array."
+
+        # galsim timing
+        t1 = time.time()
+        gs_arr = draw_galsim(
+            sample,
+            n,
+            psf=_psf,
+            ilen=image_slen,
+            slen=stamp_size_galsim,
+            fft_size=fft_size_galsim,
+            check_stamp_sizes=check_stamp_sizes,
+            max_slen=stamp_slen_bins[-1] if check_stamp_sizes else None,
+            good_sizes=gsizes if check_stamp_sizes else None,
+            buffer=buffer if check_stamp_sizes else None,
+            size_bins=stamp_slen_bins if check_stamp_sizes else None,
+        )
+        t2 = time.time()
+        t_galsim = t2 - t1
+        times_galsim.append(t_galsim)
+
+        # transfer to device, separate sampled parameters into bins, and time separately
+        t1 = time.time()
+        samples_per_bin, n_iters_per_bin = prepare_per_bin_samples(
+            sample,
+            gsizes,
+            stamp_slen_bins=stamp_slen_bins,
+            max_n_gals_bins=max_n_gals_bins,
+            max_n_iters=max_n_iters,
+            buffer=buffer,
+        )
+
+        # need block until ready here to ensure computation+transfer happens!
+        samples_per_bin_jax = block_until_ready(
+            device_put(samples_per_bin, device=device)
+        )
+        n_iters_per_bin_jax = block_until_ready(
+            device_put(n_iters_per_bin, device=device)
+        )
+        xpsf_gpu = block_until_ready(device_put(_xpsf, device=device))
+        t2 = time.time()
+        times_transfer.append(t2 - t1)
+        assert n_bins == len(samples_per_bin) == len(n_iters_per_bin)
+        del (samples_per_bin, n_iters_per_bin, _xpsf)
+        # cpu versions no longer needed
+
+        # compilation (not timed)
+        if ii == 0:
+            _ = block_until_ready(
+                all_draw_fnc(samples_per_bin_jax, n_iters_per_bin_jax, xpsf_gpu)
             )
-            assert sample["flux_b"].shape == (n,)
-            assert gsizes.shape == (n,)
-            assert np.all(gsizes > 1), "There should be no dummies in this array."
 
-            # galsim timing
-            t1 = time.time()
-            gs_arr = draw_galsim(
-                sample,
-                n,
-                psf=_psf,
-                ilen=image_slen,
-                slen=stamp_size_galsim,
-                fft_size=fft_size_galsim,
-                check_stamp_sizes=check_stamp_sizes,
-                max_slen=stamp_slen_bins[-1] if check_stamp_sizes else None,
-                good_sizes=gsizes if check_stamp_sizes else None,
-                buffer=buffer if check_stamp_sizes else None,
-                size_bins=stamp_slen_bins if check_stamp_sizes else None,
+        # jax galsim timing
+        t1 = time.time()
+        with jax.transfer_guard("disallow"):
+            jgs_arr = block_until_ready(
+                all_draw_fnc(samples_per_bin_jax, n_iters_per_bin_jax, xpsf_gpu)
             )
-            t2 = time.time()
-            t_galsim = t2 - t1
-            times_galsim.append(t_galsim)
+        t2 = time.time()
+        t_jgalsim = t2 - t1
+        times_jgalsim.append(t_jgalsim)
 
-            # transfer to device, separate sampled parameters into bins, and time separately
-            t1 = time.time()
-            samples_per_bin, n_iters_per_bin = prepare_per_bin_samples(
-                sample,
-                gsizes,
-                stamp_slen_bins=stamp_slen_bins,
-                max_n_gals_bins=max_n_gals_bins,
-                max_n_iters=max_n_iters,
-                buffer=buffer,
+        if check_stamp_sizes and verbose:
+            _res = gs_arr - np.array(jgs_arr)
+            if np.any(_res > POS_RESIDUAL_THRESHOLD):
+                mask = _res > POS_RESIDUAL_THRESHOLD
+                print(
+                    f"WARNING: Positive residual above threshold found for image index '{ii}'. Consider taking a look at the PDF. Likely caused by a very bright galaxy if there was no assertion error. Values above threshold printed below."
+                )
+                print(_res[mask].ravel())
+
+        if cpu_or_gpu == "cpu":
+            jgs_arr_np = np.array(jgs_arr)
+
+            # save residual images to a multipage pdf for inspection
+            add_results_to_pdf(
+                ii,
+                pdf1,
+                gs_arr=gs_arr,
+                jgs_np_arr=jgs_arr_np,
+                t_galsim=t_galsim,
+                t_jgalsim=t_jgalsim,
             )
 
-            # need block until ready here to ensure computation+transfer happens!
-            samples_per_bin_jax = block_until_ready(
-                device_put(samples_per_bin, device=device)
-            )
-            n_iters_per_bin_jax = block_until_ready(
-                device_put(n_iters_per_bin, device=device)
-            )
-            xpsf_gpu = block_until_ready(device_put(_xpsf, device=device))
-            t2 = time.time()
-            times_transfer.append(t2 - t1)
-            assert n_bins == len(samples_per_bin) == len(n_iters_per_bin)
-            del (samples_per_bin, n_iters_per_bin, _xpsf)
-            # cpu versions no longer needed
+            # write down record for potential refinement of bins (only on CPU tests)
+            n_gals_record.append(_create_record(gsizes, stamp_slen_bins, buffer))
+            if ii == n_samples - 1:
+                with open(out_folder / "record.json", "w") as fp:
+                    json.dump(n_gals_record, fp, indent="\t")
 
-            # compilation (not timed)
-            if ii == 0:
-                _ = block_until_ready(
-                    all_draw_fnc(samples_per_bin_jax, n_iters_per_bin_jax, xpsf_gpu)
+            if compute_strat_residual:
+                # compute stratified galsim residual for sanity checking that residuals are indeed
+                # very small when FFT size / Stamp size in GalSim is set exactly the same way as
+                # JAX-Galsim across galaxies of different sizes
+                gs_arr_strat = draw_all_galsim_stratified(
+                    sample,
+                    ilen=image_slen,
+                    psf=_psf,
+                    gsizes=gsizes,
+                    buffer=buffer,
+                    stamp_slen_bins=stamp_slen_bins,
+                    fft_size_bins=fft_size_bins,
                 )
 
-            # jax galsim timing
-            t1 = time.time()
-            with jax.transfer_guard("disallow"):
-                jgs_arr = block_until_ready(
-                    all_draw_fnc(samples_per_bin_jax, n_iters_per_bin_jax, xpsf_gpu)
-                )
-            t2 = time.time()
-            t_jgalsim = t2 - t1
-            times_jgalsim.append(t_jgalsim)
+                # residual should be very small as function above mirrors stratified procedure
+                add_results_to_pdf(ii, pdf2, gs_arr=gs_arr_strat, jgs_np_arr=jgs_arr_np)
 
-            if check_stamp_sizes and verbose:
-                _res = gs_arr - np.array(jgs_arr)
-                if np.any(_res > POS_RESIDUAL_THRESHOLD):
-                    mask = _res > POS_RESIDUAL_THRESHOLD
-                    print(
-                        f"WARNING: Positive residual above threshold found for image index '{ii}'. Consider taking a look at the PDF. Likely caused by a very bright galaxy if there was no assertion error. Values above threshold printed below."
-                    )
-                    print(_res[mask].ravel())
+        # free memory as appropriate
+        del gs_arr, jgs_arr, samples_per_bin_jax, n_iters_per_bin_jax
 
-            if cpu_or_gpu == "cpu":
-                # save residual images to a multipage pdf for inspection
-                add_results_to_pdf(
-                    ii,
-                    pdf,
-                    gs_arr=gs_arr,
-                    jgs_np_arr=np.array(jgs_arr),
-                    t_galsim=t_galsim,
-                    t_jgalsim=t_jgalsim,
-                )
-
-            # write down record for potential refinement of bins (only on CPU)
-            if cpu_or_gpu == "cpu":
-                n_gals_record.append(_create_record(gsizes, stamp_slen_bins, buffer))
-                if ii == n_samples - 1:
-                    with open(out_folder / "record.json", "w") as fp:
-                        json.dump(n_gals_record, fp, indent="\t")
-
-            # free memory as appropriate
-            del gs_arr, jgs_arr, samples_per_bin_jax, n_iters_per_bin_jax
+    if cpu_or_gpu == "cpu":
+        pdf1.close()
+        if compute_strat_residual:
+            pdf2.close()
 
     print("INFO: Done running! Now saving timing results...")
     _save_timing_results(
