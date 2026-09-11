@@ -20,6 +20,7 @@ from draw_scene_functions import (
     draw_all_galsim_stratified,
     draw_galsim,
     draw_jgs_scan_stamps,
+    draw_jgs_vmap_scatter_stamps,
     draw_jgs_vmap_stamps,
     get_good_sizes_galsim,
     get_one_full_sample,
@@ -81,7 +82,7 @@ def main(
     assert tuple(sorted(stamp_slen_bins)) == stamp_slen_bins
     assert tuple(sorted(fft_size_bins)) == fft_size_bins
     assert tuple(sorted(max_n_gals_bins, reverse=True)) == max_n_gals_bins
-    assert scan_or_vmap in ("scan", "vmap")
+    assert scan_or_vmap in ("scan", "vmap", "scatter-vmap")
     assert cpu_or_gpu in ("cpu", "gpu")
 
     stamp_size_galsim = None
@@ -213,9 +214,16 @@ def main(
 
     # prepare draw function for jax_galsim for each size bin
     draw_fncs = []
-    draw_fnc_raw = (
-        draw_jgs_scan_stamps if scan_or_vmap == "scan" else draw_jgs_vmap_stamps
-    )
+    if scan_or_vmap == "scan":
+        draw_fnc_raw = draw_jgs_scan_stamps
+    elif scan_or_vmap == "vmap":
+        draw_fnc_raw = draw_jgs_vmap_stamps
+    elif scan_or_vmap == "scatter-vmap":
+        draw_fnc_raw = draw_jgs_vmap_scatter_stamps
+    else:
+        raise ValueError(
+            f"`scan_or_vmap` option passed in is not recognized: {scan_or_vmap}"
+        )
     for ii in range(n_bins):
         _max_n_gals = max_n_gals_bins[ii]
         _stamp_slen = stamp_slen_bins[ii]
