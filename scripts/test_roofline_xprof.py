@@ -78,8 +78,10 @@ def main(
     _ = block_until_ready(draw_func(sample_jax, xpsf_gpu))
 
     # roofline plot
+    scatter_str = "-scatter" if scatter else ""
+    trace_name = f"jax-trace-{seed}-{image_slen}{scatter_str}"
     print("INFO: Running final image drawing with tracing...")
-    with jax.profiler.trace(Path(out_dir) / f"jax-trace-{seed}-{image_slen}"):
+    with jax.profiler.trace(Path(out_dir) / trace_name):
         with jax.transfer_guard("disallow"):
             _ = block_until_ready(draw_func(sample_jax, xpsf_gpu))
 
