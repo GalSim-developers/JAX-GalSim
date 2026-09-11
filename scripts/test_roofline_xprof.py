@@ -9,6 +9,7 @@ import galsim
 import jax
 import typer
 from draw_scene_functions import (
+    draw_jgs_vmap_scatter_stamps,
     draw_jgs_vmap_stamps,
     get_good_sizes_galsim,
     get_one_full_sample,
@@ -26,6 +27,7 @@ def main(
     stamp_slen: int = typer.Option(default=61),
     fft_size: int = typer.Option(default=128),
     out_dir: str = "./scripts/output_roofline",
+    scatter: bool = False,  # where to use scatter add approach
 ):
     assert Path(out_dir).exists(), "Output directory does not exist."
 
@@ -59,9 +61,11 @@ def main(
     sample_jax = block_until_ready(device_put(sample, device=device))
     xpsf_gpu = block_until_ready(device_put(xpsf, device=device))
 
+    draw_fnc_raw = draw_jgs_vmap_stamps if not scatter else draw_jgs_vmap_scatter_stamps
+
     draw_func = jit(
         partial(
-            draw_jgs_vmap_stamps,
+            draw_fnc_raw,
             ilen=image_slen,
             slen=stamp_slen,
             fft_size=fft_size,
