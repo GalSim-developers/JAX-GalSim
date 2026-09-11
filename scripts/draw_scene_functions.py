@@ -478,6 +478,61 @@ def draw_jgs_vmap_stamps(
     return final_pad_image.array[slen:-slen, slen:-slen]
 
 
+def _scatter_stamps_into_image(image: jgs.ImageD, stamps: jgs.ImageD) -> jgs.ImageD:
+    """Add a batch of same-size ``stamps`` into ``image`` with a single vectorized
+    scatter-add instead of a sequential ``lax.scan``.
+
+    This relies on the fact that addition is associative/commutative, so all stamps'
+    contributions can be computed independently and combined in one XLA scatter op
+    (parallelizable), rather than folding one-at-a-time through a carried image (scan).
+    """
+    n, slen, _ = stamps.array.shape
+    # stamp bounds have static shape (slen) but dynamic (traced) xmin/ymin per galaxy
+    row0 = stamps.bounds.ymin - image.bounds.ymin
+    col0 = stamps.bounds.xmin - image.bounds.xmin
+    local = jnp.arange(slen)
+    rows = jnp.broadcast_to(row0[:, None, None] + local[None, :, None], (n, slen, slen))
+    cols = jnp.broadcast_to(col0[:, None, None] + local[None, None, :], (n, slen, slen))
+    new_array = image.array.at[rows, cols].add(stamps.array)
+    return jgs.ImageD(new_array, wcs=image.wcs, bounds=image.bounds)
+
+
+def draw_jgs_vmap_scatter_stamps(
+    galaxy_params: dict,
+    psf: jgs.GSObject,
+    *,
+    ilen: int,
+    slen: int,
+    fft_size: int,
+    max_n_gals: int,
+):
+
+    # create big image
+    image = jgs.ImageD(ncol=ilen, nrow=ilen, scale=0.2)
+    wcs = image.wcs
+    gparams = {**galaxy_params}
+    assert gparams["flux_d"].shape[0] == max_n_gals
+
+    x = gparams.pop("x")
+    y = gparams.pop("y")
+
+    image_positions = vmap(lambda x, y: jgs.PositionD(x=x, y=y))(x, y)
+    local_wcss = vmap(lambda x: wcs.local(image_pos=x))(image_positions)
+
+    _draw_stamps_vmapped = vmap(
+        partial(_draw_stamp_jgs, psf=psf, slen=slen, fft_size=fft_size)
+    )
+    stamps = _draw_stamps_vmapped(gparams, image_positions, local_wcss)
+    assert stamps.array.shape[0] == max_n_gals
+
+    pad_image = jgs.ImageD(
+        jnp.pad(image.array, slen), wcs=image.wcs, bounds=image.bounds.withBorder(slen)
+    )
+
+    final_pad_image = _scatter_stamps_into_image(pad_image, stamps)
+    return final_pad_image.array[slen:-slen, slen:-slen]
+
+
 def draw_all_bins_jgs(
     samples_per_bin_jax,
     n_iters_per_bin,
