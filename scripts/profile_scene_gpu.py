@@ -151,7 +151,7 @@ def main(
     _ = block_until_ready(all_draw_fnc(*_warmup))
     del _warmup
 
-    trace_name = f"jax-trace-{scan_or_vmap}-{seed}-{image_slen}-{n_samples}"
+    trace_name = f"jax-trace-scenes-{scan_or_vmap}-{seed}-{image_slen}-{n_samples}"
     trace_dir = out_root_path / trace_name
     print(f"INFO: Tracing {n_samples} sample(s) to '{trace_dir}'...")
     with jax.profiler.trace(str(trace_dir)):
