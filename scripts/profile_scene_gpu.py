@@ -50,7 +50,7 @@ def main(
     n_samples: int = typer.Option(help="How many big images to trace."),
     catsim_fpath: str = typer.Option(),
     out_dir: str = typer.Option(),
-    scan_or_vmap: str = typer.Option(default="scan"),
+    scan_or_vmap: str = typer.Option(),
     buffer: int = typer.Option(default=4),
     seed: int = typer.Option(default=42),
     max_n_iters: int = typer.Option(default=5),
