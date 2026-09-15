@@ -53,7 +53,7 @@ def main(
     max_n_gals_global: int = typer.Option(),
     n_samples: int = typer.Option(help="How many big images do you want?"),
     catsim_fpath: str = "~/Sync/research/catsim/OneDegSq.fits",
-    outdir: str = typer.Option(),
+    out_dir: str = typer.Option(),
     scan_or_vmap: str = typer.Option(default="scan"),
     cpu_or_gpu: str = typer.Option(default="cpu"),
     psf_type: str = typer.Option(default="gaussian"),
@@ -114,7 +114,7 @@ def main(
     else:
         raise ValueError()
 
-    out_root_path = Path(outdir)
+    out_root_path = Path(out_dir)
     assert out_root_path.exists(), "Need to create root output directory."
 
     # get hash for specified bin argument
