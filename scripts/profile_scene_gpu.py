@@ -154,7 +154,7 @@ def main(
     trace_name = f"jax-trace-scenes-{scan_or_vmap}-{seed}-{image_slen}-{n_samples}"
     trace_dir = out_root_path / trace_name
     print(f"INFO: Tracing {n_samples} sample(s) to '{trace_dir}'...")
-    with jax.profiler.trace(str(trace_dir)):
+    with jax.profiler.trace(trace_dir):
         for rkey in rkeys:
             with jax.profiler.TraceAnnotation("transfer"):
                 samples_per_bin_jax, n_iters_per_bin_jax, xpsf_gpu = _transfer_one(rkey)
