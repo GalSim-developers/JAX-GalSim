@@ -19,7 +19,7 @@ uv run python3 scripts/timing_tests_general.py --stamp-slen-bins-str '63,83,103,
 
 uv run python3 scripts/timing_tests_general.py --stamp-slen-bins-str '63,83,103,250,1000' --max-n-gals-bins-str '1050,300,40,20,3' --fft-size-bins-str "128,128,128,256,1024" --image-slen 1000 --max-n-gals-global 2000 --outdir ${OUT_DIR} --max-n-iters 5 --psf-type "vary-moffat" --seed 45 --include-outliers --scan-or-vmap 'scatter-vmap' --cpu-or-gpu 'gpu' --catsim-fpath "../OneDegSq.fits" --n-samples 500 
 
-uv run python3 scripts/timing_tests_general.p --outdir ${OUT_DIR} --stamp-slen-bins-str '63,83,121' --max-n-gals-bins-str '65,20,10' --fft-size-bins-str "128,128,128" --image-slen 250 --max-n-gals-global 150 --max-n-iters 5 --psf-type "vary-moffat" --seed 45 --scan-or-vmap 'scatter-vmap' --cpu-or-gpu 'gpu' --catsim-fpath "../OneDegSq.fits" --n-samples 500
+uv run python3 scripts/timing_tests_general.py --outdir ${OUT_DIR} --stamp-slen-bins-str '63,83,121' --max-n-gals-bins-str '65,20,10' --fft-size-bins-str "128,128,128" --image-slen 250 --max-n-gals-global 150 --max-n-iters 5 --psf-type "vary-moffat" --seed 45 --scan-or-vmap 'scatter-vmap' --cpu-or-gpu 'gpu' --catsim-fpath "../OneDegSq.fits" --n-samples 500
 
 uv run python3 scripts/timing_tests_general.py --outdir ${OUT_DIR} --stamp-slen-bins-str '63,83,123' --max-n-gals-bins-str '1050,300,50' --fft-size-bins-str "128,128,128" --image-slen 1000 --max-n-gals-global 2000 --max-n-iters 5 --psf-type "vary-moffat" --seed 45 --scan-or-vmap 'scatter-vmap' --cpu-or-gpu 'gpu' --catsim-fpath "../OneDegSq.fits" --n-samples 500
 
