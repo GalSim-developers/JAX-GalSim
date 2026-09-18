@@ -479,15 +479,8 @@ def draw_jgs_vmap_stamps(
 
 
 def _scatter_stamps_into_image(image: jgs.ImageD, stamps: jgs.ImageD) -> jgs.ImageD:
-    """Add a batch of same-size ``stamps`` into ``image`` with a single vectorized
-    scatter-add instead of a sequential ``lax.scan``.
-
-    This relies on the fact that addition is associative/commutative, so all stamps'
-    contributions can be computed independently and combined in one XLA scatter op
-    (parallelizable), rather than folding one-at-a-time through a carried image (scan).
-    """
+    """Add a batch of same-size ``stamps`` into ``image`` with a single vectorized scatter-add."""
     n, slen, _ = stamps.array.shape
-    # stamp bounds have static shape (slen) but dynamic (traced) xmin/ymin per galaxy
     row0 = stamps.bounds.ymin - image.bounds.ymin
     col0 = stamps.bounds.xmin - image.bounds.xmin
     local = jnp.arange(slen)
