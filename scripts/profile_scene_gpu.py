@@ -141,7 +141,7 @@ def main(
     _inputs = _transfer_one(rkey)
     _ = block_until_ready(all_draw_fnc(*_inputs))
 
-    trace_name = f"jax-trace-scenes-{scan_or_vmap}-{seed}-{image_slen}"
+    trace_name = f"jax-trace-scene-{scan_or_vmap}-{seed}-{image_slen}"
     trace_dir = out_root_path / trace_name
     print(f"INFO: Profiling scene drawing to '{trace_dir}'...")
     with jax.profiler.trace(trace_dir):
