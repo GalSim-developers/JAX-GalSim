@@ -2,13 +2,6 @@
 """GPU-profile the full scene drawing pipeline (stratified stamp size bins) via
 `jax.profiler.trace`, in the same spirit as `test_roofline_xprof.py` but for the more
 realistic multi-bin pipeline exercised in `timing_tests_general.py`.
-
-Host-side sampling, `prepare_per_bin_samples`, and host->device transfer happen inside the same
-`jax.profiler.trace` context as the drawing itself (one trace covers all `n_samples`), but each
-phase is wrapped in a `jax.profiler.TraceAnnotation` so "transfer" and "draw" show up as
-clearly separate, non-overlapping events in the trace viewer. Per-iteration device arrays are
-freed right after use, so GPU memory stays bounded to ~1 sample instead of scaling with
-`n_samples`.
 """
 
 import os
@@ -47,7 +40,6 @@ def main(
     fft_size_bins_str: str = typer.Option(),
     image_slen: int = typer.Option(),
     max_n_gals_global: int = typer.Option(),
-    n_samples: int = typer.Option(help="How many big images to trace."),
     catsim_fpath: str = typer.Option(),
     out_dir: str = typer.Option(),
     scan_or_vmap: str = typer.Option(),
@@ -121,8 +113,6 @@ def main(
         )
     )
 
-    rkeys = random.split(random.key(seed), n_samples)
-
     def _transfer_one(rkey):
         k1, k2 = random.split(rkey)
         sample, n, gsizes = get_one_full_sample(
@@ -146,27 +136,18 @@ def main(
         return samples_per_bin_jax, n_iters_per_bin_jax, xpsf_gpu
 
     # untraced warm-up so JIT compilation doesn't pollute the trace
+    rkey = jax.random.key(seed)
     print("INFO: Running compilation...")
-    _warmup = _transfer_one(rkeys[0])
-    _ = block_until_ready(all_draw_fnc(*_warmup))
-    del _warmup
+    _inputs = _transfer_one(rkey)
+    _ = block_until_ready(all_draw_fnc(*_inputs))
 
-    trace_name = f"jax-trace-scenes-{scan_or_vmap}-{seed}-{image_slen}-{n_samples}"
+    trace_name = f"jax-trace-scenes-{scan_or_vmap}-{seed}-{image_slen}"
     trace_dir = out_root_path / trace_name
-    print(f"INFO: Tracing {n_samples} sample(s) to '{trace_dir}'...")
+    print(f"INFO: Profiling scene drawing to '{trace_dir}'...")
     with jax.profiler.trace(trace_dir):
-        for rkey in rkeys:
-            with jax.profiler.TraceAnnotation("transfer"):
-                samples_per_bin_jax, n_iters_per_bin_jax, xpsf_gpu = _transfer_one(rkey)
-
-            with jax.profiler.TraceAnnotation("draw"):
-                with jax.transfer_guard("disallow"):
-                    _ = block_until_ready(
-                        all_draw_fnc(samples_per_bin_jax, n_iters_per_bin_jax, xpsf_gpu)
-                    )
-
-            # free this iteration's device buffers before the next iteration transfers new ones
-            del samples_per_bin_jax, n_iters_per_bin_jax, xpsf_gpu
+        with jax.transfer_guard("disallow"):
+            _ = block_until_ready(all_draw_fnc(*_inputs))
+        del _inputs
     print("INFO: Done tracing.")
 
 
