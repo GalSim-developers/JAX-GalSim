@@ -183,6 +183,7 @@ def _draw_stamp_jgs(
     return stamp
 
 
+@jax.jit
 def _scatter_stamps_into_image(image: jgs.ImageD, stamps: jgs.ImageD) -> jgs.ImageD:
     """Add a batch of same-size ``stamps`` into ``image`` with a single vectorized scatter-add."""
     n, slen, _ = stamps.array.shape
