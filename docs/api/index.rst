@@ -10,6 +10,7 @@ API Reference
    weak-lensing
    wcs
    noise
+   chromatic
    photon_shooting
    interpolation
    fits
