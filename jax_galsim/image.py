@@ -877,9 +877,15 @@ class Image(object):
         # dk = 2pi / (N dk)
         dk = jnp.pi / (No2 * dx)
 
+        # Use complex64 for float32 inputs, complex128 for float64
+        if self.dtype == jnp.float32:
+            fft_dtype = np.complex64
+        else:
+            fft_dtype = np.complex128
+
         out = Image(
             BoundsI(xmin=0, deltax=No2 + 1, ymin=-No2, deltay=2 * No2),
-            dtype=np.complex128,
+            dtype=fft_dtype,
             scale=dk,
         )
         # we shift the image before and after the FFT to match the layout of the modes
