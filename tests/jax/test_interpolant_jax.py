@@ -524,3 +524,50 @@ def test_interpolant_jax_unit_integrals():
     np.testing.assert_array_equal(short, full[:5])
     np.testing.assert_array_equal(med, full[:8])
     np.testing.assert_array_equal(long, full[:10])
+
+
+@pytest.mark.parametrize(
+    "interp",
+    [
+        galsim.Delta(),
+        galsim.Nearest(),
+        galsim.Linear(),
+        galsim.Cubic(),
+        galsim.Quintic(),
+        galsim.Lanczos(3),
+        galsim.Lanczos(5),
+    ],
+    ids=lambda x: str(x).replace("galsim.", "").replace("(", "").replace(")", ""),
+)
+@pytest.mark.parametrize("n", [2, 3, 4, 5, 8, 9, 32])
+def test_interpolant_jax_xval_wrapped(interp, n):
+    """The wrapped kernel is the sum of xval over all aliases x + j*n."""
+    gs = getattr(ref_galsim, interp.__class__.__name__)
+    gs = gs(interp.n) if isinstance(interp, galsim.Lanczos) else gs()
+
+    x = np.linspace(-12.0, 12.0, 97)
+    js = np.arange(-200, 201) * n
+    expected = gs.xval(np.ravel(x[:, None] + js[None, :])).reshape(x.size, js.size)
+    expected = expected.sum(axis=1)
+
+    np.testing.assert_allclose(
+        interp._xval_wrapped_noraise(x, n), expected, rtol=0, atol=1e-10
+    )
+
+
+@pytest.mark.parametrize("n", [8, 9, 32, 128])
+def test_interpolant_jax_sinc_xval_wrapped(n):
+    """The sinc kernel wraps to the Dirichlet kernel, which the truncated
+    alias sum converges to as the window grows."""
+    x = np.linspace(-12.0, 12.0, 97)
+    got = galsim.SincInterpolant()._xval_wrapped_noraise(x, n)
+
+    prev = None
+    for m in (10**3, 10**4, 10**5):
+        js = np.arange(-m, m + 1) * n
+        expected = np.sinc(x[:, None] + js[None, :]).sum(axis=1)
+        err = np.max(np.abs(np.asarray(got) - expected))
+        if prev is not None:
+            assert err < prev
+        prev = err
+    assert err < 1e-5

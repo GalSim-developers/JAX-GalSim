@@ -156,6 +156,16 @@ class Interpolant:
     def _xval_noraise(self, x):
         return self.__class__._xval(x)
 
+    def _xval_wrapped_noraise(self, x, n):
+        """The sum of ``xval`` over all aliases ``x + j*n``, as in
+        ``Interpolant::xvalWrapped`` in GalSim."""
+        xdown = x - n * jnp.floor(x / n + 0.5)
+        if 2 * self.xrange <= n:
+            return self._xval_noraise(xdown)
+        nalias = int(math.ceil(self.xrange / n + 0.5))
+        js = jnp.arange(-nalias, nalias + 1) * n
+        return jnp.sum(self._xval_noraise(jnp.asarray(xdown)[..., None] + js), axis=-1)
+
     @implements(_galsim.interpolant.Interpolant.kval)
     def kval(self, k):
         if jnp.ndim(k) > 1:
@@ -419,6 +429,18 @@ class SincInterpolant(Interpolant):
             0.0,
             jnp.where(absu < 0.5, 1.0, 0.5),
         )
+
+    def _xval_wrapped_noraise(self, x, n):
+        x = x * np.pi
+        msk = jnp.abs(x) < 1e-4
+        xs = jnp.where(msk, 1.0, x)
+        if n % 2 == 0:
+            taylor = 1.0 - x * x * (1.0 / 6.0 + 1.0 / 2.0 - 1.0 / (6.0 * n * n))
+            val = jnp.sin(xs) * jnp.cos(xs / n) / (n * jnp.sin(xs / n))
+        else:
+            taylor = 1.0 - (1.0 / 6.0) * x * x * (1.0 - 1.0 / (n * n))
+            val = jnp.sin(xs) / (n * jnp.sin(xs / n))
+        return jnp.where(msk, taylor, val)
 
     def urange(self):
         """The maximum extent of the interpolant in Fourier space (in 2pi/pixels)."""

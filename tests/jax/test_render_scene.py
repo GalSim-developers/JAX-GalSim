@@ -183,14 +183,17 @@ def _draw_stamp_jgs(
     return stamp
 
 
-@partial(jax.jit, static_argnames=("slen",))
-def _add_to_image(carry, x, slen):
-    image = carry[0]
-    stamp = x
-
-    image[stamp.bounds] += stamp
-
-    return (image,), None
+@jax.jit
+def _scatter_stamps_into_image(image: jgs.ImageD, stamps: jgs.ImageD) -> jgs.ImageD:
+    """Add a batch of same-size ``stamps`` into ``image`` with a single vectorized scatter-add."""
+    n, slen, _ = stamps.array.shape
+    row0 = stamps.bounds.ymin - image.bounds.ymin
+    col0 = stamps.bounds.xmin - image.bounds.xmin
+    local = jnp.arange(slen)
+    rows = jnp.broadcast_to(row0[:, None, None] + local[None, :, None], (n, slen, slen))
+    cols = jnp.broadcast_to(col0[:, None, None] + local[None, None, :], (n, slen, slen))
+    new_array = image.array.at[rows, cols].add(stamps.array)
+    return jgs.ImageD(new_array, wcs=image.wcs, bounds=image.bounds)
 
 
 @partial(jax.jit, static_argnames=("fft_size", "slen", "ilen", "ng"))
@@ -217,12 +220,7 @@ def _render_scene_stamps_jax_galsim(
         jnp.pad(image.array, slen), wcs=image.wcs, bounds=image.bounds.withBorder(slen)
     )
 
-    final_pad_image = jax.lax.scan(
-        partial(_add_to_image, slen=slen),
-        (pad_image,),
-        xs=stamps,
-        length=ng,
-    )[0][0]
+    final_pad_image = _scatter_stamps_into_image(pad_image, stamps)
 
     return stamps, final_pad_image
 
