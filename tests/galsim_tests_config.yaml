@@ -21,6 +21,9 @@ enabled_tests:
     - test_noise.py
     - test_image.py
     - test_photon_array.py
+    - test_sed.py
+    - test_bandpass.py
+    - test_chromatic.py
     - "*"  # means all tests from galsim
   coord:
     - test_angle.py
@@ -31,6 +34,18 @@ enabled_tests:
 # tests to explicitly skip
 # applied on top of the enabled set above
 skipped_tests:
+  galsim:
+    # JAX-GalSim's chromatic subset is array-backed and does not implement
+    # GalSim spectral file/string expression parsing, zeropoints, DCR moment
+    # helpers, chromatic affine transforms, or photon shooting.
+    - "tests/GalSim/tests/test_sed.py::test_SED_withFlux"
+    - "tests/GalSim/tests/test_sed.py::test_SED_calculateDCRMomentShifts"
+    - "tests/GalSim/tests/test_sed.py::test_SED_calculateSeeingMomentRatio"
+    - "tests/GalSim/tests/test_sed.py::test_broadcast"
+    - "tests/GalSim/tests/test_bandpass.py::test_zp"
+    - "tests/GalSim/tests/test_bandpass.py::test_truncate_inputs"
+    - "tests/GalSim/tests/test_chromatic.py::test_ChromaticObject_compound_affine_transformation"
+    - "tests/GalSim/tests/test_chromatic.py::test_shoot_transformation"
   coord:
     - "tests/Coord/tests/test_celestial.py::test_xyz_raises"
     - "tests/Coord/tests/test_celestial.py::test_greatcircle_raises"
@@ -86,7 +101,6 @@ allowed_failures:
   - "module 'jax_galsim' has no attribute 'Dict'"
   - "module 'jax_galsim' has no attribute 'OutputCatalog'"
   - "module 'jax_galsim' has no attribute 'cdmodel'"
-  - "module 'jax_galsim' has no attribute 'ChromaticObject'"
   - "module 'jax_galsim' has no attribute 'ChromaticAiry'"
   - "module 'jax_galsim' has no attribute 'config'"
   - "module 'jax_galsim' has no attribute 'RealGalaxyCatalog'"
@@ -101,13 +115,18 @@ allowed_failures:
   - "pad_image not implemented in jax_galsim."
   - "InterpolatedImages do not support noise padding in jax_galsim."
   - "module 'jax_galsim' has no attribute 'FittedSIPWCS'"
-  - "module 'jax_galsim' has no attribute 'Bandpass'"
   - "module 'jax_galsim' has no attribute 'Refraction'"
   - "module 'jax_galsim' has no attribute 'FRatioAngles'"
   - "module 'jax_galsim' has no attribute 'PupilAnnulusSampler'"
   - "module 'jax_galsim' has no attribute 'TimeSampler'"
   - "object has no attribute 'noise'"
-  - "module 'jax_galsim' has no attribute 'SED'"
+  # JAX-native chromatic subset: array-backed SED/Bandpass only.
+  # Full GalSim spectral I/O, expression parsing, LookupTable metadata,
+  # transforms, thinning, photon shooting, and units are not implemented yet.
+  - "SED.__init__() got an unexpected keyword argument 'spec'"
+  - "SED.__init__() got an unexpected keyword argument 'wave_type'"
+  - "Bandpass.__init__() got an unexpected keyword argument 'wave_type'"
+  - "'ChromaticObject' object has no attribute 'dilate'"
   - "module 'jax_galsim' has no attribute 'getCOSMOSNoise'"
   - "GSParams.__init__() got an unexpected keyword argument 'allowed_flux_variation'"
   - "module 'jax_galsim' has no attribute 'Atmosphere'"
@@ -140,7 +159,6 @@ allowed_failures:
   - "module 'jax_galsim' has no attribute 'Aperture'"
   - "module 'jax_galsim' has no attribute 'AtmosphericScreen'"
   - "module 'jax_galsim' has no attribute 'OpticalScreen'"
-  - "module 'jax_galsim' has no attribute 'ChromaticConvolution'"
   - "module 'jax_galsim' has no attribute 'phase_screens'"
   - "module 'jax_galsim' has no attribute 'DistDeviate'"
   - "module 'jax_galsim' has no attribute 'roman'"
