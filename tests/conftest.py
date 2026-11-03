@@ -44,7 +44,7 @@ def _check_pickle(*args, **kwargs):
 galsim.utilities.check_pickle = _check_pickle
 
 
-def pytest_ignore_collect(collection_path, path, config):
+def pytest_ignore_collect(collection_path, config):
     """This hook will skip collecting tests that are not
     enabled in the enabled_tests.yaml file.
 
@@ -99,7 +99,12 @@ def pytest_collection_modifyitems(config, items):
         ):
             item.add_marker(skip)
 
-        if any([t in item.nodeid for t in test_config["skipped_tests"]["coord"]]):
+        skipped_tests = test_config["skipped_tests"].get("galsim", []) + test_config[
+            "skipped_tests"
+        ].get("coord", [])
+        if any(
+            [item.nodeid == t or item.nodeid.startswith(t + "[") for t in skipped_tests]
+        ):
             item.add_marker(skip)
 
 
@@ -126,7 +131,7 @@ def _convert_galsim_to_jax_galsim(obj):
         return obj
 
 
-def pytest_pycollect_makemodule(module_path, path, parent):
+def pytest_pycollect_makemodule(module_path, parent):
     """This hook is tasked with overriding the galsim import
     at the top of each test file. Replaces it by jax-galsim.
     """
