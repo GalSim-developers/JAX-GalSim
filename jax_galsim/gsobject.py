@@ -986,7 +986,15 @@ The JAX-GalSim version of ``drawImage``
         kimage = self._drawKImage(kimage)
         return self.drawFFT_finish(image, kimage, wrap_size, add_to_image)
 
-    @implements(_galsim.GSObject.drawKImage)
+    @implements(
+        _galsim.GSObject.drawKImage,
+        lax_description="""\
+The JAX-GalSim version of ``drawKImage`` accepts an extra ``dtype`` to set
+the complex dtype of k-space-image when ``image`` is not provided
+(e.g. ``numpy.complex64``). If ``dtype`` is None, it defaults to ``complex128``
+when ``jax_enable_x64`` is enabled and ``complex64`` otherwise.
+""",
+    )
     def drawKImage(
         self,
         image=None,
@@ -998,9 +1006,17 @@ The JAX-GalSim version of ``drawImage``
         recenter=True,
         bandpass=None,
         setup_only=False,
+        dtype=None,
     ):
         from jax_galsim.image import Image
         from jax_galsim.wcs import PixelScale
+
+        if dtype is not None:
+            dtype = Image._alias_dtypes.get(dtype, dtype)
+            if not jnp.issubdtype(dtype, jnp.complexfloating):
+                raise _galsim.GalSimValueError(
+                    "dtype must be complex for drawKImage", dtype
+                )
 
         # Make sure provided image is complex
         if image is not None:
@@ -1009,6 +1025,13 @@ The JAX-GalSim version of ``drawImage``
 
             if not image.iscomplex:
                 raise _galsim.GalSimValueError("Provided image must be complex", image)
+
+            if dtype is not None and image.dtype != dtype:
+                raise _galsim.GalSimIncompatibleValuesError(
+                    "Cannot specify dtype != image.dtype if image is provided",
+                    dtype=dtype,
+                    image=image,
+                )
 
         # Possibly get the scale from image.
         if image is not None and scale is None:
@@ -1036,7 +1059,11 @@ The JAX-GalSim version of ``drawImage``
         # So make that profile.
         if image is None or not image.bounds.isDefined():
             real_prof = PixelScale(dx).profileToImage(self)
-            dtype = np.complex128 if image is None else image.dtype
+            if image is not None:
+                dtype = image.dtype
+            elif dtype is None:
+                # complex128 is not available when x64 is disabled
+                dtype = np.complex128 if jax.config.jax_enable_x64 else np.complex64
             image = real_prof._setup_image(
                 image, nx, ny, bounds, add_to_image, dtype, center=None, odd=True
             )
