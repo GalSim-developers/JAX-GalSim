@@ -620,7 +620,7 @@ def prepare_catalog(
     hlr_b = np.sqrt(cat["a_b"] * cat["b_b"])
     hlr_d = np.sqrt(cat["a_d"] * cat["b_d"])
     _mask1 = (hlr_b > min_hlr) | (hlr_d > min_hlr)
-    _mask2 = cat["r_ab"] < max_mag
+    _mask2 = cat["i_ab"] < max_mag  # same band as the fluxes we draw
     mask = _mask1 & _mask2
     fcat = cat[mask]
     return fcat
@@ -635,6 +635,11 @@ def get_good_sizes_galsim(
         dt = np.load(cache_fpath)
         _good_sizes = dt["good_sizes"]
         _good_fft_sizes = dt["good_fft_sizes"]
+        assert len(_good_sizes) == len(cat), (
+            f"Cached good sizes in {cache_fpath} do not match the catalog "
+            f"({len(_good_sizes)} vs {len(cat)}); the catalog cuts probably changed. "
+            "Delete the cache file or pass `overwrite=True`."
+        )
     else:
         print("INFO: Computing good sizes for catalog")
         _good_sizes = []
