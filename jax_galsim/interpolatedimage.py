@@ -635,7 +635,7 @@ class _InterpolatedImageImpl(GSObject):
             )
         else:
             # Preserve the input dtype
-            image = self._jax_children[0].copy(dtype=float)
+            image = self._jax_children[0].copy()
 
         if self._jax_aux_data["_recenter_image"]:
             image.setCenter(0, 0)
