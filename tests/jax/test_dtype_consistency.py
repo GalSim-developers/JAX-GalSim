@@ -32,6 +32,19 @@ def test_calculate_fft_dtype(dtype, fft_dtype, ifft_dtype):
     assert inv_fft_im.array.dtype == ifft_dtype
 
 
+
+@pytest.mark.parametrize(
+    "dtype,kdtype",
+    [
+        (jnp.float32, jnp.complex64),
+    ],
+)
+def test_interpolated_image_preserves_dtype(dtype, kdtype):
+    im = _gaussian_image(dtype)
+    ii = jax_galsim.InterpolatedImage(im, x_interpolant="lanczos15")
+    assert ii._original._image.dtype == dtype
+    assert ii._original._kim.dtype == kdtype
+    
 @pytest.mark.parametrize(
     "dtype,expected",
     [
