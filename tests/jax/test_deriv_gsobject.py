@@ -53,7 +53,7 @@ def test_deriv_gsobject_spergel_nu():
     def _run(val_):
         return jnp.max(
             jgs.Spergel(
-                val,
+                val_,
                 scale_radius=2.0,
                 gsparams=jgs.GSParams(minimum_fft_size=8, maximum_fft_size=8),
             )
