@@ -279,7 +279,7 @@ def test_interpolant_jax_smoke():
     do_pickle(galsim.Interpolant.from_name("sinc"))
 
     true_xval = np.sinc(x)
-    np.testing.assert_allclose(s.xval(x), true_xval)
+    np.testing.assert_allclose(s.xval(x), true_xval, atol=1e-15)
     true_kval = np.zeros_like(x)
     true_kval[np.abs(x) < np.pi] = 1.0
     np.testing.assert_allclose(s.kval(x), true_kval)

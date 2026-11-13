@@ -62,6 +62,9 @@ The JAX equivalent of galsim.InterpolatedImage does not support:
 - most of the bounds checks, type checks, and dtype casts done by galsim
 - raises a generic ``Exception`` instead of a more specific one for some
   initialization errors
+
+Note: Unlike GalSim, JAX-GalSim preserves the dtype.
+The stored image array will have the same dtype as the input image.
 """
 
 
@@ -634,7 +637,8 @@ class _InterpolatedImageImpl(GSObject):
                 "InterpolatedImages do not support 'depixelize' in jax_galsim."
             )
         else:
-            image = self._jax_children[0].copy(dtype=float)
+            # Preserve the input dtype
+            image = self._jax_children[0].copy()
 
         if self._jax_aux_data["_recenter_image"]:
             image.setCenter(0, 0)

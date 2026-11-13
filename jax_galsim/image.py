@@ -269,6 +269,9 @@ class Image(object):
                 raise TypeError("wcs parameters must be a galsim.BaseWCS instance")
             self.wcs = wcs
 
+        # make sure they are always consistent even when user specifies unavailable dtype
+        self._dtype = self._array.dtype.type
+
     @staticmethod
     def _get_xmin_ymin(array, kwargs, check_bounds=True):
         """A helper function for parsing xmin, ymin, bounds options with a given array"""
@@ -877,9 +880,15 @@ class Image(object):
         # dk = 2pi / (N dk)
         dk = jnp.pi / (No2 * dx)
 
+        # Use complex64 for float32 inputs, complex128 for float64
+        if self.dtype == jnp.float32:
+            fft_dtype = np.complex64
+        else:
+            fft_dtype = np.complex128
+
         out = Image(
             BoundsI(xmin=0, deltax=No2 + 1, ymin=-No2, deltay=2 * No2),
-            dtype=np.complex128,
+            dtype=fft_dtype,
             scale=dk,
         )
         # we shift the image before and after the FFT to match the layout of the modes
@@ -953,9 +962,15 @@ class Image(object):
         # inplace FFT. Thus we do not use the
         # padding.
 
+        # Use float32 for complex64 input, float64 for complex128 input
+        if self.dtype == jnp.complex64:
+            ifft_dtype = jnp.float32
+        else:
+            ifft_dtype = jnp.float64
+
         out = Image(
             bounds=BoundsI(xmin=-No2, deltax=2 * No2, ymin=-No2, deltay=2 * No2),
-            dtype=float,
+            dtype=ifft_dtype,
             scale=dx,
             # we shift the image before and after the FFT to match the layout used by galsim
             array=jnp.fft.fftshift(
@@ -1285,7 +1300,7 @@ class Image(object):
         obj._array = children[0]
         obj.wcs = children[1]
         obj._bounds = children[2]
-        obj._dtype = aux_data["dtype"]
+        obj._dtype = obj._array.dtype.type
         obj._is_const = aux_data["isconst"]
         if len(children) > 3:
             obj.added_flux = children[3]
