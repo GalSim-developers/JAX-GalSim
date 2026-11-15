@@ -24,6 +24,180 @@ def test_api_same():
     )
 
 
+def test_api_chromatic_profiles():
+    wave = jnp.linspace(500.0, 800.0, 16)
+    sed = jax_galsim.SED(wave, jnp.ones_like(wave))
+    bandpass = jax_galsim.Bandpass(wave, jnp.ones_like(wave))
+    gal = jax_galsim.Gaussian(half_light_radius=0.5) * sed
+    psf = jax_galsim.ChromaticAtmosphere(fwhm_ref=0.7, lam_ref=700.0)
+    chromatic_base = jax_galsim.ChromaticObject(
+        jax_galsim.Gaussian(half_light_radius=0.5)
+    )
+    chromatic_sum = gal + gal
+    chromatic_convolution = jax_galsim.ChromaticConvolution([gal, psf])
+
+    objects = [
+        (jax_galsim.SED, _galsim.SED, sed),
+        (jax_galsim.Bandpass, _galsim.Bandpass, bandpass),
+        (jax_galsim.ChromaticObject, _galsim.ChromaticObject, chromatic_base),
+        (
+            jax_galsim.SimpleChromaticTransformation,
+            _galsim.SimpleChromaticTransformation,
+            gal,
+        ),
+        (jax_galsim.ChromaticAtmosphere, _galsim.ChromaticAtmosphere, psf),
+        (jax_galsim.ChromaticSum, _galsim.ChromaticSum, chromatic_sum),
+        (
+            jax_galsim.ChromaticConvolution,
+            _galsim.ChromaticConvolution,
+            chromatic_convolution,
+        ),
+    ]
+
+    for cls, gscls, obj in objects:
+        assert cls.__galsim_wrapped__ is gscls
+        assert "LAX-backend implementation" in cls.__doc__
+        if hasattr(obj, "tree_flatten"):
+            children, aux_data = obj.tree_flatten()
+            rebuilt = obj.__class__.tree_unflatten(aux_data, children)
+            assert isinstance(rebuilt, obj.__class__)
+
+    methods = [
+        (jax_galsim.GSObject.__mul__, _galsim.GSObject.__mul__),
+        (jax_galsim.GSObject.__rmul__, _galsim.GSObject.__rmul__),
+        (jax_galsim.SED.__call__, _galsim.SED.__call__),
+        (jax_galsim.SED.calculateFlux, _galsim.SED.calculateFlux),
+        (jax_galsim.SED.atRedshift, _galsim.SED.atRedshift),
+        (jax_galsim.SED.__mul__, _galsim.SED.__mul__),
+        (jax_galsim.SED.__rmul__, _galsim.SED.__rmul__),
+        (jax_galsim.SED.__truediv__, _galsim.SED.__truediv__),
+        (jax_galsim.SED.__add__, _galsim.SED.__add__),
+        (
+            jax_galsim.Bandpass.effective_wavelength.fget,
+            _galsim.Bandpass.effective_wavelength,
+        ),
+        (jax_galsim.Bandpass.__call__, _galsim.Bandpass.__call__),
+        (
+            jax_galsim.Bandpass.calculateEffectiveWavelength,
+            _galsim.Bandpass.calculateEffectiveWavelength,
+        ),
+        (jax_galsim.Bandpass.__mul__, _galsim.Bandpass.__mul__),
+        (jax_galsim.Bandpass.__rmul__, _galsim.Bandpass.__rmul__),
+        (jax_galsim.Bandpass.truncate, _galsim.Bandpass.truncate),
+        (
+            jax_galsim.ChromaticObject.evaluateAtWavelength,
+            _galsim.ChromaticObject.evaluateAtWavelength,
+        ),
+        (jax_galsim.ChromaticObject.gsparams.fget, _galsim.ChromaticObject.gsparams),
+        (jax_galsim.ChromaticObject.drawImage, _galsim.ChromaticObject.drawImage),
+        (
+            jax_galsim.ChromaticObject.calculateFlux,
+            _galsim.ChromaticObject.calculateFlux,
+        ),
+        (
+            jax_galsim.ChromaticObject.withGSParams,
+            _galsim.ChromaticObject.withGSParams,
+        ),
+        (
+            jax_galsim.ChromaticObject.atRedshift,
+            _galsim.ChromaticObject.atRedshift,
+        ),
+        (jax_galsim.ChromaticObject.__add__, _galsim.ChromaticObject.__add__),
+        (jax_galsim.ChromaticObject.__mul__, _galsim.ChromaticObject.__mul__),
+        (jax_galsim.ChromaticObject.__rmul__, _galsim.ChromaticObject.__rmul__),
+        (jax_galsim.ChromaticSum.gsparams.fget, _galsim.ChromaticSum.gsparams),
+        (jax_galsim.ChromaticSum.withGSParams, _galsim.ChromaticSum.withGSParams),
+        (jax_galsim.ChromaticSum.atRedshift, _galsim.ChromaticSum.atRedshift),
+        (
+            jax_galsim.ChromaticSum.evaluateAtWavelength,
+            _galsim.ChromaticSum.evaluateAtWavelength,
+        ),
+        (jax_galsim.ChromaticSum.drawImage, _galsim.ChromaticSum.drawImage),
+        (
+            jax_galsim.SimpleChromaticTransformation.gsparams.fget,
+            _galsim.SimpleChromaticTransformation.gsparams,
+        ),
+        (
+            jax_galsim.SimpleChromaticTransformation.withGSParams,
+            _galsim.SimpleChromaticTransformation.withGSParams,
+        ),
+        (
+            jax_galsim.SimpleChromaticTransformation.atRedshift,
+            _galsim.SimpleChromaticTransformation.atRedshift,
+        ),
+        (
+            jax_galsim.SimpleChromaticTransformation.evaluateAtWavelength,
+            _galsim.SimpleChromaticTransformation.evaluateAtWavelength,
+        ),
+        (
+            jax_galsim.ChromaticAtmosphere.gsparams.fget,
+            _galsim.ChromaticAtmosphere.gsparams,
+        ),
+        (
+            jax_galsim.ChromaticAtmosphere.withGSParams,
+            _galsim.ChromaticAtmosphere.withGSParams,
+        ),
+        (
+            jax_galsim.ChromaticAtmosphere.atRedshift,
+            _galsim.ChromaticAtmosphere.atRedshift,
+        ),
+        (
+            jax_galsim.ChromaticAtmosphere.evaluateAtWavelength,
+            _galsim.ChromaticAtmosphere.evaluateAtWavelength,
+        ),
+        (
+            jax_galsim.ChromaticConvolution.gsparams.fget,
+            _galsim.ChromaticConvolution.gsparams,
+        ),
+        (
+            jax_galsim.ChromaticConvolution.withGSParams,
+            _galsim.ChromaticConvolution.withGSParams,
+        ),
+        (
+            jax_galsim.ChromaticConvolution.atRedshift,
+            _galsim.ChromaticConvolution.atRedshift,
+        ),
+        (
+            jax_galsim.ChromaticConvolution.evaluateAtWavelength,
+            _galsim.ChromaticConvolution.evaluateAtWavelength,
+        ),
+        (
+            jax_galsim.ChromaticConvolution.drawImage,
+            _galsim.ChromaticConvolution.drawImage,
+        ),
+    ]
+    for method, gs_method in methods:
+        wrapped = method.__galsim_wrapped__
+        if wrapped is not gs_method:
+            assert getattr(wrapped, "__module__", None) == getattr(
+                gs_method, "__module__", None
+            )
+            assert getattr(wrapped, "__name__", None) == getattr(
+                gs_method, "__name__", None
+            )
+
+    jax_specific_properties = [
+        jax_galsim.SED.wave.fget,
+        jax_galsim.SED.flux.fget,
+        jax_galsim.SED.redshift.fget,
+        jax_galsim.SED.blue_limit.fget,
+        jax_galsim.SED.red_limit.fget,
+        jax_galsim.Bandpass.wave.fget,
+        jax_galsim.Bandpass.throughput.fget,
+        jax_galsim.Bandpass.blue_limit.fget,
+        jax_galsim.Bandpass.red_limit.fget,
+        jax_galsim.ChromaticObject.separable.fget,
+        jax_galsim.ChromaticAtmosphere.fwhm_ref.fget,
+        jax_galsim.ChromaticAtmosphere.lam_ref.fget,
+        jax_galsim.ChromaticAtmosphere.alpha.fget,
+    ]
+    for prop in jax_specific_properties:
+        assert prop.__galsim_wrapped__ is None
+        assert prop.__doc__ is not None
+
+    assert not hasattr(jax_galsim, "Chromatic")
+
+
 OK_ERRORS = [
     "got an unexpected keyword argument",
     "At least one GSObject must be provided",
