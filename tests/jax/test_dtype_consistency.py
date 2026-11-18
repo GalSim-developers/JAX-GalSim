@@ -87,3 +87,23 @@ def test_image_and_array_dtype_are_always_consistent():
     leaves, treedef = jax.tree_util.tree_flatten(image)
     rebuilt = jax.tree_util.tree_unflatten(treedef, leaves)
     assert rebuilt.dtype == rebuilt.array.dtype.type
+
+
+@pytest.mark.test_in_float32
+def test_int_image_fft_fails_without_x64():
+    im = jax_galsim.Image(
+        np.arange(64).reshape(8, 8).astype(np.int32), scale=0.2, dtype=jnp.int32
+    )
+    if jax.config.jax_enable_x64:
+        assert im.calculate_fft().dtype == jnp.complex128
+    else:
+        with pytest.raises(jax_galsim.GalSimValueError):
+            im.calculate_fft()
+
+
+@pytest.mark.test_in_float32
+def test_int_interpolated_image_fails():
+    # int images are rejected up front, so they are never silently cast to float
+    im = jax_galsim.Image(np.ones((16, 16), dtype=np.int32), scale=0.2, dtype=jnp.int32)
+    with pytest.raises(jax_galsim.GalSimValueError):
+        jax_galsim.InterpolatedImage(im, x_interpolant="lanczos15")
