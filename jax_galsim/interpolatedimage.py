@@ -62,12 +62,7 @@ The JAX equivalent of galsim.InterpolatedImage does not support:
 - most of the bounds checks, type checks, and dtype casts done by galsim
 - raises a generic ``Exception`` instead of a more specific one for some
   initialization errors
-
-Note: Unlike GalSim, which always converts the input image to float64,
-JAX-GalSim uses the same dtype rules as ``Image.calculate_fft``: int16,
-uint16 and float32 images are stored as float32, and all other real
-dtypes are stored as float64. The latter requires ``jax_enable_x64``;
-a ``GalSimValueError`` is raised otherwise.
+- Unlike GalSim, JAX-GalSim does not cast ``float32`` images to ``float64``.
 """
 
 
@@ -127,26 +122,10 @@ class InterpolatedImage(Transformation, metaclass=DirMeta):
         elif not isinstance(image, Image):
             raise TypeError("Supplied image must be an Image or file name")
 
-        # Follow the same dtype rules as Image.calculate_fft:
-        # int16, uint16, float32 -> float32; everything else -> float64.
-        if jnp.issubdtype(image.dtype, jnp.complexfloating):
+        if not (image.dtype == jnp.float32 or image.dtype == jnp.float64):
             raise GalSimValueError(
-                "Interpolated images must use a real-valued image.", image.dtype
+                "Interpolated images must use a float-type image.", image.dtype
             )
-        if image.dtype in [jnp.int16, jnp.uint16, jnp.float32]:
-            target_dtype = jnp.float32
-        else:
-            if not jax.config.jax_enable_x64:
-                # without x64 the float64 image would silently become float32
-                raise GalSimValueError(
-                    "InterpolatedImage of a int32, uint32 or float64 image requires "
-                    "float64, which is unavailable when jax_enable_x64 is False. "
-                    "Enable x64 to prevent loss of precision.",
-                    image.dtype,
-                )
-            target_dtype = jnp.float64
-        if image.dtype != target_dtype:
-            image = image.copy(dtype=target_dtype)
 
         self._jax_children = (
             image,
@@ -656,8 +635,11 @@ class _InterpolatedImageImpl(GSObject):
                 "InterpolatedImages do not support 'depixelize' in jax_galsim."
             )
         else:
-            # dtype was already converted to float32/float64 in InterpolatedImage
-            image = self._jax_children[0].copy()
+            # cast to smallest dtype we can
+            if self._jax_children[0].dtype == jnp.float32:
+                image = self._jax_children[0].copy(dtype=jnp.float32)
+            else:
+                image = self._jax_children[0].copy(dtype=jnp.float64)
 
         if self._jax_aux_data["_recenter_image"]:
             image.setCenter(0, 0)
