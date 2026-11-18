@@ -290,7 +290,7 @@ These differences are typically at the level of floating-point round-off
 (:math:`{\sim}10^{-7}` for float32, :math:`{\sim}10^{-15}` for float64) and
 should not affect scientific conclusions.
 
-`dtype` handling for image operations
+`dtype` Conversion and Handling for Image Operations
 -------------------------------------
 JAX-GalSim allows certain image related operations to be done at single-precision rather than double-precision, which can significantly speed up JAX operations and reduce memory footprint particularly when running in a GPU. It differs from GalSim which implicitly casts to double-precision for the following cases: 
 
