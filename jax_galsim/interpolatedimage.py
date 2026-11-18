@@ -637,11 +637,18 @@ class _InterpolatedImageImpl(GSObject):
                 "InterpolatedImages do not support 'depixelize' in jax_galsim."
             )
         else:
-            # Preserve the input dtype
-            if self._jax_children[0].dtype == jnp.float32:
+            # cast to smallest dtype we can
+            if self._jax_children[0].dtype in [jnp.int16, jnp.uint16, jnp.float32]:
                 image = self._jax_children[0].copy(dtype=jnp.float32)
             else:
-                image = self._jax_children[0].copy(dtype=float)
+                if not jax.config.jax_enable_x64:
+                    raise _galsim.GalSimValueError(
+                        "InterpolatedImages based onint32, uint32 or float64 images require float64 "
+                        "arrays, which are unavailable when jax_enable_x64 is False. "
+                        "Enable x64 to prevent loss of precision.",
+                        self._jax_children[0].dtype,
+                    )            
+                image = self._jax_children[0].copy(dtype=jnp.float64)
 
         if self._jax_aux_data["_recenter_image"]:
             image.setCenter(0, 0)
