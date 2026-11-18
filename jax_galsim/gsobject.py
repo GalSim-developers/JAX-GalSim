@@ -1063,7 +1063,7 @@ when ``jax_enable_x64`` is enabled and ``complex64`` otherwise.
                 dtype = image.dtype
             elif dtype is None:
                 # complex128 is not available when x64 is disabled
-                dtype = np.complex128 if jax.config.jax_enable_x64 else np.complex64
+                dtype = jnp.complex128 if jax.config.jax_enable_x64 else jnp.complex64
             image = real_prof._setup_image(
                 image, nx, ny, bounds, add_to_image, dtype, center=None, odd=True
             )
