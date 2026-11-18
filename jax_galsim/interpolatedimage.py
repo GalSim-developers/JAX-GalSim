@@ -63,9 +63,9 @@ The JAX equivalent of galsim.InterpolatedImage does not support:
 - most of the bounds checks, type checks, and dtype casts done by galsim
 - raises a generic ``Exception`` instead of a more specific one for some
   initialization errors
-
-Note: Unlike GalSim, JAX-GalSim preserves the dtype.
-The stored image array will have the same dtype as the input image.
+- Unlike GalSim, JAX-GalSim casts input images of ``int16``, ``uint16``, or
+  ``float32`` types to ``float32``, and all others to ``float64``. An error
+  will be raised if 64-bit precision is not available.
 """
 
 
