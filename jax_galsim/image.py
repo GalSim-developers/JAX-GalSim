@@ -884,10 +884,12 @@ class Image(object):
         if self.dtype == jnp.float32:
             fft_dtype = jnp.complex64
         else:
-            if not jax.config.jax_enable_x64:
+            if (not jax.config.jax_enable_x64) and (
+                (self.dtype == jnp.int32) or (self.dtype == jnp.uint32)
+            ):
                 # without x64 the complex128 output would silently become complex64
                 raise _galsim.GalSimValueError(
-                    "calculate_fft of a non-float32 (eg int32) image requires complex128 "
+                    "calculate_fft of an int32 or uint32 image requires complex128 "
                     "output, which is unavailable when jax_enable_x64 is False. "
                     "Enable x64 to prevent loss of precision.",
                     self.dtype,
