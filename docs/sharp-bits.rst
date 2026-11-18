@@ -297,7 +297,7 @@ JAX-GalSim allows certain image related operations to be done at single-precisio
 - `Image.calculate_fft()` is performed at single-precision `complex64` if the `image.dtype` is `int16`, `uint16`, or `float32`. In any other case this method methods uses `complex128` and raises an error if `jax_enable_x64` is `False`.
 - `Image.calculate_inverse_fft()` uses `float32` for `complex64` and `float64` for `complex128`. 
 - `GSObject.drawKImage()` adds a new keyword argument `dtype`, which allows for specifying the type of the complex-k-space image when `image` is `None`. If both `image` and `dtype` are `None`, the `dtype` used defaults to `complex128` when `jax_enable_x64` is enabled and `complex64` otherwise.
-- `InterpolatedImage` stores the input image as `float32` if its original `dtype` is `int16`, `uint16`, or `float32`. In any other case, it attempts to convert the input image to `float64` and raises an error if `jax_enable_x64` is `False`.
+- `InterpolatedImage` stores the input image as `float32` if its original `dtype` is `float32`.
 
 ⚠️ Additional Sharp Bits
 ------------------------
