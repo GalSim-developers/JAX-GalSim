@@ -16,6 +16,8 @@ def _gaussian_image(dtype, n=32, scale=0.2):
     "dtype,fft_dtype,ifft_dtype",
     [
         (jnp.float32, jnp.complex64, jnp.float32),
+        (jnp.int16, jnp.complex64, jnp.float32),
+        (jnp.uint16, jnp.complex64, jnp.float32),                
         (jnp.int32, jnp.complex128, jnp.float64),
     ],
 )
