@@ -292,10 +292,10 @@ should not affect scientific conclusions.
 
 `dtype` handling for image operations
 -------------------------------------
-JAX-GalSim allows certain image related operations to be done at single-precision rather than double-precision, which can significantly speed up JAX operations and reduce memory footprint particularly when running in a GPU. This differs from GalSim which implicitly casts to double-precision for the following cases: 
+JAX-GalSim allows certain image related operations to be done at single-precision rather than double-precision, which can significantly speed up JAX operations and reduce memory footprint particularly when running in a GPU. It differs from GalSim which implicitly casts to double-precision for the following cases: 
 
 - `Image.calculate_fft()` is performed at single-precision `complex64` if the `image.dtype` is `float32`, in any other case this method methods uses `complex128`. Similar logic applies to `Image.calculate_inverse_fft()`. 
-- `Image.drawKImage()` adds a new keyword argument `dtype`, which allows for specifying the type of the complex-k-space image when `image` is `None`. If both `image` and `dtype` are `None`, the `dtype` used defaults to `complex128` when `jax_enable_x64` is enabled and `complex64` otherwise.
+- `GSObject.drawKImage()` adds a new keyword argument `dtype`, which allows for specifying the type of the complex-k-space image when `image` is `None`. If both `image` and `dtype` are `None`, the `dtype` used defaults to `complex128` when `jax_enable_x64` is enabled and `complex64` otherwise.
 - `InterpolatedImage` stores the input image as `float32` if its original `dtype` is `float32`. In any other case, it attempts to convert the input image to `float64` and raises an error if `jax_enable_x64` is `False`.
 
 ⚠️ Additional Sharp Bits
