@@ -644,7 +644,7 @@ class _InterpolatedImageImpl(GSObject):
             else:
                 if not jax.config.jax_enable_x64:
                     raise _galsim.GalSimValueError(
-                        "InterpolatedImages based onint32, uint32 or float64 images require float64 "
+                        "InterpolatedImages based on int32, uint32 or float64 images require float64 "
                         "arrays, which are unavailable when jax_enable_x64 is False. "
                         "Enable x64 to prevent loss of precision.",
                         self._jax_children[0].dtype,
