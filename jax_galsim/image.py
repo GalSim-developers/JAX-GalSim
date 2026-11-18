@@ -882,7 +882,7 @@ class Image(object):
 
         # Use complex64 for float32 inputs, complex128 for float64
         if self.dtype == jnp.float32:
-            fft_dtype = np.complex64
+            fft_dtype = jnp.complex64
         else:
             if not jax.config.jax_enable_x64:
                 # without x64 the complex128 output would silently become complex64
@@ -892,7 +892,7 @@ class Image(object):
                     "Enable x64 to prevent loss of precision.",
                     self.dtype,
                 )
-            fft_dtype = np.complex128
+            fft_dtype = jnp.complex128
 
         out = Image(
             BoundsI(xmin=0, deltax=No2 + 1, ymin=-No2, deltay=2 * No2),
