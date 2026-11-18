@@ -1289,7 +1289,7 @@ class Image(object):
         """Flatten the image into a list of values."""
         # Define the children nodes of the PyTree that need tracing
         children = (self.array, self.wcs, self.bounds)
-        aux_data = {"dtype": self.dtype, "isconst": self.isconst}
+        aux_data = {"isconst": self.isconst}
         # other routines may add these attributes to images on the fly
         # we have to include them here so that JAX knows how to handle them in jitting etc.
         if hasattr(self, "added_flux"):
