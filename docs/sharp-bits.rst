@@ -290,8 +290,8 @@ These differences are typically at the level of floating-point round-off
 (:math:`{\sim}10^{-7}` for float32, :math:`{\sim}10^{-15}` for float64) and
 should not affect scientific conclusions.
 
-`dtype` handling for certain image operations
----------------------------------------------
+`dtype` handling for image operations
+-------------------------------------
 JAX-GalSim allows certain image related operations to be done at single-precision rather than double-precision, which can significantly speed up JAX operations and reduce memory footprint particularly when running in a GPU. This differs from GalSim which implicitly casts to double-precision for the following cases: 
 
 - `Image.calculate_fft()` is performed at single-precision `complex64` if the `image.dtype` is `float32`, in any other case this method methods uses `complex128`. Similar logic applies to `Image.calculate_inverse_fft()`. 
