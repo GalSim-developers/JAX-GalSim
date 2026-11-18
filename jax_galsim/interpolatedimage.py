@@ -648,7 +648,7 @@ class _InterpolatedImageImpl(GSObject):
                         "arrays, which are unavailable when jax_enable_x64 is False. "
                         "Enable x64 to prevent loss of precision.",
                         self._jax_children[0].dtype,
-                    )            
+                    )
                 image = self._jax_children[0].copy(dtype=jnp.float64)
 
         if self._jax_aux_data["_recenter_image"]:
