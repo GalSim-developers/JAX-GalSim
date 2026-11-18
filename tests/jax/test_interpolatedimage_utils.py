@@ -177,8 +177,12 @@ def test_interpolatedimage_utils_stepk_maxk_simple():
 @pytest.mark.parametrize(
     "ref_array",
     [
-        _galsim.Gaussian(fwhm=0.9).drawImage(nx=33, ny=33, scale=0.2).array,
-        _galsim.Gaussian(fwhm=0.9).drawImage(nx=32, ny=32, scale=0.2).array,
+        _galsim.Gaussian(fwhm=0.9)
+        .drawImage(nx=33, ny=33, scale=0.2)
+        .array.astype(np.float64),
+        _galsim.Gaussian(fwhm=0.9)
+        .drawImage(nx=32, ny=32, scale=0.2)
+        .array.astype(np.float64),
     ],
 )
 @pytest.mark.parametrize("method", ["kValue", "xValue"])

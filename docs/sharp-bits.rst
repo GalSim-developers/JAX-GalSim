@@ -290,6 +290,15 @@ These differences are typically at the level of floating-point round-off
 (:math:`{\sim}10^{-7}` for float32, :math:`{\sim}10^{-15}` for float64) and
 should not affect scientific conclusions.
 
+`dtype` Conversion and Handling for Image Operations
+-------------------------------------
+JAX-GalSim allows certain image related operations to be done at single-precision rather than double-precision, which can significantly speed up JAX operations and reduce memory footprint particularly when running in a GPU. It differs from GalSim which implicitly casts to double-precision for the following cases: 
+
+- `Image.calculate_fft()` is performed at single-precision `complex64` if the `image.dtype` is `int16`, `uint16`, or `float32`. In any other case this method methods uses `complex128` and raises an error if `jax_enable_x64` is `False`.
+- `Image.calculate_inverse_fft()` uses `float32` for `complex64` and `float64` for `complex128`. 
+- `GSObject.drawKImage()` adds a new keyword argument `dtype`, which allows for specifying the type of the complex-k-space image when `image` is `None`. If both `image` and `dtype` are `None`, the `dtype` used defaults to `complex128` when `jax_enable_x64` is enabled and `complex64` otherwise.
+- `InterpolatedImage` stores the input image as `float32` if its original `dtype` is `float32`.
+
 ⚠️ Additional Sharp Bits
 ------------------------
 
@@ -297,5 +306,5 @@ In the :doc:`api/index` you will find **🔪 JAX-GalSim - The Sharp Bits 🔪** 
 
 - Some classes do not perform some of Galsim's test for correctness during initialization (e.g., :meth:`~jax_galsim.InterpolatedImage`).
 - Certain profiles might not be auto-differentiable with respect to some of their parameters (e.g., :class:`~jax_galsim.Spergel`, :class:`~jax_galsim.Moffat`)
-- Limitations regarding what types of inputes are handled (e.g., :meth:`~jax_galsim.Image.calculate_fft` does not accept complex dtypes.)
+- Limitations regarding what types of inputs are handled (e.g., :meth:`~jax_galsim.Image.calculate_fft` does not accept complex dtypes.)
 

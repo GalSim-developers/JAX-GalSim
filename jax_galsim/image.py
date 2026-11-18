@@ -269,6 +269,9 @@ class Image(object):
                 raise TypeError("wcs parameters must be a galsim.BaseWCS instance")
             self.wcs = wcs
 
+        # make sure they are always consistent even when user specifies unavailable dtype
+        self._dtype = self._array.dtype.type
+
     @staticmethod
     def _get_xmin_ymin(array, kwargs, check_bounds=True):
         """A helper function for parsing xmin, ymin, bounds options with a given array"""
@@ -877,9 +880,23 @@ class Image(object):
         # dk = 2pi / (N dk)
         dk = jnp.pi / (No2 * dx)
 
+        # Use complex64 for float32 inputs, complex128 for float64
+        if self.dtype in [jnp.int16, jnp.uint16, jnp.float32]:
+            fft_dtype = jnp.complex64
+        else:
+            if not jax.config.jax_enable_x64:
+                # without x64 the complex128 output would silently become complex64
+                raise _galsim.GalSimValueError(
+                    "calculate_fft of a int32, uint32 or float64 image requires complex128 "
+                    "output, which is unavailable when jax_enable_x64 is False. "
+                    "Enable x64 to prevent loss of precision.",
+                    self.dtype,
+                )
+            fft_dtype = jnp.complex128
+
         out = Image(
             BoundsI(xmin=0, deltax=No2 + 1, ymin=-No2, deltay=2 * No2),
-            dtype=np.complex128,
+            dtype=fft_dtype,
             scale=dk,
         )
         # we shift the image before and after the FFT to match the layout of the modes
@@ -953,9 +970,15 @@ class Image(object):
         # inplace FFT. Thus we do not use the
         # padding.
 
+        # Use float32 for complex64 input, float64 for complex128 input
+        if self.dtype == jnp.complex64:
+            ifft_dtype = jnp.float32
+        else:
+            ifft_dtype = jnp.float64
+
         out = Image(
             bounds=BoundsI(xmin=-No2, deltax=2 * No2, ymin=-No2, deltay=2 * No2),
-            dtype=float,
+            dtype=ifft_dtype,
             scale=dx,
             # we shift the image before and after the FFT to match the layout used by galsim
             array=jnp.fft.fftshift(
@@ -1266,7 +1289,7 @@ class Image(object):
         """Flatten the image into a list of values."""
         # Define the children nodes of the PyTree that need tracing
         children = (self.array, self.wcs, self.bounds)
-        aux_data = {"dtype": self.dtype, "isconst": self.isconst}
+        aux_data = {"isconst": self.isconst}
         # other routines may add these attributes to images on the fly
         # we have to include them here so that JAX knows how to handle them in jitting etc.
         if hasattr(self, "added_flux"):
@@ -1285,7 +1308,7 @@ class Image(object):
         obj._array = children[0]
         obj.wcs = children[1]
         obj._bounds = children[2]
-        obj._dtype = aux_data["dtype"]
+        obj._dtype = obj._array.dtype.type
         obj._is_const = aux_data["isconst"]
         if len(children) > 3:
             obj.added_flux = children[3]
