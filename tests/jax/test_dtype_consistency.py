@@ -37,23 +37,15 @@ def test_calculate_fft_dtype(dtype, fft_dtype, ifft_dtype):
 
 
 @pytest.mark.parametrize(
-    "dtype,image_dtype,kdtype",
+    "dtype,kdtype",
     [
-        (jnp.int16, jnp.float32, jnp.complex64),
-        (jnp.uint16, jnp.float32, jnp.complex64),
-        (jnp.float32, jnp.float32, jnp.complex64),
-        (jnp.int32, jnp.float64, jnp.complex128),
-        (jnp.uint32, jnp.float64, jnp.complex128),
-        (jnp.float64, jnp.float64, jnp.complex128),
+        (jnp.float32, jnp.complex64),
     ],
 )
-def test_interpolated_image_dtype(dtype, image_dtype, kdtype):
-    # same rules as Image.calculate_fft:
-    # int16, uint16, float32 -> float32; everything else -> float64
-    arr = 1e5 * _gaussian_image(jnp.float64).array  # large enough to survive int casts
-    im = jax_galsim.Image(arr.astype(dtype), scale=0.2, dtype=dtype)
+def test_interpolated_image_preserves_dtype(dtype, kdtype):
+    im = _gaussian_image(dtype)
     ii = jax_galsim.InterpolatedImage(im, x_interpolant="lanczos15")
-    assert ii._original._image.dtype == image_dtype
+    assert ii._original._image.dtype == dtype
     assert ii._original._kim.dtype == kdtype
 
 
@@ -114,28 +106,8 @@ def test_int_image_fft_fails_without_x64():
 
 
 @pytest.mark.test_in_float32
-@pytest.mark.parametrize(
-    "dtype,image_dtype",
-    [
-        (jnp.int16, jnp.float32),
-        (jnp.uint16, jnp.float32),
-        (jnp.int32, jnp.float64),
-        (jnp.uint32, jnp.float64),
-    ],
-)
-def test_int_interpolated_image_dtype(dtype, image_dtype):
-    # int16/uint16 -> float32 always; other ints -> float64, which needs x64
-    im = jax_galsim.Image(np.ones((16, 16)), scale=0.2, dtype=dtype)
-    if image_dtype == jnp.float32 or jax.config.jax_enable_x64:
-        ii = jax_galsim.InterpolatedImage(im, x_interpolant="lanczos15")
-        assert ii._original._image.dtype == image_dtype
-        assert ii._original._image.array.dtype == image_dtype
-    else:
-        with pytest.raises(jax_galsim.GalSimValueError):
-            jax_galsim.InterpolatedImage(im, x_interpolant="lanczos15")
-
-
-def test_complex_interpolated_image_fails():
-    im = jax_galsim.Image(np.ones((16, 16), dtype=np.complex64), scale=0.2)
+def test_int_interpolated_image_fails():
+    # int images are rejected up front, so they are never silently cast to float
+    im = jax_galsim.Image(np.ones((16, 16), dtype=np.int32), scale=0.2, dtype=jnp.int32)
     with pytest.raises(jax_galsim.GalSimValueError):
         jax_galsim.InterpolatedImage(im, x_interpolant="lanczos15")
