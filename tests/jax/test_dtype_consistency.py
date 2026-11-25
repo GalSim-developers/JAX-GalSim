@@ -111,3 +111,12 @@ def test_int_interpolated_image_fails():
     im = jax_galsim.Image(np.ones((16, 16), dtype=np.int32), scale=0.2, dtype=jnp.int32)
     with pytest.raises(jax_galsim.GalSimValueError):
         jax_galsim.InterpolatedImage(im, x_interpolant="lanczos15")
+
+
+@pytest.mark.test_in_float32
+def test_default_image_is_highest_float():
+    _dtype = jnp.float64 if jax.config.jax_enable_x64 else jnp.float32
+    im = jax_galsim.Image(ncol=33, nrow=33)
+    im2 = jax_galsim.Gaussian(sigma=0.8, flux=1.0).drawImage(nx=33, ny=33)
+    assert im.dtype == im.array.dtype.type == _dtype
+    assert im2.dtype == im2.array.dtype.type == _dtype

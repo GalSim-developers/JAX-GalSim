@@ -185,7 +185,7 @@ class Image(object):
         elif dtype is not None:
             self._dtype = dtype
         else:
-            self._dtype = jnp.float32
+            self._dtype = float
 
         # Construct the image attribute
         if ncol is not None or nrow is not None:
